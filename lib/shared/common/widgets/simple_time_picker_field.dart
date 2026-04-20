@@ -20,6 +20,15 @@ class SimpleTimePickerField extends StatelessWidget {
 
   final ValueChanged<TimeOfDay> onTimeSelected;
 
+  String _formatTime12h(TimeOfDay time) {
+    final hour24 = time.hour;
+    final minute = time.minute;
+    final isPm = hour24 >= 12;
+    final hour12 = (hour24 % 12) == 0 ? 12 : (hour24 % 12);
+    final minutePadded = minute.toString().padLeft(2, '0');
+    return '$hour12:$minutePadded ${isPm ? 'PM' : 'AM'}';
+  }
+
   Future<void> _pickTime(BuildContext context) async {
     final picked = await showTimePicker(
       context: context,
@@ -58,7 +67,7 @@ class SimpleTimePickerField extends StatelessWidget {
           children: [
             AppText.value(
               time != null
-                  ? time!.format(context)
+                  ? _formatTime12h(time!)
                   : (placeholder ?? 'Select time'),
             ),
             SvgPicture.asset(MediaRes.clock_icon),

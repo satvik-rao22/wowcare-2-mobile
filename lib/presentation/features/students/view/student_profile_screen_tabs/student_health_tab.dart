@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -98,6 +101,9 @@ class _StudentHealthTabState extends State<StudentHealthTab>
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canEditStudentData =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bool isImmunizationTab = _tabController.index == 3;
     return Stack(
       children: [
@@ -117,7 +123,9 @@ class _StudentHealthTabState extends State<StudentHealthTab>
           children: [
         if (isImmunizationTab) ...[
           SizedBox(height: 10,),
-          CustomSectionCard(
+          Opacity(
+            opacity: canEditStudentData ? 1 : 0.45,
+            child: CustomSectionCard(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -130,7 +138,13 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                         key: ValueKey(_isImmunizationExempt),
                         label: '',
                         isToggled: _isImmunizationExempt,
-                        onToggle: (v) => setState(() => _isImmunizationExempt = v),
+                        onToggle: (v) {
+                          if (!canEditStudentData) {
+                            ModuleAccess.showWriteRestricted(context);
+                            return;
+                          }
+                          setState(() => _isImmunizationExempt = v);
+                        },
                       ),
                       SizedBox(width: 10),
                       Flexible(
@@ -165,7 +179,14 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                           : AppColors.buildPrimaryGradient(),
                     ),
                     child: TextButton(
-                      onPressed: _isImmunizationExempt ? null : () {},
+                      onPressed: _isImmunizationExempt
+                          ? null
+                          : () {
+                              if (!canEditStudentData) {
+                                ModuleAccess.showWriteRestricted(context);
+                                return;
+                              }
+                            },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                       ),
@@ -186,6 +207,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                   ),
                 ),
               ],
+            ),
             ),
           ),
           const SizedBox(height: 20),

@@ -131,6 +131,8 @@ class CoreUtils {
   }) {
     if (context is Element && !context.mounted) return;
 
+    // Use the root overlay so messages remain visible even if the current route
+    // is popped (e.g., user taps "Skip" and navigation happens immediately).
     final overlay = _overlayForBanner(context);
     if (overlay == null) {
       // Avoid fallback floating SnackBar (can be laid out off-screen and crash).
@@ -184,7 +186,9 @@ class CoreUtils {
                   decoration: BoxDecoration(
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: borderColor),
+                    border: Border.all(
+                      color: borderColor,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
@@ -233,6 +237,43 @@ class CoreUtils {
         _activeTopBannerEntry = null;
       }
     });
+  }
+
+  /// Adapter for legacy SnackBar calls so feature modules can keep message
+  /// creation logic while rendering through the unified top banner UI.
+  static void showTopSnackBarFromSnackBar({
+    required BuildContext context,
+    required SnackBar snackBar,
+  }) {
+    String message = 'Something went wrong';
+    final content = snackBar.content;
+    if (content is Text) {
+      final data = content.data;
+      if (data != null && data.trim().isNotEmpty) {
+        message = data;
+      }
+    }
+
+    final bg = snackBar.backgroundColor;
+    final hue = bg == null ? null : HSVColor.fromColor(bg).hue;
+
+    // Normalize legacy/custom app colors to semantic variants used by
+    // StudentScreen (success/error/warning), so UI is fully consistent.
+    final isError = hue != null && (hue <= 25 || hue >= 345);
+    final isWarning = hue != null && (hue > 25 && hue <= 70);
+    final isSuccess = hue != null && (hue > 70 && hue <= 170);
+
+    // Avoid default black banner for unknown colors: prefer warning style.
+    final resolvedWarning = !isError && !isSuccess ? true : isWarning;
+
+    showTopSnackBar(
+      context: context,
+      message: message,
+      isError: isError,
+      isWarning: resolvedWarning,
+      isSuccess: isSuccess,
+      duration: snackBar.duration,
+    );
   }
 
   static void showTopSnackBar({

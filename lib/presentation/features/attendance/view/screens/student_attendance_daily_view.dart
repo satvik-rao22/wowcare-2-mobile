@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -20,18 +22,23 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
-import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
+    hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -39,6 +46,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
@@ -61,11 +69,14 @@ class StudentAttendanceDailyViewScreen extends StatefulWidget {
   State<StudentAttendanceDailyViewScreen> createState() => _StudentAttendanceDailyViewScreenState();
 }
 
-class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDailyViewScreen> {
+class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDailyViewScreen>
+    implements DailyAttendanceParentRefresh {
   final TextEditingController _searchController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
+  String? _signInAtFilter;
+  String? _signOutAtFilter;
   FilterData? _studentFilters;
   int? _expandedStudentIndex;
   
@@ -79,11 +90,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   Map<String, String> _tagNameToCode = <String, String>{};
   bool _isLoadingTagMap = false;
   bool _isClassroomDataReady = false;
+  String? _loggedInUserName;
 
-  // Summary data (dummy data for now - will be replaced with API later)
-  int enrolled = 120;
-  int active = 100;
-  int upcoming = 20;
+  // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
+  int enrolled = 0;
+  int active = 0;
+  int upcoming = 0;
   int expected = 0;
   int present = 0;
   int absent = 0;
@@ -93,6 +105,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   late final StudentAttendanceDailyCubit _cubit;
   late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _absentToggleClassroomNameByCode = {};
+  final Set<String> _absentToggleClassroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -109,6 +125,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       final repo = AttendanceRepositoryImpl(
         remote,
         serviceLocator(),
+        serviceLocator<ApiClient>(),
       );
 
       _cubit = StudentAttendanceDailyCubit(
@@ -131,6 +148,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               return AttendanceRepositoryImpl(
                 remote,
                 serviceLocator(),
+                serviceLocator<ApiClient>(),
               );
             })();
 
@@ -152,14 +170,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     // Load classroom data and tag mapping
     _loadClassroomData();
     _loadTagNameCodeMap();
+    _loadLoggedInUserName();
     _searchController.addListener(_onSearchChanged);
     
     // Handle incoming filter
     if (widget.incomingFilter != null) {
-      _statusLegendFilter = widget.incomingFilter;
-      if (widget.incomingFilter == 'Absent') {
-        _showAbsentOnly = true;
-      }
+      _statusLegendFilter =
+          widget.incomingFilter == 'Present' ? 'Signed-In' : widget.incomingFilter;
+      _applyLegendApiFilters(_statusLegendFilter);
     }
 
     // Handle classroom filter
@@ -171,10 +189,46 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
     // Load initial data using cache-aware cubit methods.
     _loadAttendanceData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadStudentCounts();
+    });
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAttendanceData(reset: true);
+    unawaited(_loadStudentCounts());
+  }
+
+  Future<void> _loadStudentCounts() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final useCase = serviceLocator<GetStudentCountsUseCase>();
+      final counts = await useCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      final activeC = counts['activeCount'] ?? 0;
+      final upcomingC = counts['upcomingCount'] ?? 0;
+      setState(() {
+        active = activeC;
+        upcoming = upcomingC;
+        enrolled = activeC + upcomingC;
+      });
+    } catch (_) {
+      // Non-critical; keep existing values (same tolerance as StudentScreen).
+    }
   }
 
   Future<void> _loadClassroomData() async {
-    _classroomCubit.loadActiveClassrooms();
+    // Transfers can involve non-CLASSROOM locations; load all types to maximize
+    // classroomCode → name resolution across the app.
+    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
     
     // Check if data is already available
     if (!_classroomCubit.state.isLoading && _classroomCubit.state.classrooms.isNotEmpty) {
@@ -234,13 +288,29 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     }
   }
 
+  Future<void> _loadLoggedInUserName() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final displayName =
+          (await storage.getString(StorageKeys.displayName) ?? '').trim();
+      final username =
+          (await storage.getString(StorageKeys.username) ?? '').trim();
+      final fallback = displayName.isNotEmpty
+          ? displayName
+          : (username.isNotEmpty ? username : '');
+      if (!mounted || fallback.isEmpty) return;
+      setState(() {
+        _loggedInUserName = fallback;
+      });
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
     _absentToggleCubit.close();
-    _classroomCubit.close();
     super.dispose();
   }
 
@@ -319,6 +389,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     debugPrint('  - Tag Codes: $tagCodes');
     debugPrint('  - Search: $search');
     debugPrint('  - Show Absent Only: $_showAbsentOnly');
+    debugPrint('  - signInAtFilter: $_signInAtFilter');
+    debugPrint('  - signOutAtFilter: $_signOutAtFilter');
     debugPrint('  - Reset: $reset');
 
     if (_showAbsentOnly) {
@@ -345,6 +417,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         attendanceDate: _selectedDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: _signInAtFilter,
+        signOutAtFilter: _signOutAtFilter,
         search: search,
       );
     } else {
@@ -352,8 +426,114 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         attendanceDate: _selectedDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: _signInAtFilter,
+        signOutAtFilter: _signOutAtFilter,
         search: search,
       );
+    }
+  }
+
+  void _applyLegendApiFilters(String? legendStatus) {
+    final normalized = legendStatus == 'Present' ? 'Signed-In' : legendStatus;
+    switch (normalized) {
+      case 'Signed-In':
+        _signInAtFilter = 'NOT_NULL';
+        _signOutAtFilter = 'NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Signed Out':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'NOT_NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Not Marked':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'NULL';
+        _showAbsentOnly = false;
+        break;
+      case 'Absent':
+        _signInAtFilter = 'NULL';
+        _signOutAtFilter = 'IGNORE';
+        _showAbsentOnly = false;
+        break;
+      default:
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
+    }
+  }
+
+  String _absentToggleClassroomDisplay(StudentAttendanceAbsentFormItem item) {
+    final apiName = item.classroomName.trim();
+    final code = item.classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) return '';
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null) return fromCubit;
+    final cached = _absentToggleClassroomNameByCode[code]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    if (!_absentToggleClassroomFetchInFlight.contains(code)) {
+      _absentToggleClassroomFetchInFlight.add(code);
+      unawaited(_fetchAbsentToggleClassroomName(code));
+    }
+    return code;
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    final code = classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) return '';
+
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null && fromCubit.trim().isNotEmpty) return fromCubit.trim();
+
+    final cached = _absentToggleClassroomNameByCode[code]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+
+    if (!_absentToggleClassroomFetchInFlight.contains(code)) {
+      _absentToggleClassroomFetchInFlight.add(code);
+      unawaited(_fetchAbsentToggleClassroomName(code));
+    }
+
+    return code;
+  }
+
+  void _prefetchAbsentToggleClassroomNames(
+    List<StudentAttendanceAbsentFormItem> items,
+  ) {
+    for (final item in items) {
+      final code = item.classroomCode.trim();
+      if (code.isEmpty) continue;
+      if (item.classroomName.trim().isNotEmpty) continue;
+      if (_resolveClassroomNameByCode(code) != null) continue;
+      if (_absentToggleClassroomNameByCode.containsKey(code)) continue;
+      if (_absentToggleClassroomFetchInFlight.contains(code)) continue;
+      _absentToggleClassroomFetchInFlight.add(code);
+      unawaited(_fetchAbsentToggleClassroomName(code));
+    }
+  }
+
+  Future<void> _fetchAbsentToggleClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _absentToggleClassroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep showing classroom code when lookup fails.
+    } finally {
+      _absentToggleClassroomFetchInFlight.remove(code);
     }
   }
 
@@ -361,18 +541,17 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     StudentAttendanceAbsentFormItem item,
     int index,
   ) {
-    final roomName = item.classroomName.isNotEmpty
-        ? item.classroomName
-        : item.classroomCode;
+    final roomName = _absentToggleClassroomDisplay(item);
 
     final absenceDate = item.absenceDate.isNotEmpty
         ? item.absenceDate
         : DateTime.now().toIso8601String();
 
-    final absentTime = item.markedAbsentTime?.formattedHms ?? '';
+    final absentTime = item.markedAbsentTime?.formatted12h ?? '';
 
     return StudentAbsentCardData(
       id: item.studentCode,
+      studentCode: item.studentCode,
       name: item.studentName,
       photoUuid: null,
       roomName: roomName,
@@ -388,25 +567,99 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       expectedToday: true,
       signInTime: null,
       signOutTime: null,
+      markAbsentMethod: _mapAbsentMethodStringToEnum(item.markAbsentMethod),
     );
   }
 
   // Convert entity to card data
   StudentAttendanceCardData _entityToCardData(StudentAttendanceDailyItem item, int index) {
+    // Compute effective sign-in / sign-out times based on transfer rules
+    String? effectiveSignIn;
+    String? effectiveSignOut;
+    StudentAttendanceTime? effectiveSignInClock;
+    StudentAttendanceTime? effectiveSignOutClock;
+    bool transferSignIn = false;
+    bool transferSignOut = false;
+
+    final int seq = item.sequenceNumber ?? 1;
+    final int totalSeq = item.totalSequenceCount ?? 1;
+
+    // If no transfers exist
+    if (totalSeq <= 1) {
+      effectiveSignIn = item.formattedSignInTime;
+      effectiveSignOut = item.formattedSignOutTime;
+      effectiveSignInClock = item.signedInTime;
+      effectiveSignOutClock = item.signedOutTime;
+    } else {
+      final isFirst = seq == 1;
+      final isLast = seq == totalSeq;
+
+      if (isFirst && !isLast) {
+        // First entry with a subsequent transfer
+        effectiveSignIn = item.formattedSignInTime;
+        effectiveSignOut = item.nextActionTime?.formattedTime;
+        effectiveSignInClock = item.signedInTime;
+        effectiveSignOutClock = item.nextActionTime;
+        transferSignOut = effectiveSignOut != null;
+      } else if (!isFirst && !isLast) {
+        // Intermediate transfer
+        effectiveSignIn = item.transferTime?.formattedTime;
+        effectiveSignOut = item.nextActionTime?.formattedTime;
+        effectiveSignInClock = item.transferTime;
+        effectiveSignOutClock = item.nextActionTime;
+        transferSignIn = effectiveSignIn != null;
+        transferSignOut = effectiveSignOut != null;
+      } else if (isLast) {
+        // Latest/last transfer
+        effectiveSignIn = isFirst
+            ? item.formattedSignInTime
+            : item.transferTime?.formattedTime;
+        // Actual sign-out time of the entry
+        effectiveSignOut = item.formattedSignOutTime;
+        effectiveSignInClock =
+            isFirst ? item.signedInTime : item.transferTime;
+        effectiveSignOutClock = item.signedOutTime;
+        transferSignIn = !isFirst && effectiveSignIn != null;
+        // signOut on last is not transfer-derived
+      }
+    }
+
+    final day = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    final startMoment =
+        dateAtAttendanceClock(day, effectiveSignInClock);
+    final endMoment = dateAtAttendanceClock(day, effectiveSignOutClock);
+    final attendedTimeDisplay =
+        attendedLabelFromMoments(startMoment, endMoment);
+
     return StudentAttendanceCardData(
       id: '${item.studentName}_${item.classroomCode}_$index',
       attendanceRecordCode: item.attendanceRecordCode,
       studentCode: item.studentCode,
       studentName: item.studentName,
       studentPhotoUuid: null, // API doesn't provide this
-      roomName: item.classroomName,
+      roomName: _classroomDisplay(
+        // Transfer rows may populate `toClassroom*` instead of `classroom*`.
+        classroomCode: (item.isTransfer == true &&
+                (item.toClassroomCode ?? '').trim().isNotEmpty)
+            ? item.toClassroomCode!
+            : item.classroomCode,
+        classroomName: (item.isTransfer == true &&
+                (item.toClassroomName ?? '').trim().isNotEmpty)
+            ? item.toClassroomName!
+            : item.classroomName,
+      ),
       classroomCode: item.classroomCode,
       expectedToday: item.isExpectedToday,
       hasSignIn: item.hasSignIn,
-      signInTime: item.formattedSignInTime,
-      signOutTime: item.formattedSignOutTime,
-      signInBy: null, // API doesn't provide this for daily view
-      signOutBy: null, // API doesn't provide this for daily view
+      signInTime: effectiveSignIn ?? item.formattedSignInTime,
+      signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
+      signInBy: _normalizeByName(item.signedInBy),
+      signOutBy: _normalizeByName(item.signedOutBy) ??
+          (transferSignOut ? _loggedInUserName : null),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
       signInMethod: _mapMethodStringToEnum(item.signedInMethod),
       signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
@@ -414,7 +667,32 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       studentId: index, // Use index as placeholder
       roomId: index, // Use index as placeholder
       schoolId: 1, // Use placeholder
+      sequenceNumber: item.sequenceNumber,
+      totalSequenceCount: item.totalSequenceCount,
+      isTransferSignIn: transferSignIn,
+      isTransferSignOut: transferSignOut,
+      attendedTimeDisplay: attendedTimeDisplay,
     );
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    final target = (code ?? '').trim();
+    if (target.isEmpty) return null;
+    final classrooms = _classroomCubit.state.classrooms;
+    if (classrooms.isEmpty) return null;
+    for (final c in classrooms) {
+      if (c.code.trim() == target) {
+        final name = c.name.trim();
+        return name.isNotEmpty ? name : target;
+      }
+    }
+    return null;
+  }
+
+  String? _normalizeByName(String? raw) {
+    final value = raw?.trim();
+    if (value == null || value.isEmpty) return null;
+    return value;
   }
 
   SignMethod? _mapMethodStringToEnum(String? method) {
@@ -424,15 +702,96 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       case 'GPS':
         return SignMethod.gps;
       case 'PIN':
+      case 'KIOSK':
         // PIN entry is effectively via kiosk device.
         return SignMethod.kiosk;
       case 'QR':
         return SignMethod.qr;
       case 'APP':
         return SignMethod.direct;
+      case 'WEB':
+        return SignMethod.web;
       default:
         return null;
     }
+  }
+
+  AbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+    if (method == null) return null;
+    switch (method.trim().toUpperCase()) {
+      case 'GPS':
+        return AbsentMarkMethod.gps;
+      case 'PIN':
+      case 'KIOSK':
+        return AbsentMarkMethod.kiosk;
+      case 'QR':
+        return AbsentMarkMethod.qr;
+      case 'APP':
+        return AbsentMarkMethod.app;
+      case 'WEB':
+        return AbsentMarkMethod.web;
+      default:
+        return null;
+    }
+  }
+
+  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
+    final trimmed = rawCode.trim();
+    if (trimmed.isEmpty) return trimmed;
+    // Daily view can return a composite code like:
+    // SATR_xxx~A_IN~A_OUT
+    // Delete endpoint expects the base attendance record identifier.
+    final tildeIndex = trimmed.indexOf('~');
+    if (tildeIndex <= 0) return trimmed;
+    return trimmed.substring(0, tildeIndex);
+  }
+
+  /// DELETE expects the parent student attendance record id, not transfer row `SCTR_*`.
+  /// If the expanded row only has a segment id, reuse another loaded row for the same student.
+  String? _resolveStudentDeleteAttendanceRecordCode({
+    required StudentAttendanceCardData card,
+    required List<StudentAttendanceDailyItem> allItems,
+  }) {
+    bool isTransferSegment(String? c) =>
+        c != null && c.toUpperCase().startsWith('SCTR_');
+
+    String norm(String c) => _normalizeAttendanceRecordCodeForMutation(c);
+
+    final fromCard = card.attendanceRecordCode;
+    if (fromCard != null && fromCard.isNotEmpty) {
+      final n = norm(fromCard);
+      if (n.isNotEmpty && !isTransferSegment(n)) return n;
+    }
+
+    final sc = (card.studentCode ?? '').trim();
+    if (sc.isEmpty) {
+      return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+    }
+
+    for (final item in allItems) {
+      if ((item.studentCode ?? '').trim() != sc) continue;
+      final c = item.attendanceRecordCode;
+      if (c == null || c.isEmpty) continue;
+      final n = norm(c);
+      if (n.isEmpty || isTransferSegment(n)) continue;
+      return n;
+    }
+
+    StudentAttendanceDailyItem? lowestSeq;
+    for (final item in allItems) {
+      if ((item.studentCode ?? '').trim() != sc) continue;
+      final c = item.attendanceRecordCode;
+      if (c == null || c.isEmpty) continue;
+      if (lowestSeq == null ||
+          (item.sequenceNumber ?? 1) < (lowestSeq.sequenceNumber ?? 1)) {
+        lowestSeq = item;
+      }
+    }
+    if (lowestSeq?.attendanceRecordCode != null) {
+      return norm(lowestSeq!.attendanceRecordCode!);
+    }
+
+    return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
   }
 
   @override
@@ -466,12 +825,18 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
     
-    return BlocBuilder<StudentAttendanceAbsentToggleCubit,
+    return BlocListener<StudentAttendanceAbsentToggleCubit,
         StudentAttendanceAbsentToggleState>(
-      builder: (context, absentState) {
-        return BlocBuilder<StudentAttendanceDailyCubit,
-            StudentAttendanceDailyState>(
-          builder: (context, state) {
+      listenWhen: (prev, curr) => prev.items != curr.items,
+      listener: (context, state) {
+        _prefetchAbsentToggleClassroomNames(state.items);
+      },
+      child: BlocBuilder<StudentAttendanceAbsentToggleCubit,
+          StudentAttendanceAbsentToggleState>(
+        builder: (context, absentState) {
+          return BlocBuilder<StudentAttendanceDailyCubit,
+              StudentAttendanceDailyState>(
+            builder: (context, state) {
             final isAbsentMode = _showAbsentOnly;
             final isLoading = isAbsentMode ? absentState.isLoading : state.isLoading;
             final isLoadingMore =
@@ -488,6 +853,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
         return CustomRefreshIndicator(
           onRefresh: () async {
+            await _loadStudentCounts();
             _loadAttendanceData(reset: true);
           },
           child: NotificationListener<ScrollNotification>(
@@ -511,12 +877,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.symmetric(
                 horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 2,
+                vertical: responsive.verticalSpacing / 4,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: responsive.verticalSpacing),
+                  SizedBox(height: responsive.verticalSpacing / 4),
                   // Summary cards (only show for admin/director - for now show for all)
                   StudentAttendanceSummary(
                     enrolled: enrolled,
@@ -531,16 +897,16 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         state.isRefreshing ||
                         state.isSummaryLoading,
                     onLegendTap: (status) {
+                      final normalized = status == 'Present' ? 'Signed-In' : status;
+                      final currentLegend =
+                          _statusLegendFilter == 'Present' ? 'Signed-In' : _statusLegendFilter;
                       setState(() {
-                        if (_statusLegendFilter == status) {
+                        if (currentLegend == normalized) {
                           _statusLegendFilter = null;
+                          _applyLegendApiFilters(null);
                         } else {
-                          _statusLegendFilter = status;
-                          if (status == 'Absent') {
-                            _showAbsentOnly = true;
-                          } else {
-                            _showAbsentOnly = false;
-                          }
+                          _statusLegendFilter = normalized;
+                          _applyLegendApiFilters(normalized);
                         }
                       });
                       _loadAttendanceData();
@@ -611,7 +977,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             });
                           },
                           onView: () {
-                            Navigator.push(
+                            Navigator.push<void>(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
@@ -627,7 +993,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                   profileStatus: 'A',
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              if (mounted) {
+                                refreshAfterReturningFromAttendanceFlow();
+                              }
+                            });
                           },
                         );
                       }).toList(),
@@ -671,7 +1041,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             });
                           },
                           onEdit: () async {
-                            final updated = await Navigator.push<bool>(
+                            await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => StudentEditAttendanceForm(
@@ -680,11 +1050,24 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                 ),
                               ),
                             );
-                            if (updated == true) {
-                              _loadAttendanceData(reset: true);
+                            if (mounted) {
+                              refreshAfterReturningFromAttendanceFlow();
                             }
                           },
                           onDelete: () {
+                            // Deletion validation: allow delete only if this is the last sequence entry
+                            if ((student.totalSequenceCount ?? 1) !=
+                                (student.sequenceNumber ?? 1)) {
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: const SnackBar(
+                                  content: Text(
+                                    'Only the latest transfer entry can be deleted.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
@@ -698,7 +1081,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                     if (student.attendanceRecordCode == null ||
                                         student.attendanceRecordCode!.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: 
                                         const SnackBar(
                                           content: Text(
                                             'Unable to delete: missing attendance record code.',
@@ -709,6 +1094,25 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                     }
 
                                     try {
+                                      final normalizedAttendanceCode =
+                                          _resolveStudentDeleteAttendanceRecordCode(
+                                        card: student,
+                                        allItems: state.items,
+                                      );
+                                      if (normalizedAttendanceCode == null ||
+                                          normalizedAttendanceCode.isEmpty) {
+                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                          context: context,
+                                          snackBar:
+                                          const SnackBar(
+                                            content: Text(
+                                              'Unable to delete: invalid attendance record code.',
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+
                                       final storageService =
                                           serviceLocator<StorageService>();
                                       final staffCode = (await storageService
@@ -719,8 +1123,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                           .trim();
                                       if (staffCode.isEmpty) {
                                         if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
+                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                          context: context,
+                                          snackBar: 
                                           const SnackBar(
                                             content: Text(
                                               'Unable to resolve staffCode. Please re-login.',
@@ -730,24 +1135,16 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                         return;
                                       }
 
-                                      final apiClient =
-                                          serviceLocator<ApiClient>().client;
-                                      final endpoint = ApiPaths.urlWithBase(
-                                        ApiPaths.studentAttendanceRecords(
-                                          student.attendanceRecordCode!,
-                                        ),
-                                        ApiConstants.attendanceBaseUrl,
+                                      await serviceLocator<AttendanceRepository>()
+                                          .deleteStudentAttendanceRecord(
+                                        attendanceRecordCode:
+                                            normalizedAttendanceCode,
+                                        staffCode: staffCode,
                                       );
 
-                                      await apiClient.delete<dynamic>(
-                                        endpoint,
-                                        queryParameters: {
-                                          'staffCode': staffCode,
-                                        },
-                                      );
-
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: 
                                         const SnackBar(
                                           content: Text('Attendance deleted'),
                                         ),
@@ -755,11 +1152,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                       _loadAttendanceData(reset: true);
                                     } catch (e) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      final message =
+                                          ApiErrorHandler.extractErrorMessage(e);
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: 
                                         SnackBar(
                                           content: Text(
-                                            'Failed to delete attendance: $e',
+                                            message,
                                           ),
                                         ),
                                       );
@@ -773,7 +1173,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                             );
                           },
                           onView: () {
-                            Navigator.push(
+                            Navigator.push<void>(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => StudentAttendanceProfile(
@@ -789,7 +1189,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                   profileStatus: 'A',
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              if (mounted) {
+                                refreshAfterReturningFromAttendanceFlow();
+                              }
+                            });
                           },
                         );
                       }).toList(),
@@ -807,9 +1211,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
             ),
           ),
         );
-          },
-        );
-      },
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -823,31 +1228,6 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
     // Note: Search, classroom, and tag filters are handled by API
     // These filters below are for client-side filtering if needed (e.g., legend filters)
-
-    // Apply legend filter
-    if (_statusLegendFilter != null) {
-      if (_statusLegendFilter == 'Present') {
-        filtered = filtered
-            .where((student) =>
-                student.expectedToday && student.hasSignIn)
-            .toList();
-      } else if (_statusLegendFilter == 'Absent') {
-        filtered = filtered
-            .where((student) =>
-                student.expectedToday && !student.hasSignIn)
-            .toList();
-      } else if (_statusLegendFilter == 'Signed Out') {
-        filtered = filtered
-            .where((student) =>
-                student.signOutTime != null && student.signOutTime!.isNotEmpty)
-            .toList();
-      } else if (_statusLegendFilter == 'Not Marked') {
-        filtered = filtered
-            .where((student) =>
-                !student.hasSignIn && student.signInTime == null)
-            .toList();
-      }
-    }
 
     // Apply sorting
     if (_sortColumn != null) {
@@ -879,6 +1259,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
   Widget _buildFilterCard(ResponsiveHelper responsive) {
     final hasActiveFilters = _statusLegendFilter != null ||
+        _signInAtFilter != null ||
+        _signOutAtFilter != null ||
         _studentFilters != null ||
         _selectedClassroomNames.isNotEmpty ||
         _selectedTagNames.isNotEmpty ||
@@ -961,11 +1343,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     ? () {
                         setState(() {
                           _searchController.clear();
+                          _selectedDate = DateTime.now();
                           _statusLegendFilter = null;
                           _studentFilters = null;
                           _selectedClassroomNames = [];
                           _selectedTagNames = [];
                           _showAbsentOnly = false;
+                          _signInAtFilter = null;
+                          _signOutAtFilter = null;
                         });
                         _loadAttendanceData(reset: false);
                       }
@@ -984,6 +1369,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                   _showAbsentOnly = value;
                   if (value) {
                     _statusLegendFilter = 'Absent';
+                    _signInAtFilter = null;
+                    _signOutAtFilter = null;
                   } else if (_statusLegendFilter == 'Absent') {
                     _statusLegendFilter = null;
                   }
@@ -1027,7 +1414,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         
         // Check if we have data now
         if (_classroomCubit.state.classrooms.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: 
             const SnackBar(
               content: Text('Failed to load classroom data. Please try again.'),
             ),
@@ -1041,9 +1430,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       } catch (e) {
         if (!mounted) return;
         Navigator.of(context).pop(); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
+        final message = ApiErrorHandler.extractErrorMessage(e);
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: 
           SnackBar(
-            content: Text('Failed to load classroom data: $e'),
+            content: Text(message),
           ),
         );
         return;

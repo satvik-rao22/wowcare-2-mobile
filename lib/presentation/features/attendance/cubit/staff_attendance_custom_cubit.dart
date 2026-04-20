@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_attendance_custom_usecase.dart';
@@ -84,7 +85,7 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -123,7 +124,7 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
       if (isClosed) return;
       emit(state.copyWith(
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

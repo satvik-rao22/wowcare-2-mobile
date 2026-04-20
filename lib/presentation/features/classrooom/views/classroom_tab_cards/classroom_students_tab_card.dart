@@ -9,13 +9,30 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_state.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+    as sign_in_form;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+    as sign_out_form;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_transfer_form.dart'
+    as transfer_form;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
+    as absent_form;
 
 class ClassroomStudentsTabCard extends StatefulWidget {
   const ClassroomStudentsTabCard({
@@ -42,6 +59,16 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   bool _isPresentFilter = false; // Toggle for present students
   StudentPanelType _currentPanel = StudentPanelType.none;
   bool _showActivitiesPanel = false;
+  bool _isAttendanceActionLoading = false;
+  bool _isPrefetchingAttendanceData = false;
+  int _attendancePrefetchToken = 0;
+  Map<String, sign_in_form.StudentEntity> _signInEntitiesByCode = {};
+  Map<String, sign_out_form.StudentEntity> _signOutEntitiesByCode = {};
+  Map<String, transfer_form.StudentEntity> _transferEntitiesByCode = {};
+  Map<String, absent_form.StudentEntity> _absentEntitiesByCode = {};
+  final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
@@ -125,6 +152,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         studentSelections[student.studentCode] = value;
       }
     });
+    _prefetchAttendanceEntitiesForSelection(visibleStudents);
+    _refreshAttendanceStatusForSelection(visibleStudents);
   }
 
   void _toggleStudentSelection(
@@ -146,6 +175,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         _currentPanel = StudentPanelType.none;
       }
     });
+    _prefetchAttendanceEntitiesForSelection(visibleStudents);
+    _refreshAttendanceStatusForSelection(visibleStudents);
   }
 
   bool get hasSelectedStudents {
@@ -161,6 +192,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _isNappingFilter = false;
       _currentPanel = StudentPanelType.none;
     });
+    _clearAttendanceEntityCaches();
+    _attendanceStatusByStudentCode.clear();
+    _attendanceStatusLoading = false;
+    _attendanceStatusError = false;
     _loadForSelectedRoom(refresh: false);
   }
 
@@ -233,6 +268,445 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   // Backend disabled
   // Future<List<Staff>> fetchAllStaffs() async { return []; }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  String _normalizeStudentCode(String code) => code.trim().toUpperCase();
+
+  String? _todayStatusForStudentCode(String code) {
+    final t = code.trim();
+    if (t.isEmpty) return null;
+    if (_attendanceStatusByStudentCode.containsKey(t)) {
+      return _attendanceStatusByStudentCode[t];
+    }
+    final u = _normalizeStudentCode(t);
+    for (final e in _attendanceStatusByStudentCode.entries) {
+      if (_normalizeStudentCode(e.key) == u) return e.value;
+    }
+    return null;
+  }
+
+  Future<void> _refreshAttendanceStatusForSelection(
+    List<StudentClassroomItem> visibleStudents,
+  ) async {
+    final selected = _getSelectedStudents(visibleStudents);
+    if (selected.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    final codes = selected
+        .map((s) => s.studentCode.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+
+    if (codes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: codes);
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
+    List<StudentClassroomItem> selected,
+  ) {
+    if (selected.isEmpty) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    final gates = selected.map((s) {
+      final isActive = s.status.trim().toUpperCase() == 'ACTIVE';
+      return studentAttendanceGateFromTodayStatus(
+        isActiveProfile: isActive,
+        todayStatusRaw: _todayStatusForStudentCode(s.studentCode),
+      );
+    });
+    return StudentAttendanceActionAvailability.fromGates(gates);
+  }
+
+  void _clearAttendanceEntityCaches() {
+    _signInEntitiesByCode = {};
+    _signOutEntitiesByCode = {};
+    _transferEntitiesByCode = {};
+    _absentEntitiesByCode = {};
+  }
+
+  Future<void> _prefetchAttendanceEntitiesForSelection(
+    List<StudentClassroomItem> visibleStudents,
+  ) async {
+    final selectedStudents = _getSelectedStudents(visibleStudents);
+    final selectedCodes = selectedStudents
+        .map((s) => _normalizeStudentCode(s.studentCode))
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    if (selectedCodes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isPrefetchingAttendanceData = false;
+        _clearAttendanceEntityCaches();
+      });
+      return;
+    }
+
+    final date = _formatDate(DateTime.now());
+    final token = ++_attendancePrefetchToken;
+    final roomCode = (widget.selectedRoom?.code ?? '').trim();
+    final classroomCodes = roomCode.isEmpty ? null : <String>[roomCode];
+
+    if (mounted) {
+      setState(() {
+        _isPrefetchingAttendanceData = true;
+      });
+    }
+
+    try {
+      final signInUseCase = serviceLocator<GetStudentSignInFormListUseCase>();
+      final signOutUseCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+      final transferUseCase = serviceLocator<GetStudentTransferFormListUseCase>();
+      final absentUseCase = serviceLocator<GetStudentAbsentFormListUseCase>();
+
+      final signInFuture = signInUseCase(
+        fromAttendanceDate: date,
+        toAttendanceDate: date,
+        classroomCodes: classroomCodes,
+        page: 0,
+        size: 500,
+      );
+      final signOutFuture = signOutUseCase(
+        fromAttendanceDate: date,
+        toAttendanceDate: date,
+        classroomCodes: classroomCodes,
+        page: 0,
+        size: 500,
+      );
+      final transferFuture = transferUseCase(
+        fromAttendanceDate: date,
+        toAttendanceDate: date,
+        classroomCodes: classroomCodes,
+        page: 0,
+        size: 500,
+      );
+      final absentFuture = absentUseCase(
+        fromAbsenceDate: date,
+        toAbsenceDate: date,
+        classroomCodes: classroomCodes,
+        page: 0,
+        size: 500,
+      );
+
+      // Attach listeners to all futures immediately so fast failures are caught.
+      await Future.wait([
+        signInFuture,
+        signOutFuture,
+        transferFuture,
+        absentFuture,
+      ]);
+      final signInPage = await signInFuture;
+      final signOutPage = await signOutFuture;
+      final transferPage = await transferFuture;
+      final absentPage = await absentFuture;
+      if (!mounted || token != _attendancePrefetchToken) return;
+
+      final signInMap = <String, sign_in_form.StudentEntity>{};
+      for (final item in signInPage.items) {
+        final normalized = _normalizeStudentCode(item.studentCode);
+        if (!selectedCodes.contains(normalized)) continue;
+        signInMap[normalized] = sign_in_form.StudentEntity(
+          id: signInMap.length + 1,
+          studentCode: item.studentCode,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          classroomCode: item.classroomCode,
+          photoUuid: null,
+          isExpectedToday: item.isExpectedToday,
+        );
+      }
+
+      final signOutMap = <String, sign_out_form.StudentEntity>{};
+      for (final item in signOutPage.items) {
+        final normalized = _normalizeStudentCode(item.studentCode);
+        if (!selectedCodes.contains(normalized)) continue;
+        signOutMap[normalized] = sign_out_form.StudentEntity(
+          id: signOutMap.length + 1,
+          studentCode: item.studentCode,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          classroomCode: item.classroomCode,
+        );
+      }
+
+      final transferMap = <String, transfer_form.StudentEntity>{};
+      for (final item in transferPage.items) {
+        final normalized = _normalizeStudentCode(item.studentCode);
+        if (!selectedCodes.contains(normalized)) continue;
+        transferMap[normalized] = transfer_form.StudentEntity(
+          id: transferMap.length + 1,
+          studentCode: item.studentCode,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          classroomCode: item.classroomCode,
+          tags: item.tagNames
+              .map((name) => transfer_form.TagEntity(name: name))
+              .toList(),
+        );
+      }
+
+      final absentMap = <String, absent_form.StudentEntity>{};
+      for (final item in absentPage.items) {
+        final normalized = _normalizeStudentCode(item.studentCode);
+        if (!selectedCodes.contains(normalized)) continue;
+        absentMap[normalized] = absent_form.StudentEntity(
+          id: absentMap.length + 1,
+          studentCode: item.studentCode,
+          fullName: item.studentName,
+          roomId: 0,
+          roomName: item.classroomName,
+          classroomCode: item.classroomCode,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _signInEntitiesByCode = signInMap;
+        _signOutEntitiesByCode = signOutMap;
+        _transferEntitiesByCode = transferMap;
+        _absentEntitiesByCode = absentMap;
+      });
+    } catch (_) {
+      if (!mounted || token != _attendancePrefetchToken) return;
+      setState(() {
+        _clearAttendanceEntityCaches();
+      });
+    } finally {
+      if (mounted && token == _attendancePrefetchToken) {
+        setState(() {
+          _isPrefetchingAttendanceData = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openAttendanceActionFlow({
+    required List<StudentClassroomItem> allStudents,
+    required String actionName,
+  }) async {
+    final selectedStudents = _getSelectedStudents(allStudents);
+    if (selectedStudents.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select at least one student',
+        isError: true,
+      );
+      return;
+    }
+
+    final selectedCodes = selectedStudents
+        .map((s) => _normalizeStudentCode(s.studentCode))
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    if (selectedCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected students are missing codes',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_isPrefetchingAttendanceData) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Preparing selected students. Please wait...',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() {
+      _isAttendanceActionLoading = true;
+    });
+    try {
+      if (actionName == 'sign_in') {
+        var entities = selectedCodes
+            .map((code) => _signInEntitiesByCode[code])
+            .whereType<sign_in_form.StudentEntity>()
+            .toList();
+        if (entities.isEmpty) {
+          await _prefetchAttendanceEntitiesForSelection(allStudents);
+          entities = selectedCodes
+              .map((code) => _signInEntitiesByCode[code])
+              .whereType<sign_in_form.StudentEntity>()
+              .toList();
+        }
+        if (entities.isEmpty) {
+          throw Exception('No selected students are eligible for Sign-In');
+        }
+
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => sign_in_form.StudentSignInForm(
+              students: entities,
+              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (actionName == 'sign_out') {
+        var entities = selectedCodes
+            .map((code) => _signOutEntitiesByCode[code])
+            .whereType<sign_out_form.StudentEntity>()
+            .toList();
+        if (entities.isEmpty) {
+          await _prefetchAttendanceEntitiesForSelection(allStudents);
+          entities = selectedCodes
+              .map((code) => _signOutEntitiesByCode[code])
+              .whereType<sign_out_form.StudentEntity>()
+              .toList();
+        }
+        if (entities.isEmpty) {
+          throw Exception('No selected students are eligible for Sign-Out');
+        }
+
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => sign_out_form.StudentSignOutForm(
+              students: entities,
+              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (actionName == 'transfer') {
+        var entities = selectedCodes
+            .map((code) => _transferEntitiesByCode[code])
+            .whereType<transfer_form.StudentEntity>()
+            .toList();
+        if (entities.isEmpty) {
+          await _prefetchAttendanceEntitiesForSelection(allStudents);
+          entities = selectedCodes
+              .map((code) => _transferEntitiesByCode[code])
+              .whereType<transfer_form.StudentEntity>()
+              .toList();
+        }
+        if (entities.isEmpty) {
+          throw Exception('No selected students are eligible for Transfer');
+        }
+
+        ClassroomCubit? classroomCubit;
+        try {
+          classroomCubit = context.read<ClassroomCubit>();
+        } catch (_) {
+          classroomCubit = null;
+        }
+        final classroomNameToCode = <String, String>{
+          for (final c in (classroomCubit?.state.classrooms ?? const []))
+            c.name: c.code,
+        };
+
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => transfer_form.StudentTransferForm(
+              students: entities,
+              classroomNameToCode: classroomNameToCode,
+              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+            ),
+          ),
+        );
+        return;
+      }
+
+      var entities = selectedCodes
+          .map((code) => _absentEntitiesByCode[code])
+          .whereType<absent_form.StudentEntity>()
+          .toList();
+      if (entities.isEmpty) {
+        await _prefetchAttendanceEntitiesForSelection(allStudents);
+        entities = selectedCodes
+            .map((code) => _absentEntitiesByCode[code])
+            .whereType<absent_form.StudentEntity>()
+            .toList();
+      }
+      if (entities.isEmpty) {
+        throw Exception('No selected students are eligible for Mark Absent');
+      }
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => absent_form.StudentMarkAbsentForm(
+            students: entities,
+            refreshCallback: () => _loadForSelectedRoom(refresh: true),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAttendanceActionLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -598,7 +1072,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   const SizedBox(width: 10),
                   StudentActionPanel(
                     currentPanel: _currentPanel,
-                    onAttendanceTap: () {},
+                    attendanceAvailability:
+                        _attendanceAvailabilityForSelection(selectedStudents),
+                    onAttendanceTap: () {
+                      setState(() {
+                        final open =
+                            _currentPanel == StudentPanelType.attendance;
+                        _currentPanel =
+                            open ? StudentPanelType.none : StudentPanelType.attendance;
+                        _showActivitiesPanel = false;
+                      });
+                    },
                     onMessageTap: () {},
                     onActivitiesTap: _canShowActivitiesPanel(selectedStudents)
                         ? () {
@@ -635,6 +1119,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                       'status': []
                                     },
                                     studentCode: student.studentCode,
+                                    initialEnrollmentStatus: student.status,
                                   ),
                                 ),
                               );
@@ -651,6 +1136,27 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                     },
                     isProfileEnabled: _selectedCount == 1,
                     activitiesEnabled: _canShowActivitiesPanel(selectedStudents),
+                    showAttendanceActions:
+                        _currentPanel == StudentPanelType.attendance,
+                    isAttendanceActionLoading:
+                        _isAttendanceActionLoading ||
+                            _isPrefetchingAttendanceData,
+                    onSignInTap: () => _openAttendanceActionFlow(
+                      allStudents: state.students,
+                      actionName: 'sign_in',
+                    ),
+                    onSignOutTap: () => _openAttendanceActionFlow(
+                      allStudents: state.students,
+                      actionName: 'sign_out',
+                    ),
+                    onTransferTap: () => _openAttendanceActionFlow(
+                      allStudents: state.students,
+                      actionName: 'transfer',
+                    ),
+                    onMarkAbsentTap: () => _openAttendanceActionFlow(
+                      allStudents: state.students,
+                      actionName: 'mark_absent',
+                    ),
                   ),
                 ],
               ),

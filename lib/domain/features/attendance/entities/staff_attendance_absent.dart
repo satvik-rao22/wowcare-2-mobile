@@ -10,6 +10,7 @@ class StaffAttendanceAbsentItem extends Equatable {
     this.markedAbsentTime,
     required this.markedAbsentByName,
     this.absenceNote,
+    this.markAbsentMethod,
     required this.absentDays,
   });
 
@@ -21,6 +22,7 @@ class StaffAttendanceAbsentItem extends Equatable {
   final StaffAttendanceTime? markedAbsentTime;
   final String markedAbsentByName;
   final String? absenceNote;
+  final String? markAbsentMethod;
   final int absentDays;
 
   @override
@@ -33,6 +35,7 @@ class StaffAttendanceAbsentItem extends Equatable {
         markedAbsentTime,
         markedAbsentByName,
         absenceNote,
+        markAbsentMethod,
         absentDays,
       ];
 }
@@ -55,6 +58,15 @@ class StaffAttendanceTime extends Equatable {
     final m = minute.toString().padLeft(2, '0');
     final s = second.toString().padLeft(2, '0');
     return '$h:$m:$s';
+  }
+
+  /// 12-hour clock with AM/PM (e.g. `2:05:03 PM`).
+  String get formatted12h {
+    final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final mm = minute.toString().padLeft(2, '0');
+    final ss = second.toString().padLeft(2, '0');
+    return '$h12:$mm:$ss $period';
   }
 
   @override

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -390,6 +393,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canMutateStudent =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+
     return CustomRefreshIndicator(
       onRefresh: _reloadPhysicalExams,
       child: SingleChildScrollView(
@@ -450,6 +457,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                     onTap: _disableAddPhysicalExam
                         ? null
                         : () async {
+                      if (!canMutateStudent) {
+                        ModuleAccess.showWriteRestricted(context);
+                        return;
+                      }
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
                       final result = await Navigator.of(context).push<bool>(
@@ -463,7 +474,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                       if (!mounted || result != true) return;
                       await _reloadPhysicalExams();
                     },
-                    child: Row(
+                    child: Opacity(
+                      opacity:
+                          canMutateStudent && !_disableAddPhysicalExam ? 1 : 0.45,
+                      child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
@@ -474,7 +488,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            gradient: _disableAddPhysicalExam
+                            gradient: _disableAddPhysicalExam || !canMutateStudent
                                 ? const LinearGradient(
                                     colors: [
                                       Color(0xFFC9C5CE),
@@ -492,6 +506,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           ),
                         ),
                       ],
+                    ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -511,11 +526,17 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         showMore: !_isCompletedStatus(e.status),
                         onMore: _isCompletedStatus(e.status)
                             ? null
-                            : () => _openEditPhysicalBottomSheet(
-                          initialDate: _parseIsoDate(e.examDate),
-                          initialStatusUi: _prettyStatus(e.status),
-                          examCode: e.code,
-                        ),
+                            : () {
+                                if (!canMutateStudent) {
+                                  ModuleAccess.showWriteRestricted(context);
+                                  return;
+                                }
+                                _openEditPhysicalBottomSheet(
+                                  initialDate: _parseIsoDate(e.examDate),
+                                  initialStatusUi: _prettyStatus(e.status),
+                                  examCode: e.code,
+                                );
+                              },
                   ),
                   const SizedBox(height: 20),
                 ],

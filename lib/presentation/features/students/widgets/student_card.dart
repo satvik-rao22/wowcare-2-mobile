@@ -139,10 +139,11 @@ class _StudentCardState extends State<StudentCard> {
                           Stack(
                             children: [
                               DocumentImageWidget(
-                                fileUuid: '',
+                                fileUuid: widget.studentCode,
                                 name: widget.name,
                                 size: 45,
-                                status: widget.status,
+                                studentCode: widget.studentCode,
+                                studentEnrollmentStatus: widget.status,
                               ),
                             ],
                           ),
@@ -468,9 +469,8 @@ class _StudentCardState extends State<StudentCard> {
                                                   ? 'student_deactivate'
                                                   : 'student_reactivate',
                                               onDelete: () {
-                                                // Let the confirmation sheet show its loader
-                                                // while the actual API logic runs.
                                                 widget.onPrimaryAction?.call();
+                                                return Future.value();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -522,6 +522,7 @@ class _StudentCardState extends State<StudentCard> {
                                                 type: 'student_delete',
                                                 onDelete: () {
                                                   widget.onDeleteAction?.call();
+                                                  return Future.value();
                                                 },
                                                 onCancel: () {
                                                   Navigator.of(ctx).pop();

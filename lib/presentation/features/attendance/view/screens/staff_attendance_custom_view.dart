@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -17,6 +18,8 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({
@@ -45,6 +48,10 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
 
   late final StaffAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -90,8 +97,57 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();
-    _classroomCubit.close();
     super.dispose();
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null) return null;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    final classrooms = _classroomCubit.state.classrooms;
+    for (final c in classrooms) {
+      if (c.code.trim() == trimmed) return c.name;
+    }
+    final cached = _classroomNameByCode[trimmed]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return null;
+  }
+
+  Future<void> _fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _classroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    final code = classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) return '';
+    final fromCubit = _resolveClassroomNameByCode(code);
+    if (fromCubit != null && fromCubit.trim().isNotEmpty) return fromCubit.trim();
+    if (!_classroomFetchInFlight.contains(code)) {
+      _classroomFetchInFlight.add(code);
+      // ignore: discarded_futures
+      _fetchClassroomName(code);
+    }
+    return code;
   }
 
   void _initializeDefaultRange() {
@@ -167,11 +223,26 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     // Apply classroom filter
     if (_selectedClassroomNames.isNotEmpty) {
       filtered = filtered.where((attendance) {
-        return _selectedClassroomNames.contains(attendance.roomName);
+        final display = _classroomDisplay(
+          classroomCode: attendance.classroomCode,
+          classroomName: attendance.classroomName,
+        );
+        return _selectedClassroomNames.contains(display);
       }).toList();
     }
 
     return filtered;
+  }
+
+  String? _formatDesignation(String? raw) {
+    if (raw == null) return null;
+    final cleaned = raw.trim().replaceAll('_', ' ').toLowerCase();
+    if (cleaned.isEmpty) return null;
+    final words = cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final formatted = words
+        .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
+        .join(' ');
+    return formatted;
   }
 
   @override
@@ -209,10 +280,15 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                   id: item.staffCode,
                   staffId: 0,
                   staffName: item.staffName,
-                  designationName:
-                      item.designation.isNotEmpty ? item.designation.first : null,
+                  designationName: _formatDesignation(
+                      item.designation.isNotEmpty ? item.designation.first : null),
                   staffPhotoUuid: '',
-                  roomName: item.classroomName,
+                  classroomCode: item.classroomCode,
+                  classroomName: item.classroomName,
+                  roomName: _classroomDisplay(
+                    classroomCode: item.classroomCode,
+                    classroomName: item.classroomName,
+                  ),
                   daysAttended: item.attendedDays.toString(),
                   totalHours: item.attendedTime ?? '',
                   expectedToday: item.isExpectedToday,
@@ -243,12 +319,12 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
           horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 2,
+          vertical: responsive.verticalSpacing / 4,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             // Filters Section
             CustomSectionCard(
               child: Column(
@@ -298,29 +374,48 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                     ],
                   ),
                   SizedBox(height: responsive.verticalSpacing / 2),
-                  CustomDateTimeField(
-                    hasLabel: false,
-                    isRangePicker: true,
-                    initialDate: _customRangeStart,
-                    onRangeSelected: (start, end) {
-                      // In this screen, the picker is range-based, but `end` can be null
-                      // during selection. Only validate when we have both dates.
-                      if (end != null && start.isAfter(end)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                                    content: const Text(
-                                        'Start date cannot be after end date'),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() {
-                        _customRangeStart = start;
-                        _customRangeEnd = end;
-                      });
-                      _loadAttendanceData(reset: true);
-                    },
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomDateTimeField(
+                          hasLabel: false,
+                          isRangePicker: true,
+                          fetchInitialTime: true,
+                          onRangeSelected: (start, end) {
+                            if (end != null && start.isAfter(end)) {
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: 
+                                SnackBar(
+                                  content: const Text('Start date cannot be after end date'),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                              return;
+                            }
+                            setState(() {
+                              _customRangeStart = start;
+                              _customRangeEnd = end;
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                        ),
+                      ),
+                      SizedBox(width: responsive.horizontalSpacing / 2),
+                      CustomClearAllChip(
+                        onTap: () {
+                          setState(() {
+                            _customSearchController.clear();
+                            _searchQuery = '';
+                            _selectedClassroomNames = <String>[];
+                            final now = DateTime.now();
+                            _customRangeStart = DateTime(now.year, now.month, 1);
+                            _customRangeEnd = DateTime(now.year, now.month + 1, 0);
+                          });
+                          _loadAttendanceData(reset: true);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -590,6 +685,8 @@ class _CustomStaffAttendanceRow {
   final String staffName;
   final String? designationName;
   final String staffPhotoUuid;
+  final String classroomCode;
+  final String classroomName;
   final String roomName;
   final String daysAttended;
   final String totalHours;
@@ -604,6 +701,8 @@ class _CustomStaffAttendanceRow {
     required this.staffName,
     this.designationName,
     required this.staffPhotoUuid,
+    required this.classroomCode,
+    required this.classroomName,
     required this.roomName,
     required this.daysAttended,
     required this.totalHours,

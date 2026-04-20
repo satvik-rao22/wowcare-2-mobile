@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -97,6 +100,11 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   }
 
   Future<void> _openEdit(BuildContext context) async {
+    final role = context.read<RoleProvider>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) return;
 
@@ -117,6 +125,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(
@@ -199,28 +210,31 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                   children: [
                     GestureDetector(
                       onTap: () => _openEdit(context),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Important Dates',
-                            style: AppTextStyles.title,
-                          ),
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: BorderRadius.circular(8),
+                      child: Opacity(
+                        opacity: canStudentWrite ? 1 : 0.45,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Important Dates',
+                              style: AppTextStyles.title,
                             ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.edit,
-                              size: 22,
-                              color: Colors.white,
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                gradient: AppColors.buildPrimaryGradient(),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.edit,
+                                size: 22,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

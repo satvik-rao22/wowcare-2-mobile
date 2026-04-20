@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/attendance/widgets/student_attenda
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_absent_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -109,6 +110,7 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                     color: AppColors.themeColor,
                   ),
                 ),
+                dividerColor: Colors.transparent,
                 indicatorPadding: EdgeInsets.only(
                   bottom: responsive.isTablet ? 10 : 8,
                 ),
@@ -195,7 +197,7 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
             ),
             child: StudentAttendanceVerticalPopUp(
               students: const [],
-              refreshCallback: _refreshCurrentTab,
+              refreshCallback: _refreshDailyAfterAttendanceFlow,
               topPosition: floatingButtonTop,
               rightPosition: floatingButtonRight,
             ),
@@ -208,28 +210,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
   @override
   bool get wantKeepAlive => true;
 
-  // Refresh the current active tab
-  void _refreshCurrentTab() {
-    final currentIndex = _tabController.index;
-    switch (currentIndex) {
-      case 0: // Daily tab
-        final dailyState = _dailyViewKey.currentState;
-        if (dailyState != null) {
-          (dailyState as dynamic)._loadAttendanceData(context, reset: true);
-        }
-        break;
-      case 1: // Custom tab
-        final customState = _customViewKey.currentState;
-        if (customState != null) {
-          (customState as dynamic)._loadAttendanceData(reset: true);
-        }
-        break;
-      case 2: // Absent tab
-        final absentState = _absentViewKey.currentState;
-        if (absentState != null) {
-          (absentState as dynamic)._loadInitialData(reset: true);
-        }
-        break;
-    }
+  void _refreshDailyAfterAttendanceFlow() {
+    final dailyState = _dailyViewKey.currentState;
+    if (dailyState == null) return;
+    if (dailyState is! DailyAttendanceParentRefresh) return;
+    (dailyState as DailyAttendanceParentRefresh)
+        .refreshAfterReturningFromAttendanceFlow();
   }
 }

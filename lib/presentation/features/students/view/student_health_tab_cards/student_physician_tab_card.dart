@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -86,6 +89,10 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
       child: SingleChildScrollView(
@@ -108,12 +115,24 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         color: AppColors.primaryColor,
                       ),
                     ),
-                    GradientAddButton(
-                      onTap: _onAddPhysician,
-                      wantedButtonSize: 40,
-                      iconSize: 22,
-                      borderRadius: 10,
-                    ),
+                    if (canStudentWrite)
+                      GradientAddButton(
+                        onTap: _onAddPhysician,
+                        wantedButtonSize: 40,
+                        iconSize: 22,
+                        borderRadius: 10,
+                      )
+                    else
+                      Opacity(
+                        opacity: 0.45,
+                        child: GradientAddButton(
+                          onTap: () =>
+                              ModuleAccess.showWriteRestricted(context),
+                          wantedButtonSize: 40,
+                          iconSize: 22,
+                          borderRadius: 10,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -173,6 +192,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                           specialty: physicians[i].specialty,
                           notes: physicians[i].notes,
                           onChanged: _handleRefresh,
+                          showActionButtons: canStudentWrite,
                         ),
                         if (i != physicians.length - 1)
                           const SizedBox(height: 12),
@@ -203,6 +223,7 @@ class _PhysicianCard extends StatelessWidget{
     this.specialty,
     this.notes,
     this.onChanged,
+    this.showActionButtons = true,
   });
   final String code;
   final String studentCode;
@@ -215,6 +236,7 @@ class _PhysicianCard extends StatelessWidget{
   final String? notes;
   final String? phoneNumber;
   final Future<void> Function()? onChanged;
+  final bool showActionButtons;
 
   String _formatPhoneNumber(String? raw) {
     if (raw == null) return '-';
@@ -404,6 +426,7 @@ class _PhysicianCard extends StatelessWidget{
                     ),
                     const SizedBox(height: 10),
                   ],
+                  if (showActionButtons) ...[
                   const SizedBox(height: 12),
                   CustomButtonLayout(
                     confirmButtonLabel: 'Edit',
@@ -474,6 +497,7 @@ class _PhysicianCard extends StatelessWidget{
                     isForm: false,
                   ),
                   const SizedBox(height: 12),
+                  ],
                 ],
               ),
             ),

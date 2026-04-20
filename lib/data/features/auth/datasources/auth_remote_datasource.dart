@@ -31,6 +31,9 @@ abstract class AuthRemoteDataSource {
     required List<String> organizationCodes,
     required String accessToken,
   });
+  Future<List<Map<String, dynamic>>> getUserDetails({
+    required String accessToken,
+  });
   Future<String> forgotPassword({required String email});
 }
 
@@ -598,6 +601,75 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       throw DioException(
         requestOptions: RequestOptions(path: errorUrl),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getUserDetails({
+    required String accessToken,
+  }) async {
+    final url = ApiPaths.url(ApiPaths.userDetails);
+    final headers = ApiHeaders.authorizedJson(accessToken);
+    try {
+      ApiLogger.logRequest(
+        url: url,
+        method: 'GET',
+        headers: headers,
+        queryParameters: const <String, dynamic>{},
+        body: null,
+      );
+
+      final response = await _dio.get<Map<String, dynamic>>(
+        url,
+        options: Options(headers: headers),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'GET',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final rawData = response.data!['data'];
+        if (rawData is List) {
+          return rawData
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        return const <Map<String, dynamic>>[];
+      }
+
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Failed to get user details: Invalid response',
+      );
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'GET',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      rethrow;
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'GET',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: url),
         type: DioExceptionType.unknown,
         error: 'Unexpected error: $e',
       );

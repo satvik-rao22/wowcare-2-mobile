@@ -10,7 +10,6 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final List<String> selectedItems;
   final ValueChanged<List<String>> onChanged;
   final bool isField;
-  final bool showSelectAll;
   final double? width;
   final double gapHeight;
   final double maxDropdownHeight;
@@ -24,7 +23,6 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.label,
     this.suffix,
     this.isField = false,
-    this.showSelectAll = true,
     this.width,
 
     /// Extra spacing between the field and dropdown (in addition to field height).
@@ -43,7 +41,6 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _fieldKey = GlobalKey();
   OverlayEntry? _overlayEntry;
-  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -91,10 +88,10 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     });
   }
 
-  void _closeDropdown() {
+  void _closeDropdown({bool updateState = true}) {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    if (mounted && !_isDisposed) {
+    if (updateState && mounted) {
       setState(() {
         isDropdownOpen = false;
       });
@@ -114,7 +111,14 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           // Barrier to close dropdown when tapping outside
           Positioned.fill(
             child: GestureDetector(
-              onTap: _closeDropdown,
+              onTap: () {
+                if (mounted) {
+                  setState(() {
+                    isDropdownOpen = false;
+                  });
+                }
+                _closeDropdown();
+              },
               child: Container(color: Colors.transparent),
             ),
           ),
@@ -143,41 +147,22 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                   child: StatefulBuilder(
                     builder:
                         (BuildContext context, StateSetter setOverlayState) {
-                          final List<String> effectiveItems =
-                              widget.showSelectAll
-                              ? ['Select All', ...widget.items]
-                              : widget.items;
-
                           return ListView.builder(
                             padding: EdgeInsets.zero,
                             shrinkWrap: true,
-                            itemCount: effectiveItems.length,
+                            itemCount: widget.items.length,
                             itemBuilder: (context, index) {
-                              final item = effectiveItems[index];
-                              final bool isSelectAllItem =
-                                  widget.showSelectAll && index == 0;
-                              final bool isSelected = isSelectAllItem
-                                  ? _localSelectedItems.length ==
-                                        widget.items.length
-                                  : _localSelectedItems.contains(item);
-
+                              final item = widget.items[index];
+                              final isSelected = _localSelectedItems.contains(
+                                item,
+                              );
                               return InkWell(
                                 onTap: () {
                                   setOverlayState(() {
-                                    if (isSelectAllItem) {
-                                      if (isSelected) {
-                                        _localSelectedItems.clear();
-                                      } else {
-                                        _localSelectedItems = List.from(
-                                          widget.items,
-                                        );
-                                      }
+                                    if (isSelected) {
+                                      _localSelectedItems.remove(item);
                                     } else {
-                                      if (isSelected) {
-                                        _localSelectedItems.remove(item);
-                                      } else {
-                                        _localSelectedItems.add(item);
-                                      }
+                                      _localSelectedItems.add(item);
                                     }
                                   });
                                   setState(() {}); // Update main widget
@@ -251,8 +236,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
   @override
   void dispose() {
-    _isDisposed = true;
-    _closeDropdown();
+    // Do not call setState while disposing.
+    _closeDropdown(updateState: false);
     super.dispose();
   }
 

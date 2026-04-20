@@ -46,8 +46,12 @@ class CacheManager {
   /// Loads cached data if it exists and is not expired.
   /// 
   /// [key] - Unique cache key
+  /// [validFor] - Max age for this entry; defaults to [StorageKeys.cacheValidDuration].
   /// Returns the cached payload if valid, null otherwise
-  Future<Map<String, dynamic>?> loadCache(String key) async {
+  Future<Map<String, dynamic>?> loadCache(
+    String key, {
+    Duration? validFor,
+  }) async {
     final cache = await _storageService.getJson(key);
     if (cache == null) return null;
 
@@ -56,7 +60,8 @@ class CacheManager {
 
     final cachedAt = DateTime.fromMillisecondsSinceEpoch(timestampMillis);
     final age = DateTime.now().difference(cachedAt);
-    if (age > StorageKeys.cacheValidDuration) {
+    final maxAge = validFor ?? StorageKeys.cacheValidDuration;
+    if (age > maxAge) {
       return null; // Cache expired
     }
 
@@ -65,7 +70,7 @@ class CacheManager {
   }
 
   /// Checks if cache exists and is valid (not expired).
-  Future<bool> isCacheValid(String key) async {
+  Future<bool> isCacheValid(String key, {Duration? validFor}) async {
     final cache = await _storageService.getJson(key);
     if (cache == null) return false;
 
@@ -74,7 +79,8 @@ class CacheManager {
 
     final cachedAt = DateTime.fromMillisecondsSinceEpoch(timestampMillis);
     final age = DateTime.now().difference(cachedAt);
-    return age <= StorageKeys.cacheValidDuration;
+    final maxAge = validFor ?? StorageKeys.cacheValidDuration;
+    return age <= maxAge;
   }
 
   /// Removes cached data.

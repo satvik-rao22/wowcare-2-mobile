@@ -1,4 +1,5 @@
 import '../../../../domain/features/classroom/entities/classroom.dart';
+import '../../../../domain/features/classroom/entities/classroom_details.dart';
 import '../../../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/repositories/student_classroom_repository.dart';
@@ -28,6 +29,36 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
           ),
         )
         .toList();
+  }
+
+  @override
+  Future<ClassroomDetails> getClassroomByCode({
+    required String code,
+  }) async {
+    final response = await _remoteDataSource.getClassroomByCode(code: code);
+    final details = response.data;
+
+    if (details == null) {
+      throw Exception('Classroom details not found');
+    }
+
+    return ClassroomDetails(
+      code: details.code,
+      name: details.name,
+      capacity: details.capacity,
+      studentsPerTeacher: details.studentsPerTeacher,
+      minAgeYear: details.minAgeYear,
+      minAgeMonths: details.minAgeMonths,
+      maxAgeYear: details.maxAgeYear,
+      maxAgeMonths: details.maxAgeMonths,
+      type: details.type,
+      school: details.school,
+      status: details.status,
+      createdBy: details.createdBy,
+      createdAt: details.createdAt,
+      updatedBy: details.updatedBy,
+      updatedAt: details.updatedAt,
+    );
   }
 
   @override

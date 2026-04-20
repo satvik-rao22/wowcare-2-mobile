@@ -15,18 +15,27 @@ class ApiLogger {
     AppLogger.d('═══════════════════════════════════════════════════════');
     AppLogger.d('🔵 API REQUEST');
     AppLogger.d('Method: $method');
-    
+
     // URL already includes query parameters from Dio (options.uri),
     // so just log it as-is to avoid duplicating the query string.
     AppLogger.d('URL: $url');
-    
+
     if (queryParameters != null && queryParameters.isNotEmpty) {
       final String queryString = _stringify(queryParameters);
       AppLogger.d('Query Parameters: $queryString');
     }
-    
+
     if (headers != null) {
-      AppLogger.d('Headers: $headers');
+      // Print headers line-by-line to avoid logcat truncation on long tokens.
+      // ignore: avoid_print
+      print('Headers:');
+      headers.forEach((key, value) {
+        final normalizedKey = key.toLowerCase();
+        final displayValue = normalizedKey == 'authorization'
+            ? _maskToken(value?.toString() ?? '')
+            : (value?.toString() ?? '');
+        _printInChunks('  $key: $displayValue');
+      });
     }
     if (body != null) {
       final String bodyString = _stringify(body);
@@ -45,7 +54,7 @@ class ApiLogger {
     AppLogger.d('═══════════════════════════════════════════════════════');
     AppLogger.d('🟢 API RESPONSE');
     AppLogger.d('Method: $method');
-    
+
     // URL already includes query parameters from Dio (requestOptions.uri),
     // so just log it as-is to avoid duplicating the query string.
     AppLogger.d('URL: $url');
@@ -127,9 +136,20 @@ class ApiLogger {
 
     var start = 0;
     while (start < text.length) {
-      final end = (start + chunkSize < text.length) ? start + chunkSize : text.length;
+      final end = (start + chunkSize < text.length)
+          ? start + chunkSize
+          : text.length;
       AppLogger.d(text.substring(start, end));
       start = end;
     }
+  }
+
+  static String _maskToken(String token) {
+    if (token.isEmpty) return token;
+    const prefix = 'Bearer ';
+    if (!token.startsWith(prefix)) return token;
+    final raw = token.substring(prefix.length);
+    if (raw.length <= 16) return '$prefix***';
+    return '$prefix${raw.substring(0, 8)}...${raw.substring(raw.length - 8)}';
   }
 }

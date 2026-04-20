@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -117,6 +120,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   Future<void> _handleEdit(BuildContext context, StudentDocument doc) async {
+    final role = context.read<RoleProvider>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
     if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -156,6 +164,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   Future<void> _handleDelete(BuildContext context, StudentDocument doc) async {
+    final role = context.read<RoleProvider>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -251,6 +264,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const Center(
@@ -490,10 +506,21 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   height: 40,
                                                   decoration: BoxDecoration(
                                                     borderRadius: BorderRadius.circular(8),
-                                                    gradient: AppColors.buildPrimaryGradient(),
+                                                    gradient: canStudentWrite
+                                                        ? AppColors.buildPrimaryGradient()
+                                                        : const LinearGradient(
+                                                            colors: [
+                                                              Color(0xFFC9C5CE),
+                                                              Color(0xFFB8B3BE),
+                                                            ],
+                                                          ),
                                                   ),
                                                   child: TextButton(
-                                                    onPressed: () => _handleEdit(context, doc),
+                                                    onPressed: canStudentWrite
+                                                        ? () => _handleEdit(context, doc)
+                                                        : () => ModuleAccess
+                                                            .showWriteRestricted(
+                                                                context),
                                                     style: TextButton.styleFrom(
                                                       padding: EdgeInsets.zero,
                                                     ),
@@ -514,7 +541,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                 child: SizedBox(
                                                   height: 40,
                                                   child: OutlinedButton(
-                                                    onPressed: () => _handleDelete(context, doc),
+                                                    onPressed: canStudentWrite
+                                                        ? () => _handleDelete(context, doc)
+                                                        : () => ModuleAccess
+                                                            .showWriteRestricted(
+                                                                context),
                                                     style: OutlinedButton.styleFrom(
                                                       side: const BorderSide(
                                                         color: Color(0xFF6C7FD8),
@@ -586,29 +617,40 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           Positioned(
             right: 16,
             bottom: 16,
-            child: GradientAddButton(
-              onTap: () {
-                Navigator.of(context)
-                    .push(
-                      MaterialPageRoute(
-                        builder: (context) => AddStudentDocumentScreen(
-                          studentCode: widget.studentCode ?? '',
-                        ),
-                      ),
-                    )
-                    .then((result) {
-                  if (result == true && mounted) {
-                    _documentsListCubit.refresh(
-                      studentCode,
-                      expiredOnly: _showExpired ? true : null,
-                    );
-                  }
-                });
-              },
-              size: 50.0,
-              iconSize: 28.0,
-              borderRadius: 12.0,
-            ),
+            child: canStudentWrite
+                ? GradientAddButton(
+                    onTap: () {
+                      Navigator.of(context)
+                          .push(
+                            MaterialPageRoute(
+                              builder: (context) => AddStudentDocumentScreen(
+                                studentCode: widget.studentCode ?? '',
+                              ),
+                            ),
+                          )
+                          .then((result) {
+                        if (result == true && mounted) {
+                          _documentsListCubit.refresh(
+                            studentCode,
+                            expiredOnly: _showExpired ? true : null,
+                          );
+                        }
+                      });
+                    },
+                    size: 50.0,
+                    iconSize: 28.0,
+                    borderRadius: 12.0,
+                  )
+                : Opacity(
+                    opacity: 0.45,
+                    child: GradientAddButton(
+                      onTap: () =>
+                          ModuleAccess.showWriteRestricted(context),
+                      size: 50.0,
+                      iconSize: 28.0,
+                      borderRadius: 12.0,
+                    ),
+                  ),
           ),
         ],
       ),

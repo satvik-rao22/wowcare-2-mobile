@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'student_attendance_record_code.dart';
+
 class StudentAttendanceDailyItemModel extends Equatable {
   const StudentAttendanceDailyItemModel({
     this.attendanceRecordCode,
@@ -9,12 +11,30 @@ class StudentAttendanceDailyItemModel extends Equatable {
     required this.classroomName,
     this.signedInAt,
     this.signedInTime,
+    this.signedInBy,
     this.signedOutAt,
     this.signedOutTime,
+    this.signedOutBy,
+    this.signedInMethod,
+    this.signedOutMethod,
     required this.classroomCode,
     required this.tagCodes,
     required this.tagNames,
     this.duration,
+    // Transfer-related fields
+    this.isTransfer,
+    this.sequenceNumber,
+    this.totalSequenceCount,
+    this.hasNextTransfer,
+    this.isLastSequenceEntry,
+    this.fromClassroomCode,
+    this.fromClassroomName,
+    this.toClassroomCode,
+    this.toClassroomName,
+    this.transferTime,
+    this.nextActionTime,
+    this.transferredBy,
+    this.transferReason,
   });
 
   final String studentName;
@@ -24,16 +44,36 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final String? studentCode;
   final String? signedInAt;
   final StudentAttendanceTimeModel? signedInTime;
+  final String? signedInBy;
   final String? signedOutAt;
   final StudentAttendanceTimeModel? signedOutTime;
+  final String? signedOutBy;
+  final String? signedInMethod;
+  final String? signedOutMethod;
   final String classroomCode;
   final List<String> tagCodes;
   final List<String> tagNames;
   final String? duration;
+  // Transfer-related fields
+  final bool? isTransfer;
+  final int? sequenceNumber;
+  final int? totalSequenceCount;
+  final bool? hasNextTransfer;
+  final bool? isLastSequenceEntry;
+  final String? fromClassroomCode;
+  final String? fromClassroomName;
+  final String? toClassroomCode;
+  final String? toClassroomName;
+  final StudentAttendanceTimeModel? transferTime;
+  final StudentAttendanceTimeModel? nextActionTime;
+  final String? transferredBy;
+  final String? transferReason;
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
-      attendanceRecordCode: json['attendanceRecordCode'] as String?,
+      attendanceRecordCode: resolveStudentAttendanceRecordCodeForMutations(
+        json,
+      ),
       studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
@@ -42,10 +82,15 @@ class StudentAttendanceDailyItemModel extends Equatable {
       signedInTime: json['signedInTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedInTime'])
           : null,
+      signedInBy: (json['signedInBy'] ?? json['signedInByName']) as String?,
       signedOutAt: json['signedOutAt'] as String?,
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      signedOutBy: (json['signedOutBy'] ?? json['signedOutByName']) as String?,
+      // Backend exposes how the student was signed in/out (GPS, PIN, QR, APP, etc.)
+      signedInMethod: json['signedInMethod'] as String?,
+      signedOutMethod: json['signedOutMethod'] as String?,
       classroomCode: json['classroomCode'] as String? ?? '',
       tagCodes:
           (json['tagCodes'] as List<dynamic>?)
@@ -58,6 +103,24 @@ class StudentAttendanceDailyItemModel extends Equatable {
               .toList() ??
           const [],
       duration: json['duration'] as String?,
+      // Transfer-related fields
+      isTransfer: json['isTransfer'] as bool?,
+      sequenceNumber: json['sequenceNumber'] as int?,
+      totalSequenceCount: json['totalSequenceCount'] as int?,
+      hasNextTransfer: json['hasNextTransfer'] as bool?,
+      isLastSequenceEntry: json['isLastSequenceEntry'] as bool?,
+      fromClassroomCode: json['fromClassroomCode'] as String?,
+      fromClassroomName: json['fromClassroomName'] as String?,
+      toClassroomCode: json['toClassroomCode'] as String?,
+      toClassroomName: json['toClassroomName'] as String?,
+      transferTime: json['transferTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['transferTime'])
+          : null,
+      nextActionTime: json['nextActionTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['nextActionTime'])
+          : null,
+      transferredBy: json['transferredBy'] as String?,
+      transferReason: json['transferReason'] as String?,
     );
   }
 
@@ -70,12 +133,30 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'classroomName': classroomName,
       'signedInAt': signedInAt,
       'signedInTime': signedInTime?.toJson(),
+      'signedInBy': signedInBy,
       'signedOutAt': signedOutAt,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedOutBy': signedOutBy,
+      'signedInMethod': signedInMethod,
+      'signedOutMethod': signedOutMethod,
       'classroomCode': classroomCode,
       'tagCodes': tagCodes,
       'tagNames': tagNames,
       'duration': duration,
+      // Transfer-related fields
+      'isTransfer': isTransfer,
+      'sequenceNumber': sequenceNumber,
+      'totalSequenceCount': totalSequenceCount,
+      'hasNextTransfer': hasNextTransfer,
+      'isLastSequenceEntry': isLastSequenceEntry,
+      'fromClassroomCode': fromClassroomCode,
+      'fromClassroomName': fromClassroomName,
+      'toClassroomCode': toClassroomCode,
+      'toClassroomName': toClassroomName,
+      'transferTime': transferTime?.toJson(),
+      'nextActionTime': nextActionTime?.toJson(),
+      'transferredBy': transferredBy,
+      'transferReason': transferReason,
     };
   }
 
@@ -88,12 +169,30 @@ class StudentAttendanceDailyItemModel extends Equatable {
     classroomName,
     signedInAt,
     signedInTime,
+    signedInBy,
     signedOutAt,
     signedOutTime,
+    signedOutBy,
+    signedInMethod,
+    signedOutMethod,
     classroomCode,
     tagCodes,
     tagNames,
     duration,
+    // Transfer-related fields
+    isTransfer,
+    sequenceNumber,
+    totalSequenceCount,
+    hasNextTransfer,
+    isLastSequenceEntry,
+    fromClassroomCode,
+    fromClassroomName,
+    toClassroomCode,
+    toClassroomName,
+    transferTime,
+    nextActionTime,
+    transferredBy,
+    transferReason,
   ];
 }
 
@@ -471,6 +570,7 @@ class StudentAttendanceCustomPageModel extends Equatable {
 
 class StaffAttendanceDailyItemModel extends Equatable {
   const StaffAttendanceDailyItemModel({
+    this.attendanceRecordCode,
     required this.staffCode,
     required this.staffName,
     required this.isExpectedToday,
@@ -481,12 +581,28 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.signedInTime,
     this.signedOutBy,
     this.signedOutTime,
+    this.signedInMethod,
+    this.signedOutMethod,
     required this.designation,
     this.attendedTime,
     this.attendedHours,
     this.attendedMinutes,
+    this.isTransfer,
+    this.sequenceNumber,
+    this.totalSequenceCount,
+    this.hasNextTransfer,
+    this.isLastSequenceEntry,
+    this.fromClassroomCode,
+    this.fromClassroomName,
+    this.toClassroomCode,
+    this.toClassroomName,
+    this.transferTime,
+    this.nextActionTime,
+    this.transferredBy,
+    this.transferReason,
   });
 
+  final String? attendanceRecordCode;
   final String staffCode;
   final String staffName;
   final bool isExpectedToday;
@@ -502,22 +618,44 @@ class StaffAttendanceDailyItemModel extends Equatable {
   final int? attendedHours;
   final int? attendedMinutes;
 
+  /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedInMethod;
+
+  /// Sign-out method code as returned by the API (e.g. GPS, PIN, QR, APP).
+  final String? signedOutMethod;
+  final bool? isTransfer;
+  final int? sequenceNumber;
+  final int? totalSequenceCount;
+  final bool? hasNextTransfer;
+  final bool? isLastSequenceEntry;
+  final String? fromClassroomCode;
+  final String? fromClassroomName;
+  final String? toClassroomCode;
+  final String? toClassroomName;
+  final StudentAttendanceTimeModel? transferTime;
+  final StudentAttendanceTimeModel? nextActionTime;
+  final String? transferredBy;
+  final String? transferReason;
+
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
+      attendanceRecordCode: resolveStaffAttendanceRecordCodeForMutations(json),
       staffCode: json['staffCode'] as String? ?? '',
       staffName: json['staffName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
       classroomName: json['classroomName'] as String? ?? '',
       classroomCode: json['classroomCode'] as String? ?? '',
       attendedDays: json['attendedDays'] as int? ?? 0,
-      signedInBy: json['signedInBy'] as String?,
+      signedInBy: (json['signedInBy'] ?? json['signedInByName']) as String?,
       signedInTime: json['signedInTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedInTime'])
           : null,
-      signedOutBy: json['signedOutBy'] as String?,
+      signedOutBy: (json['signedOutBy'] ?? json['signedOutByName']) as String?,
       signedOutTime: json['signedOutTime'] != null
           ? StudentAttendanceTimeModel.fromJson(json['signedOutTime'])
           : null,
+      signedInMethod: json['signedInMethod'] as String?,
+      signedOutMethod: json['signedOutMethod'] as String?,
       designation:
           (json['designation'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -526,11 +664,29 @@ class StaffAttendanceDailyItemModel extends Equatable {
       attendedTime: json['attendedTime'] as String?,
       attendedHours: json['attendedHours'] as int?,
       attendedMinutes: json['attendedMinutes'] as int?,
+      isTransfer: json['isTransfer'] as bool?,
+      sequenceNumber: json['sequenceNumber'] as int?,
+      totalSequenceCount: json['totalSequenceCount'] as int?,
+      hasNextTransfer: json['hasNextTransfer'] as bool?,
+      isLastSequenceEntry: json['isLastSequenceEntry'] as bool?,
+      fromClassroomCode: json['fromClassroomCode'] as String?,
+      fromClassroomName: json['fromClassroomName'] as String?,
+      toClassroomCode: json['toClassroomCode'] as String?,
+      toClassroomName: json['toClassroomName'] as String?,
+      transferTime: json['transferTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['transferTime'])
+          : null,
+      nextActionTime: json['nextActionTime'] != null
+          ? StudentAttendanceTimeModel.fromJson(json['nextActionTime'])
+          : null,
+      transferredBy: json['transferredBy'] as String?,
+      transferReason: json['transferReason'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'attendanceRecordCode': attendanceRecordCode,
       'staffCode': staffCode,
       'staffName': staffName,
       'isExpectedToday': isExpectedToday,
@@ -541,15 +697,31 @@ class StaffAttendanceDailyItemModel extends Equatable {
       'signedInTime': signedInTime?.toJson(),
       'signedOutBy': signedOutBy,
       'signedOutTime': signedOutTime?.toJson(),
+      'signedInMethod': signedInMethod,
+      'signedOutMethod': signedOutMethod,
       'designation': designation,
       'attendedTime': attendedTime,
       'attendedHours': attendedHours,
       'attendedMinutes': attendedMinutes,
+      'isTransfer': isTransfer,
+      'sequenceNumber': sequenceNumber,
+      'totalSequenceCount': totalSequenceCount,
+      'hasNextTransfer': hasNextTransfer,
+      'isLastSequenceEntry': isLastSequenceEntry,
+      'fromClassroomCode': fromClassroomCode,
+      'fromClassroomName': fromClassroomName,
+      'toClassroomCode': toClassroomCode,
+      'toClassroomName': toClassroomName,
+      'transferTime': transferTime?.toJson(),
+      'nextActionTime': nextActionTime?.toJson(),
+      'transferredBy': transferredBy,
+      'transferReason': transferReason,
     };
   }
 
   @override
   List<Object?> get props => [
+    attendanceRecordCode,
     staffCode,
     staffName,
     isExpectedToday,
@@ -560,10 +732,25 @@ class StaffAttendanceDailyItemModel extends Equatable {
     signedInTime,
     signedOutBy,
     signedOutTime,
+    signedInMethod,
+    signedOutMethod,
     designation,
     attendedTime,
     attendedHours,
     attendedMinutes,
+    isTransfer,
+    sequenceNumber,
+    totalSequenceCount,
+    hasNextTransfer,
+    isLastSequenceEntry,
+    fromClassroomCode,
+    fromClassroomName,
+    toClassroomCode,
+    toClassroomName,
+    transferTime,
+    nextActionTime,
+    transferredBy,
+    transferReason,
   ];
 }
 
@@ -663,6 +850,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
     this.markedAbsentTime,
     required this.markedAbsentByName,
     this.absenceNote,
+    this.markAbsentMethod,
     required this.absentDays,
   });
 
@@ -674,6 +862,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
   final StudentAttendanceTimeModel? markedAbsentTime;
   final String markedAbsentByName;
   final String? absenceNote;
+  final String? markAbsentMethod;
   final int absentDays;
 
   factory StaffAttendanceAbsentItemModel.fromJson(Map<String, dynamic> json) {
@@ -688,6 +877,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
           : null,
       markedAbsentByName: json['markedAbsentByName'] as String? ?? '',
       absenceNote: json['absenceNote'] as String?,
+      markAbsentMethod: json['markAbsentMethod'] as String?,
       absentDays: json['absentDays'] as int? ?? 0,
     );
   }
@@ -702,6 +892,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
       'markedAbsentTime': markedAbsentTime?.toJson(),
       'markedAbsentByName': markedAbsentByName,
       'absenceNote': absenceNote,
+      'markAbsentMethod': markAbsentMethod,
       'absentDays': absentDays,
     };
   }
@@ -716,6 +907,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
     markedAbsentTime,
     markedAbsentByName,
     absenceNote,
+    markAbsentMethod,
     absentDays,
   ];
 }
@@ -818,7 +1010,9 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
     this.markedAbsentTime,
     this.markedAbsentByName,
     this.absenceNote,
+    this.markAbsentMethod,
     this.absentDays = 0,
+    this.absenceRecordCode,
   });
 
   final String studentCode;
@@ -829,7 +1023,23 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
   final StudentAttendanceTimeModel? markedAbsentTime;
   final String? markedAbsentByName;
   final String? absenceNote;
+  final String? markAbsentMethod;
   final int absentDays;
+  final String? absenceRecordCode;
+
+  static String? _parseAbsenceRecordCode(Map<String, dynamic> json) {
+    for (final key in ['absenceRecordCode', 'recordCode', 'absenceCode']) {
+      final v = json[key];
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
+    }
+    final code = json['code']?.toString().trim();
+    if (code != null && code.isNotEmpty) {
+      return code;
+    }
+    return null;
+  }
 
   factory StudentAttendanceAbsentFormItemModel.fromJson(
     Map<String, dynamic> json,
@@ -845,7 +1055,9 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
           : null,
       markedAbsentByName: json['markedAbsentByName'] as String?,
       absenceNote: json['absenceNote'] as String?,
+      markAbsentMethod: json['markAbsentMethod'] as String?,
       absentDays: json['absentDays'] as int? ?? 0,
+      absenceRecordCode: _parseAbsenceRecordCode(json),
     );
   }
 
@@ -859,7 +1071,9 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
       'markedAbsentTime': markedAbsentTime?.toJson(),
       'markedAbsentByName': markedAbsentByName,
       'absenceNote': absenceNote,
+      'markAbsentMethod': markAbsentMethod,
       'absentDays': absentDays,
+      if (absenceRecordCode != null) 'absenceRecordCode': absenceRecordCode,
     };
   }
 
@@ -873,7 +1087,9 @@ class StudentAttendanceAbsentFormItemModel extends Equatable {
     markedAbsentTime,
     markedAbsentByName,
     absenceNote,
+    markAbsentMethod,
     absentDays,
+    absenceRecordCode,
   ];
 }
 
@@ -944,4 +1160,83 @@ class StudentAttendanceAbsentFormPageModel extends Equatable {
       'last': !hasMore,
     };
   }
+}
+
+/// Expected attendance summary for the daily view "Expected Students" card.
+class StudentAttendanceExpectedSummaryModel extends Equatable {
+  const StudentAttendanceExpectedSummaryModel({
+    required this.expected,
+    required this.present,
+    required this.absent,
+    required this.signOut,
+    required this.notMarked,
+  });
+
+  final int expected;
+  final int present;
+  final int absent;
+  final int signOut;
+  final int notMarked;
+
+  /// Parses the wrapped API response:
+  /// {
+  ///   "success": true,
+  ///   "message": "...",
+  ///   "data": {
+  ///     "expected": 10,
+  ///     "present": 0,
+  ///     "absent": 4,
+  ///     "signout": 0,
+  ///     "notMarked": 6
+  ///   },
+  ///   ...
+  /// }
+  factory StudentAttendanceExpectedSummaryModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return StudentAttendanceExpectedSummaryModel(
+      expected: data['expected'] as int? ?? 0,
+      present: data['present'] as int? ?? 0,
+      absent: data['absent'] as int? ?? 0,
+      signOut: data['signout'] as int? ?? 0,
+      notMarked: data['notMarked'] as int? ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [expected, present, absent, signOut, notMarked];
+}
+
+/// Staff expected attendance summary for the daily view "Expected Staff" card.
+class StaffAttendanceExpectedSummaryModel extends Equatable {
+  const StaffAttendanceExpectedSummaryModel({
+    required this.expected,
+    required this.present,
+    required this.absent,
+    required this.signOut,
+    required this.notMarked,
+  });
+
+  final int expected;
+  final int present;
+  final int absent;
+  final int signOut;
+  final int notMarked;
+
+  factory StaffAttendanceExpectedSummaryModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    return StaffAttendanceExpectedSummaryModel(
+      expected: data['expected'] as int? ?? 0,
+      present: data['present'] as int? ?? 0,
+      absent: data['absent'] as int? ?? 0,
+      signOut: data['signout'] as int? ?? 0,
+      notMarked: data['notMarked'] as int? ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props => [expected, present, absent, signOut, notMarked];
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
@@ -175,6 +178,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+
     return CustomRefreshIndicator(
       onRefresh: () async {
         await widget.onRefresh?.call();
@@ -182,9 +189,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       child: ProfileInfoCard(
         title: 'Profile Information',
         scrollController: widget.scrollController,
-        onEdit: () {
-        if (widget.studentProfile == null) return;
-        
+        onEdit: widget.studentProfile != null && canStudentWrite
+            ? () {
         final profile = widget.studentProfile!;
         
         // Map status from API format (ACTIVE) to display format (Active)
@@ -314,7 +320,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             await widget.onRefresh?.call();
           }
         });
-      },
+      }
+            : null,
       children: [
         ProfileField(
           label: 'Name',
@@ -471,6 +478,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () async {
+            if (!canStudentWrite) {
+              ModuleAccess.showWriteRestricted(context);
+              return;
+            }
             final profile = widget.studentProfile;
             if (profile == null) return;
 
@@ -619,7 +630,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               );
             }
           },
-          child: Column(
+          child: Opacity(
+            opacity: canStudentWrite ? 1 : 0.45,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -710,7 +723,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                             time.hour,
                             time.minute,
                           );
-                          return DateFormat('hh:mma').format(dt);
+                          return DateFormat('h:mm a').format(dt);
                         }
 
                         final targetEnum = _fullToEnum(dayLabel);
@@ -764,6 +777,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               ),
             ],
           ),
+            ),
         ),
 
         _buildUpcomingMove(),

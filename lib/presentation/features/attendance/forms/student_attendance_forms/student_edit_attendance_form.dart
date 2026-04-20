@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -11,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 
 class StudentEditAttendanceForm extends StatefulWidget {
@@ -31,6 +37,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   TimeOfDay? _signInTime;
   TimeOfDay? _signOutTime;
   late final UpdateStudentAttendanceRecordUseCase _updateUseCase;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -41,22 +48,57 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   }
 
   TimeOfDay? _parseTimeOrNull(String? timeString) {
-    if (timeString == null || timeString.isEmpty) {
+    if (timeString == null) {
+      return null;
+    }
+    final raw = timeString.trim();
+    if (raw.isEmpty) return null;
+    if (raw.toLowerCase() == 'not yet signed out' ||
+        raw.toLowerCase() == 'not yet signed in') {
       return null;
     }
 
     try {
-      // Expect formats like "10:18 AM" or "10:18 AM By John"
-      final parts = timeString.split(' ');
-      final candidate = parts.length >= 2 ? '${parts[0]} ${parts[1]}' : timeString;
-      final parsed = DateFormat.jm().parse(candidate);
-      return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
-    } catch (_) {
-      return null;
+      final iso = DateTime.tryParse(raw);
+      if (iso != null) {
+        final local = iso.toLocal();
+        return TimeOfDay(hour: local.hour, minute: local.minute);
+      }
+    } catch (_) {}
+
+    final lower = raw.toLowerCase();
+    final byIndex = lower.indexOf(' by ');
+    final withoutBy = byIndex > 0 ? raw.substring(0, byIndex).trim() : raw;
+    final normalized = withoutBy.replaceAll('.', '').trim();
+
+    final ampmMatch = RegExp(
+      r'(\d{1,2}:\d{2}(?::\d{2})?\s*[AaPp][Mm])',
+    ).firstMatch(normalized);
+    if (ampmMatch != null) {
+      final candidate = ampmMatch.group(1)!.replaceAll(RegExp(r'\s+'), ' ');
+      try {
+        final hasSeconds = RegExp(r':\d{2}\s*[AaPp][Mm]$').hasMatch(candidate);
+        final parsed = hasSeconds
+            ? DateFormat('h:mm:ss a').parse(candidate)
+            : DateFormat.jm().parse(candidate);
+        return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+      } catch (_) {}
     }
+
+    final hmsMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?').firstMatch(normalized);
+    if (hmsMatch != null) {
+      final hour = int.tryParse(hmsMatch.group(1)!);
+      final minute = int.tryParse(hmsMatch.group(2)!);
+      if (hour != null && minute != null && hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    }
+
+    return null;
   }
 
   void _handleSubmit() {
+    if (_isSubmitting) return;
     _submitAsync();
   }
 
@@ -64,68 +106,94 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     Navigator.pop(context);
   }
 
-  Future<String> _resolveStaffCode() async {
-    final storage = serviceLocator<StorageService>();
-    return (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-  }
+  Future<String> _resolveStaffCode() =>
+      resolveStaffCodeForLoggedInUser();
 
   Future<void> _submitAsync() async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
     final attendanceCode = widget.studentAttendance.attendanceRecordCode;
     if (attendanceCode == null || attendanceCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to update: missing attendance record code.'),
           backgroundColor: AppColors.errorColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.errorColor,
         ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
       return;
     }
 
     final date = widget.attendanceDate;
-    DateTime? signedInAt;
-    DateTime? signedOutAt;
-
-    // Preserve semantics: only send times that were present originally.
-    if (widget.studentAttendance.signInTime != null &&
-        widget.studentAttendance.signInTime!.isNotEmpty &&
-        _signInTime != null) {
-      // Build an explicit UTC timestamp so the backend receives a proper
-      // ISO8601 value like "2026-03-04T16:31:00.000Z".
-      signedInAt = DateTime.utc(
-        date.year,
-        date.month,
-        date.day,
-        _signInTime!.hour,
-        _signInTime!.minute,
+    if (_signInTime == null) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('Sign-In time is required.'),
+          backgroundColor: AppColors.errorColor,
+        ),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
     }
 
-    if (widget.studentAttendance.signOutTime != null &&
-        widget.studentAttendance.signOutTime!.isNotEmpty &&
-        _signOutTime != null) {
-      signedOutAt = DateTime.utc(
-        date.year,
-        date.month,
-        date.day,
-        _signOutTime!.hour,
-        _signOutTime!.minute,
-      );
-    }
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+
+    // Send prefilled/edited times as school-local wall clock on [attendanceDate].
+    final signedInAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      schoolTimeZone,
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      hour: _signInTime!.hour,
+      minute: _signInTime!.minute,
+    );
+    final signedOutAt = _signOutTime == null
+        ? null
+        : SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: date.year,
+            month: date.month,
+            day: date.day,
+            hour: _signOutTime!.hour,
+            minute: _signOutTime!.minute,
+          );
 
     final classroomCode = widget.studentAttendance.classroomCode;
-    final timeZone = DateTime.now().timeZoneName;
 
     try {
       final message = await _updateUseCase(
@@ -136,12 +204,14 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
         originalClassroomCode: classroomCode,
         currentClassroomCode: classroomCode,
         notes: null,
-        timeZone: timeZone,
+        timeZone: schoolTimeZone,
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
           content: Text(message),
           backgroundColor: AppColors.successColor,
@@ -150,12 +220,20 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.errorColor,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -167,22 +245,9 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
         ? student.studentName.split(' ').first
         : 'Student';
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.primaryColor,
-        title: Text(
-          "Edit $titleName's Attendance",
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
+    return StaffFormLayout(
+      title: "Edit $titleName's Attendance",
+      child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
           horizontal: isTablet ? 24 : 16,
           vertical: 16,
@@ -214,18 +279,10 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
           ],
         ),
       ),
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.fromLTRB(
-          isTablet ? 24 : 16,
-          8,
-          isTablet ? 24 : 16,
-          16 + MediaQuery.of(context).padding.bottom,
-        ),
-        child: CustomButtonLayout(
-          onPressedCancel: _handleCancel,
-          onPressedConfirm: _handleSubmit,
-          confirmButtonLabel: 'Submit',
-        ),
+      bottomBar: CustomButtonLayout(
+        onPressedCancel: _handleCancel,
+        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
+        confirmButtonLabel: 'Submit',
       ),
     );
   }

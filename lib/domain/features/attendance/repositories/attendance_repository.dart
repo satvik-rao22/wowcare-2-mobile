@@ -10,6 +10,8 @@ abstract class AttendanceRepository {
     required String attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page,
     int size,
@@ -73,6 +75,30 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Removes a student absence record (e.g. before override sign-in).
+  ///
+  /// Backend: `DELETE /api/v1/student-absence-records/{absenceRecordCode}`.
+  Future<void> deleteStudentAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+  });
+
+  /// Removes a student attendance record (sign-in / sign-out / transfer day row).
+  ///
+  /// Backend: `DELETE /api/v1/student-attendance-records/{attendanceRecordCode}`.
+  Future<void> deleteStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  });
+
+  /// Removes a staff attendance record (sign-in / sign-out / transfer day row).
+  ///
+  /// Backend: `DELETE /api/v1/staff-attendance-records/{attendanceRecordCode}`.
+  Future<void> deleteStaffAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  });
+
   /// Creates student absence records (Mark Absent).
   Future<String> markStudentsAbsent({
     required String staffCode,
@@ -82,6 +108,8 @@ abstract class AttendanceRepository {
     required String absenceReason,
     required Map<String, String> absenceNotes,
     required String classroomCode,
+    required Map<String, bool> isExpectedTodayByStudentCode,
+    String markAbsentMethod = 'APP',
   });
 
   /// Creates staff absence records (Mark Absent).
@@ -93,6 +121,8 @@ abstract class AttendanceRepository {
     required String absenceReason,
     required String absenceType,
     required Map<String, String> absenceNotes,
+    required Map<String, bool> isExpectedTodayByStaffCode,
+    String markAbsentMethod = 'APP',
   });
 
   /// Student Absent toggle view - absent students for daily screen toggle.
@@ -113,6 +143,8 @@ abstract class AttendanceRepository {
     required String toAttendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
     int page,
     int size,
@@ -207,11 +239,27 @@ abstract class AttendanceRepository {
   /// if the backend did not return a status for this code.
   Future<String?> getStaffTodaySignInStatus(String staffCode);
 
+  /// Current-day sign-in status for multiple staff members.
+  ///
+  /// Returns a map of `staffCode -> status` where status is typically
+  /// `SIGNED_IN` or `ABSENT`.
+  Future<Map<String, String>> getStaffTodaySignInStatusMap(
+    List<String> staffCodes,
+  );
+
   /// Current-day sign-in status for a single student.
   ///
   /// Returns a status string such as `SIGNED_IN` or `ABSENT`, or `null`
   /// if the backend did not return a status for this code.
   Future<String?> getStudentTodaySignInStatus(String studentCode);
+
+  /// Current-day sign-in status for multiple students.
+  ///
+  /// Returns a map of `studentCode -> status` where status is typically
+  /// `SIGNED_IN` or `ABSENT`.
+  Future<Map<String, String>> getStudentTodaySignInStatusMap(
+    List<String> studentCodes,
+  );
 
   /// Updates a single student attendance record (sign-in/sign-out entry).
   ///
@@ -225,6 +273,24 @@ abstract class AttendanceRepository {
     String? currentClassroomCode,
     String? notes,
     String? timeZone,
+  });
+
+  /// Creates student sign-in records.
+  ///
+  /// Mirrors backend payload for `/api/v1/student-attendance-records/sign-in`.
+  Future<String> createStudentSignInRecords({
+    required String attendanceDate,
+    required String staffCode,
+    required List<String> studentCodes,
+    String? classroomCode,
+    Map<String, String>? classroomCodeByStudentCode,
+    String method = 'APP',
+    bool isExpected = true,
+    double latitude = 0,
+    double longitude = 0,
+    bool withinGeofence = false,
+    String? timeZone,
+    DateTime? occurredAt,
   });
 }
 

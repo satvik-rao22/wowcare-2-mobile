@@ -14,6 +14,12 @@ class DocumentImageWidget extends StatefulWidget {
   /// Optional staff code for attendance status dot.
   final String? staffCode;
 
+  /// Employment/list status (e.g. `UPCOMING`) — shows amber dot, takes precedence over attendance API.
+  final String? staffEmploymentStatus;
+
+  /// Enrollment/list status (e.g. `UPCOMING`) — amber dot, takes precedence over attendance API.
+  final String? studentEnrollmentStatus;
+
   /// Optional student code for attendance status dot.
   final String? studentCode;
   final double size;
@@ -25,18 +31,20 @@ class DocumentImageWidget extends StatefulWidget {
   final Widget? errorWidget;
   final double? fontSize;
   final Color? statusColor; // optional small status dot color
-  /// Optional status string (e.g. UPCOMING/ACTIVE) to auto-pick [statusColor].
-  /// If [statusColor] is provided, it takes precedence.
-  final String? status;
-
-  /// When set, shown in the status-dot tooltip instead of the default staff messages.
+  /// Tooltip when showing [statusColor] without API-driven attendance label.
   final String? statusTooltip;
+
+  /// If true, the API-driven attendance dot is shown only when status == ABSENT.
+  /// (E.g. sign-in selection screens want to highlight absences only.)
+  final bool showOnlyAbsentAttendanceDot;
 
   const DocumentImageWidget({
     Key? key,
     required this.fileUuid,
     this.name,
     this.staffCode,
+    this.staffEmploymentStatus,
+    this.studentEnrollmentStatus,
     this.studentCode,
     this.size = 50.0,
     this.placeholderAsset,
@@ -47,8 +55,8 @@ class DocumentImageWidget extends StatefulWidget {
     this.errorWidget,
     this.fontSize,
     this.statusColor,
-    this.status,
     this.statusTooltip,
+    this.showOnlyAbsentAttendanceDot = false,
   }) : super(key: key);
 
   @override
@@ -85,12 +93,35 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     }
 
     if (oldWidget.staffCode != widget.staffCode ||
+        oldWidget.staffEmploymentStatus != widget.staffEmploymentStatus ||
+        oldWidget.studentEnrollmentStatus != widget.studentEnrollmentStatus ||
         oldWidget.studentCode != widget.studentCode) {
       _loadAttendanceStatusIfNeeded();
     }
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
+    final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
+    if (employment == 'UPCOMING') {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = AppColors.mustardProgressBar;
+        _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
+    final enrollment =
+        widget.studentEnrollmentStatus?.trim().toUpperCase() ?? '';
+    if (enrollment == 'UPCOMING') {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = AppColors.mustardProgressBar;
+        _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
     // Only one of staffCode / studentCode is expected; if both null, do nothing.
     final staffCode = widget.staffCode;
     final studentCode = widget.studentCode;
@@ -123,8 +154,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       Color? color;
       String? label;
       if (normalized == 'SIGNED_IN') {
-        color = Colors.green;
-        label = 'Signed in';
+        if (widget.showOnlyAbsentAttendanceDot) {
+          color = null;
+          label = null;
+        } else {
+          color = Colors.green;
+          label = 'Signed in';
+        }
       } else if (normalized == 'ABSENT') {
         color = Colors.red;
         label = 'Absent';
@@ -184,9 +220,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Widget _buildAvatarWithStatus(Widget avatar) {
-    final effectiveColor =
-        widget.statusColor ?? _statusDotColorFromStatus(widget.status);
-    if (effectiveColor == null) return avatar;
+    final dotColor = _statusDotColor ?? widget.statusColor;
+    if (dotColor == null) return avatar;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -195,9 +230,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           right: 2,
           top: 2,
           child: Tooltip(
-            message:
-                widget.statusTooltip ??
-                _statusTooltipMessage(effectiveColor, status: widget.status),
+            message: _statusTooltipMessage(),
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
@@ -211,12 +244,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               fontWeight: FontWeight.w600,
             ),
             child: Container(
-              width: widget.size * 0.22,
-              height: widget.size * 0.22,
+              width: widget.size * 0.27,
+              height: widget.size * 0.27,
               decoration: BoxDecoration(
-                color: effectiveColor,
+                color: dotColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: Colors.white, width: 1),
               ),
             ),
           ),
@@ -225,18 +258,31 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     );
   }
 
-  Color? _statusDotColorFromStatus(String? status) {
-    final upper = (status ?? '').trim().toUpperCase();
-    if (upper.isEmpty) return null;
-    if (upper == 'UPCOMING') return const Color(0xFFFFC107); // amber/yellow
-    return null;
-  }
-
-  String _statusTooltipMessage(Color c, {String? status}) {
-    final upper = (status ?? '').trim().toUpperCase();
-    if (upper == 'UPCOMING') return 'Upcoming student';
-    if (c.green >= c.red && c.green > 120) return 'Staff is signed in';
-    if (c.red > 180 && c.green < 120) return 'Staff is absent';
+  String _statusTooltipMessage() {
+    if (_statusLabel != null) {
+      if (_statusLabel == 'Upcoming' &&
+          widget.staffCode != null &&
+          widget.staffCode!.isNotEmpty) {
+        return 'Upcoming staff';
+      }
+      if (_statusLabel == 'Upcoming' &&
+          widget.studentCode != null &&
+          widget.studentCode!.isNotEmpty) {
+        return 'Upcoming student';
+      }
+      // Prefix with "Staff"/"Student" when we know which one it is.
+      if (widget.staffCode != null && widget.staffCode!.isNotEmpty) {
+        return 'Staff is ${_statusLabel!.toLowerCase()}';
+      }
+      if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
+        return 'Student is ${_statusLabel!.toLowerCase()}';
+      }
+      return _statusLabel!;
+    }
+    final manual = widget.statusTooltip?.trim();
+    if (manual != null && manual.isNotEmpty) {
+      return manual;
+    }
     return 'Status';
   }
 

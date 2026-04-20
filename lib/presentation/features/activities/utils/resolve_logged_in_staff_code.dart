@@ -1,6 +1,7 @@
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/login_persona_util.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
@@ -11,6 +12,25 @@ Future<String?> resolveLoggedInStaffCode() async {
     final storage = serviceLocator<StorageService>();
     final userCode =
         (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    if (userCode.isEmpty) return null;
+
+    final orgCode =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolFromStorage =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    if (orgCode.isNotEmpty) {
+      final rolesJson =
+          (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (shouldSkipStaffCodeResolutionForContext(
+        rolesJson: rolesJson,
+        organizationCode: orgCode,
+        schoolCode: schoolFromStorage,
+      )) {
+        return null;
+      }
+    }
+
     final cachedStaffCode =
         (await storage.getString(StorageKeys.staffCode) ?? '').trim();
     final cachedStaffUser =
@@ -18,20 +38,12 @@ Future<String?> resolveLoggedInStaffCode() async {
 
     if (cachedStaffCode.isNotEmpty &&
         cachedStaffUser.isNotEmpty &&
-        userCode.isNotEmpty &&
         cachedStaffUser == userCode) {
       return cachedStaffCode;
     }
     if (cachedStaffCode.isNotEmpty) {
       return cachedStaffCode;
     }
-
-    if (userCode.isEmpty) return null;
-
-    final orgCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolFromStorage =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
     if (orgCode.isEmpty) return null;
 

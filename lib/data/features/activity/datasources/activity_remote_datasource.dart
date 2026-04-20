@@ -9,6 +9,22 @@ import '../models/activity_type_details_model.dart';
 import '../models/activity_upload_session_models.dart';
 
 abstract class ActivityRemoteDataSource {
+  /// `GET /api/v1/activities/code/{code}` — returns inner `data` map.
+  Future<Map<String, dynamic>> getActivityByCode({required String code});
+
+  /// `PATCH /api/v1/activities/{code}`
+  Future<String> updateActivity({
+    required String code,
+    required String staffCode,
+    required String activityDate,
+    required String description,
+    required List<Map<String, dynamic>> parameterValues,
+    required List<Map<String, dynamic>> attachments,
+  });
+
+  /// `DELETE /api/v1/activities/{code}` (soft delete).
+  Future<String> deleteActivity({required String code});
+
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
@@ -76,6 +92,86 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   ActivityRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  @override
+  Future<Map<String, dynamic>> getActivityByCode({required String code}) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activities,
+      ApiConstants.activityBaseUrl,
+    );
+    // Match [getActivityTypeDetails]: append code as a path segment without
+    // [Uri.encodeComponent]. Encoding broke some gateways; activity codes are
+    // typically `ACT_…` / UUID-safe. Encode only if the code contains `/`.
+    final raw = code.trim();
+    final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
+    final endpoint = '$base/code/$segment';
+    final response = await _client.get<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected get-activity API response format');
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected get-activity API data format');
+    }
+    return data;
+  }
+
+  @override
+  Future<String> updateActivity({
+    required String code,
+    required String staffCode,
+    required String activityDate,
+    required String description,
+    required List<Map<String, dynamic>> parameterValues,
+    required List<Map<String, dynamic>> attachments,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activities,
+      ApiConstants.activityBaseUrl,
+    );
+    final raw = code.trim();
+    final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
+    final endpoint = '$base/$segment';
+    final payload = <String, dynamic>{
+      'staffCode': staffCode,
+      'activityDate': activityDate,
+      'description': description,
+      'parameterValues': parameterValues,
+      'attachments': attachments,
+    };
+    final response = await _client.patch<dynamic>(endpoint, data: payload);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected update-activity API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity updated successfully';
+  }
+
+  @override
+  Future<String> deleteActivity({required String code}) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activities,
+      ApiConstants.activityBaseUrl,
+    );
+    final raw = code.trim();
+    final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
+    final endpoint = '$base/$segment';
+    final response = await _client.delete<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected delete-activity API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity deleted successfully';
+  }
 
   @override
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({

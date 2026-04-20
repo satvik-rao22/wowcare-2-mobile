@@ -954,6 +954,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 
 enum MediaType { photos, video }
@@ -968,6 +969,7 @@ class MediaUploader extends StatefulWidget {
     this.onMediaChanged,
     this.allowPhoto = true,
     this.allowVideo = true,
+    this.allowPhotoAndVideoTogether = false,
     this.isRequired = false,
     this.limit = 10,
     this.label = 'Upload Photos & Video',
@@ -989,6 +991,9 @@ class MediaUploader extends StatefulWidget {
 
   final bool allowPhoto;
   final bool allowVideo;
+  /// When [allowPhoto] and [allowVideo] are both true, keeps photos and video
+  /// at the same time instead of replacing one with the other (e.g. Incident).
+  final bool allowPhotoAndVideoTogether;
   final bool isRequired;
   final int limit;
   final String label;
@@ -1000,6 +1005,11 @@ class MediaUploader extends StatefulWidget {
 }
 
 class _MediaUploaderState extends State<MediaUploader> {
+
+  bool get _keepPhotoAndVideoTogether =>
+      widget.allowPhoto &&
+      widget.allowVideo &&
+      widget.allowPhotoAndVideoTogether;
 
   List<File> _newPhotos = [];
   File? _newVideoFile;
@@ -1013,7 +1023,7 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   late int maxPhotos;
   late int photoMaxSizeMB;
-  static const int videoMaxSizeMB = 100;
+  static const int videoMaxSizeMB = 200;
   static const int videoMaxDurationSec = 60;
 
   static const List<String> _photoExt = ['jpg', 'jpeg', 'png', 'heic', 'heif'];
@@ -1082,6 +1092,8 @@ class _MediaUploaderState extends State<MediaUploader> {
       }
     } catch (e) {
       debugPrint('Failed to load remote video thumbnail: $e');
+      _remoteVideoController?.dispose();
+      _remoteVideoController = null;
       if (mounted) {
         setState(() {
           _remoteThumbnailError = true;
@@ -1123,17 +1135,17 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   void _showWarning(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.orange.shade100,
-        duration: const Duration(seconds: 3),
-      ),
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isWarning: true,
+      duration: const Duration(seconds: 3),
     );
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
-    if (_currentType == MediaType.video) {
+    if (_currentType == MediaType.video && !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('photos');
       if (!replace) return;
       _clearVideo();
@@ -1185,7 +1197,9 @@ class _MediaUploaderState extends State<MediaUploader> {
   Future<void> _pickVideo(ImageSource source) async {
     if (!widget.allowVideo) return;
 
-    if (_hasMedia && _currentType == MediaType.photos) {
+    if (_hasMedia &&
+        _currentType == MediaType.photos &&
+        !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('video');
       if (!replace) return;
     }
@@ -1194,7 +1208,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       source: source,
       maxDuration: const Duration(seconds: videoMaxDurationSec),
     );
-    if (picked == null) return;
+    if (!mounted || picked == null) return;
 
     final ext = picked.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
@@ -1210,7 +1224,21 @@ class _MediaUploaderState extends State<MediaUploader> {
     }
 
     final controller = VideoPlayerController.file(file);
-    await controller.initialize();
+    try {
+      await controller.initialize();
+    } catch (e) {
+      await controller.dispose();
+      if (mounted) {
+        _showWarning(
+          'This video format is not supported on this device. Please use standard MP4 (H.264).',
+        );
+      }
+      return;
+    }
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
     final durationSec = controller.value.duration.inSeconds;
     await controller.dispose();
 
@@ -1219,11 +1247,19 @@ class _MediaUploaderState extends State<MediaUploader> {
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _newVideoFile = file;
       _videoThumbnailFile = null;
-      _newPhotos.clear();
-      _currentType = MediaType.video;
+      if (!_keepPhotoAndVideoTogether) {
+        _newPhotos.clear();
+      }
+      final hasPhotos =
+          _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
+      _currentType =
+          _keepPhotoAndVideoTogether && hasPhotos
+              ? MediaType.photos
+              : MediaType.video;
     });
     await _generateVideoThumbnail();
     _notifyParent();
@@ -1417,7 +1453,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     );
   }
 
-  Widget _previewItem({required Widget child, bool isVideo = false, required VoidCallback onRemove}) {
+  Widget _previewItem({required Widget child, required VoidCallback onRemove}) {
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: Stack(
@@ -1449,12 +1485,14 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Widget _buildAllPreviews() {
+    final showVideoPreview = _keepPhotoAndVideoTogether
+        ? (_newVideoFile != null || _existingVideoUrl != null)
+        : _currentType == MediaType.video;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-
-          if (_currentType == MediaType.video) _buildVideoPreview(),
+          if (showVideoPreview) _buildVideoPreview(),
           ..._existingPhotoUrls.map((url) => _buildPhotoPreviewNetwork(url)),
           ..._newPhotos.asMap().entries.map((e) => _buildPhotoPreviewFile(e.value, e.key)),
 

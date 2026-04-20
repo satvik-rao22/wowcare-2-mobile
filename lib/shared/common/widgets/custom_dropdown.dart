@@ -149,6 +149,9 @@ class CustomDropdown extends StatefulWidget {
     this.contentPadding,
     this.height = null,
     this.leadingIcon,
+    /// When true (default), [hintText] is the first menu item; choosing it clears the selection.
+    /// Set false when a value must always stay chosen (e.g. parent global child picker).
+    this.prependHintAsSelectableItem = true,
   });
 
   final String? label;
@@ -173,6 +176,7 @@ class CustomDropdown extends StatefulWidget {
 
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
+  final bool prependHintAsSelectableItem;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -200,12 +204,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    // Build a list where the first option is always the hint text.
-    // Selecting it will clear the current selection.
-    final List<String> displayItems = <String>[
-      widget.hintText,
-      ...widget.items,
-    ];
+    final List<String> displayItems = widget.prependHintAsSelectableItem
+        ? <String>[widget.hintText, ...widget.items]
+        : List<String>.from(widget.items);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,11 +267,11 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     ),
                     onSelected: (value) {
                       setState(() {
-                        // Treat selecting the hint text as "clear selection".
-                        if (value == widget.hintText) {
+                        if (widget.prependHintAsSelectableItem &&
+                            value == widget.hintText) {
                           selectedItem = null;
                         } else {
-                          selectedItem = value; // Update the selected item
+                          selectedItem = value;
                         }
                       });
 

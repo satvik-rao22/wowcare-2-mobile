@@ -1,14 +1,25 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
@@ -17,6 +28,11 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 
 class AttendancePopupManager {
   static void showAttendancePopup(
@@ -47,18 +63,160 @@ class AttendancePopupOverlay extends StatefulWidget {
 }
 
 class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
+  bool _isParentRole = false;
+  bool? _isTeacherStaffPersona; // When true: skip staff selection and use self forms.
+  String _loggedInStaffCode = '';
 
   @override
   void initState() {
     super.initState();
+    _isParentRole = context.read<RoleProvider>().isParent;
     _tabController = TabController(
-      length: 2,
+      length: _isParentRole ? 1 : 2,
       vsync: this,
-      initialIndex: widget.initialTabIndex,
+      initialIndex: _isParentRole ? 0 : widget.initialTabIndex,
     );
     _tabController.addListener(_onTabChanged);
+    _syncPersonaFlags();
+  }
+
+  Future<void> _syncPersonaFlags() async {
+    final resolvedParentRole = await _resolveIsParentSession();
+    if (!mounted) return;
+
+    if (resolvedParentRole != _isParentRole) {
+      _isParentRole = resolvedParentRole;
+      _replaceTabController(
+        length: _isParentRole ? 1 : 2,
+        initialIndex: 0,
+      );
+      setState(() {});
+    }
+
+    if (!_isParentRole) {
+      await _loadStaffPersonaFlags();
+    }
+  }
+
+  void _replaceTabController({
+    required int length,
+    required int initialIndex,
+  }) {
+    final previousController = _tabController;
+    final nextIndex = initialIndex.clamp(0, length - 1);
+    final nextController = TabController(
+      length: length,
+      vsync: this,
+      initialIndex: nextIndex,
+    );
+    nextController.addListener(_onTabChanged);
+    _tabController = nextController;
+
+    previousController.removeListener(_onTabChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      previousController.dispose();
+    });
+  }
+
+  Future<bool> _resolveIsParentSession() async {
+    if (context.read<RoleProvider>().isParent) return true;
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final orgCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final detailsRaw =
+          (await storage.getString(StorageKeys.userAccessDetails) ?? '').trim();
+      if (detailsRaw.isNotEmpty) {
+        final decoded = jsonDecode(detailsRaw);
+        if (decoded is List) {
+          for (final user in decoded) {
+            if (user is! Map) continue;
+            final userOrg = (user['organizationCode'] ?? '').toString().trim();
+            if (orgCode.isNotEmpty && userOrg != orgCode) continue;
+            final schools = user['schools'];
+            if (schools is! List) continue;
+            for (final s in schools) {
+              if (s is! Map) continue;
+              final school = Map<String, dynamic>.from(s);
+              final sc = (school['schoolCode'] ?? '').toString().trim();
+              if (schoolCode.isNotEmpty && sc != schoolCode) continue;
+              final role = (school['role'] ?? '').toString().toUpperCase().trim();
+              if (role.contains('PARENT') || role.contains('GUARDIAN')) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (rolesJson.isNotEmpty) {
+        final decoded = jsonDecode(rolesJson);
+        if (decoded is List) {
+          for (final role in decoded) {
+            if (role is! Map) continue;
+            final roleName = (role['role'] ?? '').toString().toUpperCase().trim();
+            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
+              return true;
+            }
+          }
+        }
+      }
+
+      final loginContext = await storage.getJson(StorageKeys.loginContext);
+      final raw = jsonEncode(loginContext ?? const <String, dynamic>{}).toUpperCase();
+      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
+        return true;
+      }
+    } catch (_) {
+      // Keep default false when session metadata is unavailable.
+    }
+
+    return false;
+  }
+
+  Future<void> _loadStaffPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      var staffCode =
+          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      if (staffCode.isEmpty) {
+        staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      }
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+      bool isStaffAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+
+      if (!isStaffAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
+          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+          isStaffAdmin = roles.any((r) {
+            if (r is! Map<String, dynamic>) return false;
+            final roleCode = (r['role'] ?? '').toString().toUpperCase();
+            return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+          });
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _loggedInStaffCode = staffCode;
+        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loggedInStaffCode = '';
+        _isTeacherStaffPersona = false;
+      });
+    }
   }
 
   void _onTabChanged() {
@@ -77,7 +235,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   @override
   Widget build(BuildContext context) {
     final roleProvider = Provider.of<RoleProvider>(context, listen: false);
-    final isAdmin = roleProvider.isAdmin;
+    final isAdmin = roleProvider.isAdmin && !_isParentRole;
+    final isParent = _isParentRole;
+    final isTeacherPersona = _isTeacherStaffPersona == true;
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final screenWidth = mediaQuery.size.width;
@@ -142,24 +302,58 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     fontFamily: Fonts.manrope,
                     fontSize: isTablet ? 18 : 16,
                   ),
-                  tabs: const [
-                    Tab(text: 'Student Attendance'),
-                    Tab(text: 'Staff Attendance'),
-                  ],
+                  tabs: isParent
+                      ? const [
+                          Tab(text: 'Student Attendance'),
+                        ]
+                      : [
+                          const Tab(text: 'Student Attendance'),
+                          Tab(
+                            text: isTeacherPersona
+                                ? 'My Attendance'
+                                : 'Staff Attendance',
+                          ),
+                        ],
                 ),
               ),
               Flexible(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     return SizedBox(
-                      height: _getTabHeight(isAdmin, isTablet, constraints.maxHeight),
+                      height: _getTabHeight(
+                        isAdmin: isAdmin,
+                        isParent: isParent,
+                        isTablet: isTablet,
+                        maxAvailableHeight: constraints.maxHeight,
+                      ),
                       child: TabBarView(
                         controller: _tabController,
                         physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildStudentAttendanceTab(context, isAdmin, isTablet, screenWidth),
-                          _buildStaffAttendanceTab(context, isAdmin, isTablet, screenWidth),
-                        ],
+                        children: isParent
+                            ? [
+                                _buildStudentAttendanceTab(
+                                  context,
+                                  isAdmin,
+                                  isParent,
+                                  isTablet,
+                                  screenWidth,
+                                ),
+                              ]
+                            : [
+                                _buildStudentAttendanceTab(
+                                  context,
+                                  isAdmin,
+                                  isParent,
+                                  isTablet,
+                                  screenWidth,
+                                ),
+                                _buildStaffAttendanceTab(
+                                  context,
+                                  isAdmin,
+                                  isTablet,
+                                  screenWidth,
+                                ),
+                              ],
                       ),
                     );
                   },
@@ -175,6 +369,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   Widget _buildStudentAttendanceTab(
     BuildContext context,
     bool isAdmin,
+    bool isParent,
     bool isTablet,
     double screenWidth,
   ) {
@@ -209,9 +404,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    navigator.push(
                       MaterialPageRoute(
                         builder: (_) => const StudentSelectionSignInForm(),
                       ),
@@ -225,9 +420,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   iconSize: buttonSize,
                   fontSize: fontSize,
                   onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    navigator.push(
                       MaterialPageRoute(
                         builder: (_) => const StudentSelectionSignOutForm(),
                       ),
@@ -235,38 +430,40 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   },
                   context: context,
                 ),
-                _buildActionButton(
-                  icon: MediaRes.transfer,
-                  label: 'Transfer',
-                  iconSize: buttonSize,
-                  fontSize: fontSize,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StudentSelectionTransferForm(),
-                      ),
-                    );
-                  },
-                  context: context,
-                ),
-                _buildActionButton(
-                  icon: MediaRes.Mark_absent,
-                  label: 'Absent',
-                  iconSize: buttonSize,
-                  fontSize: fontSize,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StudentSelectionMarkAbsentForm(),
-                      ),
-                    );
-                  },
-                  context: context,
-                ),
+                if (!isParent)
+                  _buildActionButton(
+                    icon: MediaRes.transfer,
+                    label: 'Transfer',
+                    iconSize: buttonSize,
+                    fontSize: fontSize,
+                    onTap: () {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => const StudentSelectionTransferForm(),
+                        ),
+                      );
+                    },
+                    context: context,
+                  ),
+                if (!isParent)
+                  _buildActionButton(
+                    icon: MediaRes.Mark_absent,
+                    label: 'Absent',
+                    iconSize: buttonSize,
+                    fontSize: fontSize,
+                    onTap: () {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => const StudentSelectionMarkAbsentForm(),
+                        ),
+                      );
+                    },
+                    context: context,
+                  ),
               ],
             )
           else
@@ -280,9 +477,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StudentSelectionSignInForm(),
                         ),
@@ -299,9 +496,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     iconSize: buttonSize,
                     fontSize: fontSize,
                     onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => const StudentSelectionSignOutForm(),
                         ),
@@ -311,49 +508,57 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   ),
                 ),
                 SizedBox(width: spacing),
-                Expanded(
-                  child: _buildActionButton(
-                    icon: MediaRes.transfer,
-                    label: 'Transfer',
-                    iconSize: buttonSize,
-                    fontSize: fontSize,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StudentSelectionTransferForm(),
-                        ),
-                      );
-                    },
-                    context: context,
+                if (!isParent) ...[
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: MediaRes.transfer,
+                      label: 'Transfer',
+                      iconSize: buttonSize,
+                      fontSize: fontSize,
+                      onTap: () {
+                        final navigator = Navigator.of(context, rootNavigator: true);
+                        navigator.pop();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const StudentSelectionTransferForm(),
+                          ),
+                        );
+                      },
+                      context: context,
+                    ),
                   ),
-                ),
-                SizedBox(width: spacing),
-                Expanded(
-                  child: _buildActionButton(
-                    icon: MediaRes.Mark_absent,
-                    label: 'Absent',
-                    iconSize: buttonSize,
-                    fontSize: fontSize,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StudentSelectionMarkAbsentForm(),
-                        ),
-                      );
-                    },
-                    context: context,
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: MediaRes.Mark_absent,
+                      label: 'Absent',
+                      iconSize: buttonSize,
+                      fontSize: fontSize,
+                      onTap: () {
+                        final navigator = Navigator.of(context, rootNavigator: true);
+                        navigator.pop();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const StudentSelectionMarkAbsentForm(),
+                          ),
+                        );
+                      },
+                      context: context,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
-          // Show "View Attendance" button for admin users in student tab
-          if (isAdmin) ...[
+          // Parent and admin can open student attendance profile/view.
+          if (isAdmin || isParent) ...[
             SizedBox(height: isTablet ? 20 : 16),
-            _buildViewAttendanceButton(context, isStaffTab: false, isTablet: isTablet),
+            _buildViewAttendanceButton(
+              context,
+              isStaffTab: false,
+              isTablet: isTablet,
+              label: isParent ? 'View My Child Attendance' : 'View Attendance',
+            ),
           ],
           ],
         ),
@@ -397,14 +602,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   label: 'Sign-in',
                   iconSize: buttonSize,
                   fontSize: fontSize,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionSignInForm(),
-                      ),
-                    );
+                  onTap: () async {
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      final display = await resolveLoggedInStaffDisplay();
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => StaffSignInForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: display.fullName.isNotEmpty
+                                  ? display.fullName
+                                  : 'My Attendance',
+                              primaryRoomId: 0,
+                              photoUuid: display.profilePhotoUrl.isNotEmpty
+                                  ? display.profilePhotoUrl
+                                  : null,
+                              staffCode: display.staffCode.isNotEmpty
+                                  ? display.staffCode
+                                  : _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionSignInForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -413,14 +642,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   label: 'Sign-Out',
                   iconSize: buttonSize,
                   fontSize: fontSize,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionSignOutForm(),
-                      ),
-                    );
+                  onTap: () async {
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      final display = await resolveLoggedInStaffDisplay();
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => StaffSignOutForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: display.fullName.isNotEmpty
+                                  ? display.fullName
+                                  : 'My Attendance',
+                              primaryRoomId: 0,
+                              photoUuid: display.profilePhotoUrl.isNotEmpty
+                                  ? display.profilePhotoUrl
+                                  : null,
+                              staffCode: display.staffCode.isNotEmpty
+                                  ? display.staffCode
+                                  : _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionSignOutForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -429,14 +682,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   label: 'Transfer',
                   iconSize: buttonSize,
                   fontSize: fontSize,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionTransferForm(),
-                      ),
-                    );
+                  onTap: () async {
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      final display = await resolveLoggedInStaffDisplay();
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => StaffTransferForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: display.fullName.isNotEmpty
+                                  ? display.fullName
+                                  : 'My Attendance',
+                              primaryRoomId: 0,
+                              photoUuid: display.profilePhotoUrl.isNotEmpty
+                                  ? display.profilePhotoUrl
+                                  : null,
+                              staffCode: display.staffCode.isNotEmpty
+                                  ? display.staffCode
+                                  : _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionTransferForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -445,14 +722,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   label: 'Absent',
                   iconSize: buttonSize,
                   fontSize: fontSize,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const StaffSelectionMarkAbsentForm(),
-                      ),
-                    );
+                  onTap: () async {
+                    final navigator = Navigator.of(context, rootNavigator: true);
+                    navigator.pop();
+                    if (_isTeacherStaffPersona == true &&
+                        _loggedInStaffCode.isNotEmpty) {
+                      final display = await resolveLoggedInStaffDisplay();
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => StaffMarkAbsentForm(
+                            staff: StaffEntity(
+                              id: 0,
+                              name: display.fullName.isNotEmpty
+                                  ? display.fullName
+                                  : 'My Attendance',
+                              primaryRoomId: 0,
+                              photoUuid: display.profilePhotoUrl.isNotEmpty
+                                  ? display.profilePhotoUrl
+                                  : null,
+                              staffCode: display.staffCode.isNotEmpty
+                                  ? display.staffCode
+                                  : _loggedInStaffCode,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      navigator.push(
+                        MaterialPageRoute(
+                          builder: (_) => const StaffSelectionMarkAbsentForm(),
+                        ),
+                      );
+                    }
                   },
                   context: context,
                 ),
@@ -468,14 +769,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     label: 'Sign-in',
                     iconSize: buttonSize,
                     fontSize: fontSize,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionSignInForm(),
-                        ),
-                      );
+                    onTap: () async {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        final display = await resolveLoggedInStaffDisplay();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => StaffSignInForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: display.fullName.isNotEmpty
+                                    ? display.fullName
+                                    : 'My Attendance',
+                                primaryRoomId: 0,
+                                photoUuid: display.profilePhotoUrl.isNotEmpty
+                                    ? display.profilePhotoUrl
+                                    : null,
+                                staffCode: display.staffCode.isNotEmpty
+                                    ? display.staffCode
+                                    : _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionSignInForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
@@ -487,14 +812,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     label: 'Sign-Out',
                     iconSize: buttonSize,
                     fontSize: fontSize,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionSignOutForm(),
-                        ),
-                      );
+                    onTap: () async {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        final display = await resolveLoggedInStaffDisplay();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => StaffSignOutForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: display.fullName.isNotEmpty
+                                    ? display.fullName
+                                    : 'My Attendance',
+                                primaryRoomId: 0,
+                                photoUuid: display.profilePhotoUrl.isNotEmpty
+                                    ? display.profilePhotoUrl
+                                    : null,
+                                staffCode: display.staffCode.isNotEmpty
+                                    ? display.staffCode
+                                    : _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionSignOutForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
@@ -506,14 +855,38 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     label: 'Transfer',
                     iconSize: buttonSize,
                     fontSize: fontSize,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionTransferForm(),
-                        ),
-                      );
+                    onTap: () async {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        final display = await resolveLoggedInStaffDisplay();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => StaffTransferForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: display.fullName.isNotEmpty
+                                    ? display.fullName
+                                    : 'My Attendance',
+                                primaryRoomId: 0,
+                                photoUuid: display.profilePhotoUrl.isNotEmpty
+                                    ? display.profilePhotoUrl
+                                    : null,
+                                staffCode: display.staffCode.isNotEmpty
+                                    ? display.staffCode
+                                    : _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionTransferForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
@@ -525,24 +898,57 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     label: 'Absent',
                     iconSize: buttonSize,
                     fontSize: fontSize,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StaffSelectionMarkAbsentForm(),
-                        ),
-                      );
+                    onTap: () async {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop();
+                      if (_isTeacherStaffPersona == true &&
+                          _loggedInStaffCode.isNotEmpty) {
+                        final display = await resolveLoggedInStaffDisplay();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => StaffMarkAbsentForm(
+                              staff: StaffEntity(
+                                id: 0,
+                                name: display.fullName.isNotEmpty
+                                    ? display.fullName
+                                    : 'My Attendance',
+                                primaryRoomId: 0,
+                                photoUuid: display.profilePhotoUrl.isNotEmpty
+                                    ? display.profilePhotoUrl
+                                    : null,
+                                staffCode: display.staffCode.isNotEmpty
+                                    ? display.staffCode
+                                    : _loggedInStaffCode,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const StaffSelectionMarkAbsentForm(),
+                          ),
+                        );
+                      }
                     },
                     context: context,
                   ),
                 ),
               ],
             ),
-          // Show "View Attendance" button only for admin users in staff tab
-          if (isAdmin) ...[
+          // Show "View Attendance" button:
+          // - Admin: View Attendance (all staff list)
+          // - Teacher persona: View My Attendance (self-only profile)
+          if (isAdmin || _isTeacherStaffPersona == true) ...[
             SizedBox(height: isTablet ? 20 : 16),
-            _buildViewAttendanceButton(context, isStaffTab: true, isTablet: isTablet),
+            _buildViewAttendanceButton(
+              context,
+              isStaffTab: true,
+              isTablet: isTablet,
+              label: _isTeacherStaffPersona == true
+                  ? 'View My Attendance'
+                  : 'View Attendance',
+            ),
           ],
           ],
         ),
@@ -596,22 +1002,47 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     BuildContext context, {
     required bool isStaffTab,
     required bool isTablet,
+    String label = 'View Attendance',
   }) {
     return InkWell(
-      onTap: () {
-        Navigator.pop(context);
+      onTap: () async {
+        final navigator = Navigator.of(context, rootNavigator: true);
+        navigator.pop();
         if (isStaffTab) {
-          // Navigate to staff attendance tabbed view
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const StaffAttendanceTabbedView(),
-            ),
-          );
+          if (_isTeacherStaffPersona == true) {
+            // Staff persona: only allow viewing own attendance profile.
+            final display = await resolveLoggedInStaffDisplay();
+            if (display.staffCode.trim().isEmpty) {
+              return;
+            }
+            navigator.push(
+              MaterialPageRoute(
+                builder: (_) => StaffAttendanceProfile(
+                  staffCode: display.staffCode,
+                  staffId: 0,
+                  staffName:
+                      display.fullName.isNotEmpty ? display.fullName : '-',
+                  staffPhotoUuid:
+                      display.profilePhotoUrl.isNotEmpty ? display.profilePhotoUrl : null,
+                  roomName: '',
+                ),
+              ),
+            );
+          } else {
+            // Admin: Navigate to staff attendance tabbed view
+            navigator.push(
+              MaterialPageRoute(
+                builder: (_) => const StaffAttendanceTabbedView(),
+              ),
+            );
+          }
         } else {
+          if (_isParentRole) {
+            await _openParentStudentAttendanceProfile(navigator.context);
+            return;
+          }
           // Navigate to student attendance tabbed view
-          Navigator.push(
-            context,
+          navigator.push(
             MaterialPageRoute(
               builder: (_) => const StudentAttendanceTabbedView(),
             ),
@@ -641,7 +1072,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     AppColors.buildSecondaryGradient().createShader(bounds),
                 blendMode: BlendMode.srcIn,
                 child: Text(
-                  'View Attendance',
+                  label,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -660,10 +1091,94 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     );
   }
 
-  double _getTabHeight(bool isAdmin, bool isTablet, double maxAvailableHeight) {
+  Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
+    try {
+      final parentChild = context.read<ParentChildProvider>();
+      await parentChild.ensureLoaded();
+
+      final selectedChild = parentChild.selectedChild;
+      if (selectedChild == null || selectedChild.code.trim().isEmpty) {
+        if (!context.mounted) return;
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('No child linked to this parent account.'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+
+      String roomName = selectedChild.classroom.trim().isNotEmpty
+          ? selectedChild.classroom
+          : '—';
+      var isSignedIn = false;
+
+      try {
+        final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+        final now = DateTime.now();
+        final date =
+            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 100,
+        );
+        final match = page.items.where(
+          (i) => i.studentCode.trim() == selectedChild.code.trim(),
+        );
+        if (match.isNotEmpty) {
+          final row = match.first;
+          roomName = row.classroomName.trim().isNotEmpty
+              ? row.classroomName
+              : roomName;
+          isSignedIn = row.hasSignIn && !row.hasSignOut;
+        }
+      } catch (_) {
+        // Parents may not have sign-out form list access.
+      }
+
+      if (!context.mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
+          builder: (_) => StudentAttendanceProfile(
+            studentCode: selectedChild.code.trim(),
+            studentId: 0,
+            studentName: selectedChild.name,
+            studentPhotoUuid: null,
+            roomName: roomName,
+            isSignedIn: isSignedIn,
+            syncWithParentChildSelection: true,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('Unable to open child attendance profile.'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    }
+  }
+
+  double _getTabHeight({
+    required bool isAdmin,
+    required bool isParent,
+    required bool isTablet,
+    required double maxAvailableHeight,
+  }) {
     // Calculate required height for content
     final buttonRowHeight = isTablet ? 100.0 : 80.0;
-    final viewButtonHeight = isAdmin ? (isTablet ? 76.0 : 64.0) : 0.0;
+    final viewButtonHeight =
+        (isParent || isAdmin || _isTeacherStaffPersona == true)
+            ? (isTablet ? 76.0 : 64.0)
+            : 0.0;
     final padding = isTablet ? 32.0 : 24.0;
     final calculatedHeight = buttonRowHeight + viewButtonHeight + padding;
     

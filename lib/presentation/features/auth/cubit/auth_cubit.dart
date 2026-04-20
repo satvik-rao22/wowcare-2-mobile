@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
@@ -10,6 +12,7 @@ import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 
 part 'auth_state.dart';
@@ -245,7 +248,20 @@ class AuthCubit extends Cubit<AuthState> {
             final effectiveSchoolCode =
                 isOrgAdminForSelectedOrg ? '-' : schoolCode;
 
-            if (orgCode.isNotEmpty && effectiveSchoolCode.isNotEmpty) {
+            final rolesJson =
+                jsonEncode(response.roles.map((e) => e.toJson()).toList());
+            final skipStaffLookup = shouldSkipStaffCodeResolutionForContext(
+              rolesJson: rolesJson,
+              organizationCode: orgCode,
+              schoolCode: effectiveSchoolCode,
+            );
+
+            if (skipStaffLookup) {
+              await storage.remove(StorageKeys.staffCode);
+              await storage.remove(StorageKeys.staffCodeUser);
+              await storage.remove(StorageKeys.staffCodeOrganization);
+              await storage.remove(StorageKeys.staffCodeSchool);
+            } else if (orgCode.isNotEmpty && effectiveSchoolCode.isNotEmpty) {
               final staffRepository = serviceLocator<StaffRepository>();
               final staffCode = await staffRepository.getStaffCodeForUser(
                 userCode: response.userCode,
@@ -254,6 +270,11 @@ class AuthCubit extends Cubit<AuthState> {
               );
               final trimmed = (staffCode ?? '').trim();
               if (trimmed.isNotEmpty) {
+                await _localDataSource.setSelectedOrgAndSchool(
+                  organizationCode: orgCode,
+                  schoolCode: effectiveSchoolCode,
+                  schoolName: effectiveSchoolCode,
+                );
                 await _localDataSource.saveStaffCode(
                   userCode: response.userCode,
                   staffCode: trimmed,
@@ -262,10 +283,15 @@ class AuthCubit extends Cubit<AuthState> {
                 try {
                   final profile = await staffRepository.getStaffProfile(
                     staffCode: trimmed,
+                    forEditStaff: true,
                   );
                   await storage.saveString(
                     StorageKeys.staffType,
                     profile.staffType,
+                  );
+                  await storage.saveString(
+                    StorageKeys.staffAllowedClassroomCodes,
+                    jsonEncode(profile.allowedClassroomCodes),
                   );
                 } catch (_) {}
 
@@ -498,7 +524,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Uses cached staffCode and prefetches the staff profile for the given
-  /// organization/school combination using the my-profile controller.
+  /// organization/school combination using the staff profile controller.
   ///
   /// This is used when switching organisations/schools so that
   /// `UserProfileScreen` can render immediately from cache without
@@ -515,26 +541,56 @@ class AuthCubit extends Cubit<AuthState> {
         login = await _localDataSource.getCachedLoginResponse();
       }
       if (login == null) return;
+      final org = organizationCode.trim();
+      final school = schoolCode.trim();
+      if (org.isEmpty || school.isEmpty) return;
 
+      // Only run for staff personas in the current org/school context.
       final storage = serviceLocator<StorageService>();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      if (shouldSkipStaffCodeResolutionForContext(
+        rolesJson: rolesJson,
+        organizationCode: org,
+        schoolCode: school,
+      )) {
+        return;
+      }
+
       final cachedStaffCode =
           (await storage.getString(StorageKeys.staffCode) ?? '').trim();
       final cachedStaffUser =
           (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-      final trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
-      if (trimmed.isEmpty) return;
+      String trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
 
       final staffRepository = serviceLocator<StaffRepository>();
+      if (trimmed.isEmpty) {
+        final resolved = await staffRepository.getStaffCodeForUser(
+          userCode: login.userCode,
+          organizationCode: org,
+          schoolCode: school,
+        );
+        trimmed = (resolved ?? '').trim();
+        if (trimmed.isEmpty) return;
+        await storage.saveString(StorageKeys.staffCode, trimmed);
+        await storage.saveString(StorageKeys.staffCodeUser, login.userCode);
+        await storage.saveString(StorageKeys.staffCodeOrganization, org);
+        await storage.saveString(StorageKeys.staffCodeSchool, school);
+      }
 
-      // Prefetch staff profile once using the my-profile controller so
+      // Prefetch staff profile using staff/{code}/profile so
       // profile screens can render from cache.
       try {
         final profile = await staffRepository.getStaffProfile(
           staffCode: trimmed,
+          forEditStaff: true,
         );
         await storage.saveString(
           StorageKeys.staffType,
           profile.staffType,
+        );
+        await storage.saveString(
+          StorageKeys.staffAllowedClassroomCodes,
+          jsonEncode(profile.allowedClassroomCodes),
         );
         // Also prefetch PIN whenever we prefetch profile for a new org/school.
         try {

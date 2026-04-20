@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_shimmer.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
@@ -19,6 +20,8 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStaffModel {
@@ -84,6 +87,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
 
   late final StaffAttendanceAbsentCubit _cubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = {};
   final List<_AbsentStaffModel> _absentStaff = [];
   bool isLoading = false;
   String? errorMessage;
@@ -144,8 +151,54 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebounceTimer?.cancel();
-    _classroomCubit.close();
     super.dispose();
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null) return null;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    for (final c in _classroomCubit.state.classrooms) {
+      if (c.code.trim() == trimmed) return c.name;
+    }
+    final cached = _classroomNameByCode[trimmed]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return null;
+  }
+
+  Future<void> _fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _classroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    if (apiName.isNotEmpty) return apiName;
+    final code = classroomCode.trim();
+    if (code.isEmpty) return '';
+    final resolved = _resolveClassroomNameByCode(code);
+    if (resolved != null && resolved.trim().isNotEmpty) return resolved.trim();
+    if (!_classroomFetchInFlight.contains(code)) {
+      _classroomFetchInFlight.add(code);
+      // ignore: discarded_futures
+      _fetchClassroomName(code);
+    }
+    return code;
   }
 
   List<String>? _resolveSelectedClassroomCodes() {
@@ -287,13 +340,16 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                     ? DateTime.tryParse(it.absenceDate) ?? DateTime.now()
                     : DateTime.now();
 
-                final absentTime = it.markedAbsentTime?.formattedHms ?? '';
+                final absentTime = it.markedAbsentTime?.formatted12h ?? '';
 
                 return _AbsentStaffModel(
                   id: it.staffCode,
                   name: it.staffName,
                   photoUuid: null,
-                  roomName: it.classroomName,
+                  roomName: _classroomDisplay(
+                    classroomCode: it.classroomCode,
+                    classroomName: it.classroomName,
+                  ),
                   absentDays: it.absentDays,
                   startDate: date,
                   endDate: date,
@@ -321,12 +377,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.symmetric(
                 horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 2,
+                vertical: responsive.verticalSpacing / 4,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   // Filters Section
                   CustomSectionCard(
                     child: Column(
@@ -376,35 +432,54 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing / 2),
-                        CustomDateTimeField(
-                          hasLabel: false,
-                          isRangePicker: true,
-                          initialDate: _rangeStart ?? DateTime.now(),
-                          onRangeSelected: (start, end) {
-                            if (end == null) {
-                              setState(() {
-                                _rangeStart = start;
-                                _rangeEnd = null;
-                              });
-                              return;
-                            }
-
-                            if (start.isAfter(end)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                      'Start date cannot be after end date'),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-                            setState(() {
-                              _rangeStart = start;
-                              _rangeEnd = end;
-                            });
-                            _loadAbsentStaff(reset: true);
-                          },
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: true,
+                                fetchInitialTime: true,
+                                onRangeSelected: (start, end) {
+                                  if (end == null) {
+                                    setState(() {
+                                      _rangeStart = start;
+                                      _rangeEnd = null;
+                                    });
+                                    return;
+                                  }
+                                  if (start.isAfter(end)) {
+                                    CoreUtils.showTopSnackBarFromSnackBar(
+                                      context: context,
+                                      snackBar: 
+                                      SnackBar(
+                                        content: const Text('Start date cannot be after end date'),
+                                        backgroundColor: AppColors.errorColor,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  setState(() {
+                                    _rangeStart = start;
+                                    _rangeEnd = end;
+                                  });
+                                  _loadAbsentStaff(reset: true);
+                                },
+                              ),
+                            ),
+                            SizedBox(width: responsive.horizontalSpacing / 2),
+                            CustomClearAllChip(
+                              onTap: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _selectedClassroomNames = <String>[];
+                                  final now = DateTime.now();
+                                  _rangeStart = DateTime(now.year, now.month, 1);
+                                  _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                                });
+                                _loadAbsentStaff(reset: true);
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

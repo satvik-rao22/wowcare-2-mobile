@@ -9,6 +9,8 @@ class MarkAbsentRequestModel extends Equatable {
     required this.absenceReason,
     required this.absenceNotes,
     required this.classroomCode,
+    this.markAbsentMethod = 'APP',
+    this.isExpectedTodayByStudentCode = const <String, bool>{},
   });
 
   final String staffCode;
@@ -19,6 +21,8 @@ class MarkAbsentRequestModel extends Equatable {
   /// Keyed by studentCode.
   final Map<String, String> absenceNotes;
   final String classroomCode;
+  final String markAbsentMethod;
+  final Map<String, bool> isExpectedTodayByStudentCode;
 
   Map<String, dynamic> toJson() {
     return {
@@ -29,6 +33,9 @@ class MarkAbsentRequestModel extends Equatable {
       'absenceReason': absenceReason,
       'absenceNotes': absenceNotes,
       'classroomCode': classroomCode,
+      'markAbsentMethod': markAbsentMethod,
+      if (isExpectedTodayByStudentCode.isNotEmpty)
+        'isExpectedTodayByStudentCode': isExpectedTodayByStudentCode,
     };
   }
 
@@ -41,6 +48,8 @@ class MarkAbsentRequestModel extends Equatable {
         absenceReason,
         absenceNotes,
         classroomCode,
+        markAbsentMethod,
+        isExpectedTodayByStudentCode,
       ];
 }
 
@@ -54,6 +63,8 @@ class StudentAbsenceRecordModel extends Equatable {
     required this.absenceReason,
     required this.absenceNote,
     required this.classroomCode,
+    this.markAbsentMethod,
+    this.isExpectedToday,
   });
 
   final String code;
@@ -64,6 +75,8 @@ class StudentAbsenceRecordModel extends Equatable {
   final String absenceReason;
   final String absenceNote;
   final String classroomCode;
+  final String? markAbsentMethod;
+  final bool? isExpectedToday;
 
   factory StudentAbsenceRecordModel.fromJson(Map<String, dynamic> json) {
     return StudentAbsenceRecordModel(
@@ -75,6 +88,8 @@ class StudentAbsenceRecordModel extends Equatable {
       absenceReason: (json['absenceReason'] ?? '').toString(),
       absenceNote: (json['absenceNote'] ?? '').toString(),
       classroomCode: (json['classroomCode'] ?? '').toString(),
+      markAbsentMethod: json['markAbsentMethod'] as String?,
+      isExpectedToday: json['isExpectedToday'] as bool?,
     );
   }
 
@@ -88,6 +103,8 @@ class StudentAbsenceRecordModel extends Equatable {
         absenceReason,
         absenceNote,
         classroomCode,
+        markAbsentMethod,
+        isExpectedToday,
       ];
 }
 

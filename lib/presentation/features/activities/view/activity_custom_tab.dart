@@ -1,18 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bathroom_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_bottle_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_incident_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_learning_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_meal_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_medication_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_nap_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_notes_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_outdoor_activity.dart';
-import 'package:wowcare/presentation/features/activities/view/view_activity_screens/view_photo_activity.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -23,15 +18,24 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/guardian_code_resolver.dart';
+import '../../../../core/util/activity_feed_invalidation.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../shared/common/views/filter_screen.dart';
+import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
+import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../util/activity_filter_metadata_cache.dart';
+import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../../../../shared/utils/responsive_helper.dart';
+import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../widgets/avtivity_media_preview.dart';
 import 'activity_daily_tab.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
@@ -44,6 +48,8 @@ import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import '../util/activity_feed_page_cache_codec.dart';
+import '../util/activity_parent_feed_merge.dart';
 
 class ActivityCustomTab extends StatefulWidget {
   const ActivityCustomTab({
@@ -51,11 +57,15 @@ class ActivityCustomTab extends StatefulWidget {
     this.fromStudentProfile = false,
     this.studentName,
     this.isNotParent = true,
+    this.allowActivityWrite = true,
   });
 
   final bool fromStudentProfile;
   final String? studentName;
   final bool isNotParent;
+
+  /// Edit / delete; false when [DAILY_ACTIVITY] has `write: false`.
+  final bool allowActivityWrite;
 
   static const String routeName = '/activityCustomTab';
 
@@ -63,8 +73,13 @@ class ActivityCustomTab extends StatefulWidget {
   State<ActivityCustomTab> createState() => _ActivityCustomTabState();
 }
 
-class _ActivityCustomTabState extends State<ActivityCustomTab> {
+class _ActivityCustomTabState extends State<ActivityCustomTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late bool isNotParent;
+  bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedStartDate = DateTime(
     DateTime.now().year,
@@ -85,12 +100,38 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   String? _feedError;
   String? _schoolCode;
   final Map<String, String> _classroomCodeByName = {};
+  final Map<String, String> _studentCodeByName = {};
   List<ActivitySetting> _classroomActivitySettings = [];
+  List<String> _tagFilterOptions = [];
+  Map<String, String> _tagNameToCode = {};
+  final Set<String> _studentCodesForTagFilter = {};
+  final Set<String> _parentAllowedStudentCodes = {};
+  final Map<String, String> _parentStudentClassroomByCode = {};
+  bool _loadingParentContext = false;
+  bool _isFeedRequestInFlight = false;
+  String? _lastFeedRequestKey;
+  String? _lastGlobalSelectedStudentCode;
+  DateTime? _lastFeedCompletedAt;
+  bool _lastFeedCompletedWithError = false;
+  String? _lastResolvedClassroomCode;
+  static const int _feedPageSize = 10;
+  final ScrollController _feedScrollController = ScrollController();
+  bool _feedHasMore = false;
+  bool _loadingMoreFeed = false;
+  int _feedNextPage = 0;
 
   late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetClassroomActivitySettingsUseCase
-      _getClassroomActivitySettingsUseCase;
+  _getClassroomActivitySettingsUseCase;
+  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
+  late final GetTagNameCodeMapForSchoolUseCase
+  _getTagNameCodeMapForSchoolUseCase;
+  late final GetStudentPageUseCase _getStudentPageUseCase;
+  late final DeleteActivityUseCase _deleteActivityUseCase;
+  late final StorageService _storageService;
+  late final CacheManager _cacheManager;
+  StreamSubscription<void>? _feedInvalidationSub;
 
   final List<String> activityType = [
     'Nap Start',
@@ -108,11 +149,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     'Sign-out',
     'Absent',
   ];
-  final Map<String, List<String>> classroomStudents = {
-    '1-Blue D': ['Raghave Gupta', 'Rohan Gupta', 'Ruhi Gupta'],
-    '3-Orange-D': ['Anya Mehta', 'Kabir Mehta'],
-    '2-Red A': ['Sara Khan'],
-  };
+  final Map<String, List<String>> classroomStudents = {};
   final List<Color> _colorPalette = [
     const Color(0xFFB3E5FC),
     const Color(0xFFFFCCBC),
@@ -133,188 +170,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //   'Kabir Mehta',
   //   'Sara Khan',
   // ];
-  final List<String> _classroomOptions = ['1-Blue D', '3-Orange-D', '2-Red A'];
-  final List<ActivityItem> activities = [
-    ActivityItem(
-        time: "07:10 PM",
-        date: 'December 31, 2025',
-        name: "Incident",
-        description: "incident happened",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta'],
-        createdBy: 'Staff A',
-        whatHappened: 'incident happened',
-        firstAidAdministered: true,
-        staffPresent: 'Staff A',
-        additionalNotes: 'some notes'
-
-    ),
-    ActivityItem(
-      time: "07:00 PM",
-      date: 'December 31, 2025',
-      name: "Nap End",
-      description: "Nap Ended at 6:30 PM",
-      //color: Color(0xFFFFE0B2), // orange
-      studentList: ['Kabir Mehta', 'Sara Khan'],
-      createdBy: 'Staff A',
-      napStartTime: '6:00 PM',
-      napEndTime: '6:30 PM',
-    ),
-    ActivityItem(
-        time: "05:30 PM",
-        date: 'December 31, 2025',
-        name: "Nap Start",
-        description: "Nap Started at 6:00 PM",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta', 'Sara Khan'],
-        createdBy: 'Staff A',
-        napStartTime: '6:00 PM',
-        remainderOn: true
-    ),
-    ActivityItem(
-      time: "05:10 PM",
-      date: 'December 30, 2025',
-      name: "Medication",
-      description: "Medication given",
-      //color: Color(0xFFFFE0B2), // orange
-      studentList: ['Sara Khan', 'Raghav Gupta'],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "05:00 PM",
-      date: 'December 30, 2025',
-      name: "Outdoor",
-      description: "Outdoor Activity",
-      photoUrl:
-      'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com',
-      //color: Color(0xFFFFE0B2), // orange
-      // photoUrl:
-      //     "https://images.unsplash.com/photo-1570545906912-5b2a3f3c2bab?w=400",
-      studentList: ['Kabir Mehta', 'Sara Khan'],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "04:30 PM",
-      date: 'December 29, 2025',
-      name: "Learning",
-      description: "Drawing Activity",
-      //color: Color(0xFFB3E5FC), // blue
-      photoUrl:
-          "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&referrer=grok.com",
-      studentList: ['Raghav Gupta'],
-      createdBy: 'Staff B',
-      categoryType: ['Self Care'],
-      activityType: 'Morning Time',
-    ),
-    ActivityItem(
-        time: "04:00 PM",
-        date: 'December 20, 2025',
-        name: "Bathroom",
-        description: "Bathroom Activity",
-        //color: Color(0xFFB3E5FC), // blue
-        studentList: [
-          'Sara Khan',
-          'Raghav Gupta',
-          'Kabir Mehta',
-        ],
-        createdBy: 'Staff B',
-        bathroomType: 'Pee',
-        bathroomSubType: 'Accident'
-    ),
-    ActivityItem(
-      time: "02:22 PM",
-      date: 'December 19, 2025',
-      name: "Meal",
-      description: "Lunch (Finished)",
-      //color: Color(0xFFC8E6C9), // green
-      photoUrl:
-          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-      ],
-      createdBy: 'Staff A',
-      mealType: 'Lunch',
-      mealQuantity: '8 Oz'
-    ),
-    ActivityItem(
-      time: "02:22 PM",
-      date: 'December 12, 2025',
-      name: "Photo",
-      description: "Lunch (Finished)",
-      //color: Color(0xFFC8E6C9), // green
-      photoUrl:
-          "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-      ],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "01:00 PM",
-      date: 'December 10, 2025',
-      name: "Meal",
-      description: "Drawing Activity",
-      //color: Color(0xFFD1C4E9), // purple
-      photoUrl:
-          "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff B',
-      mealType: 'Breakfast',
-      mealQuantity: '3 Oz',
-    ),
-    ActivityItem(
-      time: "02:22 PM",
-      date: 'December 9, 2025',
-      name: "Notes",
-      description: "Lunch (Finished) notes activity",
-      //color: Color(0xFFC8E6C9), // green
-      photoUrl:
-      "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-      studentList: [
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-        'Sara Khan',
-        'Raghav Gupta',
-        'Kabir Mehta',
-      ],
-      createdBy: 'Staff A',
-    ),
-    ActivityItem(
-      time: "01:00 PM",
-      date: 'December 8, 2025',
-      name: "Video",
-      description: "Drawing Activity",
-      //color: Color(0xFFD1C4E9), // purple
-      // photoUrl:
-      //     "https://images.unsplash.com/photo-1596461404969-9ae8f10bdd83?w=400",
-      //videoUrl: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4',
-      videoUrl:
-          "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
-      studentList: ['Sara Khan', 'Raghav Gupta', 'Kabir Mehta'],
-      createdBy: 'Staff B',
-    ),
-    ActivityItem(
-        time: "05:00 PM",
-        date: 'December 7, 2025',
-        name: "Bottle",
-        description: "Bottle Activity",
-        //color: Color(0xFFFFE0B2), // orange
-        studentList: ['Kabir Mehta', 'Sara Khan'],
-        createdBy: 'Staff A',
-        amountConsumed: '5 Oz'
-    ),
-  ];
+  final List<String> _classroomOptions = [];
+  final List<ActivityItem> activities = [];
 
   static final Map<String, Widget Function(ActivityItem)> editActivityRoutes = {
     'Nap Start': (activity) =>
@@ -329,10 +186,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         MealActivityScreen(activityData: activity, isEdit: true),
     'Incident': (activity) =>
         IncidentActivityScreen(activityData: activity, isEdit: true),
-    'Photo': (activity) =>
-        PhotoVideoActivityScreen(activityData: activity, isEdit: true, isPhoto: true,),
-    'Video': (activity) =>
-        PhotoVideoActivityScreen(activityData: activity, isEdit: true, isPhoto: false,),
+    'Photo': (activity) => PhotoVideoActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      isPhoto: true,
+    ),
+    'Video': (activity) => PhotoVideoActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      isPhoto: false,
+    ),
     'Medication': (activity) =>
         MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
@@ -343,21 +206,63 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         LearningActivityScreen(activityData: activity, isEdit: true),
   };
 
-  // Map activity label to the destination view activity screen
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap Start': (activity) => ViewNapActivity(activityData: activity),
-    'Nap End': (activity) => ViewNapActivity(activityData: activity, isNapStart: false,),
-    'Bathroom': (activity) => ViewBathroomActivity(activityData: activity),
-    'Bottle': (activity) => ViewBottleActivity(activityData: activity),
-    'Meal': (activity) => ViewMealActivity(activityData: activity),
-    'Incident': (activity) => ViewIncidentActivity(activityData: activity),
-    'Photo': (activity) => ViewPhotoVideoActivity(activityData: activity),
-    'Video': (activity) =>
-        ViewPhotoVideoActivity(activityData: activity, isVideo: true),
-    'Medication': (activity) => ViewMedicationActivity(activityData: activity),
-    'Notes': (activity) => ViewNotesActivity(activityData: activity),
-    'Outdoor': (activity) => ViewOutdoorActivity(activityData: activity),
-    'Learning': (activity) => ViewLearningActivity(activityData: activity),
+    'Nap Start': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true, readOnly: true),
+    'Nap End': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true, readOnly: true),
+    'Bathroom': (activity) => BathroomActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Bottle': (activity) => BottleActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Meal': (activity) => MealActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Incident': (activity) => IncidentActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Photo': (activity) => PhotoVideoActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+      isPhoto: true,
+    ),
+    'Video': (activity) => PhotoVideoActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+      isPhoto: false,
+    ),
+    'Medication': (activity) => MedicationActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Notes': (activity) => NotesActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Outdoor': (activity) => OutdoorActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
+    'Learning': (activity) => LearningActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
   };
 
   static final Map<String, dynamic> activityIcons = {
@@ -378,12 +283,20 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   @override
   void initState() {
     super.initState();
-    _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
+    _getRangeActivityFeedUseCase =
+        serviceLocator<GetRangeActivityFeedUseCase>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getClassroomActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getStudentClassroomListUseCase =
+        serviceLocator<GetStudentClassroomListUseCase>();
+    _getTagNameCodeMapForSchoolUseCase =
+        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+    _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
+    _storageService = serviceLocator<StorageService>();
+    _cacheManager = CacheManager(_storageService);
 
-    _selectdClassroom = _classroomOptions[0];
     _updateAvailableStudents();
     isNotParent = widget.isNotParent;
     //_selectedStudent = _allStudents[0];
@@ -391,6 +304,297 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapRangeFeed();
     });
+    _feedScrollController.addListener(_onFeedScroll);
+    _feedInvalidationSub = ActivityFeedInvalidation.onInvalidated.listen((_) {
+      if (mounted) {
+        _loadRangeFeed(refresh: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _feedInvalidationSub?.cancel();
+    _feedScrollController.removeListener(_onFeedScroll);
+    _feedScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onFeedScroll() {
+    _maybeLoadNextRangeFeedPage();
+  }
+
+  void _maybeLoadNextRangeFeedPage() {
+    if (!_feedScrollController.hasClients) return;
+    if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) {
+      return;
+    }
+    final position = _feedScrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      _loadNextRangeFeedPage();
+      return;
+    }
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      _loadNextRangeFeedPage();
+    }
+  }
+
+  List<ActivityItem> _itemsFromRangeFeedPage(ActivityFeedPage page) {
+    final raw = page.content
+        .map((row) => activityItemFromFeedRow(row))
+        .toList();
+    return _withClientFilters(raw);
+  }
+
+  Future<void> _loadNextRangeFeedPage() async {
+    if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) return;
+
+    if (_parentHome) {
+      return _loadNextParentHomeRangeFeedPage();
+    }
+
+    final classroomName = _selectdClassroom;
+    if (classroomName == null) return;
+
+    final classroomCode = _classroomCodeByName[classroomName];
+    if (classroomCode == null || classroomCode.trim().isEmpty) return;
+
+    final start = _selectedStartDate;
+    final end = _selectedEndDate ?? _selectedStartDate;
+    if (start == null || end == null) return;
+
+    final selectedStudent = _selectedStudent;
+    final studentCodeForRequest = selectedStudent == null
+        ? null
+        : _studentCodeByName[selectedStudent];
+    final typeCode = _activityTypeCodeForApiFilter();
+
+    _loadingMoreFeed = true;
+    if (mounted) setState(() {});
+
+    try {
+      final page = await _getRangeActivityFeedUseCase(
+        classroomCode: classroomCode,
+        startDate: _dateQueryParam(start),
+        endDate: _dateQueryParam(end),
+        studentCode: studentCodeForRequest,
+        activityTypeCode: typeCode,
+        page: _feedNextPage,
+        size: _feedPageSize,
+      );
+
+      final items = _itemsFromRangeFeedPage(page);
+
+      if (!mounted) return;
+      setState(() {
+        activities.addAll(items);
+        _feedHasMore = !page.last;
+        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+      });
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
+        setState(() => _feedHasMore = false);
+      }
+    } finally {
+      _loadingMoreFeed = false;
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _maybeLoadNextRangeFeedPage(),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadParentHomeRangeFeed({bool refresh = false}) async {
+    final school = _schoolCode;
+    final start = _selectedStartDate;
+    final end = _selectedEndDate ?? _selectedStartDate;
+    if (school == null ||
+        school.isEmpty ||
+        start == null ||
+        end == null ||
+        _parentAllowedStudentCodes.isEmpty) {
+      if (mounted) {
+        setState(() {
+          activities.clear();
+          _feedHasMore = false;
+          _loadingMoreFeed = false;
+        });
+      }
+      return;
+    }
+
+    final codes = _parentAllowedStudentCodes.toList()..sort();
+    final typeCode = _activityTypeCodeForApiFilter();
+    final requestKey = [
+      'parentRange',
+      school,
+      codes.join(','),
+      _dateQueryParam(start),
+      _dateQueryParam(end),
+      typeCode ?? '',
+      _filterActivityTypes.join(','),
+      _filterTags.join(','),
+    ].join('|');
+
+    if (!refresh && _lastFeedRequestKey == requestKey) {
+      if (_isFeedRequestInFlight) return;
+      if (!_lastFeedCompletedWithError) return;
+      final completedAt = _lastFeedCompletedAt;
+      if (completedAt != null &&
+          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+        return;
+      }
+    }
+
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
+
+    _isFeedRequestInFlight = true;
+    _lastFeedRequestKey = requestKey;
+
+    try {
+      final pages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return const ActivityFeedPage(
+              content: [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: 0,
+              last: true,
+            );
+          }
+          return _getRangeActivityFeedUseCase(
+            classroomCode: cc,
+            startDate: _dateQueryParam(start),
+            endDate: _dateQueryParam(end),
+            studentCode: sc,
+            activityTypeCode: typeCode,
+            page: 0,
+            size: _feedPageSize,
+          );
+        }),
+      );
+
+      final merged = mergeActivityFeedPages(pages);
+      final items = _itemsFromRangeFeedPage(merged);
+
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
+      setState(() {
+        activities
+          ..clear()
+          ..addAll(items);
+        _feedError = null;
+        _feedHasMore = !merged.last;
+        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
+        _loadingMoreFeed = false;
+      });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = false;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeLoadNextRangeFeedPage(),
+      );
+    } catch (e) {
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
+      final msg = ApiErrorHandler.extractErrorMessage(e);
+      setState(() {
+        _feedError = msg;
+        _feedHasMore = false;
+      });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = true;
+    }
+  }
+
+  Future<void> _loadNextParentHomeRangeFeedPage() async {
+    if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) return;
+
+    final school = _schoolCode;
+    final start = _selectedStartDate;
+    final end = _selectedEndDate ?? _selectedStartDate;
+    if (school == null ||
+        school.isEmpty ||
+        start == null ||
+        end == null ||
+        _parentAllowedStudentCodes.isEmpty) {
+      return;
+    }
+
+    final typeCode = _activityTypeCodeForApiFilter();
+    final pageIndex = _feedNextPage;
+
+    _loadingMoreFeed = true;
+    if (mounted) setState(() {});
+
+    try {
+      final pages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return ActivityFeedPage(
+              content: const [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: pageIndex,
+              last: true,
+            );
+          }
+          return _getRangeActivityFeedUseCase(
+            classroomCode: cc,
+            startDate: _dateQueryParam(start),
+            endDate: _dateQueryParam(end),
+            studentCode: sc,
+            activityTypeCode: typeCode,
+            page: pageIndex,
+            size: _feedPageSize,
+          );
+        }),
+      );
+
+      final merged = mergeActivityFeedPages(pages);
+      final items = _itemsFromRangeFeedPage(merged);
+
+      if (!mounted) return;
+      setState(() {
+        activities.addAll(items);
+        _feedHasMore = !merged.last;
+        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
+      });
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
+        setState(() => _feedHasMore = false);
+      }
+    } finally {
+      _loadingMoreFeed = false;
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _maybeLoadNextRangeFeedPage(),
+        );
+      }
+    }
   }
 
   void _updateAvailableStudents() {
@@ -407,389 +611,1688 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     }
   }
 
+  Future<void> _openActivityFilter() async {
+    final school = _schoolCode;
+    final classroomName = _selectdClassroom;
+    if (school == null ||
+        school.isEmpty ||
+        classroomName == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select a classroom first',
+        isWarning: true,
+      );
+      return;
+    }
+    final classroomCode = _classroomCodeByName[classroomName]!;
+    final result = await Navigator.push<Map<String, List<String>>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActivityFilterScreen(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          initialFilters: {
+            'Tags': List<String>.from(_filterTags),
+            'Activity Type': List<String>.from(_filterActivityTypes),
+          },
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _filterTags = List<String>.from(result['Tags'] ?? const []);
+      _filterActivityTypes = List<String>.from(
+        result['Activity Type'] ?? const [],
+      );
+    });
+    await _loadRangeFeed(refresh: true);
+  }
+
+  Future<void> _loadTagFilterOptions() async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty) return;
+    try {
+      final map = await ActivityFilterMetadataCache.loadTagNameCodeMap(
+        cacheManager: _cacheManager,
+        useCase: _getTagNameCodeMapForSchoolUseCase,
+        schoolCode: school,
+      );
+      if (!mounted) return;
+      setState(() {
+        _tagNameToCode = Map<String, String>.from(map);
+        _tagFilterOptions = map.keys.toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        _filterTags.removeWhere((t) => !_tagFilterOptions.contains(t));
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _tagFilterOptions = []);
+        CoreUtils.logApiError(
+          ApiErrorHandler.extractErrorMessage(e),
+          showOnScreen: true,
+          context: context,
+        );
+      }
+    }
+  }
+
   String _dateQueryParam(DateTime d) {
     String two(int v) => v.toString().padLeft(2, '0');
     return '${d.year}-${two(d.month)}-${two(d.day)}';
   }
 
-  String? _activityTypeCodeForApiFilter() {
-    final label = _selectedActivityType;
+  bool _filterLabelMatchesSetting(String uiLabel, String settingName) {
+    final u = uiLabel.toLowerCase().trim();
+    final n = settingName.toLowerCase().trim();
+    if (u.isEmpty || n.isEmpty) return false;
+    if (u == n) return true;
+    if (n.contains(u) || u.contains(n)) return true;
+    final ua = u.split(RegExp(r'\s+')).where((e) => e.length > 2).toSet();
+    final na = n.split(RegExp(r'\s+')).where((e) => e.length > 2).toSet();
+    return ua.intersection(na).isNotEmpty;
+  }
+
+  String? _activityTypeCodeForLabel(String? label) {
     if (label == null || label.trim().isEmpty) return null;
-    final want = label.toLowerCase().trim();
     for (final s in _classroomActivitySettings) {
-      final name = s.activityTypeName.toLowerCase().trim();
-      if (name == want) return s.activityTypeCode;
-      if (name.contains(want) || want.contains(name)) return s.activityTypeCode;
+      if (_filterLabelMatchesSetting(label, s.activityTypeName)) {
+        return s.activityTypeCode;
+      }
     }
     return null;
   }
 
-  Future<void> _bootstrapRangeFeed() async {
-    final storage = serviceLocator<StorageService>();
-    _schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  String? _activityTypeCodeForApiFilter() {
+    if (_filterActivityTypes.length == 1) {
+      return _activityTypeCodeForLabel(_filterActivityTypes.first);
+    }
+    if (_filterActivityTypes.isEmpty) {
+      return _activityTypeCodeForLabel(_selectedActivityType);
+    }
+    return null;
+  }
 
-    if (_schoolCode == null || _schoolCode!.isEmpty) {
+  List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
+    var list = items;
+    if (_filterActivityTypes.length > 1) {
+      final codes = _filterActivityTypes
+          .map(_activityTypeCodeForLabel)
+          .whereType<String>()
+          .toSet();
+      final names = _filterActivityTypes
+          .map((e) => e.trim().toLowerCase())
+          .toSet();
+      list = list.where((a) {
+        final c = a.activityTypeCode?.trim();
+        if (c != null && c.isNotEmpty && codes.contains(c)) return true;
+        return names.contains(a.name.trim().toLowerCase());
+      }).toList();
+    }
+    if (_filterTags.isNotEmpty && _studentCodesForTagFilter.isNotEmpty) {
+      list = list
+          .where(
+            (a) =>
+                a.studentCode != null &&
+                _studentCodesForTagFilter.contains(a.studentCode),
+          )
+          .toList();
+    }
+    return list;
+  }
+
+  Future<void> _rebuildStudentCodesForTagFilter() async {
+    _studentCodesForTagFilter.clear();
+    if (_filterTags.isEmpty || !mounted) return;
+    final school = _schoolCode;
+    final classroomName = _selectdClassroom;
+    if (school == null ||
+        school.isEmpty ||
+        classroomName == null ||
+        !_classroomCodeByName.containsKey(classroomName)) {
+      return;
+    }
+    final cc = _classroomCodeByName[classroomName]!;
+    try {
+      for (final tagName in _filterTags) {
+        final tagCode = _tagNameToCode[tagName];
+        if (tagCode == null || tagCode.trim().isEmpty) continue;
+        var page = 0;
+        while (true) {
+          final sp = await _getStudentPageUseCase(
+            schoolCode: school,
+            classroomCodes: [cc],
+            tagCodes: [tagCode.trim()],
+            page: page,
+            size: 100,
+          );
+          if (!mounted) return;
+          for (final s in sp.items) {
+            _studentCodesForTagFilter.add(s.code);
+          }
+          if (!sp.hasMore) break;
+          page++;
+          if (page > 100) break;
+        }
+      }
+    } catch (_) {
+      if (mounted) _studentCodesForTagFilter.clear();
+    }
+  }
+
+  Future<void> _bootstrapRangeFeed() async {
+    _schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    if ((_schoolCode ?? '').isEmpty) {
       if (!mounted) return;
+      const msg = 'School is not selected.';
       setState(() {
-        _feedError = 'School is not selected.';
-        activities.clear();
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       return;
     }
 
+    if (_parentHome) {
+      await _bootstrapParentHome();
+      return;
+    }
+
+    final school = _schoolCode ?? '';
+    final classroomCacheKey = CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'classrooms',
+      identifier: school,
+    );
+    try {
+      final cached = await _cacheManager.loadCache(classroomCacheKey);
+      if (cached != null && cached['classrooms'] is List) {
+        final list = (cached['classrooms'] as List)
+            .whereType<Map>()
+            .map(
+              (e) => <String, String>{
+                'name': (e['name'] ?? '').toString(),
+                'code': (e['code'] ?? '').toString(),
+              },
+            )
+            .where(
+              (e) =>
+                  (e['name'] ?? '').isNotEmpty && (e['code'] ?? '').isNotEmpty,
+            )
+            .toList();
+        if (list.isNotEmpty && mounted) {
+          _classroomCodeByName
+            ..clear()
+            ..addEntries(
+              list
+                  .map((c) => MapEntry(c['name'] ?? '', c['code'] ?? ''))
+                  .where((e) => e.key.isNotEmpty && e.value.isNotEmpty),
+            );
+        }
+      }
+    } catch (_) {}
+
     try {
       final classrooms = await _getActiveClassroomsUseCase(
-        schoolCode: _schoolCode!,
+        schoolCode: school,
         onlyTypeClassroom: true,
       );
 
       _classroomCodeByName
         ..clear()
         ..addEntries(classrooms.map((c) => MapEntry(c.name, c.code)));
+      _classroomOptions
+        ..clear()
+        ..addAll(classrooms.map((c) => c.name));
+      if (_classroomOptions.isNotEmpty &&
+          (_selectdClassroom == null ||
+              !_classroomOptions.contains(_selectdClassroom))) {
+        _selectdClassroom = _classroomOptions.first;
+      }
+      await _cacheManager.saveCache(classroomCacheKey, {
+        'classrooms': classrooms
+            .map((c) => {'name': c.name, 'code': c.code})
+            .toList(),
+      });
 
+      await Future.wait<void>([_loadRangeFeed(), _loadTagFilterOptions()]);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = ApiErrorHandler.extractErrorMessage(e);
+      setState(() {
+        _feedError = msg;
+      });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    }
+  }
+
+  Future<void> _bootstrapParentHome() async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _loadingParentContext = true;
+        _feedError = null;
+      });
+    }
+
+    try {
+      final guardianCode = await resolveGuardianCodeForLoggedInUser();
+      if (guardianCode.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _feedError = 'Could not load guardian profile.';
+            _parentAllowedStudentCodes.clear();
+            _parentStudentClassroomByCode.clear();
+            _loadingParentContext = false;
+            activities.clear();
+          });
+        }
+        return;
+      }
+
+      final page = await _getStudentPageUseCase(
+        schoolCode: school,
+        guardianCodes: [guardianCode],
+        page: 0,
+        size: 500,
+      );
+      if (!mounted) return;
+
+      _parentAllowedStudentCodes.clear();
+      _parentStudentClassroomByCode.clear();
+      for (final s in page.items) {
+        final code = s.code.trim();
+        if (code.isEmpty) continue;
+        final cc = s.classroom.trim();
+        if (cc.isEmpty) continue;
+        _parentAllowedStudentCodes.add(code);
+        _parentStudentClassroomByCode[code] = cc;
+      }
+
+      // Parent UX: use the child currently selected in the global dropdown.
+      final globalSelectedCode =
+          (context.read<ParentChildProvider>().selectedChild?.code ?? '')
+              .trim();
+      if (globalSelectedCode.isNotEmpty) {
+        final selectedClassroom =
+            _parentStudentClassroomByCode[globalSelectedCode];
+        _parentAllowedStudentCodes
+          ..clear()
+          ..add(globalSelectedCode);
+        _parentStudentClassroomByCode..clear();
+        if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
+          _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
+              .trim();
+        }
+        _lastGlobalSelectedStudentCode = globalSelectedCode;
+      }
+
+      if (_parentAllowedStudentCodes.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _feedError = 'No linked children with a classroom.';
+            _loadingParentContext = false;
+            activities.clear();
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _loadingParentContext = false;
+        });
+      }
       await _loadRangeFeed(refresh: true);
     } catch (e) {
       if (!mounted) return;
+      final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
-        _feedError = ApiErrorHandler.extractErrorMessage(e);
-        activities.clear();
+        _feedError = msg;
+        _loadingParentContext = false;
+        _parentAllowedStudentCodes.clear();
+        _parentStudentClassroomByCode.clear();
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    }
+  }
+
+  Future<void> _deleteActivityFromSheet(
+    BuildContext sheetContext,
+    ActivityItem activity,
+  ) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot delete: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _deleteActivityUseCase(code: code);
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
     }
   }
 
   Future<void> _loadRangeFeed({bool refresh = false}) async {
+    if (_parentHome) {
+      return _loadParentHomeRangeFeed(refresh: refresh);
+    }
+
     final classroomName = _selectdClassroom;
     if (classroomName == null) return;
 
     final classroomCode = _classroomCodeByName[classroomName];
     if (classroomCode == null || classroomCode.trim().isEmpty) {
       if (!mounted) return;
+      const msg = 'Classroom is not mapped to a valid code.';
       setState(() {
-        _feedError = 'Classroom is not mapped to a valid code.';
-        activities.clear();
+        _feedError = msg;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       return;
     }
 
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
     if (start == null || end == null) return;
+    final selectedStudent = _selectedStudent;
+    final studentCodeForRequest = selectedStudent == null
+        ? null
+        : _studentCodeByName[selectedStudent];
+    final typeCode = _activityTypeCodeForApiFilter();
+    final requestKey = [
+      classroomCode,
+      _dateQueryParam(start),
+      _dateQueryParam(end),
+      studentCodeForRequest ?? '',
+      typeCode ?? '',
+      _filterActivityTypes.join(','),
+      _filterTags.join(','),
+    ].join('|');
+
+    if (!refresh && _lastFeedRequestKey == requestKey) {
+      if (_isFeedRequestInFlight) return;
+      if (!_lastFeedCompletedWithError) {
+        return;
+      }
+      final completedAt = _lastFeedCompletedAt;
+      if (completedAt != null &&
+          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+        return;
+      }
+    }
+
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
+
+    if (!refresh) {
+      try {
+        final cached = await _cacheManager.loadCache(
+          ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
+          validFor: StorageKeys.activityFeedCacheDuration,
+        );
+        final rev = await ActivityFeedInvalidation.currentRevision(
+          _storageService,
+        );
+        final cachedPage = ActivityFeedPageCacheCodec.decode(
+          cached,
+          currentRevision: rev,
+        );
+        if (cachedPage != null && mounted) {
+          final items = _itemsFromRangeFeedPage(cachedPage);
+          setState(() {
+            activities
+              ..clear()
+              ..addAll(items);
+            _feedError = null;
+            _feedHasMore = !cachedPage.last;
+            _feedNextPage = cachedPage.last ? 0 : cachedPage.pageNumber + 1;
+            _loadingMoreFeed = false;
+          });
+          _lastFeedRequestKey = requestKey;
+          _isFeedRequestInFlight = false;
+          _lastFeedCompletedAt = DateTime.now();
+          _lastFeedCompletedWithError = false;
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _maybeLoadNextRangeFeedPage(),
+          );
+          return;
+        }
+      } catch (_) {}
+    }
+
+    _isFeedRequestInFlight = true;
+    _lastFeedRequestKey = requestKey;
 
     try {
-      // Also load settings so we can convert UI label -> activityTypeCode.
-      try {
-        _classroomActivitySettings = await _getClassroomActivitySettingsUseCase(
-          classroomCode: classroomCode,
-          refresh: refresh,
-        );
-      } catch (_) {
-        _classroomActivitySettings = [];
-      }
-
-      final typeCode = _activityTypeCodeForApiFilter();
       final page = await _getRangeActivityFeedUseCase(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
         endDate: _dateQueryParam(end),
-        studentCode: null,
+        studentCode: studentCodeForRequest,
         activityTypeCode: typeCode,
         page: 0,
-        size: 200,
+        size: _feedPageSize,
       );
 
-      var items = page.content
-          .map((row) => activityItemFromFeedRow(row))
-          .toList();
+      final items = _itemsFromRangeFeedPage(page);
 
-      if (_selectedStudent != null && _selectedStudent!.trim().isNotEmpty) {
-        items = items
-            .where((a) => a.studentList.contains(_selectedStudent))
-            .toList();
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
       }
-
-      if (!mounted) return;
+      try {
+        final rev = await ActivityFeedInvalidation.currentRevision(
+          _storageService,
+        );
+        await _cacheManager.saveCache(
+          ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
+          ActivityFeedPageCacheCodec.wrapPage(page, rev),
+        );
+      } catch (_) {}
       setState(() {
         activities
           ..clear()
           ..addAll(items);
         _feedError = null;
+        _feedHasMore = !page.last;
+        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+        _loadingMoreFeed = false;
       });
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = false;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeLoadNextRangeFeedPage(),
+      );
+
+      try {
+        final school = _schoolCode;
+        final shouldReloadClassroomDependencies =
+            refresh ||
+            _lastResolvedClassroomCode != classroomCode ||
+            !classroomStudents.containsKey(classroomName) ||
+            _classroomActivitySettings.isEmpty;
+
+        if (shouldReloadClassroomDependencies) {
+          if (school != null && school.isNotEmpty) {
+            final studentsCacheKey = CacheManager.buildCacheKey(
+              feature: 'activity',
+              resource: 'students',
+              identifier: '$school|$classroomCode',
+            );
+            if (!refresh) {
+              try {
+                final cachedStudents = await _cacheManager.loadCache(
+                  studentsCacheKey,
+                );
+                if (cachedStudents != null &&
+                    cachedStudents['students'] is List) {
+                  final cachedList = (cachedStudents['students'] as List)
+                      .whereType<Map>()
+                      .map(
+                        (e) => <String, String>{
+                          'name': (e['name'] ?? '').toString(),
+                          'code': (e['code'] ?? '').toString(),
+                        },
+                      )
+                      .where(
+                        (e) =>
+                            (e['name'] ?? '').isNotEmpty &&
+                            (e['code'] ?? '').isNotEmpty,
+                      )
+                      .toList();
+                  if (cachedList.isNotEmpty) {
+                    _studentCodeByName
+                      ..clear()
+                      ..addEntries(
+                        cachedList.map(
+                          (s) => MapEntry(s['name'] ?? '', s['code'] ?? ''),
+                        ),
+                      );
+                    classroomStudents[classroomName] = cachedList
+                        .map((s) => s['name'] ?? '')
+                        .toList();
+                    _updateAvailableStudents();
+                  }
+                }
+              } catch (_) {}
+            }
+
+            final students = await _getStudentClassroomListUseCase(
+              schoolCode: school,
+              classroomCode: classroomCode,
+              status: const ['ACTIVE'],
+              refresh: refresh,
+            );
+            _studentCodeByName
+              ..clear()
+              ..addEntries(
+                students.map((s) => MapEntry(s.fullName, s.studentCode)),
+              );
+            classroomStudents[classroomName] = students
+                .map((s) => s.fullName)
+                .toList();
+            _updateAvailableStudents();
+            await _cacheManager.saveCache(studentsCacheKey, {
+              'students': students
+                  .map((s) => {'name': s.fullName, 'code': s.studentCode})
+                  .toList(),
+            });
+          }
+
+          final settingsCacheKey = CacheManager.buildCacheKey(
+            feature: 'activity',
+            resource: 'settings',
+            identifier: classroomCode,
+          );
+          if (!refresh) {
+            try {
+              final cachedSettings = await _cacheManager.loadCache(
+                settingsCacheKey,
+              );
+              if (cachedSettings != null &&
+                  cachedSettings['settings'] is List) {
+                final list = (cachedSettings['settings'] as List)
+                    .whereType<Map>()
+                    .map(
+                      (e) => ActivitySetting(
+                        activityTypeCode: (e['activityTypeCode'] ?? '')
+                            .toString(),
+                        activityTypeName: (e['activityTypeName'] ?? '')
+                            .toString(),
+                        description: (e['description'] ?? '').toString(),
+                        category: (e['category'] ?? '').toString(),
+                        icon: (e['icon'] ?? '').toString(),
+                        color: (e['color'] ?? '').toString(),
+                        isSystem: (e['isSystem'] as bool?) ?? false,
+                        isMultiStudent: (e['isMultiStudent'] as bool?) ?? false,
+                        requiresStaff: (e['requiresStaff'] as bool?) ?? false,
+                        requiresPhoto: (e['requiresPhoto'] as bool?) ?? false,
+                        requiresVideo: (e['requiresVideo'] as bool?) ?? false,
+                        allowsAttachments:
+                            (e['allowsAttachments'] as bool?) ?? false,
+                        maxAttachments: (e['maxAttachments'] as int?) ?? 0,
+                        isEnabled: (e['isEnabled'] as bool?) ?? true,
+                        isFavorite: (e['isFavorite'] as bool?) ?? false,
+                        displayOrder: (e['displayOrder'] as int?) ?? 0,
+                      ),
+                    )
+                    .where(
+                      (e) =>
+                          e.activityTypeCode.isNotEmpty &&
+                          e.activityTypeName.isNotEmpty,
+                    )
+                    .toList();
+                if (list.isNotEmpty) {
+                  _classroomActivitySettings = list;
+                }
+              }
+            } catch (_) {}
+          }
+
+          try {
+            _classroomActivitySettings =
+                await _getClassroomActivitySettingsUseCase(
+                  classroomCode: classroomCode,
+                  refresh: refresh,
+                );
+            await _cacheManager.saveCache(settingsCacheKey, {
+              'settings': _classroomActivitySettings
+                  .map(
+                    (s) => {
+                      'activityTypeCode': s.activityTypeCode,
+                      'activityTypeName': s.activityTypeName,
+                      'description': s.description,
+                      'category': s.category,
+                      'icon': s.icon,
+                      'color': s.color,
+                      'isSystem': s.isSystem,
+                      'isMultiStudent': s.isMultiStudent,
+                      'requiresStaff': s.requiresStaff,
+                      'requiresPhoto': s.requiresPhoto,
+                      'requiresVideo': s.requiresVideo,
+                      'allowsAttachments': s.allowsAttachments,
+                      'maxAttachments': s.maxAttachments,
+                      'isEnabled': s.isEnabled,
+                      'isFavorite': s.isFavorite,
+                      'displayOrder': s.displayOrder,
+                    },
+                  )
+                  .toList(),
+            });
+          } catch (_) {
+            // Keep existing in-memory/cached settings on fetch failure.
+          }
+          _lastResolvedClassroomCode = classroomCode;
+          if (mounted) setState(() {});
+        }
+      } catch (_) {
+        // Students/settings are non-blocking after the feed is shown.
+      }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        _isFeedRequestInFlight = false;
+        return;
+      }
+      final msg = ApiErrorHandler.extractErrorMessage(e);
       setState(() {
-        _feedError = ApiErrorHandler.extractErrorMessage(e);
-        activities.clear();
+        _feedError = msg;
+        _feedHasMore = false;
       });
+      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+      _isFeedRequestInFlight = false;
+      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedWithError = true;
     }
+  }
+
+  void _syncWithGlobalChildSelection() {
+    if (!_parentHome) return;
+    final globalSelectedCode =
+        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+    if (globalSelectedCode.isEmpty) return;
+    if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
+
+    _lastGlobalSelectedStudentCode = globalSelectedCode;
+
+    // If we don't yet have classroom mapping for this child, bootstrap first.
+    if (_parentStudentClassroomByCode[globalSelectedCode] == null) {
+      _bootstrapParentHome();
+      return;
+    }
+
+    _parentAllowedStudentCodes
+      ..clear()
+      ..add(globalSelectedCode);
+
+    _loadRangeFeed(refresh: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    // Listen to global child dropdown. When ParentChildProvider notifies,
+    // this widget rebuilds and we can refresh the feed for the selected child.
+    if (_parentHome) {
+      context.watch<ParentChildProvider>().selectedChild?.code;
+    }
+    if (_parentHome) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncWithGlobalChildSelection();
+      });
+    }
     return OrientationBuilder(
-        builder: (context, orientation){
-          if(orientation == Orientation.landscape){
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child:  Padding(
+      builder: (context, orientation) {
+        if (orientation == Orientation.landscape) {
+          return CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            controller: _feedScrollController,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
                   padding: ResponsiveSizing.contentPadding(context),
                   // filter card
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
+                      border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
+                      color: Colors.white,
                     ),
                     child: widget.fromStudentProfile
                         ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: 65,
-                          child: AbsorbPointer(
-                            child: _buildCustomDropdown(
-                              'Select Student',
-                              [if (widget.studentName != null) widget.studentName!],
-                              widget.studentName,
-                                  (v) => setState(() {
-                                _selectedStudent = v;
-                              }),
-                              height: 65,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 65,
-                          child: _datePickerFilter(
-                            selectedStartDate: _selectedStartDate,
-                            selectedEndDate: _selectedEndDate,
-                            // onDateRangeSelected: (date) {
-                            //   List<String>? dates = date?.split('-\n');
-                            //   setState(() {
-                            //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                            //     _selectedEndDate = dates?[1].trim() as DateTime;
-                            //
-                            //   });
-                            // },
-                          ),
-                        ),
-                      ],
-                    )
-                        : isNotParent
-                        ? Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCustomDropdown(
-                                'Select Classroom',
-                                _classroomOptions,
-                                _selectdClassroom,
-                                    (v) {
-                                  setState(() {
-                                    _selectdClassroom = v;
-                                    _updateAvailableStudents();
-                                  });
-                                  _loadRangeFeed(refresh: true);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              // child: _buildCustomDropdown(
-                              //   'Select Student',
-                              //   _allStudents,
-                              //   _selectedStudent,
-                              //       (v) => setState(() {
-                              //     _selectedStudent = v;
-                              //   }),
-                              // ),
-                              child: _buildCustomDropdown(
-                                _selectdClassroom == null
-                                    ? 'Select Classroom First'
-                                    : 'Select Student',
-                                _availableStudents,
-                                _selectedStudent,
-                                    (value) {
-                                  if (_selectdClassroom != null) {
-                                    setState(() {
-                                      _selectedStudent = value;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(100),
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                        sections: [
-                                          FilerSection(
-                                            label: 'Tags',
-                                            hintText: 'Select tags',
-                                            items: [
-                                              '5 Days',
-                                              'Full Day',
-                                              'Photo Permission',
-                                              'Vegetarian',
-                                              'First Aid',
-                                              'Allergy',
-                                              'Pickup Authorized',
-                                              'Medication',
-                                              'Half Day',
-                                              'Boy',
-                                              'Girl',
-                                            ],
-                                            initialSelected: _filterTags,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                          FilerSection(
-                                            label: 'Activity Type',
-                                            hintText: 'Select Activity',
-                                            items: [
-                                              'Nap Start',
-                                              'Nap End',
-                                              'Bathroom',
-                                              'Bottle',
-                                              'Meal',
-                                              'Incident',
-                                              'Photo',
-                                              'Outdoor',
-                                              'Medication',
-                                              'Notes',
-                                              'Learning',
-                                              'Sign-in',
-                                              'Sign-out',
-                                              'Absent',
-                                            ],
-                                            initialSelected: _filterActivityTypes,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                        ],
-                                        onApply: (filters) {
-                                          setState(() {
-                                            _filterTags = filters['Tags']!;
-                                            _filterActivityTypes =
-                                            filters['Activity Type']!;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(
-                                    MediaRes.filterIcon,
-                                    height: 20,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                height: 40,
+                                child: AbsorbPointer(
+                                  child: _buildCustomDropdown(
+                                    'Select Student',
+                                    widget.studentName != null
+                                        ? [widget.studentName!]
+                                        : <String>[],
+                                    widget.studentName,
+                                    (v) => setState(() {
+                                      _selectedStudent = v;
+                                    }),
+                                    height: 40,
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 40,
+                                child: _datePickerFilter(
+                                  selectedStartDate: _selectedStartDate,
+                                  selectedEndDate: _selectedEndDate,
+                                  // onDateRangeSelected: (date) {
+                                  //   List<String>? dates = date?.split('-\n');
+                                  //   setState(() {
+                                  //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                                  //     _selectedEndDate = dates?[1].trim() as DateTime;
+                                  //
+                                  //   });
+                                  // },
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
-                                  _selectdClassroom = _classroomOptions[0];
-                                  _selectedStudent = null;
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                });
-                              },
-                              label: 'Clear All',
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                        : Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 65,
+                            ],
+                          )
+                        : isNotParent
+                        ? Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCustomDropdown(
+                                      'Select Classroom',
+                                      _classroomOptions,
+                                      _selectdClassroom,
+                                      (v) {
+                                        setState(() {
+                                          _selectdClassroom = v;
+                                          _updateAvailableStudents();
+                                        });
+                                        _loadRangeFeed(refresh: true);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    // child: _buildCustomDropdown(
+                                    //   'Select Student',
+                                    //   _allStudents,
+                                    //   _selectedStudent,
+                                    //       (v) => setState(() {
+                                    //     _selectedStudent = v;
+                                    //   }),
+                                    // ),
+                                    child: _buildCustomDropdown(
+                                      _selectdClassroom == null
+                                          ? 'Select Classroom First'
+                                          : 'Select Student',
+                                      _availableStudents,
+                                      _selectedStudent,
+                                      (value) {
+                                        if (_selectdClassroom != null) {
+                                          setState(() {
+                                            _selectedStudent = value;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(100),
+                                      onTap: _openActivityFilter,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: SvgPicture.asset(
+                                          MediaRes.filterIcon,
+                                          height: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: _datePickerFilter(
+                                      selectedStartDate: _selectedStartDate,
+                                      selectedEndDate: _selectedEndDate,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  CustomClearAllChip(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectdClassroom =
+                                            _classroomOptions[0];
+                                        _selectedStudent = null;
+                                        _filterActivityTypes.clear();
+                                        _filterTags.clear();
+                                      });
+                                      _loadRangeFeed(refresh: true);
+                                    },
+                                    label: 'Clear All',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : SizedBox(
+                            height: 40,
                             child: _datePickerFilter(
                               selectedStartDate: _selectedStartDate,
                               selectedEndDate: _selectedEndDate,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 65,
-                            child: _buildCustomDropdown(
-                              'Activity Type',
-                              activityType,
-                              _selectedActivityType,
-                                  (v) {
-                                setState(() {
-                                  _selectedActivityType = v;
-                                });
-                                _loadRangeFeed(refresh: true);
-                              },
-                              height: 65,
-                            ),
-                          ),
-                        ),
-                      ],
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(child: SizedBox(height: _parentHome ? 0 : 12)),
+              if (_loadingParentContext && activities.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      alignment: Alignment.center,
+                      child: const PrimaryCircularLoader(
+                        size: 40,
+                        strokeWidth: 3.5,
+                      ),
                     ),
                   ),
-                ),),
-                SliverToBoxAdapter(child: SizedBox(height: 12,),),
-                if(activities.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
-                        ),
-                        child: Center(
-                          child: AppText.title(
-                            _feedError ?? 'No Activities found',
-                            textAlign: TextAlign.center,
-                          ),
+                ),
+              if (!_loadingParentContext && activities.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: AppText.title(
+                          _feedError ?? 'No Activities found',
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ),
                   ),
-                if(activities.isNotEmpty)
-                  SliverPadding(
+                ),
+              if (activities.isNotEmpty)
+                SliverPadding(
+                  padding: ResponsiveSizing.activityFeedListPadding(context),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      if (index == activities.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: PrimaryCircularLoader(
+                              size: 28,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                        );
+                      }
+                      final activity = activities[index];
+                      final students = activity.studentList;
+                      final Color activityColor =
+                          _colorPalette[index % _colorPalette.length];
+
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      //color: activity.color,
+                                      color: activityColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 4,
+                                    height: 2,
+                                    //color: activity.color,
+                                    color: activityColor,
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                width: 100,
+                                height: 4,
+                                //color: activity.color,
+                                color: activityColor,
+                              ),
+                              Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  //color: activity.color,
+                                  color: activityColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              SizedBox(
+                                height: 20,
+                                child: AppText.small(
+                                  activity.time,
+                                  style: AppTextStyles.small.copyWith(
+                                    color: AppColors.primaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(width: 7),
+                              Container(
+                                width: 4,
+                                height: 220,
+                                //color: activity.color,
+                                color: activityColor,
+                              ),
+
+                              const SizedBox(width: 16),
+
+                              // Activity Card
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 16,
+                                    right: 0,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 15),
+                                      InkWell(
+                                        onTap: () async {
+                                          final destinationBuilder =
+                                              activityRoutes[activity.name];
+                                          if (destinationBuilder != null) {
+                                            final nextScreen =
+                                                destinationBuilder(activity);
+                                            await Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => nextScreen,
+                                              ),
+                                            );
+                                            if (mounted) {
+                                              await _loadRangeFeed(
+                                                refresh: true,
+                                              );
+                                            }
+                                          }
+                                        },
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                            minHeight: 180,
+                                          ),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: activityColor.withOpacity(
+                                              0.15,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: activityColor.withOpacity(
+                                                0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: SizedBox(
+                                                  width: 140,
+                                                  height: 120,
+                                                  child:
+                                                      activity.photoUrl !=
+                                                              null ||
+                                                          activity.videoUrl !=
+                                                              null
+                                                      ? ActivityMediaPreview(
+                                                          activity: activity,
+                                                          activityColor:
+                                                              activityColor,
+                                                        )
+                                                      // ? Image.network(
+                                                      //     activity.photoUrl!,
+                                                      //     fit: BoxFit.cover,
+                                                      //     loadingBuilder:
+                                                      //         (
+                                                      //           context,
+                                                      //           child,
+                                                      //           loadingProgress,
+                                                      //         ) {
+                                                      //           if (loadingProgress ==
+                                                      //               null)
+                                                      //             return child;
+                                                      //           return Container(
+                                                      //             color: Colors
+                                                      //                 .transparent,
+                                                      //             child: const Center(
+                                                      //               child: CircularProgressIndicator(
+                                                      //                 strokeWidth:
+                                                      //                     2,
+                                                      //               ),
+                                                      //             ),
+                                                      //           );
+                                                      //         },
+                                                      //     errorBuilder:
+                                                      //         (
+                                                      //           context,
+                                                      //           error,
+                                                      //           stackTrace,
+                                                      //         ) {
+                                                      //           return Container(
+                                                      //             width: 122,
+                                                      //             height: 76,
+                                                      //             color: activity
+                                                      //                 .color
+                                                      //                 .withOpacity(
+                                                      //                   0.25,
+                                                      //                 ),
+                                                      //             child: Center(
+                                                      //               child: Image.asset(
+                                                      //                 activityIcons[activity
+                                                      //                     .name],
+                                                      //                 //'assets/icons/activity-nap-icon.png',
+                                                      //                 fit: BoxFit
+                                                      //                     .fill,
+                                                      //               ),
+                                                      //             ),
+                                                      //           );
+                                                      //         },
+                                                      //   )
+                                                      : Container(
+                                                          width: 122,
+                                                          height: 76,
+                                                          color: Colors.white,
+                                                          // color: activityColor
+                                                          //     .withOpacity(0.25),
+                                                          child: Center(
+                                                            child: Image.asset(
+                                                              activityIcons[activity
+                                                                  .name],
+                                                              //'assets/icons/activity-nap-icon.png',
+                                                              fit: BoxFit.fill,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Align(
+                                                            alignment: Alignment
+                                                                .centerLeft,
+                                                            child: Container(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                    vertical: 6,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                color: activityColor
+                                                                    .withOpacity(
+                                                                      0.5,
+                                                                    ),
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      4,
+                                                                    ),
+                                                              ),
+                                                              child: Text(
+                                                                activity.name,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: const TextStyle(
+                                                                  color: AppColors
+                                                                      .primaryColor,
+                                                                  fontSize: 12,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (isNotParent)
+                                                          PopupMenuButton<
+                                                            String
+                                                          >(
+                                                            icon: const Icon(
+                                                              Icons.more_horiz,
+                                                              size: 20,
+                                                            ),
+                                                            onSelected: null,
+                                                            itemBuilder: (context) => [
+                                                              PopupMenuItem<
+                                                                String
+                                                              >(
+                                                                value: 'view',
+                                                                child: PopupItem(
+                                                                  title: 'View',
+                                                                  icon: Icon(
+                                                                    Icons
+                                                                        .visibility_outlined,
+                                                                    color: AppColors
+                                                                        .themeColor,
+                                                                  ),
+                                                                ),
+                                                                onTap: () async {
+                                                                  final destinationBuilder =
+                                                                      activityRoutes[activity
+                                                                          .name];
+                                                                  if (destinationBuilder !=
+                                                                      null) {
+                                                                    final nextScreen =
+                                                                        destinationBuilder(
+                                                                          activity,
+                                                                        );
+                                                                    await Navigator.of(
+                                                                      context,
+                                                                    ).push(
+                                                                      MaterialPageRoute(
+                                                                        builder:
+                                                                            (
+                                                                              _,
+                                                                            ) =>
+                                                                                nextScreen,
+                                                                      ),
+                                                                    );
+                                                                    if (mounted) {
+                                                                      await _loadRangeFeed(
+                                                                        refresh:
+                                                                            true,
+                                                                      );
+                                                                    }
+                                                                  }
+                                                                },
+                                                              ),
+                                                              if (widget
+                                                                  .allowActivityWrite) ...[
+                                                                PopupMenuItem<
+                                                                  String
+                                                                >(
+                                                                  value: 'edit',
+                                                                  child: PopupItem(
+                                                                    title:
+                                                                        'Edit',
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .edit,
+                                                                      color: AppColors
+                                                                          .themeColor,
+                                                                    ),
+                                                                  ),
+                                                                  onTap: () async {
+                                                                    final destinationBuilder =
+                                                                        editActivityRoutes[activity
+                                                                            .name];
+                                                                    if (destinationBuilder !=
+                                                                        null) {
+                                                                      final nextScreen =
+                                                                          destinationBuilder(
+                                                                            activity,
+                                                                          );
+                                                                      await Navigator.of(
+                                                                        context,
+                                                                      ).push(
+                                                                        MaterialPageRoute(
+                                                                          builder: (_) =>
+                                                                              nextScreen,
+                                                                        ),
+                                                                      );
+                                                                      if (mounted) {
+                                                                        await _loadRangeFeed(
+                                                                          refresh:
+                                                                              true,
+                                                                        );
+                                                                      }
+                                                                    }
+                                                                  },
+                                                                ),
+                                                                PopupMenuItem<
+                                                                  String
+                                                                >(
+                                                                  value:
+                                                                      'delete',
+                                                                  child: PopupItem(
+                                                                    title:
+                                                                        'Delete',
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .delete,
+                                                                      color: AppColors
+                                                                          .themeColor,
+                                                                    ),
+                                                                  ),
+                                                                  onTap: () {
+                                                                    showModalBottomSheet(
+                                                                      context:
+                                                                          context,
+                                                                      isScrollControlled:
+                                                                          true,
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .transparent,
+                                                                      builder: (ctx) {
+                                                                        return DeleteConfirmationBottomSheet(
+                                                                          name:
+                                                                              activity.name,
+                                                                          type:
+                                                                              'Activity',
+                                                                          onDelete: () => _deleteActivityFromSheet(
+                                                                            ctx,
+                                                                            activity,
+                                                                          ),
+                                                                          onCancel: () {
+                                                                            Navigator.of(
+                                                                              ctx,
+                                                                            ).pop();
+                                                                          },
+                                                                        );
+                                                                      },
+                                                                    );
+                                                                  },
+                                                                ),
+                                                              ],
+                                                            ],
+                                                          ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+
+                                                    SizedBox(
+                                                      height: 32,
+                                                      child: Stack(
+                                                        children: [
+                                                          for (
+                                                            int i = 0;
+                                                            i < students.length &&
+                                                                i < 4;
+                                                            i++
+                                                          )
+                                                            Positioned(
+                                                              left: i * 20,
+                                                              child: DocumentImageWidget(
+                                                                fileUuid: '',
+                                                                name:
+                                                                    students[i],
+                                                                size: 28,
+                                                                fontSize: 10,
+                                                              ),
+                                                            ),
+
+                                                          // Extra count tooltip
+                                                          if (students.length >
+                                                              4)
+                                                            Positioned(
+                                                              left:
+                                                                  4 *
+                                                                  20, // after 4 avatars
+                                                              child: Tooltip(
+                                                                message:
+                                                                    students
+                                                                        .skip(4)
+                                                                        .join(
+                                                                          ', ',
+                                                                        ),
+                                                                child: DocumentImageWidget(
+                                                                  fileUuid: '',
+                                                                  name:
+                                                                      '+${students.length - 4}',
+                                                                  size: 28,
+                                                                  fontSize: 10,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+
+                                                    Text(
+                                                      activityFeedCardBodyLine(
+                                                        activity,
+                                                      ),
+                                                      style: AppTextStyles.body
+                                                          .copyWith(
+                                                            color: AppColors
+                                                                .primaryColor,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            height: 1.0,
+                                                          ),
+                                                      strutStyle: StrutStyle(
+                                                        fontFamily:
+                                                            Fonts.manrope,
+                                                        fontSize: 14,
+                                                        height: 1.0,
+                                                        leading: 0,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        forceStrutHeight: true,
+                                                      ),
+                                                      textHeightBehavior:
+                                                          const TextHeightBehavior(
+                                                            applyHeightToFirstAscent:
+                                                                false,
+                                                            applyHeightToLastDescent:
+                                                                false,
+                                                          ),
+                                                      maxLines:
+                                                          activityFeedCardBodyMaxLines(
+                                                            activity,
+                                                          ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    AppText.small(
+                                                      'Created By - ${activity.createdBy}',
+                                                      style: AppTextStyles.small
+                                                          .copyWith(
+                                                            color: AppColors
+                                                                .primaryColor,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }, childCount: activities.length + (_loadingMoreFeed ? 1 : 0)),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+            ],
+          );
+          // ignore: dead_code
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                Padding(
+                  padding: ResponsiveSizing.contentPadding(context),
+                  // filter card
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.dividerColor),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                    ),
+                    child: widget.fromStudentProfile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                height: 40,
+                                child: AbsorbPointer(
+                                  child: _buildCustomDropdown(
+                                    'Select Student',
+                                    widget.studentName != null
+                                        ? [widget.studentName!]
+                                        : <String>[],
+                                    widget.studentName,
+                                    (v) => setState(() {
+                                      _selectedStudent = v;
+                                    }),
+                                    height: 40,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 40,
+                                child: _datePickerFilter(
+                                  selectedStartDate: _selectedStartDate,
+                                  selectedEndDate: _selectedEndDate,
+                                  // onDateRangeSelected: (date) {
+                                  //   List<String>? dates = date?.split('-\n');
+                                  //   setState(() {
+                                  //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                                  //     _selectedEndDate = dates?[1].trim() as DateTime;
+                                  //
+                                  //   });
+                                  // },
+                                ),
+                              ),
+                            ],
+                          )
+                        : isNotParent
+                        ? Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCustomDropdown(
+                                      'Select Classroom',
+                                      _classroomOptions,
+                                      _selectdClassroom,
+                                      (v) {
+                                        setState(() {
+                                          _selectdClassroom = v;
+                                          _updateAvailableStudents();
+                                        });
+                                        _loadRangeFeed(refresh: true);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    // child: _buildCustomDropdown(
+                                    //   'Select Student',
+                                    //   _allStudents,
+                                    //   _selectedStudent,
+                                    //       (v) => setState(() {
+                                    //     _selectedStudent = v;
+                                    //   }),
+                                    // ),
+                                    child: _buildCustomDropdown(
+                                      _selectdClassroom == null
+                                          ? 'Select Classroom First'
+                                          : 'Select Student',
+                                      _availableStudents,
+                                      _selectedStudent,
+                                      (value) {
+                                        if (_selectdClassroom != null) {
+                                          setState(() {
+                                            _selectedStudent = value;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(100),
+                                      onTap: _openActivityFilter,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: SvgPicture.asset(
+                                          MediaRes.filterIcon,
+                                          height: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: _datePickerFilter(
+                                      selectedStartDate: _selectedStartDate,
+                                      selectedEndDate: _selectedEndDate,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  CustomClearAllChip(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectdClassroom =
+                                            _classroomOptions[0];
+                                        _selectedStudent = null;
+                                        _filterActivityTypes.clear();
+                                        _filterTags.clear();
+                                      });
+                                      _loadRangeFeed(refresh: true);
+                                    },
+                                    label: 'Clear All',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : SizedBox(
+                            height: 40,
+                            child: _datePickerFilter(
+                              selectedStartDate: _selectedStartDate,
+                              selectedEndDate: _selectedEndDate,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                if (_loadingParentContext && activities.isEmpty)
+                  Padding(
                     padding: ResponsiveSizing.contentPadding(context),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                              (context, index){
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      alignment: Alignment.center,
+                      child: const PrimaryCircularLoader(
+                        size: 40,
+                        strokeWidth: 3.5,
+                      ),
+                    ),
+                  ),
+
+                if (!_loadingParentContext && activities.length == 0)
+                  Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: AppText.title(
+                          _feedError ?? 'No Activities found',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (activities.length != 0)
+                  Padding(
+                    padding: ResponsiveSizing.activityFeedListPadding(context),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: EdgeInsets.zero,
+                          itemCount: activities.length,
+                          itemBuilder: (context, index) {
                             final activity = activities[index];
                             final students = activity.studentList;
                             final Color activityColor =
-                            _colorPalette[index % _colorPalette.length];
+                                _colorPalette[index % _colorPalette.length];
 
                             return Column(
                               children: [
@@ -801,7 +2304,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                           width: 18,
                                           height: 18,
                                           decoration: BoxDecoration(
-                                            //color: activity.color,
                                             color: activityColor,
                                             shape: BoxShape.circle,
                                           ),
@@ -809,7 +2311,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                         Container(
                                           width: 4,
                                           height: 2,
-                                          //color: activity.color,
                                           color: activityColor,
                                         ),
                                       ],
@@ -817,14 +2318,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     Container(
                                       width: 100,
                                       height: 4,
-                                      //color: activity.color,
                                       color: activityColor,
                                     ),
                                     Container(
                                       width: 18,
                                       height: 18,
                                       decoration: BoxDecoration(
-                                        //color: activity.color,
                                         color: activityColor,
                                         shape: BoxShape.circle,
                                       ),
@@ -849,7 +2348,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     Container(
                                       width: 4,
                                       height: 220,
-                                      //color: activity.color,
                                       color: activityColor,
                                     ),
 
@@ -858,1392 +2356,54 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                     // Activity Card
                                     Expanded(
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        padding: const EdgeInsets.only(
+                                          left: 16,
+                                          right: 0,
+                                        ),
                                         child: Column(
                                           children: [
                                             const SizedBox(height: 15),
-                                            InkWell(
-                                              onTap: () {
-                                                final destinationBuilder =
-                                                activityRoutes[activity
-                                                    .name];
-                                                if (destinationBuilder !=
-                                                    null) {
-                                                  final nextScreen =
-                                                  destinationBuilder(
-                                                    activity,
-                                                  );
-                                                  Navigator.of(
-                                                    context,
-                                                  ).push(
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                      nextScreen,
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                              child: Container(
-                                                height: 180,
-                                                margin: const EdgeInsets.only(
-                                                  bottom: 24,
-                                                ),
-                                                padding: const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: activityColor.withOpacity(
-                                                    0.15,
-                                                  ),
-                                                  borderRadius: BorderRadius.circular(
-                                                    16,
-                                                  ),
-                                                  border: Border.all(
-                                                    color: activityColor.withOpacity(
-                                                      0.4,
-                                                    ),
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  // crossAxisAlignment:
-                                                  //     CrossAxisAlignment.center,
-                                                  children: [
-                                                    ClipRRect(
-                                                      borderRadius:
-                                                      BorderRadius.circular(12),
-                                                      child: SizedBox(
-                                                        width: 140,
-                                                        height: 120,
-                                                        child:
-                                                        activity.photoUrl != null ||
-                                                            activity.videoUrl !=
-                                                                null
-                                                            ? ActivityMediaPreview(
-                                                          activity: activity,
-                                                          activityColor:
-                                                          activityColor,
-                                                        )
-                                                        // ? Image.network(
-                                                        //     activity.photoUrl!,
-                                                        //     fit: BoxFit.cover,
-                                                        //     loadingBuilder:
-                                                        //         (
-                                                        //           context,
-                                                        //           child,
-                                                        //           loadingProgress,
-                                                        //         ) {
-                                                        //           if (loadingProgress ==
-                                                        //               null)
-                                                        //             return child;
-                                                        //           return Container(
-                                                        //             color: Colors
-                                                        //                 .transparent,
-                                                        //             child: const Center(
-                                                        //               child: CircularProgressIndicator(
-                                                        //                 strokeWidth:
-                                                        //                     2,
-                                                        //               ),
-                                                        //             ),
-                                                        //           );
-                                                        //         },
-                                                        //     errorBuilder:
-                                                        //         (
-                                                        //           context,
-                                                        //           error,
-                                                        //           stackTrace,
-                                                        //         ) {
-                                                        //           return Container(
-                                                        //             width: 122,
-                                                        //             height: 76,
-                                                        //             color: activity
-                                                        //                 .color
-                                                        //                 .withOpacity(
-                                                        //                   0.25,
-                                                        //                 ),
-                                                        //             child: Center(
-                                                        //               child: Image.asset(
-                                                        //                 activityIcons[activity
-                                                        //                     .name],
-                                                        //                 //'assets/icons/activity-nap-icon.png',
-                                                        //                 fit: BoxFit
-                                                        //                     .fill,
-                                                        //               ),
-                                                        //             ),
-                                                        //           );
-                                                        //         },
-                                                        //   )
-                                                            : Container(
-                                                          width: 122,
-                                                          height: 76,
-                                                          color: Colors.white,
-                                                          // color: activityColor
-                                                          //     .withOpacity(0.25),
-                                                          child: Center(
-                                                            child: Image.asset(
-                                                              activityIcons[activity
-                                                                  .name],
-                                                              //'assets/icons/activity-nap-icon.png',
-                                                              fit: BoxFit.fill,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment.start,
-                                                        mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceEvenly,
-                                                        children: [
-                                                          Row(
-                                                            mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .spaceBetween,
-                                                            children: [
-                                                              Container(
-                                                                padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 12,
-                                                                  vertical: 6,
-                                                                ),
-                                                                decoration: BoxDecoration(
-                                                                  color: activityColor,
-                                                                  borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    20,
-                                                                  ),
-                                                                ),
-                                                                child: Text(
-                                                                  activity.name,
-                                                                  style:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                    fontSize: 11,
-                                                                    fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              PopupMenuButton<String>(
-                                                                icon: const Icon(
-                                                                  Icons.more_horiz,
-                                                                  size: 20,
-                                                                ),
-                                                                onSelected: null,
-                                                                itemBuilder: (context) => [
-                                                                  PopupMenuItem<String>(
-                                                                    value: 'view',
-                                                                    child: PopupItem(
-                                                                      title: 'View',
-                                                                      icon: Icon(
-                                                                        Icons
-                                                                            .visibility_outlined,
-                                                                        color: AppColors
-                                                                            .themeColor,
-                                                                      ),
-                                                                    ),
-                                                                    onTap: () {
-                                                                      final destinationBuilder =
-                                                                      activityRoutes[activity
-                                                                          .name];
-                                                                      if (destinationBuilder !=
-                                                                          null) {
-                                                                        final nextScreen =
-                                                                        destinationBuilder(
-                                                                          activity,
-                                                                        );
-                                                                        Navigator.of(
-                                                                          context,
-                                                                        ).push(
-                                                                          MaterialPageRoute(
-                                                                            builder: (_) =>
-                                                                            nextScreen,
-                                                                          ),
-                                                                        );
-                                                                      }
-                                                                    },
-                                                                  ),
-                                                                  PopupMenuItem<String>(
-                                                                    value: 'edit',
-                                                                    child: PopupItem(
-                                                                      title: 'Edit',
-                                                                      icon: Icon(
-                                                                        Icons.edit,
-                                                                        color: AppColors
-                                                                            .themeColor,
-                                                                      ),
-                                                                    ),
-                                                                    onTap: () {
-                                                                      final destinationBuilder =
-                                                                      editActivityRoutes[activity
-                                                                          .name];
-                                                                      if (destinationBuilder !=
-                                                                          null) {
-                                                                        final nextScreen =
-                                                                        destinationBuilder(
-                                                                          activity,
-                                                                        );
-                                                                        Navigator.of(
-                                                                          context,
-                                                                        ).push(
-                                                                          MaterialPageRoute(
-                                                                            builder: (_) =>
-                                                                            nextScreen,
-                                                                          ),
-                                                                        );
-                                                                      }
-                                                                    },
-                                                                  ),
-                                                                  PopupMenuItem<String>(
-                                                                    value: 'delete',
-                                                                    child: PopupItem(
-                                                                      title: 'Delete',
-                                                                      icon: Icon(
-                                                                        Icons.delete,
-                                                                        color: AppColors
-                                                                            .themeColor,
-                                                                      ),
-                                                                    ),
-                                                                    onTap: () {
-                                                                      showModalBottomSheet(
-                                                                        context: context,
-                                                                        isScrollControlled: true,
-                                                                        backgroundColor: Colors.transparent,
-                                                                        builder: (ctx) {
-                                                                          return DeleteConfirmationBottomSheet(
-                                                                            name: activity.name,
-                                                                            type: 'Activity',
-                                                                            onDelete: () {
-                                                                              CoreUtils.showTopSnackBar(
-                                                                                  context: context,
-                                                                                  message: '${activity.name} activity deleted successfully',
-                                                                                  isSuccess: true
-                                                                              );
-                                                                              Navigator.of(ctx).pop();
-                                                                              //widget.onDelete?.call();
-                                                                            },
-                                                                            onCancel: () {
-                                                                              Navigator.of(ctx).pop();
-                                                                            },
-                                                                          );
-                                                                        },
-                                                                      );
-                                                                    },
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          const SizedBox(height: 10),
-
-                                                          SizedBox(
-                                                            height: 32,
-                                                            child: Stack(
-                                                              children: [
-                                                                for (
-                                                                int i = 0;
-                                                                i < students.length &&
-                                                                    i < 4;
-                                                                i++
-                                                                )
-                                                                  Positioned(
-                                                                    left: i * 20,
-                                                                    child:
-                                                                    DocumentImageWidget(
-                                                                      fileUuid: '',
-                                                                      name:
-                                                                      students[i],
-                                                                      size: 28,
-                                                                      fontSize: 10,
-                                                                    ),
-                                                                  ),
-
-                                                                // Extra count tooltip
-                                                                if (students.length > 4)
-                                                                  Positioned(
-                                                                    left:
-                                                                    4 *
-                                                                        20, // after 4 avatars
-                                                                    child: Tooltip(
-                                                                      message: students
-                                                                          .skip(4)
-                                                                          .join(', '),
-                                                                      child: DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        '+${students.length - 4}',
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(height: 10),
-
-                                                          AppText.body(
-                                                            activity.description ?? 'No description',
-                                                            style: AppTextStyles.body.copyWith(
-                                                              color: AppColors.primaryColor,
-                                                              fontWeight: FontWeight.w600,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                          const SizedBox(height: 10),
-                                                          AppText.small(
-                                                            'Created By - ${activity.createdBy}',
-                                                            style: AppTextStyles.small.copyWith(
-                                                              color: AppColors.primaryColor,
-                                                              fontWeight: FontWeight.w500,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          },
-                          childCount: activities.length
-                      ),
-                    ),
-                  ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20,),)
-              ],
-            );
-            return SingleChildScrollView(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
-                    // filter card
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.cardBorderColor),
-                        borderRadius: BorderRadius.circular(12),
-                        color: AppColors.cardColor,
-                      ),
-                      child: widget.fromStudentProfile
-                          ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: 65,
-                            child: AbsorbPointer(
-                              child: _buildCustomDropdown(
-                                'Select Student',
-                                [if (widget.studentName != null) widget.studentName!],
-                                widget.studentName,
-                                    (v) => setState(() {
-                                  _selectedStudent = v;
-                                }),
-                                height: 65,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 65,
-                            child: _datePickerFilter(
-                              selectedStartDate: _selectedStartDate,
-                              selectedEndDate: _selectedEndDate,
-                              // onDateRangeSelected: (date) {
-                              //   List<String>? dates = date?.split('-\n');
-                              //   setState(() {
-                              //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                              //     _selectedEndDate = dates?[1].trim() as DateTime;
-                              //
-                              //   });
-                              // },
-                            ),
-                          ),
-                        ],
-                      )
-                          : isNotParent
-                          ? Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildCustomDropdown(
-                                  'Select Classroom',
-                                  _classroomOptions,
-                                  _selectdClassroom,
-                                      (v) {
-                                    setState(() {
-                                      _selectdClassroom = v;
-                                      _updateAvailableStudents();
-                                    });
-                                    _loadRangeFeed(refresh: true);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                // child: _buildCustomDropdown(
-                                //   'Select Student',
-                                //   _allStudents,
-                                //   _selectedStudent,
-                                //       (v) => setState(() {
-                                //     _selectedStudent = v;
-                                //   }),
-                                // ),
-                                child: _buildCustomDropdown(
-                                  _selectdClassroom == null
-                                      ? 'Select Classroom First'
-                                      : 'Select Student',
-                                  _availableStudents,
-                                  _selectedStudent,
-                                      (value) {
-                                    if (_selectdClassroom != null) {
-                                      setState(() {
-                                        _selectedStudent = value;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(100),
-                                  onTap: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => FilterScreen(
-                                          sections: [
-                                            FilerSection(
-                                              label: 'Tags',
-                                              hintText: 'Select tags',
-                                              items: [
-                                                '5 Days',
-                                                'Full Day',
-                                                'Photo Permission',
-                                                'Vegetarian',
-                                                'First Aid',
-                                                'Allergy',
-                                                'Pickup Authorized',
-                                                'Medication',
-                                                'Half Day',
-                                                'Boy',
-                                                'Girl',
-                                              ],
-                                              initialSelected: _filterTags,
-                                              isMultiSelectDropDown: false,
-                                            ),
-                                            FilerSection(
-                                              label: 'Activity Type',
-                                              hintText: 'Select Activity',
-                                              items: [
-                                                'Nap Start',
-                                                'Nap End',
-                                                'Bathroom',
-                                                'Bottle',
-                                                'Meal',
-                                                'Incident',
-                                                'Photo',
-                                                'Outdoor',
-                                                'Medication',
-                                                'Notes',
-                                                'Learning',
-                                                'Sign-in',
-                                                'Sign-out',
-                                                'Absent',
-                                              ],
-                                              initialSelected: _filterActivityTypes,
-                                              isMultiSelectDropDown: false,
-                                            ),
-                                          ],
-                                          onApply: (filters) {
-                                            setState(() {
-                                              _filterTags = filters['Tags']!;
-                                              _filterActivityTypes =
-                                              filters['Activity Type']!;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                    if (!mounted) return;
-                                    if (result is Map) {
-                                      // TODO: apply filters to list
-                                      setState(() {});
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: SvgPicture.asset(
-                                      MediaRes.filterIcon,
-                                      height: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: _datePickerFilter(
-                                  selectedStartDate: _selectedStartDate,
-                                  selectedEndDate: _selectedEndDate,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              CustomClearAllChip(
-                                onTap: () {
-                                  setState(() {
-                                    _selectdClassroom = _classroomOptions[0];
-                                    _selectedStudent = null;
-                                    _filterActivityTypes.clear();
-                                    _filterTags.clear();
-                                  });
-                                },
-                                label: 'Clear All',
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                          : Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 65,
-                              child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: SizedBox(
-                              height: 65,
-                              child: _buildCustomDropdown(
-                                'Activity Type',
-                                activityType,
-                                _selectedActivityType,
-                                  (v) {
-                                setState(() {
-                                  _selectedActivityType = v;
-                                });
-                                _loadRangeFeed(refresh: true);
-                              },
-                                height: 65,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  if (activities.length == 0)
-                    Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
-                        ),
-                        child: Center(
-                          child: AppText.title(
-                            _feedError ?? 'No Activities found',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  if (activities.length != 0)
-                    Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(right: 16),
-                            itemCount: activities.length,
-                            itemBuilder: (context, index) {
-                              final activity = activities[index];
-                              final students = activity.studentList;
-                              final Color activityColor = _colorPalette[index % _colorPalette.length];
-
-                              return Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Container(
-                                            width: 18,
-                                            height: 18,
-                                            decoration: BoxDecoration(
-                                              color: activityColor,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          Container(
-                                            width: 4,
-                                            height: 2,
-                                            color: activityColor,
-                                          ),
-                                        ],
-                                      ),
-                                      Container(
-                                        width: 100,
-                                        height: 4,
-                                        color: activityColor,
-                                      ),
-                                      Container(
-                                        width: 18,
-                                        height: 18,
-                                        decoration: BoxDecoration(
-                                          color: activityColor,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 20),
-                                      SizedBox(
-                                        height: 20,
-                                        child: AppText.small(
-                                          activity.time,
-                                          style: AppTextStyles.small.copyWith(
-                                            color: AppColors.primaryColor,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(width: 7),
-                                      Container(
-                                        width: 4,
-                                        height: 220,
-                                        color: activityColor,
-                                      ),
-
-                                      const SizedBox(width: 16),
-
-                                      // Activity Card
-                                      Column(
-                                        children: [
-                                          const SizedBox(height: 15),
-                                          Container(
-                                            height: 180,
-                                            margin: const EdgeInsets.only(
-                                              bottom: 24,
-                                            ),
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: activityColor.withOpacity(
-                                                0.15,
-                                              ),
-                                              borderRadius: BorderRadius.circular(
-                                                16,
-                                              ),
-                                              border: Border.all(
-                                                color: activityColor.withOpacity(
-                                                  0.4,
-                                                ),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              // crossAxisAlignment:
-                                              //     CrossAxisAlignment.center,
-                                              children: [
-                                                ClipRRect(
-                                                  borderRadius:
-                                                  BorderRadius.circular(12),
-                                                  child: SizedBox(
-                                                    width: 140,
-                                                    height: 120,
-                                                    child:
-                                                    activity.photoUrl != null || activity.videoUrl != null
-                                                        ? ActivityMediaPreview(activity: activity, activityColor: activityColor,)
-                                                    // ? Image.network(
-                                                    //     activity.photoUrl!,
-                                                    //     fit: BoxFit.cover,
-                                                    //     loadingBuilder:
-                                                    //         (
-                                                    //           context,
-                                                    //           child,
-                                                    //           loadingProgress,
-                                                    //         ) {
-                                                    //           if (loadingProgress ==
-                                                    //               null)
-                                                    //             return child;
-                                                    //           return Container(
-                                                    //             color: Colors
-                                                    //                 .transparent,
-                                                    //             child: const Center(
-                                                    //               child: CircularProgressIndicator(
-                                                    //                 strokeWidth:
-                                                    //                     2,
-                                                    //               ),
-                                                    //             ),
-                                                    //           );
-                                                    //         },
-                                                    //     errorBuilder:
-                                                    //         (
-                                                    //           context,
-                                                    //           error,
-                                                    //           stackTrace,
-                                                    //         ) {
-                                                    //           return Container(
-                                                    //             width: 122,
-                                                    //             height: 76,
-                                                    //             color: activityColor
-                                                    //                 .withOpacity(
-                                                    //                   0.25,
-                                                    //                 ),
-                                                    //             child: Center(
-                                                    //               child: Image.asset(
-                                                    //                 activityIcons[activity
-                                                    //                     .name],
-                                                    //                 //'assets/icons/activity-nap-icon.png',
-                                                    //                 fit: BoxFit
-                                                    //                     .fill,
-                                                    //               ),
-                                                    //             ),
-                                                    //           );
-                                                    //         },
-                                                    //   )
-                                                        : Container(
-                                                      width: 122,
-                                                      height: 76,
-                                                      color: Colors.white,
-                                                      // color: activityColor
-                                                      //     .withOpacity(0.25),
-                                                      child: Center(
-                                                        child: Image.asset(
-                                                          activityIcons[activity
-                                                              .name],
-                                                          //'assets/icons/activity-nap-icon.png',
-                                                          fit: BoxFit.fill,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                    mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
-                                                    children: [
-                                                      Row(
-                                                        mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                        children: [
-                                                          Container(
-                                                            padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 6,
-                                                            ),
-                                                            decoration: BoxDecoration(
-                                                              color: activityColor,
-                                                              borderRadius:
-                                                              BorderRadius.circular(
-                                                                20,
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              activity.name,
-                                                              style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                FontWeight
-                                                                    .bold,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          PopupMenuButton<String>(
-                                                            icon: const Icon(
-                                                              Icons.more_horiz,
-                                                              size: 20,
-                                                            ),
-                                                            onSelected: null,
-                                                            itemBuilder: (context) => [
-                                                              PopupMenuItem<String>(
-                                                                value: 'view',
-                                                                child: PopupItem(
-                                                                  title: 'View',
-                                                                  icon: Icon(
-                                                                    Icons
-                                                                        .visibility_outlined,
-                                                                    color: AppColors
-                                                                        .themeColor,
-                                                                  ),
-                                                                ),
-                                                                onTap: () {
-                                                                  final destinationBuilder =
-                                                                  activityRoutes[activity
-                                                                      .name];
-                                                                  if (destinationBuilder !=
-                                                                      null) {
-                                                                    final nextScreen =
-                                                                    destinationBuilder(
-                                                                      activity,
-                                                                    );
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).push(
-                                                                      MaterialPageRoute(
-                                                                        builder: (_) =>
-                                                                        nextScreen,
-                                                                      ),
-                                                                    );
-                                                                  }
-                                                                },
-                                                              ),
-                                                              PopupMenuItem<String>(
-                                                                value: 'edit',
-                                                                child: PopupItem(
-                                                                  title: 'Edit',
-                                                                  icon: Icon(
-                                                                    Icons.edit,
-                                                                    color: AppColors
-                                                                        .themeColor,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              PopupMenuItem<String>(
-                                                                value: 'delete',
-                                                                child: PopupItem(
-                                                                  title: 'Delete',
-                                                                  icon: Icon(
-                                                                    Icons.delete,
-                                                                    color: AppColors
-                                                                        .themeColor,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 10),
-
-                                                      SizedBox(
-                                                        height: 32,
-                                                        child: Stack(
-                                                          children: [
-                                                            for (
-                                                            int i = 0;
-                                                            i < students.length &&
-                                                                i < 4;
-                                                            i++
-                                                            )
-                                                              Positioned(
-                                                                left: i * 20,
-                                                                child:
-                                                                DocumentImageWidget(
-                                                                  fileUuid: '',
-                                                                  name:
-                                                                  students[i],
-                                                                  size: 28,
-                                                                  fontSize: 10,
-                                                                ),
-                                                              ),
-
-                                                            // Extra count tooltip
-                                                            if (students.length > 4)
-                                                              Positioned(
-                                                                left:
-                                                                4 *
-                                                                    20, // after 4 avatars
-                                                                child: Tooltip(
-                                                                  message: students
-                                                                      .skip(4)
-                                                                      .join(', '),
-                                                                  child: DocumentImageWidget(
-                                                                    fileUuid: '',
-                                                                    name:
-                                                                    '+${students.length - 4}',
-                                                                    size: 28,
-                                                                    fontSize: 10,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 10),
-
-                                                      AppText.body(
-                                                        activity.description ?? 'No description',
-                                                        style: AppTextStyles.body.copyWith(
-                                                          color: AppColors.primaryColor,
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      const SizedBox(height: 10),
-                                                      AppText.small(
-                                                        'Created By - ${activity.createdBy}',
-                                                        style: AppTextStyles.small.copyWith(
-                                                          color: AppColors.primaryColor,
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            );
-          } else {
-            return Column(
-              children: [
-                Padding(
-                  padding: ResponsiveSizing.contentPadding(context),
-                  // filter card
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
-                      borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
-                    ),
-                    child: widget.fromStudentProfile
-                        ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: 65,
-                          child: AbsorbPointer(
-                            child: _buildCustomDropdown(
-                              'Select Student',
-                              [if (widget.studentName != null) widget.studentName!],
-                              widget.studentName,
-                                  (v) => setState(() {
-                                _selectedStudent = v;
-                              }),
-                              height: 65,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 65,
-                          child: _datePickerFilter(
-                            selectedStartDate: _selectedStartDate,
-                            selectedEndDate: _selectedEndDate,
-                            // onDateRangeSelected: (date) {
-                            //   List<String>? dates = date?.split('-\n');
-                            //   setState(() {
-                            //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                            //     _selectedEndDate = dates?[1].trim() as DateTime;
-                            //
-                            //   });
-                            // },
-                          ),
-                        ),
-                      ],
-                    )
-                        : isNotParent
-                        ? Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCustomDropdown(
-                                'Select Classroom',
-                                _classroomOptions,
-                                _selectdClassroom,
-                                    (v) {
-                                  setState(() {
-                                    _selectdClassroom = v;
-                                    _updateAvailableStudents();
-                                  });
-                                  _loadRangeFeed(refresh: true);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              // child: _buildCustomDropdown(
-                              //   'Select Student',
-                              //   _allStudents,
-                              //   _selectedStudent,
-                              //       (v) => setState(() {
-                              //     _selectedStudent = v;
-                              //   }),
-                              // ),
-                              child: _buildCustomDropdown(
-                                _selectdClassroom == null
-                                    ? 'Select Classroom First'
-                                    : 'Select Student',
-                                _availableStudents,
-                                _selectedStudent,
-                                    (value) {
-                                  if (_selectdClassroom != null) {
-                                    setState(() {
-                                      _selectedStudent = value;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(100),
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FilterScreen(
-                                        sections: [
-                                          FilerSection(
-                                            label: 'Tags',
-                                            hintText: 'Select tags',
-                                            items: [
-                                              '5 Days',
-                                              'Full Day',
-                                              'Photo Permission',
-                                              'Vegetarian',
-                                              'First Aid',
-                                              'Allergy',
-                                              'Pickup Authorized',
-                                              'Medication',
-                                              'Half Day',
-                                              'Boy',
-                                              'Girl',
-                                            ],
-                                            initialSelected: _filterTags,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                          FilerSection(
-                                            label: 'Activity Type',
-                                            hintText: 'Select Activity',
-                                            items: [
-                                              'Nap Start',
-                                              'Nap End',
-                                              'Bathroom',
-                                              'Bottle',
-                                              'Meal',
-                                              'Incident',
-                                              'Photo',
-                                              'Outdoor',
-                                              'Medication',
-                                              'Notes',
-                                              'Learning',
-                                              'Sign-in',
-                                              'Sign-out',
-                                              'Absent',
-                                            ],
-                                            initialSelected: _filterActivityTypes,
-                                            isMultiSelectDropDown: false,
-                                          ),
-                                        ],
-                                        onApply: (filters) {
-                                          setState(() {
-                                            _filterTags = filters['Tags']!;
-                                            _filterActivityTypes =
-                                            filters['Activity Type']!;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    // TODO: apply filters to list
-                                    setState(() {});
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(
-                                    MediaRes.filterIcon,
-                                    height: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
-                                  _selectdClassroom = _classroomOptions[0];
-                                  _selectedStudent = null;
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                });
-                              },
-                              label: 'Clear All',
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                        : Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 65,
-                            child: _datePickerFilter(
-                              selectedStartDate: _selectedStartDate,
-                              selectedEndDate: _selectedEndDate,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 65,
-                            child: _buildCustomDropdown(
-                              'Activity Type',
-                              activityType,
-                              _selectedActivityType,
-                                  (v) {
-                                setState(() {
-                                  _selectedActivityType = v;
-                                });
-                                _loadRangeFeed(refresh: true);
-                              },
-                              height: 65,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                if (activities.length == 0)
-                  Expanded(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
-                        ),
-                        child: Center(
-                          child: Text(
-                            _feedError ?? 'No Activities found',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontFamily: 'Manrope',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (activities.length != 0)
-                  Expanded(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: ListView.builder(
-                              padding: const EdgeInsets.only(right: 16),
-                              itemCount: activities.length,
-                              itemBuilder: (context, index) {
-                                final activity = activities[index];
-                                final students = activity.studentList;
-                                final Color activityColor = _colorPalette[index % _colorPalette.length];
-
-                                return Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Column(
-                                          children: [
                                             Container(
-                                              width: 18,
-                                              height: 18,
+                                              constraints: const BoxConstraints(
+                                                minHeight: 180,
+                                              ),
+                                              margin: const EdgeInsets.only(
+                                                bottom: 10,
+                                              ),
+                                              padding: const EdgeInsets.all(12),
                                               decoration: BoxDecoration(
-                                                color: activityColor,
-                                                shape: BoxShape.circle,
+                                                color: activityColor
+                                                    .withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                border: Border.all(
+                                                  color: activityColor
+                                                      .withOpacity(0.4),
+                                                ),
                                               ),
-                                            ),
-                                            Container(
-                                              width: 4,
-                                              height: 2,
-                                              color: activityColor,
-                                            ),
-                                          ],
-                                        ),
-                                        Container(
-                                          width: 100,
-                                          height: 4,
-                                          color: activityColor,
-                                        ),
-                                        Container(
-                                          width: 18,
-                                          height: 18,
-                                          decoration: BoxDecoration(
-                                            color: activityColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        SizedBox(
-                                          height: 20,
-                                          child: Text(
-                                            activity.time,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: AppColors.primaryColor,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(width: 7),
-                                        Container(
-                                          width: 4,
-                                          height: 220,
-                                          color: activityColor,
-                                        ),
-
-                                        const SizedBox(width: 16),
-
-                                        // Activity Card
-                                        Expanded(
-                                          child: InkWell(
-                                            onTap: () {
-                                              final destinationBuilder =
-                                              activityRoutes[activity
-                                                  .name];
-                                              if (destinationBuilder !=
-                                                  null) {
-                                                final nextScreen =
-                                                destinationBuilder(
-                                                  activity,
-                                                );
-                                                Navigator.of(
-                                                  context,
-                                                ).push(
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                    nextScreen,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                            child: Column(
-                                              children: [
-                                                const SizedBox(height: 15),
-                                                Container(
-                                                  height: 180,
-                                                  margin: const EdgeInsets.only(
-                                                    bottom: 24,
-                                                  ),
-                                                  padding: const EdgeInsets.all(12),
-                                                  decoration: BoxDecoration(
-                                                    color: activityColor.withOpacity(
-                                                      0.15,
-                                                    ),
-                                                    borderRadius: BorderRadius.circular(
-                                                      16,
-                                                    ),
-                                                    border: Border.all(
-                                                      color: activityColor.withOpacity(
-                                                        0.4,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    // crossAxisAlignment:
-                                                    //     CrossAxisAlignment.center,
-                                                    children: [
-                                                      ClipRRect(
-                                                        borderRadius:
-                                                        BorderRadius.circular(12),
-                                                        child: SizedBox(
-                                                          width: 140,
-                                                          height: 120,
-                                                          child:
-                                                          activity.photoUrl != null || activity.videoUrl != null
-                                                              ? ActivityMediaPreview(activity: activity, activityColor: activityColor,)
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    child: SizedBox(
+                                                      width: 140,
+                                                      height: 120,
+                                                      child:
+                                                          activity.photoUrl !=
+                                                                  null ||
+                                                              activity.videoUrl !=
+                                                                  null
+                                                          ? ActivityMediaPreview(
+                                                              activity:
+                                                                  activity,
+                                                              activityColor:
+                                                                  activityColor,
+                                                            )
                                                           // ? Image.network(
                                                           //     activity.photoUrl!,
                                                           //     fit: BoxFit.cover,
@@ -2292,253 +2452,1129 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
                                                           //           );
                                                           //         },
                                                           //   )
-                                                              : Container(
-                                                            width: 122,
-                                                            height: 76,
-                                                            color: Colors.white,
-                                                            // color: activityColor
-                                                            //     .withOpacity(0.25),
-                                                            child: Center(
-                                                              child: Image.asset(
-                                                                activityIcons[activity
-                                                                    .name],
-                                                                //'assets/icons/activity-nap-icon.png',
-                                                                fit: BoxFit.fill,
+                                                          : Container(
+                                                              width: 122,
+                                                              height: 76,
+                                                              color:
+                                                                  Colors.white,
+                                                              // color: activityColor
+                                                              //     .withOpacity(0.25),
+                                                              child: Center(
+                                                                child: Image.asset(
+                                                                  activityIcons[activity
+                                                                      .name],
+                                                                  //'assets/icons/activity-nap-icon.png',
+                                                                  fit: BoxFit
+                                                                      .fill,
+                                                                ),
                                                               ),
                                                             ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 12),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
-                                                          mainAxisAlignment:
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisAlignment:
                                                           MainAxisAlignment
-                                                              .spaceEvenly,
-                                                          children: [
-                                                            Row(
-                                                              mainAxisAlignment:
+                                                              .start,
+                                                      children: [
+                                                        Row(
+                                                          mainAxisAlignment:
                                                               MainAxisAlignment
                                                                   .spaceBetween,
-                                                              children: [
-                                                                Container(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Align(
+                                                                alignment: Alignment
+                                                                    .centerLeft,
+                                                                child: Container(
                                                                   padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    horizontal: 12,
-                                                                    vertical: 6,
-                                                                  ),
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            12,
+                                                                        vertical:
+                                                                            6,
+                                                                      ),
                                                                   decoration: BoxDecoration(
-                                                                    color: activityColor,
+                                                                    color:
+                                                                        activityColor,
                                                                     borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      20,
-                                                                    ),
+                                                                        BorderRadius.circular(
+                                                                          20,
+                                                                        ),
                                                                   ),
                                                                   child: Text(
-                                                                    activity.name,
-                                                                    style:
-                                                                    const TextStyle(
+                                                                    activity
+                                                                        .name,
+                                                                    maxLines: 1,
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                    style: const TextStyle(
                                                                       color: Colors
                                                                           .white,
-                                                                      fontSize: 11,
+                                                                      fontSize:
+                                                                          11,
                                                                       fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
+                                                                          FontWeight
+                                                                              .bold,
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                PopupMenuButton<String>(
-                                                                  icon: const Icon(
-                                                                    Icons.more_horiz,
-                                                                    size: 20,
+                                                              ),
+                                                            ),
+                                                            if (isNotParent)
+                                                              PopupMenuButton<
+                                                                String
+                                                              >(
+                                                                icon: const Icon(
+                                                                  Icons
+                                                                      .more_horiz,
+                                                                  size: 20,
+                                                                ),
+                                                                onSelected:
+                                                                    null,
+                                                                itemBuilder: (context) => [
+                                                                  PopupMenuItem<
+                                                                    String
+                                                                  >(
+                                                                    value:
+                                                                        'view',
+                                                                    child: PopupItem(
+                                                                      title:
+                                                                          'View',
+                                                                      icon: Icon(
+                                                                        Icons
+                                                                            .visibility_outlined,
+                                                                        color: AppColors
+                                                                            .themeColor,
+                                                                      ),
+                                                                    ),
+                                                                    onTap: () async {
+                                                                      final destinationBuilder =
+                                                                          activityRoutes[activity
+                                                                              .name];
+                                                                      if (destinationBuilder !=
+                                                                          null) {
+                                                                        final nextScreen =
+                                                                            destinationBuilder(
+                                                                              activity,
+                                                                            );
+                                                                        await Navigator.of(
+                                                                          context,
+                                                                        ).push(
+                                                                          MaterialPageRoute(
+                                                                            builder: (_) =>
+                                                                                nextScreen,
+                                                                          ),
+                                                                        );
+                                                                        if (mounted) {
+                                                                          await _loadRangeFeed(
+                                                                            refresh:
+                                                                                true,
+                                                                          );
+                                                                        }
+                                                                      }
+                                                                    },
                                                                   ),
-                                                                  onSelected: null,
-                                                                  itemBuilder: (context) => [
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'view',
+                                                                  if (widget
+                                                                      .allowActivityWrite) ...[
+                                                                    PopupMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          'edit',
                                                                       child: PopupItem(
-                                                                        title: 'View',
+                                                                        title:
+                                                                            'Edit',
                                                                         icon: Icon(
                                                                           Icons
-                                                                              .visibility_outlined,
-                                                                          color: AppColors
-                                                                              .themeColor,
+                                                                              .edit,
+                                                                          color:
+                                                                              AppColors.themeColor,
                                                                         ),
                                                                       ),
-                                                                      onTap: () {
+                                                                      onTap: () async {
                                                                         final destinationBuilder =
-                                                                        activityRoutes[activity
-                                                                            .name];
+                                                                            editActivityRoutes[activity.name];
                                                                         if (destinationBuilder !=
                                                                             null) {
-                                                                          final nextScreen =
-                                                                          destinationBuilder(
+                                                                          final nextScreen = destinationBuilder(
                                                                             activity,
                                                                           );
-                                                                          Navigator.of(
+                                                                          await Navigator.of(
                                                                             context,
                                                                           ).push(
                                                                             MaterialPageRoute(
-                                                                              builder: (_) =>
-                                                                              nextScreen,
+                                                                              builder:
+                                                                                  (
+                                                                                    _,
+                                                                                  ) => nextScreen,
                                                                             ),
                                                                           );
+                                                                          if (mounted) {
+                                                                            await _loadRangeFeed(
+                                                                              refresh: true,
+                                                                            );
+                                                                          }
                                                                         }
                                                                       },
                                                                     ),
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'edit',
+                                                                    PopupMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          'delete',
                                                                       child: PopupItem(
-                                                                        title: 'Edit',
+                                                                        title:
+                                                                            'Delete',
                                                                         icon: Icon(
-                                                                          Icons.edit,
-                                                                          color: AppColors
-                                                                              .themeColor,
+                                                                          Icons
+                                                                              .delete,
+                                                                          color:
+                                                                              AppColors.themeColor,
                                                                         ),
                                                                       ),
                                                                       onTap: () {
-                                                                        final destinationBuilder =
-                                                                        editActivityRoutes[activity
-                                                                            .name];
-                                                                        if (destinationBuilder !=
-                                                                            null) {
-                                                                          final nextScreen =
-                                                                          destinationBuilder(
-                                                                            activity,
-                                                                          );
-                                                                          Navigator.of(
-                                                                            context,
-                                                                          ).push(
-                                                                            MaterialPageRoute(
-                                                                              builder: (_) =>
-                                                                              nextScreen,
-                                                                            ),
-                                                                          );
-                                                                        }
+                                                                        showModalBottomSheet(
+                                                                          context:
+                                                                              context,
+                                                                          isScrollControlled:
+                                                                              true,
+                                                                          backgroundColor:
+                                                                              Colors.transparent,
+                                                                          builder: (ctx) {
+                                                                            return DeleteConfirmationBottomSheet(
+                                                                              name: activity.name,
+                                                                              type: 'Activity',
+                                                                              onDelete: () => _deleteActivityFromSheet(
+                                                                                ctx,
+                                                                                activity,
+                                                                              ),
+                                                                              onCancel: () {
+                                                                                Navigator.of(
+                                                                                  ctx,
+                                                                                ).pop();
+                                                                              },
+                                                                            );
+                                                                          },
+                                                                        );
                                                                       },
-                                                                    ),
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'delete',
-                                                                      child: PopupItem(
-                                                                        title: 'Delete',
-                                                                        icon: Icon(
-                                                                          Icons.delete,
-                                                                          color: AppColors
-                                                                              .themeColor,
-                                                                        ),
-                                                                      ),
                                                                     ),
                                                                   ],
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            const SizedBox(height: 10),
-
-                                                            SizedBox(
-                                                              height: 32,
-                                                              child: Stack(
-                                                                children: [
-                                                                  for (
-                                                                  int i = 0;
-                                                                  i < students.length &&
-                                                                      i < 4;
-                                                                  i++
-                                                                  )
-                                                                    Positioned(
-                                                                      left: i * 20,
-                                                                      child:
-                                                                      DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        students[i],
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-
-                                                                  // Extra count tooltip
-                                                                  if (students.length > 4)
-                                                                    Positioned(
-                                                                      left:
-                                                                      4 *
-                                                                          20, // after 4 avatars
-                                                                      child: Tooltip(
-                                                                        message: students
-                                                                            .skip(4)
-                                                                            .join(', '),
-                                                                        child: DocumentImageWidget(
-                                                                          fileUuid: '',
-                                                                          name:
-                                                                          '+${students.length - 4}',
-                                                                          size: 28,
-                                                                          fontSize: 10,
-                                                                        ),
-                                                                      ),
-                                                                    ),
                                                                 ],
                                                               ),
-                                                            ),
-                                                            const SizedBox(height: 10),
-
-                                                            Text(
-                                                              activity.description!,
-
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                FontWeight.w600,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                              TextOverflow.ellipsis,
-                                                            ),
-                                                            const SizedBox(height: 10),
-                                                            Text(
-                                                              'Created By - ${activity.createdBy}',
-
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontSize: 12,
-                                                                fontWeight:
-                                                                FontWeight.w500,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                              TextOverflow.ellipsis,
-                                                            ),
                                                           ],
                                                         ),
-                                                      ),
-                                                    ],
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+
+                                                        SizedBox(
+                                                          height: 32,
+                                                          child: Stack(
+                                                            children: [
+                                                              for (
+                                                                int i = 0;
+                                                                i <
+                                                                        students
+                                                                            .length &&
+                                                                    i < 4;
+                                                                i++
+                                                              )
+                                                                Positioned(
+                                                                  left: i * 20,
+                                                                  child: DocumentImageWidget(
+                                                                    fileUuid:
+                                                                        '',
+                                                                    name:
+                                                                        students[i],
+                                                                    size: 28,
+                                                                    fontSize:
+                                                                        10,
+                                                                  ),
+                                                                ),
+
+                                                              // Extra count tooltip
+                                                              if (students
+                                                                      .length >
+                                                                  4)
+                                                                Positioned(
+                                                                  left:
+                                                                      4 *
+                                                                      20, // after 4 avatars
+                                                                  child: Tooltip(
+                                                                    message: students
+                                                                        .skip(4)
+                                                                        .join(
+                                                                          ', ',
+                                                                        ),
+                                                                    child: DocumentImageWidget(
+                                                                      fileUuid:
+                                                                          '',
+                                                                      name:
+                                                                          '+${students.length - 4}',
+                                                                      size: 28,
+                                                                      fontSize:
+                                                                          10,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+
+                                                        Text(
+                                                          activityFeedCardBodyLine(
+                                                            activity,
+                                                          ),
+                                                          style: AppTextStyles
+                                                              .body
+                                                              .copyWith(
+                                                                color: AppColors
+                                                                    .primaryColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                height: 1.0,
+                                                              ),
+                                                          strutStyle: StrutStyle(
+                                                            fontFamily:
+                                                                Fonts.manrope,
+                                                            fontSize: 14,
+                                                            height: 1.0,
+                                                            leading: 0,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            forceStrutHeight:
+                                                                true,
+                                                          ),
+                                                          textHeightBehavior:
+                                                              const TextHeightBehavior(
+                                                                applyHeightToFirstAscent:
+                                                                    false,
+                                                                applyHeightToLastDescent:
+                                                                    false,
+                                                              ),
+                                                          maxLines:
+                                                              activityFeedCardBodyMaxLines(
+                                                                activity,
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+                                                        AppText.small(
+                                                          'Created By - ${activity.createdBy}',
+                                                          style: AppTextStyles
+                                                              .small
+                                                              .copyWith(
+                                                                color: AppColors
+                                                                    .primaryColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
                                     ),
                                   ],
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
               ],
-            );
-          }
+            ),
+          );
+        } else {
+          return Column(
+            children: [
+              Padding(
+                padding: ResponsiveSizing.contentPadding(context),
+                // filter card
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.dividerColor),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                  ),
+                  child: widget.fromStudentProfile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: 40,
+                              child: AbsorbPointer(
+                                child: _buildCustomDropdown(
+                                  'Select Student',
+                                  widget.studentName != null
+                                      ? [widget.studentName!]
+                                      : <String>[],
+                                  widget.studentName,
+                                  (v) => setState(() {
+                                    _selectedStudent = v;
+                                  }),
+                                  height: 40,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 40,
+                              child: _datePickerFilter(
+                                selectedStartDate: _selectedStartDate,
+                                selectedEndDate: _selectedEndDate,
+                                // onDateRangeSelected: (date) {
+                                //   List<String>? dates = date?.split('-\n');
+                                //   setState(() {
+                                //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                                //     _selectedEndDate = dates?[1].trim() as DateTime;
+                                //
+                                //   });
+                                // },
+                              ),
+                            ),
+                          ],
+                        )
+                      : isNotParent
+                      ? Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildCustomDropdown(
+                                    'Select Classroom',
+                                    _classroomOptions,
+                                    _selectdClassroom,
+                                    (v) {
+                                      setState(() {
+                                        _selectdClassroom = v;
+                                        _updateAvailableStudents();
+                                      });
+                                      _loadRangeFeed(refresh: true);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  // child: _buildCustomDropdown(
+                                  //   'Select Student',
+                                  //   _allStudents,
+                                  //   _selectedStudent,
+                                  //       (v) => setState(() {
+                                  //     _selectedStudent = v;
+                                  //   }),
+                                  // ),
+                                  child: _buildCustomDropdown(
+                                    _selectdClassroom == null
+                                        ? 'Select Classroom First'
+                                        : 'Select Student',
+                                    _availableStudents,
+                                    _selectedStudent,
+                                    (value) {
+                                      if (_selectdClassroom != null) {
+                                        setState(() {
+                                          _selectedStudent = value;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(100),
+                                    onTap: _openActivityFilter,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        height: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: _datePickerFilter(
+                                    selectedStartDate: _selectedStartDate,
+                                    selectedEndDate: _selectedEndDate,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                CustomClearAllChip(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectdClassroom = _classroomOptions[0];
+                                      _selectedStudent = null;
+                                      _filterActivityTypes.clear();
+                                      _filterTags.clear();
+                                    });
+                                    _loadRangeFeed(refresh: true);
+                                  },
+                                  label: 'Clear All',
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : SizedBox(
+                          height: 40,
+                          child: _datePickerFilter(
+                            selectedStartDate: _selectedStartDate,
+                            selectedEndDate: _selectedEndDate,
+                          ),
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              if (_loadingParentContext && activities.isEmpty)
+                Expanded(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      alignment: Alignment.center,
+                      child: const PrimaryCircularLoader(
+                        size: 40,
+                        strokeWidth: 3.5,
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (!_loadingParentContext && activities.length == 0)
+                Expanded(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: Text(
+                          _feedError ?? 'No Activities found',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontFamily: 'Manrope',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (activities.length != 0)
+                Expanded(
+                  child: Padding(
+                    padding: ResponsiveSizing.activityFeedListPadding(context),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            controller: _feedScrollController,
+                            padding: EdgeInsets.zero,
+                            itemCount:
+                                activities.length + (_loadingMoreFeed ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == activities.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child: PrimaryCircularLoader(
+                                      size: 28,
+                                      strokeWidth: 3,
+                                    ),
+                                  ),
+                                );
+                              }
+                              final activity = activities[index];
+                              final students = activity.studentList;
+                              final Color activityColor =
+                                  _colorPalette[index % _colorPalette.length];
+
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Column(
+                                        children: [
+                                          Container(
+                                            width: 18,
+                                            height: 18,
+                                            decoration: BoxDecoration(
+                                              color: activityColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 4,
+                                            height: 2,
+                                            color: activityColor,
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        width: 100,
+                                        height: 4,
+                                        color: activityColor,
+                                      ),
+                                      Container(
+                                        width: 18,
+                                        height: 18,
+                                        decoration: BoxDecoration(
+                                          color: activityColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      SizedBox(
+                                        height: 20,
+                                        child: Text(
+                                          activity.time,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: AppColors.primaryColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(width: 7),
+                                      Container(
+                                        width: 4,
+                                        height: 220,
+                                        color: activityColor,
+                                      ),
+
+                                      const SizedBox(width: 16),
+
+                                      // Activity Card
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () async {
+                                            final destinationBuilder =
+                                                activityRoutes[activity.name];
+                                            if (destinationBuilder != null) {
+                                              final nextScreen =
+                                                  destinationBuilder(activity);
+                                              await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => nextScreen,
+                                                ),
+                                              );
+                                              if (mounted) {
+                                                await _loadRangeFeed(
+                                                  refresh: true,
+                                                );
+                                              }
+                                            }
+                                          },
+                                          child: Column(
+                                            children: [
+                                              const SizedBox(height: 15),
+                                              Container(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minHeight: 180,
+                                                    ),
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 10,
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: activityColor
+                                                      .withOpacity(0.15),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: activityColor
+                                                        .withOpacity(0.4),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      child: SizedBox(
+                                                        width: 140,
+                                                        height: 120,
+                                                        child:
+                                                            activity.photoUrl !=
+                                                                    null ||
+                                                                activity.videoUrl !=
+                                                                    null
+                                                            ? ActivityMediaPreview(
+                                                                activity:
+                                                                    activity,
+                                                                activityColor:
+                                                                    activityColor,
+                                                              )
+                                                            // ? Image.network(
+                                                            //     activity.photoUrl!,
+                                                            //     fit: BoxFit.cover,
+                                                            //     loadingBuilder:
+                                                            //         (
+                                                            //           context,
+                                                            //           child,
+                                                            //           loadingProgress,
+                                                            //         ) {
+                                                            //           if (loadingProgress ==
+                                                            //               null)
+                                                            //             return child;
+                                                            //           return Container(
+                                                            //             color: Colors
+                                                            //                 .transparent,
+                                                            //             child: const Center(
+                                                            //               child: CircularProgressIndicator(
+                                                            //                 strokeWidth:
+                                                            //                     2,
+                                                            //               ),
+                                                            //             ),
+                                                            //           );
+                                                            //         },
+                                                            //     errorBuilder:
+                                                            //         (
+                                                            //           context,
+                                                            //           error,
+                                                            //           stackTrace,
+                                                            //         ) {
+                                                            //           return Container(
+                                                            //             width: 122,
+                                                            //             height: 76,
+                                                            //             color: activityColor
+                                                            //                 .withOpacity(
+                                                            //                   0.25,
+                                                            //                 ),
+                                                            //             child: Center(
+                                                            //               child: Image.asset(
+                                                            //                 activityIcons[activity
+                                                            //                     .name],
+                                                            //                 //'assets/icons/activity-nap-icon.png',
+                                                            //                 fit: BoxFit
+                                                            //                     .fill,
+                                                            //               ),
+                                                            //             ),
+                                                            //           );
+                                                            //         },
+                                                            //   )
+                                                            : Container(
+                                                                width: 122,
+                                                                height: 76,
+                                                                color: Colors
+                                                                    .white,
+                                                                // color: activityColor
+                                                                //     .withOpacity(0.25),
+                                                                child: Center(
+                                                                  child: Image.asset(
+                                                                    activityIcons[activity
+                                                                        .name],
+                                                                    //'assets/icons/activity-nap-icon.png',
+                                                                    fit: BoxFit
+                                                                        .fill,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                      vertical:
+                                                                          6,
+                                                                    ),
+                                                                decoration: BoxDecoration(
+                                                                  color: activityColor
+                                                                      .withOpacity(
+                                                                        0.5,
+                                                                      ),
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        4,
+                                                                      ),
+                                                                ),
+                                                                child: Text(
+                                                                  activity.name,
+                                                                  style: const TextStyle(
+                                                                    color: AppColors
+                                                                        .primaryColor,
+                                                                    fontSize:
+                                                                        12,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              if (isNotParent)
+                                                                PopupMenuButton<
+                                                                  String
+                                                                >(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .more_horiz,
+                                                                    size: 20,
+                                                                  ),
+                                                                  onSelected:
+                                                                      null,
+                                                                  itemBuilder: (context) => [
+                                                                    PopupMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          'view',
+                                                                      child: PopupItem(
+                                                                        title:
+                                                                            'View',
+                                                                        icon: Icon(
+                                                                          Icons
+                                                                              .visibility_outlined,
+                                                                          color:
+                                                                              AppColors.themeColor,
+                                                                        ),
+                                                                      ),
+                                                                      onTap: () async {
+                                                                        final destinationBuilder =
+                                                                            activityRoutes[activity.name];
+                                                                        if (destinationBuilder !=
+                                                                            null) {
+                                                                          final nextScreen = destinationBuilder(
+                                                                            activity,
+                                                                          );
+                                                                          await Navigator.of(
+                                                                            context,
+                                                                          ).push(
+                                                                            MaterialPageRoute(
+                                                                              builder:
+                                                                                  (
+                                                                                    _,
+                                                                                  ) => nextScreen,
+                                                                            ),
+                                                                          );
+                                                                          if (mounted) {
+                                                                            await _loadRangeFeed(
+                                                                              refresh: true,
+                                                                            );
+                                                                          }
+                                                                        }
+                                                                      },
+                                                                    ),
+                                                                    if (widget
+                                                                        .allowActivityWrite) ...[
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'edit',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Edit',
+                                                                          icon: Icon(
+                                                                            Icons.edit,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          final destinationBuilder =
+                                                                              editActivityRoutes[activity.name];
+                                                                          if (destinationBuilder !=
+                                                                              null) {
+                                                                            final nextScreen = destinationBuilder(
+                                                                              activity,
+                                                                            );
+                                                                            await Navigator.of(
+                                                                              context,
+                                                                            ).push(
+                                                                              MaterialPageRoute(
+                                                                                builder:
+                                                                                    (
+                                                                                      _,
+                                                                                    ) => nextScreen,
+                                                                              ),
+                                                                            );
+                                                                            if (mounted) {
+                                                                              await _loadRangeFeed(
+                                                                                refresh: true,
+                                                                              );
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                      ),
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'delete',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Delete',
+                                                                          icon: Icon(
+                                                                            Icons.delete,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () {
+                                                                          showModalBottomSheet(
+                                                                            context:
+                                                                                context,
+                                                                            isScrollControlled:
+                                                                                true,
+                                                                            backgroundColor:
+                                                                                Colors.transparent,
+                                                                            builder:
+                                                                                (
+                                                                                  ctx,
+                                                                                ) {
+                                                                                  return DeleteConfirmationBottomSheet(
+                                                                                    name: activity.name,
+                                                                                    type: 'Activity',
+                                                                                    onDelete: () => _deleteActivityFromSheet(
+                                                                                      ctx,
+                                                                                      activity,
+                                                                                    ),
+                                                                                    onCancel: () {
+                                                                                      Navigator.of(
+                                                                                        ctx,
+                                                                                      ).pop();
+                                                                                    },
+                                                                                  );
+                                                                                },
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                  ],
+                                                                ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+
+                                                          SizedBox(
+                                                            height: 32,
+                                                            child: Stack(
+                                                              children: [
+                                                                for (
+                                                                  int i = 0;
+                                                                  i <
+                                                                          students
+                                                                              .length &&
+                                                                      i < 4;
+                                                                  i++
+                                                                )
+                                                                  Positioned(
+                                                                    left:
+                                                                        i * 20,
+                                                                    child: DocumentImageWidget(
+                                                                      fileUuid:
+                                                                          '',
+                                                                      name:
+                                                                          students[i],
+                                                                      size: 28,
+                                                                      fontSize:
+                                                                          10,
+                                                                    ),
+                                                                  ),
+
+                                                                // Extra count tooltip
+                                                                if (students
+                                                                        .length >
+                                                                    4)
+                                                                  Positioned(
+                                                                    left:
+                                                                        4 *
+                                                                        20, // after 4 avatars
+                                                                    child: Tooltip(
+                                                                      message: students
+                                                                          .skip(
+                                                                            4,
+                                                                          )
+                                                                          .join(
+                                                                            ', ',
+                                                                          ),
+                                                                      child: DocumentImageWidget(
+                                                                        fileUuid:
+                                                                            '',
+                                                                        name:
+                                                                            '+${students.length - 4}',
+                                                                        size:
+                                                                            28,
+                                                                        fontSize:
+                                                                            10,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+
+                                                          Text(
+                                                            activityFeedCardBodyLine(
+                                                              activity,
+                                                            ),
+                                                            style: AppTextStyles
+                                                                .body
+                                                                .copyWith(
+                                                                  color: AppColors
+                                                                      .primaryColor,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  height: 1.0,
+                                                                ),
+                                                            strutStyle: StrutStyle(
+                                                              fontFamily:
+                                                                  Fonts.manrope,
+                                                              fontSize: 14,
+                                                              height: 1.0,
+                                                              leading: 0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              forceStrutHeight:
+                                                                  true,
+                                                            ),
+                                                            textHeightBehavior:
+                                                                const TextHeightBehavior(
+                                                                  applyHeightToFirstAscent:
+                                                                      false,
+                                                                  applyHeightToLastDescent:
+                                                                      false,
+                                                                ),
+                                                            maxLines:
+                                                                activityFeedCardBodyMaxLines(
+                                                                  activity,
+                                                                ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+                                                          Text(
+                                                            'Created By - ${activity.createdBy}',
+
+                                                            style: TextStyle(
+                                                              color: AppColors
+                                                                  .primaryColor,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
         }
+      },
     );
   }
-
 
   // @override
   // Widget build(BuildContext context) {
@@ -2559,7 +3595,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                   crossAxisAlignment: CrossAxisAlignment.stretch,
   //                   children: [
   //                     SizedBox(
-  //                       height: 65,
+  //                       height: 40,
   //                       child: AbsorbPointer(
   //                         child: _buildCustomDropdown(
   //                           'Select Student',
@@ -2568,13 +3604,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                           (v) => setState(() {
   //                             _selectedStudent = v;
   //                           }),
-  //                           height: 65,
+  //                           height: 40,
   //                         ),
   //                       ),
   //                     ),
   //                     const SizedBox(height: 8),
   //                     SizedBox(
-  //                       height: 65,
+  //                       height: 40,
   //                       child: _datePickerFilter(
   //                         selectedStartDate: _selectedStartDate,
   //                         selectedEndDate: _selectedEndDate,
@@ -2741,7 +3777,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                   children: [
   //                     Expanded(
   //                       child: SizedBox(
-  //                         height: 65,
+  //                         height: 40,
   //                         child: _datePickerFilter(
   //                           selectedStartDate: _selectedStartDate,
   //                           selectedEndDate: _selectedEndDate,
@@ -2751,7 +3787,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                     const SizedBox(width: 8),
   //                     Expanded(
   //                       child: SizedBox(
-  //                         height: 65,
+  //                         height: 40,
   //                         child: _buildCustomDropdown(
   //                           'Activity Type',
   //                           activityType,
@@ -2759,7 +3795,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
   //                           (v) => setState(() {
   //                             _selectedActivityType = v;
   //                           }),
-  //                           height: 65,
+  //                           height: 40,
   //                         ),
   //                       ),
   //                     ),
@@ -3211,26 +4247,26 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
           color: const Color(0xFFB1AFE9).withOpacity(0.102),
-          //color: const Color(0xFFF8F7FA),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
                 child: Text(
                   selectedStartDate != null
-                      ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate!)}'
+                      ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate ?? selectedStartDate)}'
                       : 'Select Date',
                   style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
                     color: selectedStartDate == null
-                        ? AppColors.primaryColor.withOpacity(0.6)
-                        : AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                        ? Colors.grey[600]
+                        : Colors.black87,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3273,42 +4309,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab> {
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
-    double? height = null,
+    double? height,
   }) {
-    final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: null,
       hintText: hintText,
       items: items,
-      height: height,
+      height: height ?? 40,
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
-      labelStyle: TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      ),
-      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
         fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
-        height: 19 / 14,
-      ),
-      popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
+        fontSize: 15,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: selectedItem != null && selectedItem.trim().isNotEmpty
+            ? Colors.black87
+            : Colors.grey[600],
       ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
+      popupItemTextStyle: const TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: Colors.black87,
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
   }
 }

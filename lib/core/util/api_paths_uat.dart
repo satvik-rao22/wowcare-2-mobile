@@ -57,6 +57,8 @@ class ApiPathsUat {
       'student-absence-records',
       'student-attendance-records',
       'staff-attendance',
+      'staff-absence-records',
+      'staff-attendance-records',
     },
     ApiMicroservices.classroom: {
       'classroom',
@@ -114,6 +116,8 @@ class ApiPathsUat {
       case 'student-absence-records':
       case 'student-attendance-records':
       case 'staff-attendance':
+      case 'staff-absence-records':
+      case 'staff-attendance-records':
         return ApiMicroservices.attendance;
       case 'classroom':
         return ApiMicroservices.classroom;
@@ -124,6 +128,22 @@ class ApiPathsUat {
       default:
         return ApiMicroservices.user;
     }
+  }
+
+  /// Whether [path] should include org+school headers:
+  /// `X-Organization-Code` and `X-School-Code`.
+  ///
+  /// In UAT we still want this for most authenticated API calls (including
+  /// `GET /api/v1/student/student-classroom`).
+  static bool requiresOrganizationAndSchoolHeaders(String path) {
+    final p = path.startsWith('/') ? path : '/$path';
+    if (!p.startsWith('/api/v1/')) return false;
+    if (p.startsWith('/document-ms/')) return false;
+    // Public endpoints: no org/school context.
+    if (p.contains('/auth/login') || p.contains('/auth/forgot-password')) {
+      return false;
+    }
+    return true;
   }
 
   /// UAT expects `/api/v1/<ms>/...` (e.g. `/api/v1/user/auth/login`).
@@ -158,9 +178,36 @@ class ApiPathsUat {
   static String url(String path) {
     final p = _ensureUatMicroserviceSegment(path);
     final ms = microserviceKeyFromPath(p);
-    return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
+    final base = ApiConstants.baseUrlForMicroservice(ms);
+
+    // Attendance in UAT is hosted under `/api/v1/attendance` already.
+    // When [p] is `/api/v1/attendance/...`, append only the remainder.
+    if (ms == ApiMicroservices.attendance &&
+        base.endsWith('/api/v1/attendance') &&
+        p.startsWith('/api/v1/attendance/')) {
+      final rest = p.substring('/api/v1/attendance'.length);
+      return '$base$rest';
+    }
+
+    return '$base$p';
   }
 
   static String urlWithBase(String path, String baseUrl) => url(path);
+
+  /// Document endpoints are special-cased under `/document-ms/...` in this app.
+  /// This helper is added for parity with local [ApiPaths].
+  static String documentAssetCompletePath({
+    required String documentApiBasePath,
+    required String sessionCode,
+    required String assetCode,
+  }) {
+    var base = documentApiBasePath.trim();
+    if (base.isEmpty) base = '/document-ms/api/v1';
+    if (!base.startsWith('/')) base = '/$base';
+    base = base.replaceAll(RegExp(r'/+$'), '');
+    final s = sessionCode.trim();
+    final a = assetCode.trim();
+    return '$base/upload-sessions/$s/assets/$a/complete';
+  }
 }
 

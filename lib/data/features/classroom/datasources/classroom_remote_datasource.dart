@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_all_models.dart';
+import 'package:wowcare/data/features/classroom/models/classroom_details_models.dart';
 
 /// Data source for Classroom-related remote APIs.
 abstract class ClassroomRemoteDataSource {
@@ -10,6 +12,10 @@ abstract class ClassroomRemoteDataSource {
     /// When false, omits the type filter so the backend
     /// can return all active locations (e.g. Office, etc.).
     bool onlyTypeClassroom,
+  });
+
+  Future<ClassroomDetailsResponseModel> getClassroomByCode({
+    required String code,
   });
 }
 
@@ -43,6 +49,25 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     }
 
     return ClassroomAllResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<ClassroomDetailsResponseModel> getClassroomByCode({
+    required String code,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.classroomByCode(code),
+      ApiConstants.classroomBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected classroom(details) API response format');
+    }
+
+    return ClassroomDetailsResponseModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
   }

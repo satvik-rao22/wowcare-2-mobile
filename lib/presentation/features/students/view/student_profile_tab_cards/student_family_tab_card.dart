@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -280,6 +283,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
@@ -307,12 +314,24 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                         color: AppColors.primaryColor,
                       ),
                     ),
-                    GradientAddButton(
-                      onTap: _onAddParent,
-                      wantedButtonSize: 40,
-                      iconSize: 22,
-                      borderRadius: 10,
-                    ),
+                    if (canStudentWrite)
+                      GradientAddButton(
+                        onTap: _onAddParent,
+                        wantedButtonSize: 40,
+                        iconSize: 22,
+                        borderRadius: 10,
+                      )
+                    else
+                      Opacity(
+                        opacity: 0.45,
+                        child: GradientAddButton(
+                          onTap: () =>
+                              ModuleAccess.showWriteRestricted(context),
+                          wantedButtonSize: 40,
+                          iconSize: 22,
+                          borderRadius: 10,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -366,6 +385,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           ),
                           pin: _extractGuardianClockPin(data[i]),
                           isLoading: _isMutating,
+                          showActionButtons: canStudentWrite,
                           onEdit: () => _onEditParent(data[i]),
                           onDelete: () => _onDeleteParent(data[i]),
                         ),
@@ -393,6 +413,7 @@ class _FamilyCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.isLoading,
+    this.showActionButtons = true,
   });
 
   final String name;
@@ -403,6 +424,7 @@ class _FamilyCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final bool isLoading;
+  final bool showActionButtons;
 
   @override
   Widget build(BuildContext context) {
@@ -530,15 +552,16 @@ class _FamilyCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  CustomButtonLayout(
-                    confirmButtonLabel: 'Edit',
-                    cancelButtonLabel: 'Delete',
-                    onPressedConfirm: isLoading ? null : onEdit,
-                    onPressedCancel: isLoading ? null : onDelete,
-                    isForm: false,
-                    isLoading: isLoading,
-                  ),
-                  const SizedBox(height: 12),
+                  if (showActionButtons)
+                    CustomButtonLayout(
+                      confirmButtonLabel: 'Edit',
+                      cancelButtonLabel: 'Delete',
+                      onPressedConfirm: isLoading ? null : onEdit,
+                      onPressedCancel: isLoading ? null : onDelete,
+                      isForm: false,
+                      isLoading: isLoading,
+                    ),
+                  if (showActionButtons) const SizedBox(height: 12),
                 ],
               ),
             ),

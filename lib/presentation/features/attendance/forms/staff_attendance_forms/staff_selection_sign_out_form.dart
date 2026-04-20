@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -9,7 +10,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_sign_out_form.dart';
@@ -17,7 +21,9 @@ import 'staff_sign_out_form.dart';
 class StaffSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/staff-selection-sign-out-form';
 
-  const StaffSelectionSignOutForm({super.key});
+  const StaffSelectionSignOutForm({super.key, this.initialStaffCodes});
+
+  final Set<String>? initialStaffCodes;
 
   @override
   State<StaffSelectionSignOutForm> createState() =>
@@ -27,18 +33,23 @@ class StaffSelectionSignOutForm extends StatefulWidget {
 class _StaffSelectionSignOutFormState
     extends State<StaffSelectionSignOutForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _classrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
+  final Map<String, String> _classroomNameToCode = <String, String>{};
+  final List<String> _designations = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
   ];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
   List<StaffEntity> _filteredStaff = [];
 
@@ -46,12 +57,15 @@ class _StaffSelectionSignOutFormState
   String? _errorMessage;
 
   late final GetStaffSignOutFormListUseCase _getStaffSignOutFormListUseCase;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
     _getStaffSignOutFormListUseCase =
         serviceLocator<GetStaffSignOutFormListUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>()
+      ..loadActiveClassrooms(onlyTypeClassroom: false);
     _loadStaff();
   }
 
@@ -76,9 +90,10 @@ class _StaffSelectionSignOutFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
+      final selectedClassroomCode = _selectedClassroomCode;
       final classroomCodes =
-          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
-              ? <String>[_selectedClassroom!]
+          selectedClassroomCode != null && selectedClassroomCode.isNotEmpty
+              ? <String>[selectedClassroomCode]
               : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
@@ -105,14 +120,40 @@ class _StaffSelectionSignOutFormState
           id: index + 1,
           name: item.staffName,
           primaryRoomId: 0,
+          classroomCode: item.classroomCode,
+          classroomName: item.classroomName,
           photoUuid: null,
           designation: item.designation.isNotEmpty ? item.designation.first : 'Staff',
           staffCode: item.staffCode,
         );
       }).toList();
 
+      // Local filtering for Designation and Search
+      List<StaffEntity> locallyFiltered = staffList;
+      if (_selectedTag.isNotEmpty) {
+        final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
+        locallyFiltered = locallyFiltered.where((s) {
+          final d = s.designation.trim().toUpperCase();
+          return selected.contains(d);
+        }).toList();
+      }
+      if (searchText != null && searchText.trim().isNotEmpty) {
+        final q = searchText.toLowerCase();
+        locallyFiltered = locallyFiltered
+            .where((s) => s.name.toLowerCase().contains(q))
+            .toList();
+      }
+
+      // Preselect based on initial staff codes if provided
+      if (widget.initialStaffCodes != null &&
+          widget.initialStaffCodes!.isNotEmpty) {
+        selectedStaff = locallyFiltered
+            .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
+            .toSet();
+      }
+
       setState(() {
-        _filteredStaff = List.from(staffList);
+        _filteredStaff = List.from(locallyFiltered);
         _isLoading = false;
         isSelectAllChecked = _filteredStaff.isNotEmpty &&
             _filteredStaff.every((s) => selectedStaff.contains(s));
@@ -121,7 +162,7 @@ class _StaffSelectionSignOutFormState
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
       });
     }
   }
@@ -157,7 +198,9 @@ class _StaffSelectionSignOutFormState
 
   void _handleNext() {
     if (selectedStaff.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: 
         const SnackBar(
           content: Text('Please select at least one staff member'),
           backgroundColor: AppColors.warningColor,
@@ -182,7 +225,9 @@ class _StaffSelectionSignOutFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return StaffFormLayout(
+    return BlocProvider<ClassroomCubit>.value(
+      value: _classroomCubit,
+      child: StaffFormLayout(
       title: 'Sign-Out',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,23 +258,41 @@ class _StaffSelectionSignOutFormState
           Row(
             children: [
               Expanded(
-                child: CustomDropdown(
-                  hintText: 'Classroom',
-                  items: _classrooms,
-                  selectedItem: _selectedClassroom,
-                  onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                    });
-                    _loadStaff();
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  builder: (context, state) {
+                    final classroomNames = state.classrooms.map((c) => c.name).toList();
+                    if (_classroomNameToCode.isEmpty && state.classrooms.isNotEmpty) {
+                      for (final c in state.classrooms) {
+                        _classroomNameToCode[c.name] = c.code;
+                      }
+                    }
+                    String? selectedName;
+                    for (final entry in _classroomNameToCode.entries) {
+                      if (entry.value == _selectedClassroomCode) {
+                        selectedName = entry.key;
+                        break;
+                      }
+                    }
+                    return CustomDropdown(
+                      hintText: 'Classroom',
+                      items: classroomNames,
+                      selectedItem: selectedName,
+                      onSelect: (value) {
+                        setState(() {
+                          _selectedClassroomCode =
+                              value == null ? null : _classroomNameToCode[value];
+                        });
+                        _loadStaff();
+                      },
+                    );
                   },
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tags,
+                  hintText: 'Designation',
+                  items: _designations,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
                     setState(() {
@@ -313,7 +376,7 @@ class _StaffSelectionSignOutFormState
           showCancelButton: false,
         ),
       ),
-    );
+    ));
   }
 
 }
@@ -359,6 +422,7 @@ class StaffListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: staff.photoUuid ?? '',
                 name: staff.name,
+                staffCode: staff.staffCode,
                 size: 32,
                 fontSize: 14,
               ),

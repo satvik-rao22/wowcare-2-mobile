@@ -5,15 +5,27 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class OunceInputWidget extends StatefulWidget {
-  const OunceInputWidget({super.key, this.controller, this.isRequired = false, this.label = 'Input', this.hint , this.height, this.min = 0.5, this.max = 50.0, this.onValidChanged});
+  const OunceInputWidget({
+    super.key,
+    this.controller,
+    this.isRequired = false,
+    this.label = 'Input',
+    this.hint,
+    this.height,
+    this.min = 0.5,
+    this.max = 50.0,
+    this.onValidChanged,
+    this.readOnly = false,
+  });
   final String label;
   final String? hint;
   final TextEditingController? controller;
-  final bool isRequired ;
+  final bool isRequired;
   final double? height;
   final double min; // min value accepted by the text field
   final double max; // max value accepted by the text field
   final ValueChanged<double?>? onValidChanged;
+  final bool readOnly;
 
   @override
   State<OunceInputWidget> createState() => OunceInputWidgetState();
@@ -115,6 +127,8 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
           ),
           child: TextField(
             controller: _controller,
+            readOnly: widget.readOnly,
+            enableInteractiveSelection: !widget.readOnly,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d?$'))

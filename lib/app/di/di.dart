@@ -22,11 +22,14 @@ import '../../data/features/student/datasources/student_remote_datasource.dart';
 import '../../data/features/student/repositories/student_repository_impl.dart';
 import '../../data/features/attendance/datasources/attendance_remote_datasource.dart';
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
+import '../../data/features/availability/datasources/availability_remote_datasource.dart';
+import '../../data/features/availability/repositories/availability_repository_impl.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -58,6 +61,14 @@ import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.da
 import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
+import '../../domain/features/availability/repositories/availability_repository.dart';
+import '../../domain/features/availability/usecases/create_individual_movement_usecase.dart';
+import '../../domain/features/availability/usecases/delete_individual_movement_usecase.dart';
+import '../../domain/features/availability/usecases/get_future_availability_usecase.dart';
+import '../../domain/features/availability/usecases/get_individual_movement_by_id_usecase.dart';
+import '../../domain/features/availability/usecases/get_individual_movements_usecase.dart';
+import '../../domain/features/availability/usecases/transition_individual_movement_status_usecase.dart';
+import '../../domain/features/availability/usecases/update_individual_movement_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -77,7 +88,9 @@ import '../../domain/features/attendance/usecases/get_staff_transfer_form_list_u
 import '../../domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import '../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
@@ -93,6 +106,9 @@ import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../domain/features/activity/usecases/get_activity_usecase.dart';
+import '../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
@@ -113,6 +129,8 @@ import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
+import '../../presentation/features/availability/cubit/future_availability_cubit.dart';
+import '../../presentation/features/availability/cubit/individual_movements_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
@@ -190,6 +208,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<AttendanceRemoteDataSource>(
     () => AttendanceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
+  serviceLocator.registerLazySingleton<AvailabilityRemoteDataSource>(
+    () => AvailabilityRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
 
   // Classroom Data Sources
   serviceLocator.registerLazySingleton<ClassroomRemoteDataSource>(
@@ -205,6 +226,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<StudentClassroomRemoteDataSource>(
     () => StudentClassroomRemoteDataSourceImpl(
       serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
     ),
   );
 
@@ -245,7 +267,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<AttendanceRepository>(
-    () => AttendanceRepositoryImpl(serviceLocator(), serviceLocator()),
+    () => AttendanceRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<AvailabilityRepository>(
+    () => AvailabilityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StudentClassroomRepository>(
     () => StudentClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
@@ -310,11 +339,35 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetActiveClassroomsUseCase>(
     () => GetActiveClassroomsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetClassroomByCodeUseCase>(
+    () => GetClassroomByCodeUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentAttendanceDailyUseCase>(
     () => GetStudentAttendanceDailyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetIndividualMovementsUseCase>(
+    () => GetIndividualMovementsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetIndividualMovementByIdUseCase>(
+    () => GetIndividualMovementByIdUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetFutureAvailabilityUseCase>(
+    () => GetFutureAvailabilityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateIndividualMovementUseCase>(
+    () => CreateIndividualMovementUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateIndividualMovementUseCase>(
+    () => UpdateIndividualMovementUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteIndividualMovementUseCase>(
+    () => DeleteIndividualMovementUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<TransitionIndividualMovementStatusUseCase>(
+    () => TransitionIndividualMovementStatusUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentAttendanceExpectedSummaryUseCase>(
     () => GetStudentAttendanceExpectedSummaryUseCase(serviceLocator()),
@@ -373,8 +426,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffTodaySignInStatusUseCase>(
     () => GetStaffTodaySignInStatusUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStaffTodaySignInStatusMapUseCase>(
+    () => GetStaffTodaySignInStatusMapUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentTodaySignInStatusUseCase>(
     () => GetStudentTodaySignInStatusUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentTodaySignInStatusMapUseCase>(
+    () => GetStudentTodaySignInStatusMapUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<UpdateStudentAttendanceRecordUseCase>(
     () => UpdateStudentAttendanceRecordUseCase(serviceLocator()),
@@ -420,6 +479,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetActivityUseCase>(
+    () => GetActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateActivityUseCase>(
+    () => UpdateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteActivityUseCase>(
+    () => DeleteActivityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
     () => CreateActivityUploadSessionsUseCase(serviceLocator()),
@@ -539,6 +607,25 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentAttendanceDailyUseCase: serviceLocator(),
       getStudentAttendanceExpectedSummaryUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<IndividualMovementsCubit>(
+    () => IndividualMovementsCubit(
+      createIndividualMovementUseCase: serviceLocator(),
+      updateIndividualMovementUseCase: serviceLocator(),
+      deleteIndividualMovementUseCase: serviceLocator(),
+      getIndividualMovementByIdUseCase: serviceLocator(),
+      getIndividualMovementsUseCase: serviceLocator(),
+      transitionIndividualMovementStatusUseCase: serviceLocator(),
+      repository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<FutureAvailabilityCubit>(
+    () => FutureAvailabilityCubit(
+      getFutureAvailabilityUseCase: serviceLocator(),
+      repository: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentAttendanceAbsentToggleCubit>(

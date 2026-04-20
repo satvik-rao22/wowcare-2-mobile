@@ -913,6 +913,17 @@ class StudentRepositoryImpl
   }
 
   @override
+  Future<Map<String, dynamic>> getGuardianProfile({
+    required String schoolCode,
+    required String userCode,
+  }) {
+    return _remoteDataSource.getGuardianProfile(
+      schoolCode: schoolCode,
+      userCode: userCode,
+    );
+  }
+
+  @override
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,

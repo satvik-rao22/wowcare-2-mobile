@@ -1,7 +1,9 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
+import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
+import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
@@ -14,10 +16,12 @@ class ActivityRepositoryImpl implements ActivityRepository {
   ActivityRepositoryImpl(
     this._remoteDataSource,
     StorageService storageService,
-  ) : _cacheManager = CacheManager(storageService);
+  )   : _cacheManager = CacheManager(storageService),
+        _storageService = storageService;
 
   final ActivityRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
+  final StorageService _storageService;
 
   // Cache key helper: activity_settings_cache_{classroomCode}
   static String _activitySettingsCacheKey(String classroomCode) {
@@ -133,6 +137,40 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<ActivityDetail> getActivity({required String code}) async {
+    final data = await _remoteDataSource.getActivityByCode(code: code);
+    return ActivityDetail.fromApiData(data);
+  }
+
+  @override
+  Future<String> updateActivity({
+    required String code,
+    required String staffCode,
+    required String activityDate,
+    required String description,
+    List<Map<String, dynamic>> parameterValues = const [],
+    List<Map<String, dynamic>> attachments = const [],
+  }) async {
+    final message = await _remoteDataSource.updateActivity(
+      code: code,
+      staffCode: staffCode,
+      activityDate: activityDate,
+      description: description,
+      parameterValues: parameterValues,
+      attachments: attachments,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> deleteActivity({required String code}) async {
+    final message = await _remoteDataSource.deleteActivity(code: code);
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
   Future<String> createActivity({
     required String activityTypeCode,
     required String classroomCode,
@@ -158,7 +196,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       attachments: attachments,
     );
 
-    return _remoteDataSource.createActivity(request: request);
+    final message = await _remoteDataSource.createActivity(request: request);
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
   }
 
   @override

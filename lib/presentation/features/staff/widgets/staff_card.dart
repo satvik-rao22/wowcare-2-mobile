@@ -161,8 +161,10 @@ class _StaffCardState extends State<StaffCard> {
                           ),
                           */
                           DocumentImageWidget(
-                            fileUuid: '',
+                            fileUuid: widget.staffCode,
                             name: widget.name,
+                            staffCode: widget.staffCode,
+                            staffEmploymentStatus: widget.status,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -512,9 +514,8 @@ class _StaffCardState extends State<StaffCard> {
                                                   ? 'staff_deactivate'
                                                   : 'staff_reactivate',
                                               onDelete: () {
-                                                // Let the confirmation sheet show its loader
-                                                // while the actual API logic runs.
                                                 widget.onPrimaryAction?.call();
+                                                return Future.value();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();

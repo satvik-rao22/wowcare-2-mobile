@@ -22,6 +22,21 @@ import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.da
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -45,6 +60,16 @@ class _StaffScreenState extends State<StaffScreen> {
   // Tracks if the current refresh was triggered by changing filters/search,
   // so we only show the shimmer loader in that case.
   bool _refreshTriggeredByFilters = false;
+  final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
+
+  int _expectedStaffTotal = 0;
+  int _expectedSignedIn = 0;
+  int _expectedAbsent = 0;
+  int _expectedSignedOut = 0;
+  int _expectedNotMarked = 0;
+  bool _expectedStaffSummaryLoading = true;
 
   @override
   void initState() {
@@ -55,6 +80,11 @@ class _StaffScreenState extends State<StaffScreen> {
       onlyTypeClassroom: false,
     );
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadExpectedStaffSummary();
+      }
+    });
   }
 
   void _onScroll() {
@@ -126,6 +156,290 @@ class _StaffScreenState extends State<StaffScreen> {
     return {for (final c in state.classrooms) c.code: c.name};
   }
 
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadExpectedStaffSummary() async {
+    if (!mounted) return;
+    setState(() {
+      _expectedStaffSummaryLoading = true;
+    });
+    try {
+      final useCase =
+          serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
+      final summary = await useCase();
+      if (!mounted) return;
+      setState(() {
+        _expectedStaffTotal = summary.expected;
+        _expectedSignedIn = summary.present;
+        _expectedAbsent = summary.absent;
+        _expectedSignedOut = summary.signOut;
+        _expectedNotMarked = summary.notMarked;
+        _expectedStaffSummaryLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _expectedStaffTotal = 0;
+        _expectedSignedIn = 0;
+        _expectedAbsent = 0;
+        _expectedSignedOut = 0;
+        _expectedNotMarked = 0;
+        _expectedStaffSummaryLoading = false;
+      });
+    }
+  }
+
+  void _openStaffAttendanceWithLegendFilter(String status) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => StaffAttendanceTabbedView(
+          initialTabIndex: 0,
+          dailyIncomingFilter: status,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshAttendanceStatusForSelection() async {
+    if (_selectedStaffCodes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: _selectedStaffCodes.toList());
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  StaffAttendanceActionAvailability _attendanceAvailabilityForSelection(
+    StaffState staffState,
+  ) {
+    if (_selectedStaffCodes.isEmpty) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+
+    final gates = <StaffAttendanceGate>[];
+    for (final code in _selectedStaffCodes) {
+      StaffMember? member;
+      for (final s in staffState.items) {
+        if (s.code == code) {
+          member = s;
+          break;
+        }
+      }
+      final status = _attendanceStatusByStaffCode[code];
+      gates.add(
+        staffAttendanceGateFromTodayStatus(
+          isActiveProfile:
+              member != null && member.status.trim().toUpperCase() == 'ACTIVE',
+          todayStatusRaw: status,
+        ),
+      );
+    }
+
+    return StaffAttendanceActionAvailability.fromGates(gates);
+  }
+
+  Future<void> _openAttendanceActionFlow(String actionName) async {
+    if (_selectedStaffCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select at least one staff',
+        isError: true,
+      );
+      return;
+    }
+
+    final selectedCodes = Set<String>.from(
+      _selectedStaffCodes,
+    ).where((c) => c.trim().isNotEmpty).toSet();
+    if (selectedCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected staff are missing staff codes',
+        isError: true,
+      );
+      return;
+    }
+
+    final date = _formatDate(DateTime.now());
+    try {
+      List<StaffEntity> targets = <StaffEntity>[];
+
+      if (actionName == 'sign_in') {
+        final useCase = serviceLocator<GetStaffSignInFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            classroomCode: item.classroomCode,
+            designation: item.designation.isNotEmpty
+                ? item.designation.first
+                : 'Staff',
+            staffCode: item.staffCode,
+            isExpectedToday: item.isExpectedToday,
+          );
+        }).toList();
+      } else if (actionName == 'sign_out') {
+        final useCase = serviceLocator<GetStaffSignOutFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation: item.designation.isNotEmpty
+                ? item.designation.first
+                : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      } else if (actionName == 'transfer') {
+        final useCase = serviceLocator<GetStaffTransferFormListUseCase>();
+        final page = await useCase(
+          fromAbsenceDate: date,
+          toAbsenceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation: item.designation.isNotEmpty
+                ? item.designation.first
+                : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      } else {
+        final useCase = serviceLocator<GetStaffAbsentFormListUseCase>();
+        final page = await useCase(
+          fromAbsenceDate: date,
+          toAbsenceDate: date,
+          page: 0,
+          size: 500,
+        );
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
+        targets = eligible.asMap().entries.map((entry) {
+          final item = entry.value;
+          return StaffEntity(
+            id: entry.key + 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            photoUuid: null,
+            designation: 'Staff',
+            staffCode: item.staffCode,
+          );
+        }).toList();
+      }
+
+      if (!mounted) return;
+      if (targets.isEmpty) {
+        throw Exception('No selected staff is eligible for this action');
+      }
+
+      if (actionName == 'sign_in') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffSignInForm(staffList: targets),
+          ),
+        );
+      } else if (actionName == 'sign_out') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffSignOutForm(staffList: targets),
+          ),
+        );
+      } else if (actionName == 'transfer') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffTransferForm(staffList: targets),
+          ),
+        );
+      } else {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StaffMarkAbsentForm(staffList: targets),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
@@ -166,7 +480,11 @@ class _StaffScreenState extends State<StaffScreen> {
                       force: true,
                       onlyTypeClassroom: false,
                     ),
+                    _loadExpectedStaffSummary(),
                   ]);
+                  if (mounted && _selectedStaffCodes.isNotEmpty) {
+                    await _refreshAttendanceStatusForSelection();
+                  }
                 },
                 child: SingleChildScrollView(
                   controller: _scrollController,
@@ -337,42 +655,38 @@ class _StaffScreenState extends State<StaffScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        // Expected Students stat card
+                        // Expected Staff (same breakdown as Staff Attendance daily summary)
                         LayoutBuilder(
                           builder: (context, constraints) {
                             final bool isTablet = constraints.maxWidth >= 600;
-                            // Demo values for present/absent
-                            final double present = 18.0;
-                            final double absent = 3.0;
-                            // These are currently demo values; replace with real attendance
-                            // counts when wiring up the backend.
-                            final double signedOut = 0.0;
-                            final double notMarked = 0.0;
-
-                            final int expectedTotal =
-                                (present + absent + signedOut + notMarked)
-                                    .toInt();
-                            final String total = '$expectedTotal';
+                            final present = _expectedSignedIn.toDouble();
+                            final absent = _expectedAbsent.toDouble();
+                            final signedOut = _expectedSignedOut.toDouble();
+                            final notMarked = _expectedNotMarked.toDouble();
                             final items = [
                               ProgressItemHelper(
-                                label: 'Signed In (${present.toInt()})',
+                                label: 'Signed-In (${present.toInt()})',
                                 value: present,
                                 color: AppColors.lightGreenProgressBar,
+                                filterValue: 'Signed-In',
                               ),
                               ProgressItemHelper(
                                 label: 'Absent (${absent.toInt()})',
                                 value: absent,
                                 color: AppColors.redProgressBar,
+                                filterValue: 'Absent',
                               ),
                               ProgressItemHelper(
                                 label: 'Signed Out (${signedOut.toInt()})',
                                 value: signedOut,
                                 color: AppColors.lightBlueProgressBar,
+                                filterValue: 'Signed Out',
                               ),
                               ProgressItemHelper(
                                 label: 'Not Marked (${notMarked.toInt()})',
                                 value: notMarked,
                                 color: AppColors.mustardProgressBar,
+                                filterValue: 'Not Marked',
                               ),
                             ];
                             return Container(
@@ -380,11 +694,56 @@ class _StaffScreenState extends State<StaffScreen> {
                                 top: isTablet ? 8 : 8,
                                 bottom: isTablet ? 8 : 8,
                               ),
-                              child: CustomStatBarCard(
-                                title: 'Expected\nStaff',
-                                number: total,
-                                items: items,
-                                fullWidthBar: false,
+                              child: Stack(
+                                children: [
+                                  CustomStatBarCard(
+                                    title: 'Expected\nStaff',
+                                    number: '$_expectedStaffTotal',
+                                    items: items,
+                                    fullWidthBar: false,
+                                    normalizeBarByItemSum: true,
+                                    onLegendTap: (String label, String? filterValue) {
+                                      final status = label.split(' ').first;
+                                      if (status == 'Signed-In' ||
+                                          status == 'Absent' ||
+                                          status == 'Signed' ||
+                                          status == 'Not') {
+                                        if (status == 'Signed') {
+                                          _openStaffAttendanceWithLegendFilter(
+                                            'Signed Out',
+                                          );
+                                        } else if (status == 'Not') {
+                                          _openStaffAttendanceWithLegendFilter(
+                                            'Not Marked',
+                                          );
+                                        } else {
+                                          _openStaffAttendanceWithLegendFilter(
+                                            status,
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                  if (_expectedStaffSummaryLoading)
+                                    Positioned.fill(
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.65,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: PrimaryCircularLoader(),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             );
                           },
@@ -753,7 +1112,7 @@ class _StaffScreenState extends State<StaffScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-
+                        // Select All outside the search box
                         Align(
                           alignment: Alignment.centerLeft,
                           child: CustomCheckbox(
@@ -771,6 +1130,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                   );
                                 }
                               });
+                              _refreshAttendanceStatusForSelection();
                             },
                           ),
                         ),
@@ -937,6 +1297,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                                       state.items.length &&
                                                   state.items.isNotEmpty;
                                             });
+                                            _refreshAttendanceStatusForSelection();
                                           },
                                         ),
                                         if (index != state.items.length - 1)
@@ -967,6 +1328,9 @@ class _StaffScreenState extends State<StaffScreen> {
                   bottom: 16,
                   child: StaffActionPanel(
                     currentPanel: _currentPanel,
+                    attendanceAvailability: _attendanceAvailabilityForSelection(
+                      staffState,
+                    ),
                     onAttendanceTap: () {
                       setState(() {
                         _currentPanel =
@@ -1015,6 +1379,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                   classroom: classroomName,
                                   designation: staff.designation,
                                   phoneNumber: staff.phoneNumber,
+                                  employmentStatus: staff.status,
                                   classroomNames: classroomNames,
                                   classroomNameByCode: classroomNameByCode,
                                 ),
@@ -1022,12 +1387,17 @@ class _StaffScreenState extends State<StaffScreen> {
                             );
                           }
                         : null,
+                    onSignIn: () => _openAttendanceActionFlow('sign_in'),
+                    onSignOut: () => _openAttendanceActionFlow('sign_out'),
+                    onTransfer: () => _openAttendanceActionFlow('transfer'),
+                    onAbsent: () => _openAttendanceActionFlow('mark_absent'),
                     onClearSelections: () {
                       setState(() {
                         _selectAll = false;
                         _selectedStaffCodes.clear();
                         _currentPanel = StaffPanelType.none;
                       });
+                      _refreshAttendanceStatusForSelection();
                     },
                     isProfileEnabled: selectedCount == 1,
                     activitiesEnabled: selectedCount > 0,

@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -24,6 +25,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_c
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -57,6 +59,10 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
   late final StudentAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
+  final GetClassroomByCodeUseCase _getClassroomByCode =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final Map<String, String> _classroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = {};
 
   @override
   void initState() {
@@ -68,7 +74,11 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       final apiClient = serviceLocator<ApiClient>();
       final storageService = serviceLocator<StorageService>();
       final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
-      final repo = AttendanceRepositoryImpl(remote, storageService);
+      final repo = AttendanceRepositoryImpl(
+        remote,
+        storageService,
+        apiClient,
+      );
       _cubit = StudentAttendanceCustomCubit(
         getStudentAttendanceCustomUseCase:
             GetStudentAttendanceCustomUseCase(repo),
@@ -89,7 +99,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   Future<void> _loadClassroomData() async {
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      onlyTypeClassroom: true,
+      // Transfers / historical attendance can reference non-CLASSROOM locations.
+      // Load all types so classroomCode → name resolution and filters work reliably.
+      onlyTypeClassroom: false,
     );
 
     // Mark ready immediately if data already exists.
@@ -120,8 +132,56 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _customSearchController.dispose();
     _scrollController.dispose();
     _cubit.close();
-    _classroomCubit.close();
     super.dispose();
+  }
+
+  String? _resolveClassroomNameByCode(String? code) {
+    if (code == null) return null;
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+    for (final c in _classroomCubit.state.classrooms) {
+      if (c.code.trim() == trimmed) return c.name;
+    }
+    final cached = _classroomNameByCode[trimmed]?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return null;
+  }
+
+  Future<void> _fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCode(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _classroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
+  }
+
+  String _classroomDisplay({
+    required String classroomCode,
+    required String classroomName,
+  }) {
+    final apiName = classroomName.trim();
+    final code = classroomCode.trim();
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+    if (code.isEmpty) return '';
+    final resolved = _resolveClassroomNameByCode(code);
+    if (resolved != null && resolved.trim().isNotEmpty) return resolved.trim();
+    if (!_classroomFetchInFlight.contains(code)) {
+      _classroomFetchInFlight.add(code);
+      // ignore: discarded_futures
+      _fetchClassroomName(code);
+    }
+    return code;
   }
 
   @override
@@ -173,12 +233,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.symmetric(
                 horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 2,
+                vertical: responsive.verticalSpacing / 4,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: responsive.verticalSpacing),
+                  SizedBox(height: responsive.verticalSpacing / 4),
                   if (!widget.contentOnly) ...[
                     _buildHeaderTabsRow(),
                     const SizedBox(height: 10),
@@ -278,9 +338,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       final matchesSearch =
           q.isEmpty || item.studentName.toLowerCase().contains(q);
 
+      final classroomDisplay = _classroomDisplay(
+        classroomCode: item.classroomCode,
+        classroomName: item.classroomName,
+      );
       final matchesClassroom =
           _selectedClassroomNames.isEmpty ||
-              _selectedClassroomNames.contains(item.classroomName);
+              _selectedClassroomNames.contains(classroomDisplay);
 
       if (matchesSearch && matchesClassroom) {
         filtered.add(
@@ -310,7 +374,10 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     studentCode: item.studentCode,
       studentId: index,
       studentName: item.studentName,
-      roomName: item.classroomName,
+      roomName: _classroomDisplay(
+        classroomCode: item.classroomCode,
+        classroomName: item.classroomName,
+      ),
       daysAttended: daysAttended,
       totalHours: totalHours,
       expectedToday: item.isExpectedToday,
@@ -377,95 +444,82 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 520;
-              if (isNarrow) {
-                return Column(
-                  children: [
-                    CustomSearchBar(
-                      controller: _customSearchController,
-                      hintText: 'Search Students',
-                    ),
-                    SizedBox(height: spacing),
-                    BlocBuilder<ClassroomCubit, ClassroomState>(
-                      bloc: _classroomCubit,
-                      builder: (context, state) {
-                        final items = state.classrooms.map((c) => c.name).toList();
-                        final isLoading = state.isLoading || !_isClassroomDataReady;
-                        if (isLoading && items.isEmpty) {
-                          return ShimmerLoader(height: 40);
-                        }
-                        return CustomMultiSelectDropdown(
-                          hintText: 'Classroom',
-                          items: items,
-                          selectedItems: _selectedClassroomNames,
-                          onChanged: (values) {
-                            if (isLoading) return;
-                            setState(() {
-                              _selectedClassroomNames = List<String>.from(values);
-                            });
-                            _loadAttendanceData(reset: false);
-                          },
-                        );
+          Row(
+            children: [
+              Expanded(
+                flex: responsive.isTablet ? 3 : 2,
+                child: CustomSearchBar(
+                  controller: _customSearchController,
+                  hintText: 'Search Students',
+                ),
+              ),
+              SizedBox(width: spacing),
+              Expanded(
+                flex: responsive.isTablet ? 2 : 1,
+                child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                  bloc: _classroomCubit,
+                  builder: (context, state) {
+                    final items =
+                        state.classrooms.map((c) => c.name).toList();
+                    final isLoading =
+                        state.isLoading || !_isClassroomDataReady;
+                    if (isLoading && items.isEmpty) {
+                      return ShimmerLoader(
+                        height: 40,
+                        borderRadius: BorderRadius.circular(12),
+                      );
+                    }
+                    return CustomMultiSelectDropdown(
+                      hintText: 'Classroom',
+                      items: items,
+                      selectedItems: _selectedClassroomNames,
+                      onChanged: (values) {
+                        if (isLoading) return;
+                        setState(() {
+                          _selectedClassroomNames =
+                              List<String>.from(values);
+                        });
+                        _loadAttendanceData(reset: true);
                       },
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: CustomSearchBar(
-                      controller: _customSearchController,
-                      hintText: 'Search Students',
-                    ),
-                  ),
-                  SizedBox(width: spacing),
-                  Expanded(
-                    flex: 2,
-                    child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                      bloc: _classroomCubit,
-                      builder: (context, state) {
-                        final items = state.classrooms.map((c) => c.name).toList();
-                        final isLoading = state.isLoading || !_isClassroomDataReady;
-                        if (isLoading && items.isEmpty) {
-                          return ShimmerLoader(height: 40);
-                        }
-                        return CustomMultiSelectDropdown(
-                          hintText: 'Classroom',
-                          items: items,
-                          selectedItems: _selectedClassroomNames,
-                          onChanged: (values) {
-                            if (isLoading) return;
-                            setState(() {
-                              _selectedClassroomNames = List<String>.from(values);
-                            });
-                          _loadAttendanceData(reset: false);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          CustomDateTimeField(
-            hasLabel: false,
-            isRangePicker: true,
-            fetchInitialTime: false,
-            initialDate: _customRangeStart,
-            onRangeSelected: (start, end) {
-              setState(() {
-                _customRangeStart = start;
-                _customRangeEnd = end;
-              });
-              _loadAttendanceData(reset: false);
-            },
+          SizedBox(height: responsive.verticalSpacing / 2),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: true,
+                  // Ensure the picker displays current month's default start–end on open
+                  fetchInitialTime: true,
+                  onRangeSelected: (start, end) {
+                    setState(() {
+                      _customRangeStart = start;
+                      _customRangeEnd = end;
+                    });
+                    _loadAttendanceData(reset: true);
+                  },
+                ),
+              ),
+              SizedBox(width: spacing),
+              CustomClearAllChip(
+                onTap: () {
+                  setState(() {
+                    _customSearchController.clear();
+                    _searchQuery = '';
+                    _selectedClassroomNames = <String>[];
+                    final now = DateTime.now();
+                    _customRangeStart = DateTime(now.year, now.month, 1);
+                    _customRangeEnd = DateTime(now.year, now.month + 1, 0);
+                  });
+                  _loadAttendanceData(reset: true);
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -599,11 +653,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final totalHours = attendance.totalHours.isNotEmpty ? attendance.totalHours : '0 Hrs 0 Mins';
 
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final dotSize = responsive.isTablet ? 14.0 : 12.0;
-
-    final bool showGreenDot =
-        attendance.hasSignIn && (attendance.signOutTime == null || attendance.signOutTime!.isEmpty);
-    final bool showRedDot = !attendance.hasSignIn && attendance.expectedToday == true;
 
     return GestureDetector(
       onTap: () {
@@ -642,40 +691,6 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    if (showGreenDot)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: dotSize,
-                          height: dotSize,
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(0, 177, 21, 1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (showRedDot)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: dotSize,
-                          height: dotSize,
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(200, 32, 32, 1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(width: 14),
@@ -707,12 +722,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               const SizedBox(height: 10),
               Row(
                 children: [
-                  AppText.small(
-                    'Classroom',
-                    style: TextStyle(color: AppColors.secondaryColor),
+                  Expanded(
+                    child: AppText.small(
+                      'Classroom',
+                      style: TextStyle(color: AppColors.secondaryColor),
+                    ),
                   ),
-                  const Spacer(),
-                  Flexible(
+                  Expanded(
                     child: AppText.value(
                       roomName,
                       maxLines: 1,

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
@@ -9,15 +11,16 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
-import 'package:wowcare/firebase_options.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+
+import 'package:timezone/data/latest.dart' as tzdata;
 
 import 'src/app_router.dart';
 import 'shared/common/app/providers/splash_screen.dart';
@@ -34,46 +37,34 @@ import 'shared/common/app/providers/splash_screen.dart';
 //   // You can do minimal processing here, but avoid heavy work
 // }
 
-// Future<void> main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   // Initialize dependency injection
-//   await configureDependencies();
-
-//   // Only initialize if not already
-//   if (Platform.isIOS) {
-//     await Firebase.initializeApp(); // auto from GoogleService-Info.plist
-//   } else {
-//     // await Firebase.initializeApp(
-//     //   options: DefaultFirebaseOptions.currentPlatform,
-//     // );
-//   }
-
-//   // Set up background message handler
-//   // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-//   // await init();
-//   // await initOld();
-
-//   SystemChrome.setPreferredOrientations([
-//     DeviceOrientation.portraitUp,
-//     DeviceOrientation.portraitDown,
-//     DeviceOrientation.landscapeLeft,
-//     DeviceOrientation.landscapeRight
-//   ]);
-
-//   runApp(const MyApp());
-// }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tzdata.initializeTimeZones();
 
-  // ❌ Disable Firebase for now
-  // await Firebase.initializeApp();
-
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
+  // Initialize dependency injection
   await configureDependencies();
+
+  // Only initialize if not already
+  if (Platform.isIOS) {
+    await Firebase.initializeApp(); // auto from GoogleService-Info.plist
+  } else {
+    // await Firebase.initializeApp(
+    //   options: DefaultFirebaseOptions.currentPlatform,
+    // );
+  }
+
+  // Set up background message handler
+  // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // await init();
+  // await initOld();
+
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
 
   runApp(const MyApp());
 }
@@ -118,6 +109,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         // Needed by GlobalScaffold/Drawer/NavBar to determine role-based UI
         ChangeNotifierProvider(create: (_) => RoleProvider()),
+        ChangeNotifierProvider(create: (_) => ParentChildProvider()),
         // ChangeNotifierProvider(create: (_) => AuthProvider()),
         // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
         // ChangeNotifierProvider(create: (_) => ProfilePhotoProvider()),
@@ -175,17 +167,11 @@ class _MyAppState extends State<MyApp> {
                         return cubit;
                       },
                     ),
-                    BlocProvider<CommunicationCubit>(
-                      create: (_) => serviceLocator<CommunicationCubit>(),
-                    ),
                   ],
                   child: MaterialApp(
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
                     theme: themeProvider.currentTheme,
-                    // home: kBypassLogin
-                    //     ? const DashboardScreen()
-                    //     : const SplashScreenWrapper(),
                     home: const SplashScreenWrapper(),
                     onGenerateRoute: generateRoute,
                     navigatorKey: CoreUtils.rootNavigatorKey,
@@ -228,11 +214,6 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
-      // if (kBypassLogin) {
-      //   Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-      //   return;
-      // }
-
       final storage = serviceLocator<StorageService>();
 
       final seenOnboarding =
@@ -305,6 +286,20 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
         // If we have a cached login, navigation always follows login-context:
         if (hasCachedLogin) {
+          await context.read<RoleProvider>().refreshAccessFromServer(
+            force: true,
+          );
+          final orgCode =
+              (await storage.getString(StorageKeys.organizationCode) ?? '')
+                  .trim();
+          final schoolCode =
+              (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+          if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
+            await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
+              organizationCode: orgCode,
+              schoolCode: schoolCode,
+            );
+          }
           if (redirectUrl != null && redirectUrl.isNotEmpty) {
             final url = redirectUrl.toLowerCase();
             if (url.contains('select-school')) {

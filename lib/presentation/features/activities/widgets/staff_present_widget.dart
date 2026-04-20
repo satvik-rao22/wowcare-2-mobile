@@ -74,14 +74,16 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             if (widget.incidentActivity)
               CheckboxWidget(
                 label: 'Click to sign',
-                isEditable: true,
+                isEditable: widget.isEditable,
                 isChecked: clickToSign,
-                onChecked: (newValue){
-                  setState(() {
-                    clickToSign = newValue;
-                  });
-                  widget.onSigned?.call(newValue);
-                },
+                onChecked: widget.isEditable
+                    ? (newValue) {
+                        setState(() {
+                          clickToSign = newValue;
+                        });
+                        widget.onSigned?.call(newValue);
+                      }
+                    : null,
               ),
           ],
         ),

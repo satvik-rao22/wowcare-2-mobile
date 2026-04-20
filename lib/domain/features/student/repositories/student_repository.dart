@@ -32,6 +32,7 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// [classroom] must be the backend classroom **code**, not the display name.
   Future<Student> createStudent({
     required String schoolCode,
     required String firstName,
@@ -165,6 +166,15 @@ abstract class StudentRepository {
   /// that selected filter values can be resolved back to codes for the API.
   Future<Map<String, String>> getGuardianNameCodeMapForSchool({
     required String schoolCode,
+  });
+
+  /// Logged-in guardian profile from `GET /api/v1/guardian/profile`.
+  ///
+  /// Query: [schoolCode], [userCode]. Returns API `data` (includes guardian
+  /// `code` and `userCode`).
+  Future<Map<String, dynamic>> getGuardianProfile({
+    required String schoolCode,
+    required String userCode,
   });
 
   /// Fetches student counts (active, upcoming, enrolled) for a school.

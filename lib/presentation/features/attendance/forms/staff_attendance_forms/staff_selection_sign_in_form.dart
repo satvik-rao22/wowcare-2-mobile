@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -9,7 +10,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
 import 'staff_sign_in_form.dart';
@@ -17,30 +21,35 @@ import 'staff_sign_in_form.dart';
 class StaffSelectionSignInForm extends StatefulWidget {
   static const String routeName = '/staff-selection-sign-in-form';
 
-  const StaffSelectionSignInForm({
-    super.key,
-  });
+  const StaffSelectionSignInForm({super.key, this.initialStaffCodes});
+
+  final Set<String>? initialStaffCodes;
 
   @override
   State<StaffSelectionSignInForm> createState() =>
       _StaffSelectionSignInFormState();
 }
 
-class _StaffSelectionSignInFormState
-    extends State<StaffSelectionSignInForm> {
+class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
+  String? _selectedClassroomCode;
   List<String> _selectedTag = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _classrooms = [
-    'Classroom A',
-    'Classroom B',
-    'Classroom C',
-    'Classroom D'
+  final Map<String, String> _classroomNameToCode = <String, String>{};
+  // Use designation list similar to StaffFilterScreen
+  final List<String> _designations = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
   ];
-  final List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
 
   List<StaffEntity> _filteredStaff = [];
 
@@ -48,12 +57,15 @@ class _StaffSelectionSignInFormState
   String? _errorMessage;
 
   late final GetStaffSignInFormListUseCase _getStaffSignInFormListUseCase;
+  late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
     _getStaffSignInFormListUseCase =
         serviceLocator<GetStaffSignInFormListUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>()
+      ..loadActiveClassrooms(onlyTypeClassroom: false);
     _loadStaff();
   }
 
@@ -77,15 +89,18 @@ class _StaffSelectionSignInFormState
       final today = DateTime.now();
       final dateString = _formatDate(today);
 
+      final selectedClassroomCode = _selectedClassroomCode;
       final classroomCodes =
-          _selectedClassroom != null && _selectedClassroom!.isNotEmpty
-              ? <String>[_selectedClassroom!]
-              : null;
+          selectedClassroomCode != null && selectedClassroomCode.isNotEmpty
+          ? <String>[selectedClassroomCode]
+          : null;
 
+      // Map UI "Designation" selection to backend tagCodes parameter for compatibility
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStaffSignInFormListUseCase(
         fromAttendanceDate: dateString,
@@ -104,23 +119,54 @@ class _StaffSelectionSignInFormState
           id: index + 1,
           name: item.staffName,
           primaryRoomId: 0,
+          classroomCode: item.classroomCode,
+          classroomName: item.classroomName,
           photoUuid: null,
-          designation:
-              item.designation.isNotEmpty ? item.designation.first : 'Staff',
+          designation: item.designation.isNotEmpty
+              ? item.designation.first
+              : 'Staff',
           staffCode: item.staffCode,
+          isExpectedToday: item.isExpectedToday,
         );
       }).toList();
 
+      // Apply local filter for Designation (in addition to backend)
+      List<StaffEntity> locallyFiltered = staffList;
+      if (_selectedTag.isNotEmpty) {
+        final selected = _selectedTag
+            .map((e) => e.trim().toUpperCase())
+            .toSet();
+        locallyFiltered = locallyFiltered.where((s) {
+          final d = s.designation.trim().toUpperCase();
+          return selected.contains(d);
+        }).toList();
+      }
+      if (searchText != null && searchText.trim().isNotEmpty) {
+        final q = searchText.toLowerCase();
+        locallyFiltered = locallyFiltered
+            .where((s) => s.name.toLowerCase().contains(q))
+            .toList();
+      }
+
+      // Preselect staff based on initial staff codes if provided
+      if (widget.initialStaffCodes != null &&
+          widget.initialStaffCodes!.isNotEmpty) {
+        selectedStaff = locallyFiltered
+            .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
+            .toSet();
+      }
+
       setState(() {
-        _filteredStaff = List.from(staffList);
+        _filteredStaff = List.from(locallyFiltered);
         _isLoading = false;
-        isSelectAllChecked = _filteredStaff.isNotEmpty &&
+        isSelectAllChecked =
+            _filteredStaff.isNotEmpty &&
             _filteredStaff.every((s) => selectedStaff.contains(s));
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
       });
     }
   }
@@ -156,8 +202,9 @@ class _StaffSelectionSignInFormState
 
   void _handleNext() {
     if (selectedStaff.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
           content: Text('Please select at least one staff member'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -165,13 +212,11 @@ class _StaffSelectionSignInFormState
       return;
     }
 
-    // For UI-only, navigate to the first selected staff's form
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StaffSignInForm(
-          staff: selectedStaff.first,
-        ),
+        builder: (context) =>
+            StaffSignInForm(staffList: selectedStaff.toList()),
       ),
     );
   }
@@ -182,141 +227,163 @@ class _StaffSelectionSignInFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return StaffFormLayout(
-      title: 'Sign-In',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppText.subtitle('Select Staff'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
+    return BlocProvider<ClassroomCubit>.value(
+      value: _classroomCubit,
+      child: StaffFormLayout(
+        title: 'Sign-In',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppText.subtitle('Select Staff'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F7FA),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search Staff',
+                  hintStyle: AppTextStyles.body.copyWith(
+                    color: Colors.grey[700],
+                  ),
+                  border: InputBorder.none,
+                  icon: const Icon(Icons.search, color: Colors.grey),
+                ),
+                onChanged: (_) => _loadStaff(),
+              ),
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Staff',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                    builder: (context, state) {
+                      final classroomNames = state.classrooms
+                          .map((c) => c.name)
+                          .toList();
+                      if (_classroomNameToCode.isEmpty &&
+                          state.classrooms.isNotEmpty) {
+                        for (final c in state.classrooms) {
+                          _classroomNameToCode[c.name] = c.code;
+                        }
+                      }
+                      String? selectedName;
+                      for (final entry in _classroomNameToCode.entries) {
+                        if (entry.value == _selectedClassroomCode) {
+                          selectedName = entry.key;
+                          break;
+                        }
+                      }
+                      return CustomDropdown(
+                        hintText: 'Classroom',
+                        items: classroomNames,
+                        selectedItem: selectedName,
+                        onSelect: (value) {
+                          setState(() {
+                            _selectedClassroomCode = value == null
+                                ? null
+                                : _classroomNameToCode[value];
+                          });
+                          _loadStaff();
+                        },
+                      );
+                    },
+                  ),
                 ),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
-              ),
-              onChanged: (_) => _loadStaff(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomMultiSelectDropdown(
+                    hintText: 'Designation',
+                    items: _designations,
+                    selectedItems: _selectedTag,
+                    onChanged: (selectedItems) {
+                      setState(() {
+                        _selectedTag = selectedItems;
+                      });
+                      _loadStaff();
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: CustomDropdown(
-                  hintText: 'Classroom',
-                  items: _classrooms,
-                  selectedItem: _selectedClassroom,
-                  onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                    });
-                    _loadStaff();
-                  },
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    value: isSelectAllChecked,
+                    onChanged: _toggleSelectAll,
+                    borderColor: AppColors.themeColor,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tags,
-                  selectedItems: _selectedTag,
-                  onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedTag = selectedItems;
-                    });
-                    _loadStaff();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll,
-                  borderColor: AppColors.themeColor,
-                ),
-              ),
-              const AppText.body('Select All'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: PrimaryCircularLoader())
-                : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load staff',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStaff,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _filteredStaff.isEmpty
-                        ? const Center(child: AppText.body("No staff found"))
-                        : GridView.builder(
-                            shrinkWrap: false,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisExtent: 52,
-                            ),
-                            itemCount: _filteredStaff.length,
-                            itemBuilder: (context, index) {
-                              final staff = _filteredStaff[index];
-                              final isSelected =
-                                  selectedStaff.contains(staff);
-
-                              return StaffListItem(
-                                staff: staff,
-                                isSelected: isSelected,
-                                onSelectionChanged: (value) =>
-                                    _toggleStaffSelection(staff, value),
-                              );
-                            },
+                const AppText.body('Select All'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: PrimaryCircularLoader())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppText.body(
+                            _errorMessage ?? 'Failed to load staff',
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
                           ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: _loadStaff,
+                            child: const AppText.body('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _filteredStaff.isEmpty
+                  ? const Center(child: AppText.body("No staff found"))
+                  : GridView.builder(
+                      shrinkWrap: false,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: isTablet ? 16 : 12,
+                        mainAxisSpacing: isTablet ? 16 : 12,
+                        mainAxisExtent: 52,
+                      ),
+                      itemCount: _filteredStaff.length,
+                      itemBuilder: (context, index) {
+                        final staff = _filteredStaff[index];
+                        final isSelected = selectedStaff.contains(staff);
+
+                        return StaffListItem(
+                          staff: staff,
+                          isSelected: isSelected,
+                          onSelectionChanged: (value) =>
+                              _toggleStaffSelection(staff, value),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+        bottomBar: Padding(
+          padding: EdgeInsets.only(bottom: safeAreaBottom),
+          child: CustomButtonLayout(
+            confirmButtonLabel: 'Next',
+            onPressedConfirm: _handleNext,
+            showCancelButton: false,
           ),
-        ],
-      ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          onPressedConfirm: _handleNext,
-          showCancelButton: false,
         ),
       ),
     );
   }
-
 }
 
 class StaffListItem extends StatelessWidget {
@@ -337,9 +404,7 @@ class StaffListItem extends StatelessWidget {
       onTap: () => onSelectionChanged(!isSelected),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
@@ -360,6 +425,8 @@ class StaffListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: staff.photoUuid ?? '',
                 name: staff.name,
+                staffCode: staff.staffCode,
+                showOnlyAbsentAttendanceDot: true,
                 size: 32,
                 fontSize: 14,
               ),
@@ -382,4 +449,3 @@ class StaffListItem extends StatelessWidget {
     );
   }
 }
-

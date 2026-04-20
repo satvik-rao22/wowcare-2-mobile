@@ -16,6 +16,8 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_user_profile_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -211,6 +213,82 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         isError: true,
       );
     }
+  }
+
+  Future<String> _resolveClassroomNameForStaff(StaffProfile profile) async {
+    final code = profile.primaryClassroomCode.trim().isNotEmpty
+        ? profile.primaryClassroomCode.trim()
+        : (profile.allowedClassroomCodes.isNotEmpty
+            ? profile.allowedClassroomCodes.first.trim()
+            : '');
+    if (code.isEmpty) return '-';
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return code;
+
+      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getActiveClassrooms(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+      for (final c in classrooms) {
+        if (c.code.trim() == code) {
+          final name = c.name.trim();
+          return name.isNotEmpty ? name : code;
+        }
+      }
+      return code;
+    } catch (_) {
+      return code;
+    }
+  }
+
+  Future<void> _openStaffProfile() async {
+    // Ensure we have a profile to open.
+    final staffCode = (_profile?.staffCode ?? widget.staffCode ?? '').trim();
+    if (staffCode.isEmpty) {
+      final resolved = await _resolveLoggedInStaffCode();
+      if (!mounted) return;
+      if (resolved.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve staff profile. Please re-login.',
+          isError: true,
+        );
+        return;
+      }
+      await _loadStaffProfile(resolved);
+    }
+
+    final profile = _profile;
+    if (profile == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Profile is still loading. Please try again.',
+        isWarning: true,
+      );
+      return;
+    }
+
+    final classroom = await _resolveClassroomNameForStaff(profile);
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StaffProfileScreen(
+          staffCode: profile.staffCode,
+          name: profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : '-',
+          classroom: classroom,
+          designation: profile.designation,
+          phoneNumber: profile.phoneNumber,
+          employmentStatus: profile.status,
+        ),
+      ),
+    );
   }
 
   @override
@@ -429,8 +507,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     AppColors.buildPrimaryGradient(),
                                   ),
                                   child: TextButton(
-                                    onPressed: () {
-
+                                    onPressed: () async {
+                                      // For staff persona, open StaffProfileScreen.
+                                      if (displayPersona != 'Admin' &&
+                                          displayPersona != 'Parent') {
+                                        await _openStaffProfile();
+                                      }
                                     },
                                     style: TextButton.styleFrom(
                                         padding: EdgeInsets.symmetric(horizontal: 8),

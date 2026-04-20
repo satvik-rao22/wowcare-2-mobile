@@ -1,117 +1,135 @@
 import 'package:equatable/equatable.dart';
 
-class MarkAbsentRequestModel extends Equatable {
-  const MarkAbsentRequestModel({
+class StaffMarkAbsentRequestModel extends Equatable {
+  const StaffMarkAbsentRequestModel({
     required this.staffCode,
-    required this.studentCodes,
+    required this.staffCodes,
     required this.absenceFromDate,
     required this.absenceToDate,
     required this.absenceReason,
+    required this.absenceType,
     required this.absenceNotes,
-    required this.classroomCode,
+    this.markAbsentMethod = 'APP',
+    this.isExpectedTodayByStaffCode = const <String, bool>{},
   });
 
-  final String staffCode;
-  final List<String> studentCodes;
+  final String staffCode; // marker staff (who is marking absent)
+  final List<String> staffCodes; // staff that are absent
   final String absenceFromDate;
   final String absenceToDate;
   final String absenceReason;
-
-  /// Keyed by studentCode.
-  final Map<String, String> absenceNotes;
-  final String classroomCode;
+  final String absenceType;
+  final Map<String, String> absenceNotes; // keyed by staffCode
+  final String markAbsentMethod;
+  final Map<String, bool> isExpectedTodayByStaffCode;
 
   Map<String, dynamic> toJson() {
     return {
       'staffCode': staffCode,
-      'studentCodes': studentCodes,
+      'staffCodes': staffCodes,
       'absenceFromDate': absenceFromDate,
       'absenceToDate': absenceToDate,
       'absenceReason': absenceReason,
+      'absenceType': absenceType,
       'absenceNotes': absenceNotes,
-      'classroomCode': classroomCode,
+      'markAbsentMethod': markAbsentMethod,
+      if (isExpectedTodayByStaffCode.isNotEmpty)
+        'isExpectedTodayByStaffCode': isExpectedTodayByStaffCode,
     };
   }
 
   @override
   List<Object?> get props => [
     staffCode,
-    studentCodes,
+    staffCodes,
     absenceFromDate,
     absenceToDate,
     absenceReason,
+    absenceType,
     absenceNotes,
-    classroomCode,
+    markAbsentMethod,
+    isExpectedTodayByStaffCode,
   ];
 }
 
-class StudentAbsenceRecordModel extends Equatable {
-  const StudentAbsenceRecordModel({
+class StaffAbsenceRecordModel extends Equatable {
+  const StaffAbsenceRecordModel({
     required this.code,
-    required this.studentCode,
+    required this.staffCode,
     required this.absenceDate,
     required this.absenceFromDate,
     required this.absenceToDate,
     required this.absenceReason,
+    required this.absenceType,
     required this.absenceNote,
-    required this.classroomCode,
+    this.markAbsentMethod,
+    this.isExpectedToday,
   });
 
   final String code;
-  final String studentCode;
+  final String staffCode;
   final String absenceDate;
   final String absenceFromDate;
   final String absenceToDate;
   final String absenceReason;
+  final String absenceType;
   final String absenceNote;
-  final String classroomCode;
+  final String? markAbsentMethod;
+  final bool? isExpectedToday;
 
-  factory StudentAbsenceRecordModel.fromJson(Map<String, dynamic> json) {
-    return StudentAbsenceRecordModel(
+  factory StaffAbsenceRecordModel.fromJson(Map<String, dynamic> json) {
+    return StaffAbsenceRecordModel(
       code: (json['code'] ?? '').toString(),
-      studentCode: (json['studentCode'] ?? '').toString(),
+      staffCode: (json['staffCode'] ?? '').toString(),
       absenceDate: (json['absenceDate'] ?? '').toString(),
       absenceFromDate: (json['absenceFromDate'] ?? '').toString(),
       absenceToDate: (json['absenceToDate'] ?? '').toString(),
       absenceReason: (json['absenceReason'] ?? '').toString(),
+      absenceType: (json['absenceType'] ?? '').toString(),
       absenceNote: (json['absenceNote'] ?? '').toString(),
-      classroomCode: (json['classroomCode'] ?? '').toString(),
+      markAbsentMethod: json['markAbsentMethod'] as String?,
+      isExpectedToday: json['isExpectedToday'] as bool?,
     );
   }
 
   @override
   List<Object?> get props => [
     code,
-    studentCode,
+    staffCode,
     absenceDate,
     absenceFromDate,
     absenceToDate,
     absenceReason,
+    absenceType,
     absenceNote,
-    classroomCode,
+    markAbsentMethod,
+    isExpectedToday,
   ];
 }
 
-class MarkAbsentResponseModel extends Equatable {
-  const MarkAbsentResponseModel({required this.message, required this.records});
+class StaffMarkAbsentResponseModel extends Equatable {
+  const StaffMarkAbsentResponseModel({
+    required this.message,
+    required this.records,
+  });
 
   final String message;
-  final List<StudentAbsenceRecordModel> records;
+  final List<StaffAbsenceRecordModel> records;
 
-  factory MarkAbsentResponseModel.fromJson(Map<String, dynamic> json) {
+  factory StaffMarkAbsentResponseModel.fromJson(Map<String, dynamic> json) {
     final message = (json['message'] ?? '').toString();
     final data = json['data'];
     final records = (data is List)
         ? data
               .whereType<Map>()
               .map(
-                (e) => StudentAbsenceRecordModel.fromJson(
+                (e) => StaffAbsenceRecordModel.fromJson(
                   Map<String, dynamic>.from(e),
                 ),
               )
               .toList()
-        : <StudentAbsenceRecordModel>[];
-    return MarkAbsentResponseModel(message: message, records: records);
+        : <StaffAbsenceRecordModel>[];
+    return StaffMarkAbsentResponseModel(message: message, records: records);
   }
 
   @override

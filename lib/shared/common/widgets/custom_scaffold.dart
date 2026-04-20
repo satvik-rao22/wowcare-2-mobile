@@ -180,6 +180,10 @@ class GlobalScaffold extends StatefulWidget {
     this.isParent = false,
     this.studentList,
     this.customButtonLayout,
+    /// When null, defaults to 8 px on all sides. Screens like the activity feed
+    /// can use asymmetric padding (e.g. zero right/bottom) to align with edges and
+    /// sit closer above the bottom navigation bar.
+    this.bodyPadding,
     super.key,
   });
 
@@ -190,6 +194,7 @@ class GlobalScaffold extends StatefulWidget {
   final bool isParent;
   final List<String>? studentList;
   final Widget? customButtonLayout;
+  final EdgeInsetsGeometry? bodyPadding;
 
   @override
   State<GlobalScaffold> createState() => _GlobalScaffoldState();
@@ -245,7 +250,7 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
             child: NotificationListener<ScrollNotification>(
               onNotification: _handleScrollNotification,
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: widget.bodyPadding ?? const EdgeInsets.all(8),
                 child: widget.body,
               ),
             ),

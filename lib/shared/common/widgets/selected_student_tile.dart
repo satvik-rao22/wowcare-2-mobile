@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 
 import '../../../app/theme/colors.dart';
 import '../../../app/theme/media_res.dart';
+import 'ellipsis_tooltip_text.dart';
 import 'profile_show_widget.dart';
 
 class SelectedStudentTile extends StatelessWidget {
@@ -11,78 +12,106 @@ class SelectedStudentTile extends StatelessWidget {
     required this.name,
     this.avatarUrl,
     this.onTap,
-    this.isViewActivityScreen = false
+    this.isViewActivityScreen = false,
+    /// Full-width row with wrapped name (edit/view activity) — avoids truncation in grid cells.
+    this.fillWidth = false,
   });
   final String name;
   final String? avatarUrl;
   final VoidCallback? onTap;
   final bool isViewActivityScreen;
+  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        //height: 60,
-        padding: EdgeInsets.symmetric(horizontal: isViewActivityScreen? 14: 12, vertical: isViewActivityScreen? 6 :4),
-        decoration: BoxDecoration(
-          color: isViewActivityScreen ? Colors.white : Color(0xFFB1AFE9).withOpacity(0.102),
-          //color:  const Color(0xFFF8F7FA) ,
-          borderRadius: BorderRadius.circular(isViewActivityScreen ? 24 :12),
-          border: Border.all(color:  AppColors.themeColor, width: 1),
-        ),
-        child: Row(
-          mainAxisSize:
-          isViewActivityScreen ? MainAxisSize.min : MainAxisSize.max,
-          mainAxisAlignment: isViewActivityScreen ? MainAxisAlignment.center : MainAxisAlignment.spaceEvenly,
-          children: [
-            DocumentImageWidget(
-              fileUuid: '',
-              name: name,
-              size: 35,
-            ),
-            SizedBox(width: isViewActivityScreen ? 8 :4,),
-            if(isViewActivityScreen)
-              Flexible(
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: isTablet ? 16 : 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff573353),
-                    height: 19 / 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            if(!isViewActivityScreen)
-              Expanded(
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: isTablet ? 16 : 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff573353),
-                    height: 19 / 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            if(!isViewActivityScreen)
-              IconButton(
-                  onPressed: onTap,
-                  icon: SvgPicture.asset(
-                      MediaRes.delete_icon
-                  )
-              )
-          ],
-        ),
-      ),
+    final textStyle = TextStyle(
+      fontFamily: 'Manrope',
+      fontSize: isTablet ? 16 : 14,
+      fontWeight: FontWeight.w500,
+      color: const Color(0xff573353),
+      height: 19 / 14,
     );
+
+    final useViewColors = isViewActivityScreen || fillWidth;
+    final showRemove = onTap != null && !isViewActivityScreen;
+    final preferLongPressTooltip = onTap != null;
+
+    final row = Row(
+      crossAxisAlignment:
+          fillWidth ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      mainAxisSize: fillWidth
+          ? MainAxisSize.max
+          : (isViewActivityScreen ? MainAxisSize.min : MainAxisSize.max),
+      mainAxisAlignment: isViewActivityScreen && !fillWidth
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      children: [
+        DocumentImageWidget(
+          fileUuid: '',
+          name: name,
+          size: 35,
+        ),
+        SizedBox(width: useViewColors ? 8 : 4),
+        if (fillWidth)
+          Expanded(
+            child: EllipsisTooltipText(
+              text: name,
+              style: textStyle,
+              maxLines: 6,
+              preferLongPress: preferLongPressTooltip,
+            ),
+          )
+        else if (isViewActivityScreen)
+          Flexible(
+            child: EllipsisTooltipText(
+              text: name,
+              style: textStyle,
+              maxLines: 1,
+              preferLongPress: preferLongPressTooltip,
+            ),
+          )
+        else
+          Expanded(
+            child: EllipsisTooltipText(
+              text: name,
+              style: textStyle,
+              maxLines: 1,
+              preferLongPress: preferLongPressTooltip,
+            ),
+          ),
+        if (showRemove)
+          IconButton(
+            onPressed: onTap,
+            icon: SvgPicture.asset(MediaRes.delete_icon),
+          ),
+      ],
+    );
+
+    final decorated = Container(
+      width: fillWidth ? double.infinity : null,
+      padding: EdgeInsets.symmetric(
+        horizontal: useViewColors ? 14 : 12,
+        vertical: useViewColors ? 6 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: useViewColors
+            ? Colors.white
+            : const Color(0xFFB1AFE9).withOpacity(0.102),
+        borderRadius: BorderRadius.circular(useViewColors ? 24 : 12),
+        border: Border.all(color: AppColors.themeColor, width: 1),
+      ),
+      child: row,
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: decorated,
+      );
+    }
+    return decorated;
   }
 }

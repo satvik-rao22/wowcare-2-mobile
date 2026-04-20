@@ -5,12 +5,14 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 
 enum SignMethod {
   gps,
   qr,
   kiosk,
   direct,
+  web,
 }
 
 class StudentAttendanceCardData {
@@ -33,6 +35,14 @@ class StudentAttendanceCardData {
   final int studentId;
   final int roomId;
   final int schoolId;
+  // Transfer sequence info for validation/display
+  final int? sequenceNumber;
+  final int? totalSequenceCount;
+  // Flags to indicate the displayed times are transfer-derived
+  final bool isTransferSignIn;
+  final bool isTransferSignOut;
+  /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
+  final String? attendedTimeDisplay;
 
   StudentAttendanceCardData({
     required this.id,
@@ -54,6 +64,11 @@ class StudentAttendanceCardData {
     required this.studentId,
     required this.roomId,
     required this.schoolId,
+    this.sequenceNumber,
+    this.totalSequenceCount,
+    this.isTransferSignIn = false,
+    this.isTransferSignOut = false,
+    this.attendedTimeDisplay,
   });
 }
 
@@ -93,16 +108,26 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         ? '${student.signOutTime} By ${student.signOutBy ?? 'Unknown'}'
         : 'Not Yet Signed Out';
 
-    // Calculate duration
-    String duration = '';
-    if (student.signInTime != null && student.signOutTime != null) {
+    // Attended time: prefer client-computed label from parent; else derive locally.
+    String duration = (student.attendedTimeDisplay ?? '').trim();
+    if (duration.isEmpty &&
+        student.signInTime != null &&
+        student.signOutTime != null) {
       try {
         final signInTime = _parseTimeString(student.signInTime!);
         final signOutTime = _parseTimeString(student.signOutTime!);
-        final difference = signOutTime.difference(signInTime);
-        final hours = difference.inHours;
-        final minutes = difference.inMinutes % 60;
-        duration = '$hours hours $minutes minutes';
+        var end = signOutTime;
+        if (end.isBefore(signInTime)) {
+          end = end.add(const Duration(days: 1));
+        }
+        final difference = end.difference(signInTime);
+        if (difference.inSeconds == 0) {
+          duration = '0 hours 0 minutes';
+        } else if (difference.inSeconds > 0) {
+          final hours = difference.inHours;
+          final minutes = difference.inMinutes % 60;
+          duration = '$hours hours $minutes minutes';
+        }
       } catch (e) {
         duration = '';
       }
@@ -142,51 +167,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                     DocumentImageWidget(
                       fileUuid: student.studentPhotoUuid ?? '',
                       name: student.studentName,
+                      studentCode: student.studentCode,
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    // Status dot logic
-                    if (student.hasSignIn && student.signOutTime == null)
-                      // Green dot for signed in (present)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.successColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (student.expectedToday == true &&
-                        !student.hasSignIn &&
-                        (student.signOutTime == null ||
-                            student.signOutTime!.isEmpty) &&
-                        (student.signInTime == null ||
-                            student.signInTime!.isEmpty))
-                      // Red dot for absent
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: AppColors.errorColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 SizedBox(width: spacing),
@@ -203,16 +187,19 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                   ),
                 ),
                 SizedBox(width: spacing / 2),
-                Flexible(
-                  child: AppText.body(
-                    student.roomName,
-                    style: TextStyle(
-                      fontSize: responsive.isTablet ? 16 : 15,
-                      color: AppColors.themeColor,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: AppText.body(
+                      student.roomName,
+                      style: TextStyle(
+                        fontSize: responsive.isTablet ? 16 : 15,
+                        color: AppColors.themeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
                   ),
                 ),
               ],
@@ -225,9 +212,23 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(context, responsive, 'Classroom', student.roomName),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildSignInOutRow(context, responsive, 'Signed-In Time & Staff', signIn, student.signInMethod),
+              _buildSignInOutRow(
+                context,
+                responsive,
+                'Signed-In Time & Staff',
+                signIn,
+                student.signInMethod,
+                showTransferIcon: student.isTransferSignIn,
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildSignInOutRow(context, responsive, 'Signed-Out Time & Staff', signOut, student.signOutMethod),
+              _buildSignInOutRow(
+                context,
+                responsive,
+                'Signed-Out Time & Staff',
+                signOut,
+                student.signOutMethod,
+                showTransferIcon: student.isTransferSignOut,
+              ),
               if (duration.isNotEmpty) ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
                 _buildDetailRow(context, responsive, 'Attended Time', duration),
@@ -272,7 +273,14 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     );
   }
 
-  Widget _buildSignInOutRow(BuildContext context, ResponsiveHelper responsive, String label, String value, SignMethod? method) {
+  Widget _buildSignInOutRow(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    String label,
+    String value,
+    SignMethod? method, {
+    bool showTransferIcon = false,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -295,6 +303,21 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             children: [
               if (method != null) ...[
                 _buildMethodIcon(method, responsive),
+                SizedBox(width: responsive.horizontalSpacing / 4),
+              ],
+              if (showTransferIcon) ...[
+                Tooltip(
+                  message: 'Transfer',
+                  child: SvgPicture.asset(
+                    MediaRes.transfer,
+                    width: responsive.isTablet ? 20 : 18,
+                    height: responsive.isTablet ? 20 : 18,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.themeColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
                 SizedBox(width: responsive.horizontalSpacing / 4),
               ],
               Expanded(
@@ -347,13 +370,29 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
           ),
         );
       case SignMethod.direct:
-        // App-based sign-in/out. Use a simple app icon from Material.
         return Tooltip(
           message: 'APP',
-          child: Icon(
-            Icons.phone_android,
-            size: size,
-            color: AppColors.themeColor,
+          child: SvgPicture.asset(
+            MediaRes.appMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.web:
+        return Tooltip(
+          message: 'WEB',
+          child: SvgPicture.asset(
+            MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
     }
@@ -426,23 +465,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                 SizedBox(
                   width: double.infinity,
                   height: buttonHeight,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: AppText.body(
-                      "View",
-                      style: TextStyle(
-                        fontSize: buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                      ),
-                    ),
+                  child: CustomCancelButton(
+                    cancelButtonLabel: 'View',
+                    onPressedCancel: widget.onView,
                   ),
                 ),
               ],
@@ -518,26 +543,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               Expanded(
                 child: SizedBox(
                   height: buttonHeight,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: EdgeInsets.zero,
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: Text(
-                      "View",
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                        height: 19 / buttonFontSize,
-                      ),
-                    ),
+                  child: CustomCancelButton(
+                    cancelButtonLabel: 'View',
+                    onPressedCancel: widget.onView,
                   ),
                 ),
               ),

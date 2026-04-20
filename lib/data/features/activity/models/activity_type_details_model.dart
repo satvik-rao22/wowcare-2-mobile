@@ -206,10 +206,19 @@ class ActivityTypeParameterOptionModel {
   final String? parentOptionCode;
 
   factory ActivityTypeParameterOptionModel.fromJson(Map<String, dynamic> json) {
+    final code = (json['code'] ?? json['optionCode'] ?? '').toString().trim();
+    final optCode = (json['optionCode'] ??
+            json['value'] ??
+            json['optionValue'] ??
+            json['code'])
+        ?.toString()
+        .trim();
     return ActivityTypeParameterOptionModel(
-      code: json['code'] as String? ?? '',
-      optionCode: json['optionCode'] as String?,
-      optionLabel: json['optionLabel'] as String?,
+      code: code.isNotEmpty ? code : (optCode ?? ''),
+      optionCode: (optCode != null && optCode.isNotEmpty) ? optCode : null,
+      optionLabel: (json['optionLabel'] ?? json['label'] ?? json['name'])
+          ?.toString()
+          .trim(),
       displayOrder: json['displayOrder'] as int? ?? 0,
       icon: json['icon'] as String?,
       color: json['color'] as String?,

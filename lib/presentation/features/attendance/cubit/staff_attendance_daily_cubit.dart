@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
@@ -27,12 +28,16 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
   }) async {
     await refresh(
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
     );
   }
@@ -41,6 +46,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -54,6 +61,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       attendanceDate: attendanceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
       search: search,
       isSummaryLoading: true,
     ));
@@ -64,6 +73,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         toAttendanceDate: dateString,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         search: search,
         page: 0,
         size: _pageSize,
@@ -81,6 +92,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         attendanceDate: attendanceDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -95,7 +108,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         isLoading: false,
         isRefreshing: false,
         isSummaryLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -116,6 +129,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         toAttendanceDate: dateString,
         classroomCodes: state.classroomCodes,
         tagCodes: state.tagCodes,
+        signInAtFilter: state.signInAtFilter,
+        signOutAtFilter: state.signOutAtFilter,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,
@@ -133,7 +148,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       if (isClosed) return;
       emit(state.copyWith(
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

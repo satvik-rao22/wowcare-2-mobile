@@ -65,11 +65,23 @@ class _ChooseActivityState extends State<ChooseActivity> {
   bool get _isMultipleStudentsSelected => widget.selectedStudents.length > 1;
   String? _selectedActivity;
   bool _isLoadingNext = false;
+  bool _isLoadingActivities = true;
 
   // Activity settings fetched from /api/v1/classrooms/{classroomCode}/activity-settings
   Set<String>? _enabledActivities; // normalized (lowercase) names
   Set<String>? _multiStudentAllowed; // normalized (lowercase) names
   final Map<String, String> _activityTypeCodeByName = {}; // normalized name -> code
+  final Map<String, String> _activityDisplayNameByKey = {}; // known key -> API name
+  List<String> _visibleActivityKeys = [];
+
+  String? _getKnownActivityKeyByNormalized(String normalizedName) {
+    for (final key in ChooseActivity.activityIcons.keys) {
+      if (key.toLowerCase() == normalizedName) {
+        return key;
+      }
+    }
+    return null;
+  }
 
   String? get _classroomCode {
     if (widget.selectedStudents.isEmpty) return null;
@@ -94,7 +106,14 @@ class _ChooseActivityState extends State<ChooseActivity> {
 
   Future<void> _loadActivitySettingsForClassroom() async {
     final classroomCode = _classroomCode;
-    if (classroomCode == null || classroomCode.trim().isEmpty) return;
+    if (classroomCode == null || classroomCode.trim().isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingActivities = false;
+        _visibleActivityKeys = [];
+      });
+      return;
+    }
 
     try {
       final List<ActivitySetting> settings =
@@ -105,6 +124,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
 
       final enabled = <String>{};
       final multiAllowed = <String>{};
+      final visibleKeys = <String>[];
+      final seenKeys = <String>{};
 
       for (final setting in settings) {
         final name = setting.activityTypeName.trim();
@@ -112,9 +133,17 @@ class _ChooseActivityState extends State<ChooseActivity> {
 
         final normalized = name.toLowerCase();
         _activityTypeCodeByName[normalized] = setting.activityTypeCode;
+        final knownKey = _getKnownActivityKeyByNormalized(normalized);
+        if (knownKey != null) {
+          _activityDisplayNameByKey[knownKey] = name;
+        }
 
-        if (setting.isEnabled) {
+        if (setting.isEnabled && knownKey != null) {
           enabled.add(normalized);
+          if (!seenKeys.contains(knownKey)) {
+            seenKeys.add(knownKey);
+            visibleKeys.add(knownKey);
+          }
         }
         if (setting.isMultiStudent) {
           multiAllowed.add(normalized);
@@ -126,6 +155,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
       setState(() {
         _enabledActivities = enabled.isEmpty ? null : enabled;
         _multiStudentAllowed = multiAllowed.isEmpty ? null : multiAllowed;
+        _visibleActivityKeys = visibleKeys;
+        _isLoadingActivities = false;
       });
     } catch (error) {
       if (!mounted) return;
@@ -134,6 +165,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
       // Keep UI usable with default behaviour even if settings fail,
       // but surface backend message to the user.
       _showWarningMessage(message);
+      setState(() {
+        _isLoadingActivities = false;
+        _visibleActivityKeys = [];
+      });
     }
   }
 
@@ -227,7 +262,16 @@ class _ChooseActivityState extends State<ChooseActivity> {
         crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
           Expanded(
-            child: GridView.builder(
+            child: _isLoadingActivities
+                ? const Center(child: CircularProgressIndicator())
+                : _visibleActivityKeys.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No activities available from API.',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      )
+                    : GridView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               shrinkWrap: false,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -236,13 +280,14 @@ class _ChooseActivityState extends State<ChooseActivity> {
                 mainAxisSpacing: 16,
                 mainAxisExtent: 52,
                       ),
-              itemCount: ChooseActivity.activityIcons.length,
+              itemCount: _visibleActivityKeys.length,
                       itemBuilder: (context, index) {
-                final entry = ChooseActivity.activityIcons.entries.toList()[index];
-                        final iconPath = entry.value;
-                        final String activityName = entry.key;
+                final String activityKey = _visibleActivityKeys[index];
+                final iconPath = ChooseActivity.activityIcons[activityKey]!;
+                final String activityName =
+                    _activityDisplayNameByKey[activityKey] ?? activityKey;
                 final bool isDisabled = _isActivityDisabled(activityName);
-                final bool isSelected = _selectedActivity == activityName;
+                final bool isSelected = _selectedActivity == activityKey;
 
                 return Builder(
                   builder: (tileContext) {
@@ -252,7 +297,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                           ? () => _showDisabledActivityTooltip(tileContext, activityName)
                           : () {
                               setState(() {
-                                _selectedActivity = activityName;
+                                _selectedActivity = activityKey;
                               });
                             },
                       child: Container(
@@ -287,7 +332,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                activityName.toUpperCase(),
+                                activityName,
                                 softWrap: true,
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: activityName.contains(' ') ? 2 : 1,
@@ -326,7 +371,9 @@ class _ChooseActivityState extends State<ChooseActivity> {
             }
 
             // Always hit: GET /api/v1/activity-types/{code}
-            final code = _activityTypeCodeByName[_selectedActivity!.toLowerCase()];
+            final selectedApiName =
+                _activityDisplayNameByKey[_selectedActivity!] ?? _selectedActivity!;
+            final code = _activityTypeCodeByName[selectedApiName.toLowerCase()];
             if (code == null || code.trim().isEmpty) {
               _showWarningMessage('Unable to resolve activity code.');
               return;

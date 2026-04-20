@@ -10,7 +10,9 @@ class StudentAttendanceAbsentFormItem extends Equatable {
     this.markedAbsentTime,
     this.markedAbsentByName,
     this.absenceNote,
+    this.markAbsentMethod,
     this.absentDays = 0,
+    this.absenceRecordCode,
   });
 
   final String studentCode;
@@ -21,7 +23,11 @@ class StudentAttendanceAbsentFormItem extends Equatable {
   final StudentAttendanceTime? markedAbsentTime;
   final String? markedAbsentByName;
   final String? absenceNote;
+  final String? markAbsentMethod;
   final int absentDays;
+
+  /// Server identifier for DELETE `/api/v1/student-absence-records/{code}`.
+  final String? absenceRecordCode;
 
   @override
   List<Object?> get props => [
@@ -33,7 +39,9 @@ class StudentAttendanceAbsentFormItem extends Equatable {
         markedAbsentTime,
         markedAbsentByName,
         absenceNote,
+        markAbsentMethod,
         absentDays,
+        absenceRecordCode,
       ];
 }
 
@@ -55,6 +63,15 @@ class StudentAttendanceTime extends Equatable {
     final m = minute.toString().padLeft(2, '0');
     final s = second.toString().padLeft(2, '0');
     return '$h:$m:$s';
+  }
+
+  /// 12-hour clock with AM/PM (e.g. `2:05:03 PM`).
+  String get formatted12h {
+    final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final mm = minute.toString().padLeft(2, '0');
+    final ss = second.toString().padLeft(2, '0');
+    return '$h12:$mm:$ss $period';
   }
 
   @override
