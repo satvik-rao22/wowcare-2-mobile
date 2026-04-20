@@ -1,0 +1,36 @@
+import 'package:wowcare/core/util/api_error_handler.dart';
+
+import '../repositories/attendance_repository.dart';
+
+class UpdateStudentAttendanceRecordUseCase {
+  UpdateStudentAttendanceRecordUseCase(this._repository);
+
+  final AttendanceRepository _repository;
+
+  Future<String> call({
+    required String attendanceRecordCode,
+    required String staffCode,
+    DateTime? signedInAt,
+    DateTime? signedOutAt,
+    String? originalClassroomCode,
+    String? currentClassroomCode,
+    String? notes,
+    String? timeZone,
+  }) async {
+    try {
+      return await _repository.updateStudentAttendanceRecord(
+        attendanceRecordCode: attendanceRecordCode,
+        staffCode: staffCode,
+        signedInAt: signedInAt,
+        signedOutAt: signedOutAt,
+        originalClassroomCode: originalClassroomCode,
+        currentClassroomCode: currentClassroomCode,
+        notes: notes,
+        timeZone: timeZone,
+      );
+    } catch (e) {
+      throw ApiErrorHandler.extractErrorMessage(e);
+    }
+  }
+}
+

@@ -6,13 +6,16 @@ import '../models/staff_count_models.dart';
 import '../models/staff_document_models.dart';
 import '../models/staff_important_dates_models.dart';
 import '../models/school_user_models.dart';
+import '../models/school_regular_schedule_models.dart';
 
 abstract class StaffRemoteDataSource {
   Future<StaffCountModel> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   });
 
   Future<StaffPageModel> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page = 0,
@@ -20,6 +23,9 @@ abstract class StaffRemoteDataSource {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
 
   Future<StaffDocumentResponseModel> addStaffDocument({
@@ -43,11 +49,22 @@ abstract class StaffRemoteDataSource {
     bool? expired,
   });
 
+  /// Fetches staff profile. Uses `staff/my-profile/{staffCode}` when [forEditStaff] is
+  /// false (logged-in user's profile), or `staff/{staffCode}/profile` when true (edit staff).
   Future<StaffProfileModel> getStaffProfile({
     required String staffCode,
+    bool forEditStaff = false,
   });
 
-  /// Updates core staff profile details via `/api/v1/staff/{staffCode}/profile`.
+  /// Resolves staffCode for a given userCode + organizationCode + schoolCode via
+  /// `GET /api/v1/staff/code`.
+  Future<String?> getStaffCodeByUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Updates core staff profile details via `/api/v1/staff/staff/my-profile/{staffCode}`.
   ///
   /// The [body] should follow the backend contract, e.g.
   /// {
@@ -80,6 +97,50 @@ abstract class StaffRemoteDataSource {
   Future<String> updateStaffAddress({
     required String staffCode,
     required Map<String, dynamic> body,
+  });
+
+  /// Updates the *logged-in* staff member's basic profile + address via
+  /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
+  ///
+  /// Expected [body] shape:
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "phoneNumber": "string",
+  ///   "addressStreet": "string",
+  ///   "addressLine2": "string",
+  ///   "addressCity": "string",
+  ///   "addressState": "string",
+  ///   "addressZipCode": "string",
+  ///   "addressCountry": "string"
+  /// }
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  });
+
+  /// Changes the login email for a user via
+  /// `POST /api/v1/users/{userCode}/email-change`.
+  ///
+  /// Expects body:
+  /// {
+  ///   "oldEmail": "string",
+  ///   "newEmail": "string",
+  ///   "organizationCode": "string",
+  ///   "schoolCode": "string"
+  /// }
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Fetches the staff sign-in PIN via
+  /// `GET /api/v1/staff/staff/my-profile/{staffCode}/pin`.
+  Future<String> getStaffSignInPin({
+    required String staffCode,
   });
 
   /// Fetches staff important dates via `GET /api/v1/staff-dates/{staffCode}`.
@@ -125,6 +186,20 @@ abstract class StaffRemoteDataSource {
     required String role,
   });
 
+  /// Deactivates an organization admin via
+  /// `/api/v1/user/organization-admins/deactivate`.
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
+  /// Activates an organization admin via
+  /// `/api/v1/user/organization-admins/activate`.
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
   /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
   ///
   /// Expected [body] shape:
@@ -149,6 +224,11 @@ abstract class StaffRemoteDataSource {
     required String staffCode,
     required Map<String, dynamic> body,
   });
+
+  /// `GET /api/v1/organization/school/{schoolCode}/regular-schedule`
+  Future<SchoolRegularScheduleListModel> getSchoolRegularSchedules({
+    required String schoolCode,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -158,6 +238,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
   @override
   Future<StaffCountModel> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
@@ -167,7 +248,10 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -179,6 +263,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
   @override
   Future<StaffPageModel> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page = 0,
@@ -186,32 +271,47 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) async {
+    // UAT contract matches web: `schoolCode`, `page`, `size`, `status` (string),
+    // `organizationCode` — no duplicate `pageable.*` keys.
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
-      // Backward-compatible pagination params (older backend)
       'page': page,
       'size': size,
-      'sort': 'desc',
-      // Newer backend contract (Swagger shows pageable as required)
-      // Send as flattened keys to ensure typical Spring-style binding.
-      'pageable.page': page,
-      'pageable.size': size,
-      // Dio encodes lists as repeated query params.
-      'pageable.sort': <String>['desc'],
     };
+
+    // New: send organizationCode so backend can scope staff list correctly.
+    if (organizationCode.isNotEmpty) {
+      queryParameters['organizationCode'] = organizationCode;
+    }
 
     if (code != null && code.isNotEmpty) {
       queryParameters['code'] = code;
     }
+    // ACTIVE | INACTIVE | ARCHIVE | UPCOMING — single string (same as browser query).
     if (status != null && status.isNotEmpty) {
-      queryParameters['status'] = status;
+      final normalized = status.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        queryParameters['status'] = normalized;
+      }
     }
     if (designation != null && designation.isNotEmpty) {
       queryParameters['designation'] = designation;
     }
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
+    }
+    // API expects primaryClassroomCodes and classCodes as array[string]
+    final primaryCodes = primaryClassroomCodes?.where((c) => (c.trim()).isNotEmpty).toList();
+    if (primaryCodes != null && primaryCodes.isNotEmpty) {
+      queryParameters['primaryClassroomCodes'] = primaryCodes;
+    }
+    final allowedCodes = classCodes?.where((c) => (c.trim()).isNotEmpty).toList();
+    if (allowedCodes != null && allowedCodes.isNotEmpty) {
+      queryParameters['classCodes'] = allowedCodes;
     }
 
     final endpoint = ApiPaths.urlWithBase(
@@ -353,9 +453,13 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   @override
   Future<StaffProfileModel> getStaffProfile({
     required String staffCode,
+    bool forEditStaff = false,
   }) async {
+    final path = forEditStaff
+        ? ApiPaths.staffProfileByCodePath(staffCode)
+        : ApiPaths.staffProfilePath(staffCode);
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffProfile}/$staffCode/profile',
+      path,
       ApiConstants.staffBaseUrl,
     );
 
@@ -369,12 +473,51 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
+  Future<String?> getStaffCodeByUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffCodeByUser,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff code API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final inner = data['data'];
+
+    if (inner == null) return null;
+    if (inner is String) {
+      return inner.trim().isEmpty ? null : inner.trim();
+    }
+    if (inner is Map<String, dynamic>) {
+      final code = (inner['staffCode'] ?? inner['code'] ?? '').toString().trim();
+      return code.isEmpty ? null : code;
+    }
+    // Fallback: unknown shape
+    return null;
+  }
+
+  @override
   Future<String> updateStaffProfile({
     required String staffCode,
     required Map<String, dynamic> body,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffProfile}/$staffCode/profile',
+      ApiPaths.staffProfileByCodePath(staffCode),
       ApiConstants.staffBaseUrl,
     );
 
@@ -415,6 +558,77 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffMyProfile}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: body,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Profile updated successfully';
+  }
+
+  @override
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.userEmailChange(userCode));
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'oldEmail': oldEmail,
+        'newEmail': newEmail,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected email-change API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Email updated successfully';
+  }
+
+  @override
+  Future<String> getStaffSignInPin({
+    required String staffCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffMyProfilePinPath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff pin API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final pin = data['data']?.toString() ?? '';
+    return pin;
+  }
+
+  @override
   Future<List<ImportantDateRequestModel>> getImportantDates({
     required String staffCode,
   }) async {
@@ -442,6 +656,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
             importantDateType: (json['importantDateType'] ?? '').toString(),
             dueDate: (json['dueDate'] ?? '').toString(),
             completedDate: json['completedDate']?.toString(),
+            status: json['status']?.toString(),
           ),
         )
         .toList();
@@ -452,6 +667,54 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
   }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Absolute safety check at data-source layer.
+    // Due/Scheduled must never be past; Completed must never be future.
+    for (final date in dates) {
+      final type = date.importantDateType.trim().toUpperCase();
+      if (type != 'PHYSICAL_CHECKUP') continue;
+
+      final status = (date.status ?? '').trim().toUpperCase();
+      final dueDate = date.dueDate.trim();
+      if (dueDate.isEmpty) continue;
+
+      DateTime? parsed;
+      try {
+        parsed = DateTime.parse(dueDate);
+      } catch (_) {
+        parsed = null;
+      }
+      if (parsed == null) continue;
+
+      final picked = DateTime(parsed.year, parsed.month, parsed.day);
+      final isDueOrScheduled =
+          status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
+      final isCompleted = status == 'COMPLETED';
+
+      print(
+        '[ImportantDates DS Guard] staffCode=$staffCode status=$status dueDate=$dueDate today=$today picked=$picked',
+      );
+
+      if (isDueOrScheduled && picked.isBefore(today)) {
+        print(
+          '[ImportantDates DS Guard] BLOCK: Due/Scheduled picked date is before today.',
+        );
+        throw Exception(
+          'For Due/Scheduled status, Physical Checkup Date must be today or future',
+        );
+      }
+      if (isCompleted && picked.isAfter(today)) {
+        print(
+          '[ImportantDates DS Guard] BLOCK: Completed picked date is after today.',
+        );
+        throw Exception(
+          'For Completed status, Physical Checkup Date must be today or past',
+        );
+      }
+    }
+
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.staffDates}/$staffCode',
       ApiConstants.staffBaseUrl,
@@ -568,6 +831,56 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.organizationAdminsDeactivate);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+          'Unexpected deactivate organization admin API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ??
+        'Organization admin deactivated successfully';
+  }
+
+  @override
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.organizationAdminsActivate);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+          'Unexpected activate organization admin API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ??
+        'Organization admin activated successfully';
+  }
+
+  @override
   Future<String> updateStaffSchedules({
     required String staffCode,
     required Map<String, dynamic> body,
@@ -589,6 +902,23 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Schedule updated successfully';
   }
-}
 
+  @override
+  Future<SchoolRegularScheduleListModel> getSchoolRegularSchedules({
+    required String schoolCode,
+  }) async {
+    final path = ApiPaths.schoolRegularSchedule(schoolCode);
+    final endpoint = ApiPaths.url(path);
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected regular-schedule API response format');
+    }
+
+    return SchoolRegularScheduleListModel.fromResponse(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+}
 

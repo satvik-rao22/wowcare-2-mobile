@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
@@ -19,12 +25,15 @@ class StaffProfileScreen extends StatefulWidget {
     required this.classroom,
     required this.designation,
     required this.phoneNumber,
+    this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
   });
 
   final String staffCode;
   final String name;
+  /// API employment status (e.g. ACTIVE, UPCOMING) for avatar status dot.
+  final String? employmentStatus;
   final String classroom;
   final String designation;
   final String phoneNumber;
@@ -42,10 +51,138 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   late TabController _tabController;
   final ImagePicker _picker = ImagePicker();
 
+  late String _displayName;
+  late String _displayDesignation;
+  late String _displayClassroom;
+
+  bool _isResolvingClassroom = false;
+
+  /// Formats enum-style strings from the API into human readable labels.
+  /// Examples:
+  /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
+  /// - "FULL_TIME" -> "Full-Time"
+  /// - "PART_TIME" -> "Part-Time"
+  String _formatEnumLabel(String value) {
+    if (value.trim().isEmpty) return '-';
+    final upper = value.trim().toUpperCase();
+
+    // Special cases for job type
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+
+    final parts = upper.split(RegExp(r'[_\s]+'));
+    final words = parts.map((part) {
+      if (part.isEmpty) return '';
+      final lower = part.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).where((w) => w.isNotEmpty);
+    return words.join(' ');
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _displayName = widget.name;
+    _displayDesignation = _formatEnumLabel(widget.designation);
+    _displayClassroom = widget.classroom;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // If classroom is a code (or not present in passed cache), resolve using
+      // classrooms API WITHOUT type=CLASSROOM filter.
+      _ensureClassroomResolved();
+    });
+  }
+
+  bool _looksLikeClassroomCode(String value) {
+    final v = value.trim();
+    if (v.isEmpty) return false;
+    // Current backend uses "CLS_*" for classrooms; treat that as code.
+    return v.startsWith('CLS_') || v.startsWith('LOC_');
+  }
+
+  Future<void> _ensureClassroomResolved() async {
+    final raw = _displayClassroom.trim();
+    if (raw.isEmpty) return;
+
+    final cache = widget.classroomNameByCode ?? const <String, String>{};
+    if (cache.isNotEmpty) {
+      final cachedName = cache[raw]?.trim();
+      if (cachedName != null && cachedName.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _displayClassroom = cachedName);
+        return;
+      }
+    }
+
+    // If it's already a readable name, don't hit the API.
+    if (!_looksLikeClassroomCode(raw)) return;
+    if (_isResolvingClassroom) return;
+
+    setState(() => _isResolvingClassroom = true);
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      // Try active-classrooms list first (fast, cached on backend).
+      if (schoolCode.isNotEmpty) {
+        final useCase = serviceLocator<GetActiveClassroomsUseCase>();
+        final classrooms = await useCase(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
+
+        for (final c in classrooms) {
+          if (c.code.trim() == raw) {
+            final name = c.name.trim();
+            if (name.isNotEmpty) {
+              if (!mounted) return;
+              setState(() => _displayClassroom = name);
+              return;
+            }
+            break;
+          }
+        }
+      }
+
+      // Fallback: fetch by code (works even when not in active list).
+      final details = await serviceLocator<GetClassroomByCodeUseCase>()(code: raw);
+      final name = details.name.trim();
+      if (!mounted) return;
+      if (name.isNotEmpty) {
+        setState(() => _displayClassroom = name);
+      }
+    } catch (_) {
+      // Keep showing raw code when lookup fails.
+    } finally {
+      if (mounted) setState(() => _isResolvingClassroom = false);
+    }
+  }
+
+  void _applyHeaderClassroomFromProfile(String incoming) {
+    final value = incoming.trim();
+    if (value.isEmpty) return;
+
+    // Prefer readable names immediately.
+    if (!_looksLikeClassroomCode(value)) {
+      if (_displayClassroom != value) {
+        setState(() => _displayClassroom = value);
+      }
+      return;
+    }
+
+    // If we already show a resolved human-readable name, don't replace it
+    // with raw code on every profile-tab rebuild.
+    if (!_looksLikeClassroomCode(_displayClassroom.trim()) &&
+        _displayClassroom.trim().isNotEmpty) {
+      return;
+    }
+
+    if (_displayClassroom != value) {
+      setState(() => _displayClassroom = value);
+    }
+    // Resolve code -> name in background for this screen.
+    _ensureClassroomResolved();
   }
 
   @override
@@ -59,12 +196,16 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected profile image')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected profile image',
+        isSuccess: true,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
       );
     }
   }
@@ -118,6 +259,14 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   staffCode: widget.staffCode,
                   classroomNames: widget.classroomNames,
                   classroomNameByCode: widget.classroomNameByCode,
+                  onProfileSummaryChanged:
+                      (String name, String classroom, String designation) {
+                    setState(() {
+                      _displayName = name;
+                      _displayDesignation = _formatEnumLabel(designation);
+                    });
+                    _applyHeaderClassroomFromProfile(classroom);
+                  },
                 ),
                 StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(staffCode: widget.staffCode),
@@ -145,11 +294,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     clipBehavior: Clip.none,
                     children: [
                       DocumentImageWidget(
-                        fileUuid: widget.name, // seed for stable color when no image
+                        fileUuid: widget.staffCode,
                         name: widget.name,
+                        staffCode: widget.staffCode,
+                        staffEmploymentStatus: widget.employmentStatus,
                         size: 90,
                         fontSize: 24,
-                        statusColor: const Color(0xFF00B115),
                       ),
                       Positioned(
                         right: -2,
@@ -183,7 +333,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.name,
+                        _displayName,
                         style: const TextStyle(
                           color: AppColors.primaryColor,
                           fontSize: 23,
@@ -195,7 +345,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        widget.designation,
+                        _displayDesignation,
                         style: TextStyle(
                           color: AppColors.primaryColor.withOpacity(0.7),
                           fontSize: 14,
@@ -212,7 +362,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          widget.classroom,
+                          _displayClassroom,
                           style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.w500,
@@ -245,7 +395,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const StudentAttendanceProfile(),
+                builder: (_) => StudentAttendanceProfile(
+                  studentCode: '',
+                  studentId: 0, // Staff profile - using placeholder ID
+                  studentName: widget.name,
+                  studentPhotoUuid: null,
+                  roomName: widget.classroom,
+                  isSignedIn: false,
+                  isAbsent: false,
+                  isExpectedToday: true,
+                  isPresentToday: false,
+                  profileStatus: 'A',
+                ),
               ),
             );
           }),
@@ -253,7 +414,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const StudentAttendanceProfile(),
+                builder: (_) => StudentAttendanceProfile(
+                  studentCode: '',
+                  studentId: 0, // Staff profile - using placeholder ID
+                  studentName: widget.name,
+                  studentPhotoUuid: null,
+                  roomName: widget.classroom,
+                  isSignedIn: false,
+                  isAbsent: false,
+                  isExpectedToday: true,
+                  isPresentToday: false,
+                  profileStatus: 'A',
+                ),
               ),
             );
           }),

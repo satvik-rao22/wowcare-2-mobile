@@ -6,8 +6,8 @@ class ApiClient {
   ApiClient({
     required String baseUrl,
     List<Interceptor>? interceptors,
-    Duration connectTimeout = const Duration(seconds: 20),
-    Duration receiveTimeout = const Duration(seconds: 20),
+    Duration connectTimeout = const Duration(minutes: 1),
+    Duration receiveTimeout = const Duration(minutes: 1),
   }) {
     _dio = Dio(
       BaseOptions(
@@ -19,7 +19,13 @@ class ApiClient {
       ),
     );
 
-    // Global logging interceptor
+    // Add custom interceptors FIRST (e.g., AuthInterceptor) so they run before logging
+    if (interceptors != null && interceptors.isNotEmpty) {
+      _dio.interceptors.addAll(interceptors);
+    }
+
+    // Global logging interceptor added AFTER auth interceptors
+    // This ensures Authorization header is logged since it's added by AuthInterceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -67,9 +73,6 @@ class ApiClient {
         },
       ),
     );
-    if (interceptors != null && interceptors.isNotEmpty) {
-      _dio.interceptors.addAll(interceptors);
-    }
   }
 
   late final Dio _dio;

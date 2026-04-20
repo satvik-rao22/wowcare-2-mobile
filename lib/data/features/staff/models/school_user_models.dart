@@ -92,6 +92,7 @@ class CreateStaffUserRequestModel {
 class SchoolUserModel {
   const SchoolUserModel({
     required this.userCode,
+    this.staffCode,
     required this.firstName,
     required this.lastName,
     required this.displayName,
@@ -107,6 +108,7 @@ class SchoolUserModel {
   });
 
   final String userCode;
+  final String? staffCode;
   final String firstName;
   final String lastName;
   final String displayName;
@@ -125,6 +127,7 @@ class SchoolUserModel {
   factory SchoolUserModel.fromJson(Map<String, dynamic> json) {
     return SchoolUserModel(
       userCode: json['userCode'] as String? ?? '',
+      staffCode: json['staffCode'] as String?,
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',

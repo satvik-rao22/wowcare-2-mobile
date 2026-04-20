@@ -14,6 +14,14 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final FocusNode? focusNode;
   final FocusNode? nextFocusNode;
+  /// Optional callback for value changes.
+  final ValueChanged<String>? onChanged;
+  /// When true, uses primary gradient for entered text (like sign-in / forgot password).
+  final bool usePrimaryGradientText;
+  /// Optional base font size for the input text.
+  final double? textFontSize;
+  /// Optional font weight for the input text.
+  final FontWeight? textFontWeight;
 
   const CustomTextField({
     super.key,
@@ -29,6 +37,10 @@ class CustomTextField extends StatelessWidget {
     this.suffixIcon,
     this.focusNode,
     this.nextFocusNode,
+    this.onChanged,
+    this.usePrimaryGradientText = false,
+    this.textFontSize,
+    this.textFontWeight,
   });
 
   @override
@@ -41,6 +53,14 @@ class CustomTextField extends StatelessWidget {
       obscureText: isPassword,
       validator: validator,
       onFieldSubmitted: nextFocusNode != null ? (_) => nextFocusNode!.requestFocus() : null,
+      onChanged: (value) {
+        if (onChanged != null) {
+          onChanged!(value);
+        }
+      },
+      style: usePrimaryGradientText
+          ? _buildGradientTextStyle()
+          : null,
       decoration: InputDecoration(
         hintText: hintText,
         prefixIcon: prefixIcon,
@@ -72,6 +92,31 @@ class CustomTextField extends StatelessWidget {
           vertical: 12,
         ),
       ),
+    );
+  }
+
+  TextStyle _buildGradientTextStyle() {
+    final baseSize = textFontSize ?? 14.0;
+    final baseWeight = textFontWeight ?? FontWeight.w500;
+    final isEmpty = (controller?.text.isEmpty ?? true);
+
+    if (isEmpty) {
+      return TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: baseSize,
+        fontWeight: baseWeight,
+        color: const Color(0xFF333333),
+      );
+    }
+
+    return TextStyle(
+      fontFamily: 'Manrope',
+      fontSize: baseSize,
+      fontWeight: baseWeight,
+      foreground: Paint()
+        ..shader = AppColors.buildPrimaryGradient().createShader(
+          const Rect.fromLTWH(0, 0, 200, 20),
+        ),
     );
   }
 }

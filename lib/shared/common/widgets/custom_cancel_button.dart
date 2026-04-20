@@ -17,7 +17,7 @@ class CustomCancelButton extends StatelessWidget {
       height: 48,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        gradient: AppColors.buildSecondaryGradient(),
+        gradient: AppColors.buildPrimaryGradient(), // gradient border
       ),
       padding: const EdgeInsets.all(1),
       child: TextButton(
@@ -32,7 +32,7 @@ class CustomCancelButton extends StatelessWidget {
         child: Text(
           cancelButtonLabel ?? 'Cancel',
           style: const TextStyle(
-            color: AppColors.themeColor,
+            color: AppColors.primaryColor,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),

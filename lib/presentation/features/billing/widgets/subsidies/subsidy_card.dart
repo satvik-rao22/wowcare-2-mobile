@@ -106,6 +106,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
                                       onDelete: () {
                                         Navigator.of(ctx).pop();
                                         widget.onDelete?.call();
+                                        return Future.value();
                                       },
                                       onCancel: () {
                                         Navigator.of(ctx).pop();

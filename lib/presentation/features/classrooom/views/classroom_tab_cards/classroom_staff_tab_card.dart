@@ -2,23 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/decorations.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/custom_floating_action_button.dart';
-import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-
-// UI-only lightweight models
-class RoomDTO {
-  final int id;
-  final String name;
-  const RoomDTO({required this.id, required this.name});
-}
+import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
+import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 
 class Staff {
-  final int id;
+  const Staff({
+    required this.staffCode,
+    required this.name,
+    required this.designation,
+    required this.email,
+    this.photoUuid = '',
+    this.isExpectedToday = false,
+    this.isSignedIn = false,
+    this.isAbsent = false,
+    this.profileStatus = 'A',
+  });
+
+  final String staffCode;
   final String name;
   final String designation;
   final String email;
@@ -26,21 +47,8 @@ class Staff {
   final bool isExpectedToday;
   final bool isSignedIn;
   final bool isAbsent;
-  final String profileStatus; // 'A' | 'Upcoming'
-  final int primaryRoomId;
-
-  const Staff({
-    required this.id,
-    required this.name,
-    required this.designation,
-    required this.email,
-    this.photoUuid = '',
-    this.isExpectedToday = true,
-    this.isSignedIn = false,
-    this.isAbsent = false,
-    this.profileStatus = 'A',
-    required this.primaryRoomId,
-  });
+  /// UI uses legacy values: 'A' | 'Upcoming'
+  final String profileStatus;
 }
 
 class ClassroomStaffTabCard extends StatefulWidget {
@@ -51,7 +59,7 @@ class ClassroomStaffTabCard extends StatefulWidget {
   });
 
   final ScrollController scrollController;
-  final RoomDTO? selectedRoom;
+  final Classroom? selectedRoom;
 
   static const routeName = '/classroom-staff-screen';
 
@@ -61,6 +69,7 @@ class ClassroomStaffTabCard extends StatefulWidget {
 
 class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   final TextEditingController _searchController = TextEditingController();
+  late final ClassroomStaffCubit _cubit;
   bool isSelectAllChecked = false;
   Map<String, bool> staffSelections = {};
   List<String> _selectedDesignation = [];
@@ -69,6 +78,10 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   FilterData? _currentFilterData;
   List<String> _selectedStatusList = [];
   List<String> _selectedAttendanceStatusList = [];
+  StaffPanelType _currentPanel = StaffPanelType.none;
+  final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
+  bool _attendanceStatusLoading = false;
+  bool _attendanceStatusError = false;
 
   final List<String> designations = const [
     'Director',
@@ -81,55 +94,37 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     'Floater',
   ];
 
-  void _loadDummyStaff() {
-    final roomId = widget.selectedRoom?.id ?? 0;
-    _allStaff = const [
-      Staff(
-        id: 1,
-        name: 'Ava Johnson',
-        designation: 'Lead Teacher',
-        email: 'ava@example.com',
-        isSignedIn: true,
-        primaryRoomId: 1,
-      ),
-      Staff(
-        id: 2,
-        name: 'Michael Chen',
-        designation: 'Assistant Teacher',
-        email: 'michael@example.com',
-        isAbsent: false,
-        isExpectedToday: true,
-        primaryRoomId: 1,
-      ),
-      Staff(
-        id: 3,
-        name: 'Priya Patel',
-        designation: 'Floater',
-        email: 'priya@example.com',
-        isExpectedToday: true,
-        primaryRoomId: 2,
-      ),
-    ].map((s) => Staff(
-          id: s.id,
-          name: s.name,
-          designation: s.designation,
-          email: s.email,
-          photoUuid: s.photoUuid,
-          isExpectedToday: s.isExpectedToday,
-          isSignedIn: s.isSignedIn,
-          isAbsent: s.isAbsent,
-          profileStatus: s.profileStatus,
-          primaryRoomId: roomId == 0 ? s.primaryRoomId : roomId,
-        ))
-        .toList();
-    _filterStaff();
+  void _loadForSelectedRoom({required bool refresh}) {
+    final classroomCode = widget.selectedRoom?.code ?? '';
+    if (classroomCode.trim().isEmpty) return;
+
+    final search =
+        _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
+
+    final designation =
+        _selectedDesignation.isEmpty ? null : List<String>.from(_selectedDesignation);
+
+    if (refresh) {
+      _cubit.refresh(
+        classroomCode: classroomCode,
+        search: search,
+        designation: designation,
+      );
+    } else {
+      _cubit.loadInitial(
+        classroomCode: classroomCode,
+        search: search,
+        designation: designation,
+      );
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    _loadDummyStaff();
+    _cubit = serviceLocator<ClassroomStaffCubit>();
     _searchController.addListener(_onSearchChanged);
+    _loadForSelectedRoom(refresh: false);
   }
 
   @override
@@ -142,23 +137,38 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _searchController.clear();
         _selectedDesignation = [];
         _filteredStaff = [];
+        _allStaff = [];
         _currentFilterData = null;
         _selectedStatusList = [];
         _selectedAttendanceStatusList = [];
       });
-      _loadDummyStaff();
+      _loadForSelectedRoom(refresh: false);
     }
   }
 
-  @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    _filterStaff();
+  void _onSearchChanged() => _filterStaff();
+
+  Staff _mapApiToUi(StaffClassroomItem item) {
+    final statusUpper = item.status.trim().toUpperCase();
+    final profileStatus = statusUpper == 'UPCOMING' ? 'Upcoming' : 'A';
+    return Staff(
+      staffCode: item.staffCode,
+      name: item.fullName,
+      designation: item.designation,
+      email: '',
+      photoUuid: item.profilePictureUrl ?? '',
+      isExpectedToday: item.expectedToday,
+      isSignedIn: item.signedIn,
+      isAbsent: item.absent,
+      profileStatus: profileStatus,
+    );
   }
 
   List<Staff> _filterStaff() {
@@ -202,22 +212,23 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   void _initializeStaffSelections(List<Staff> staff) {
     for (var member in staff) {
-      if (!staffSelections.containsKey(member.name)) {
-        staffSelections[member.name] = false;
+      if (!staffSelections.containsKey(member.staffCode)) {
+        staffSelections[member.staffCode] = false;
       }
     }
   }
 
-  void _toggleStaffSelection(String name, bool? value) {
+  void _toggleStaffSelection(String staffCode, bool? value) {
     if (value == null) return;
 
     setState(() {
-      staffSelections[name] = value;
+      staffSelections[staffCode] = value;
       final List<Staff> visibleStaff = _getVisibleStaff();
       isSelectAllChecked = visibleStaff.every(
-        (staff) => staffSelections[staff.name] == true,
+        (staff) => staffSelections[staff.staffCode] == true,
       );
     });
+    _refreshAttendanceStatusForSelection();
   }
 
   List<Staff> _getVisibleStaff() {
@@ -230,6 +241,233 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       }
   }
 
+  Set<String> _getSelectedStaffCodes() {
+    return staffSelections.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toSet();
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _refreshAttendanceStatusForSelection() async {
+    final codes = _getSelectedStaffCodes();
+    if (codes.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: codes.toList());
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  StaffAttendanceActionAvailability _attendanceAvailabilityForSelection() {
+    final codes = _getSelectedStaffCodes();
+    if (codes.isEmpty) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+    if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StaffAttendanceActionAvailability.allDisabled;
+    }
+
+    final gates = <StaffAttendanceGate>[];
+    for (final code in codes) {
+      Staff? found;
+      for (final s in _allStaff) {
+        if (s.staffCode == code) {
+          found = s;
+          break;
+        }
+      }
+      if (found == null) {
+        return StaffAttendanceActionAvailability.allDisabled;
+      }
+      final isActive = found.profileStatus == 'A';
+      gates.add(
+        staffAttendanceGateFromTodayStatus(
+          isActiveProfile: isActive,
+          todayStatusRaw: _attendanceStatusByStaffCode[code],
+        ),
+      );
+    }
+    return StaffAttendanceActionAvailability.fromGates(gates);
+  }
+
+  Future<void> _openAttendanceActionFlow(String actionName) async {
+    final selectedCodes = _getSelectedStaffCodes()
+        .where((c) => c.trim().isNotEmpty)
+        .toSet();
+    if (selectedCodes.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Select at least one staff',
+        isError: true,
+      );
+      return;
+    }
+
+    final date = _formatDate(DateTime.now());
+    final roomCode = (widget.selectedRoom?.code ?? '').trim();
+    final classroomCodes = roomCode.isEmpty ? null : <String>[roomCode];
+    try {
+      StaffEntity? target;
+      if (actionName == 'sign_in') {
+        final useCase = serviceLocator<GetStaffSignInFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          classroomCodes: classroomCodes,
+          page: 0,
+          size: 500,
+        );
+        final eligible =
+            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        if (eligible.isNotEmpty) {
+          final item = eligible.first;
+          target = StaffEntity(
+            id: 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            classroomCode: item.classroomCode,
+            designation:
+                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            staffCode: item.staffCode,
+            isExpectedToday: item.isExpectedToday,
+          );
+        }
+      } else if (actionName == 'sign_out') {
+        final useCase = serviceLocator<GetStaffSignOutFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: date,
+          toAttendanceDate: date,
+          classroomCodes: classroomCodes,
+          page: 0,
+          size: 500,
+        );
+        final eligible =
+            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        if (eligible.isNotEmpty) {
+          final item = eligible.first;
+          target = StaffEntity(
+            id: 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            designation:
+                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }
+      } else if (actionName == 'transfer') {
+        final useCase = serviceLocator<GetStaffTransferFormListUseCase>();
+        final page = await useCase(
+          fromAbsenceDate: date,
+          toAbsenceDate: date,
+          classroomCodes: classroomCodes,
+          page: 0,
+          size: 500,
+        );
+        final eligible =
+            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        if (eligible.isNotEmpty) {
+          final item = eligible.first;
+          target = StaffEntity(
+            id: 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            designation:
+                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            staffCode: item.staffCode,
+          );
+        }
+      } else {
+        final useCase = serviceLocator<GetStaffAbsentFormListUseCase>();
+        final page = await useCase(
+          fromAbsenceDate: date,
+          toAbsenceDate: date,
+          classroomCodes: classroomCodes,
+          page: 0,
+          size: 500,
+        );
+        final eligible =
+            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        if (eligible.isNotEmpty) {
+          final item = eligible.first;
+          target = StaffEntity(
+            id: 1,
+            name: item.staffName,
+            primaryRoomId: 0,
+            designation: 'Staff',
+            staffCode: item.staffCode,
+          );
+        }
+      }
+
+      if (!mounted) return;
+      if (target == null) {
+        throw Exception('No selected staff is eligible for this action');
+      }
+
+      if (actionName == 'sign_in') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StaffSignInForm(staff: target)),
+        );
+      } else if (actionName == 'sign_out') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: target)),
+        );
+      } else if (actionName == 'transfer') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StaffTransferForm(staff: target)),
+        );
+      } else {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: target)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
   void _clearAllSelections() {
     setState(() {
       isSelectAllChecked = false;
@@ -239,6 +477,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       _currentFilterData = null;
       _selectedStatusList = [];
       _selectedAttendanceStatusList = [];
+      _attendanceStatusByStaffCode.clear();
+      _attendanceStatusLoading = false;
+      _attendanceStatusError = false;
       _filterStaff();
     });
   }
@@ -268,12 +509,22 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
+    return BlocProvider.value(
+      value: _cubit,
+      child: BlocListener<ClassroomStaffCubit, ClassroomStaffState>(
+        listener: (context, state) {
+          final apiItems = state.staff.map(_mapApiToUi).toList();
+          setState(() {
+            _allStaff = apiItems;
+          });
+          _filterStaff();
+        },
+        child: Stack(
           children: [
-            Expanded(
-              child: Card(
+            Column(
+              children: [
+                Expanded(
+                  child: Card(
                 elevation: 0,
                 margin: const EdgeInsets.all(0),
                 shape: const Border(
@@ -422,7 +673,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                         child: Scrollbar(
                           controller: widget.scrollController,
                           child: CustomRefreshIndicator(
-                            onRefresh: () async => _loadDummyStaff(),
+                            onRefresh: () async => _loadForSelectedRoom(refresh: true),
                                 child: ListView.builder(
                               padding:
                                   const EdgeInsets.only(left: 16, right: 16),
@@ -436,9 +687,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   child: _StaffListItem(
                                           staff: staff,
                                           isSelected:
-                                        staffSelections[staff.name] ?? false,
+                                        staffSelections[staff.staffCode] ?? false,
                                           onSelectionChanged: (bool? value) {
-                                      _toggleStaffSelection(staff.name, value);
+                                      _toggleStaffSelection(staff.staffCode, value);
                                           },
                                       ),
                                     );
@@ -450,12 +701,51 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                     ),
                   ],
                 ),
-              ),
+                  ),
+                ),
+              ],
             ),
+            if (_getSelectedStaffCodes().isNotEmpty)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: StaffActionPanel(
+                  currentPanel: _currentPanel,
+                  attendanceAvailability: _attendanceAvailabilityForSelection(),
+                  onAttendanceTap: () {
+                    setState(() {
+                      _currentPanel = _currentPanel == StaffPanelType.attendance
+                          ? StaffPanelType.none
+                          : StaffPanelType.attendance;
+                    });
+                  },
+                  onActivitiesTap: () {
+                    setState(() {
+                      _currentPanel = _currentPanel == StaffPanelType.activities
+                          ? StaffPanelType.none
+                          : StaffPanelType.activities;
+                    });
+                  },
+                  onMessageTap: () {},
+                  onProfileTap: null,
+                  onSignIn: () => _openAttendanceActionFlow('sign_in'),
+                  onSignOut: () => _openAttendanceActionFlow('sign_out'),
+                  onTransfer: () => _openAttendanceActionFlow('transfer'),
+                  onAbsent: () => _openAttendanceActionFlow('mark_absent'),
+                  onClearSelections: () {
+                    setState(() {
+                      isSelectAllChecked = false;
+                      staffSelections.updateAll((key, val) => false);
+                      _currentPanel = StaffPanelType.none;
+                    });
+                  },
+                  isProfileEnabled: false,
+                  activitiesEnabled: _getSelectedStaffCodes().isNotEmpty,
+                ),
+              ),
           ],
         ),
-        // FAB handled at screen level for tab-aware visibility
-      ],
+      ),
     );
   }
 }
@@ -578,7 +868,6 @@ class _DesignationMultiSelectDropdown extends StatefulWidget {
   final List<String> items;
   final List<String> selectedItems;
   final ValueChanged<List<String>> onChanged;
-  final double? width;
 
   const _DesignationMultiSelectDropdown({
     Key? key,
@@ -586,7 +875,6 @@ class _DesignationMultiSelectDropdown extends StatefulWidget {
     required this.items,
     required this.selectedItems,
     required this.onChanged,
-    this.width,
   }) : super(key: key);
 
   @override
@@ -616,7 +904,6 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
 
     return SizedBox(
       height: 32,
-      width: widget.width,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,

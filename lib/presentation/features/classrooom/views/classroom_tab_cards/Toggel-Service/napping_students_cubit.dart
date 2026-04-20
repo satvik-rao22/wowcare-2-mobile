@@ -20,15 +20,9 @@ class NappingStudentsCubit extends Cubit<NappingStudentsState> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('accessToken');
-
-      if (token == null || token.isEmpty) {
-        emit(NappingStudentsError('Missing access token'));
-        return;
-      }
-
+      // NOTE: Auth token is intentionally NOT used here. We only send basic JSON
+      // headers so this API is called without Authorization.
       final headers = {
-        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       };
       String path = APIPathHelper.getValue(APIPath.studentsByRoom);

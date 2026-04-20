@@ -7,9 +7,13 @@ class GetStaffCountUseCase {
   final StaffRepository _repository;
 
   Future<StaffCount> call({
+    required String organizationCode,
     required String schoolCode,
   }) {
-    return _repository.getStaffCount(schoolCode: schoolCode);
+    return _repository.getStaffCount(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
   }
 }
 

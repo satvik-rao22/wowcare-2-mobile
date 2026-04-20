@@ -4,13 +4,16 @@ import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
+import '../entities/school_regular_schedule_day.dart';
 
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
+    required String organizationCode,
     required String schoolCode,
   });
 
   Future<StaffPage> getStaffPage({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page,
@@ -18,6 +21,9 @@ abstract class StaffRepository {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
 
   Future<String> addStaffDocument({
@@ -43,13 +49,24 @@ abstract class StaffRepository {
     bool? expired,
   });
 
+  /// Fetches profile. When [forEditStaff] is false uses my-profile endpoint (logged-in
+  /// user); when true uses `staff/{staffCode}/profile` (edit staff details).
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
+    bool forEditStaff = false,
+  });
+
+  /// Resolves staffCode for a given userCode + organizationCode + schoolCode
+  /// using the `/api/v1/staff/code` endpoint.
+  Future<String?> getStaffCodeForUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
   });
 
   /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).
   ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/{staffCode}/profile`.
+  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/staff/my-profile/{staffCode}`.
   Future<String> updateStaffProfile({
     required String staffCode,
     required Map<String, dynamic> fields,
@@ -62,6 +79,41 @@ abstract class StaffRepository {
   Future<String> updateStaffAddress({
     required String staffCode,
     required Map<String, dynamic> fields,
+  });
+
+  /// Updates the *logged-in* staff member's basic profile + address via
+  /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
+  ///
+  /// [fields] should match the backend contract:
+  /// {
+  ///   "firstName": "string",
+  ///   "lastName": "string",
+  ///   "phoneNumber": "string",
+  ///   "addressStreet": "string",
+  ///   "addressLine2": "string",
+  ///   "addressCity": "string",
+  ///   "addressState": "string",
+  ///   "addressZipCode": "string",
+  ///   "addressCountry": "string"
+  /// }
+  Future<String> updateMyProfile({
+    required String staffCode,
+    required Map<String, dynamic> fields,
+  });
+
+  /// Changes the login email for a user via
+  /// `POST /api/v1/users/{userCode}/email-change`.
+  Future<String> changeUserEmail({
+    required String userCode,
+    required String oldEmail,
+    required String newEmail,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Fetches the staff sign-in PIN via my-profile pin API.
+  Future<String> getStaffSignInPin({
+    required String staffCode,
   });
 
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
@@ -89,6 +141,12 @@ abstract class StaffRepository {
     required String staffCode,
     required List<Map<String, dynamic>> workSchedules,
     required List<Map<String, dynamic>> breakSchedules,
+  });
+
+  /// School regular schedules (operating hours per weekday) for validation on
+  /// the staff schedule editor.
+  Future<List<SchoolRegularScheduleDay>> getSchoolRegularSchedules({
+    required String schoolCode,
   });
 
   Future<CreateSchoolUserResult> createSchoolAdminUser({
@@ -127,6 +185,20 @@ abstract class StaffRepository {
     required String role,
   });
 
+  /// Deactivates an organization admin via
+  /// `POST /api/v1/organization-admins/deactivate`.
+  Future<String> deactivateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
+  /// Activates an organization admin via
+  /// `POST /api/v1/user/organization-admins/activate`.
+  Future<String> activateOrganizationAdmin({
+    required String userCode,
+    required String organizationCode,
+  });
+
   Future<String> activateSchoolUser({
     required String userCode,
     required String organizationCode,
@@ -142,6 +214,9 @@ abstract class StaffRepositoryWithCache {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(String staffCode);

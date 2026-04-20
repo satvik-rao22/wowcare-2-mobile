@@ -1,21 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/view/add_document_screen.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_documents_list_cubit.dart';
+import 'package:wowcare/domain/features/student/entities/student_document.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
+    super.key,
     required this.scrollController,
     required this.name,
     required this.classroom,
     this.studentCode,
-    super.key,
   });
 
   final ScrollController scrollController;
@@ -29,182 +39,633 @@ class StudentDocumentsTab extends StatefulWidget {
 
 class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   bool _showExpired = false;
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
+  late final StudentDocumentsListCubit _documentsListCubit;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
 
-  // Sample data - replace with actual data source
-  // Using date format that matches staff version (yyyy-MM-dd for parsing)
-  final List<Map<String, String>> _documents = [
-    {
-      'documentName': 'Project_Proposal_ABC_Corp_2025',
-      'documentType': 'Registration Forms',
-      'expiryDate': '2025-11-29',
-    },
-    {
-      'documentName': 'Annual_Report_2025_Financial_Performance',
-      'documentType': 'Registration Forms',
-      'expiryDate': '2025-11-29',
-    },
-    {
-      'documentName': 'Machine_Learning_Paper_Results_2025',
-      'documentType': 'Registration Forms',
-      'expiryDate': '2025-11-29',
-    },
-  ];
+  String _formatDocumentType(String type) {
+    final normalizedType = type.trim();
+    if (normalizedType.isEmpty) return normalizedType;
+
+    switch (normalizedType) {
+      case 'BIRTH_CERTIFICATE':
+      case 'Birth_Certificate':
+      case 'Birth_Ceriticate':
+        return 'Birth Certificate';
+      case 'HEALTH_FORMS':
+      case 'Health_Forms':
+        return 'Health Forms';
+      case 'REGISTRATION_FORMS':
+      case 'Registration_Forms':
+        return 'Registration Forms';
+      case 'SPECIAL_PROGRAM_FORMS':
+      case 'Special_Program_Forms':
+        return 'Special Program Forms';
+      case 'OTHER':
+      case 'Other':
+        return 'Other';
+      default:
+        final words = normalizedType.replaceAll('_', ' ').split(' ');
+        return words
+            .where((word) => word.isNotEmpty)
+            .map(
+              (word) =>
+                  '${word[0].toUpperCase()}${word.length > 1 ? word.substring(1).toLowerCase() : ''}',
+            )
+            .join(' ');
+    }
+  }
+
+  String _formatIsoDate(String? iso) {
+    final raw = (iso ?? '').trim();
+    if (raw.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      return DateFormat('MMM dd, yyyy').format(dt);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  String _formatExpiryDate(String? expiryDate) {
+    final raw = (expiryDate ?? '').trim();
+    if (raw.isEmpty) return '-';
+    try {
+      final d = DateTime.parse(raw);
+      return DateFormat('MMM dd, yyyy').format(d);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _documentsListCubit = serviceLocator<StudentDocumentsListCubit>();
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isNotEmpty) {
+      _documentsListCubit.loadInitial(
+        studentCode,
+        expiredOnly: _showExpired ? true : null,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    _documentsListCubit.close();
+    super.dispose();
+  }
+
+  Future<void> _handleEdit(BuildContext context, StudentDocument doc) async {
+    final role = context.read<RoleProvider>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
+    if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Document ID not available',
+        isError: true,
+      );
+      return;
+    }
+
+    final expiryDate = (doc.expiryDate.trim().isEmpty)
+        ? null
+        : DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
+
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddStudentDocumentScreen(
+          studentCode: widget.studentCode ?? '',
+          isEdit: true,
+          initialDocumentName: doc.documentName,
+          initialDocumentType: doc.documentType,
+          initialExpiryDate: expiryDate,
+          initialFilePath: doc.documentUrl,
+          initialMimeType: doc.mimeType,
+          initialFileSizeKb: doc.documentSizeKb,
+          initialDocumentNotes: null,
+          documentUuid: doc.documentUuid,
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      _documentsListCubit.refresh(
+        widget.studentCode ?? '',
+        expiredOnly: _showExpired ? true : null,
+      );
+    }
+  }
+
+  Future<void> _handleDelete(BuildContext context, StudentDocument doc) async {
+    final role = context.read<RoleProvider>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DeleteConfirmationBottomSheet(
+          name: doc.documentName,
+          type: 'document',
+          onDelete: () async {
+            try {
+              if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
+                Navigator.of(ctx).pop();
+                if (!mounted) return;
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Document ID not available',
+                  isError: true,
+                );
+                return;
+              }
+
+              final errorMessage = await _documentsListCubit.deleteDocument(
+                widget.studentCode ?? '',
+                doc.documentUuid!,
+              );
+
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+
+              if (errorMessage != null) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: errorMessage,
+                  isError: true,
+                );
+              } else {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Document deleted successfully',
+                  isSuccess: true,
+                );
+              }
+            } catch (e) {
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+              final message = ApiErrorHandler.extractErrorMessage(e);
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isError: true,
+              );
+            }
+          },
+          onCancel: () {
+            Navigator.of(ctx).pop();
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDownload(BuildContext context, StudentDocument doc) async {
+    if (doc.documentUrl.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Document URL not available',
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(doc.documentUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Could not open document',
+          isError: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Error downloading document: ${ApiErrorHandler.extractErrorMessage(e)}',
+        isError: true,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _documents.isEmpty) {
-      return const Center(child: PrimaryCircularLoader());
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty) {
+      return const Center(
+        child: Text(
+          'Student code is required to load documents',
+          style: TextStyle(color: AppColors.primaryColor, fontSize: 16),
+        ),
+      );
     }
 
-    final documents = _documents;
-
-    return Scaffold(
-      body: CustomRefreshIndicator(
-        onRefresh: () async {
-          // TODO: Add refresh logic to reload documents
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            // Only trigger on actual scroll updates, not on initial layout
-            if (notification is ScrollUpdateNotification) {
-              if (notification.metrics.pixels >=
-                  notification.metrics.maxScrollExtent - 200) {
-                // TODO: Load next page if hasMore
-              }
-            }
-            return false;
-          },
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor, width: 1),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: CustomToggle(
-                      label: 'Show Expired Documents',
-                      isToggled: _showExpired,
-                      onToggle: (v) {
-                        setState(() => _showExpired = v);
-                        // TODO: Add filter logic
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (documents.isEmpty)
-                    Text(
-                      _showExpired ? 'No expired documents found' : 'No documents found',
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        height: 16,
-                      ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: documents.length,
-                      itemBuilder: (context, i) {
-                        final doc = documents[i];
-                        final expiryDate = DateFormat('yyyy-MM-dd').parse(doc['expiryDate']!);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: ExpansionTile(
-                            title: Text(
-                              doc['documentName']!,
-                              style: const TextStyle(
-                                color: AppColors.primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            trailing: const SizedBox.shrink(),
-                            backgroundColor: Colors.white,
-                            collapsedBackgroundColor: Colors.white,
-                            collapsedShape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                color: AppColors.cardBorderColor,
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                color: AppColors.cardBorderColor,
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            children: [
-                              Divider(color: AppColors.primaryColor.withOpacity(0.1)),
-                              const SizedBox(height: 16),
-                              _DocRow(label: 'Document Type', text: doc['documentType']!),
-                              const SizedBox(height: 16),
-                              _DocRow(
-                                label: 'Expiry Date',
-                                text: DateFormat('MMM dd, yyyy').format(expiryDate),
-                              ),
-                              const SizedBox(height: 16),
-                              _DocRow(label: 'Document', text: doc['documentName']!, trailingIcon: Icons.insert_drive_file_outlined),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  if (_isLoadingMore)
-                    const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: PrimaryCircularLoader(),
-                    ),
-                ],
+    return BlocProvider<StudentDocumentsListCubit>.value(
+      value: _documentsListCubit,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildScaffoldGradient(),
+              ),
+              child: Image.asset(
+                MediaRes.wowcareMobileBg,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
-        ),
+          BlocBuilder<StudentDocumentsListCubit, StudentDocumentsListState>(
+            builder: (context, state) {
+              final query = _searchController.text.trim().toLowerCase();
+              final documents = query.isEmpty
+                  ? state.documents
+                  : state.documents.where((d) {
+                      final name = d.documentName.toLowerCase();
+                      final type = d.documentType.toLowerCase();
+                      final uploadedBy = (d.uploadedBy ?? '').toLowerCase();
+                      return name.contains(query) ||
+                          type.contains(query) ||
+                          uploadedBy.contains(query);
+                    }).toList(growable: false);
+
+              return CustomRefreshIndicator(
+                onRefresh: () async {
+                  await _documentsListCubit.refresh(
+                    studentCode,
+                    expiredOnly: _showExpired ? true : null,
+                  );
+                },
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification) {
+                      if (notification.metrics.pixels >=
+                          notification.metrics.maxScrollExtent - 200) {
+                        final s = _documentsListCubit.state;
+                        if (!s.isLoading && !s.isLoadingMore && s.hasMore) {
+                          _documentsListCubit.loadNextPage(
+                            studentCode,
+                            expiredOnly: _showExpired ? true : null,
+                          );
+                        }
+                      }
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Padding(
+                      // Extra bottom padding so the floating add button doesn't overlap the last items.
+                      padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: AppColors.primaryColor.withOpacity(0.2),
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white.withOpacity(0.88),
+                            ),
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search documents...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    suffixIcon: _searchController.text.trim().isEmpty
+                                        ? null
+                                        : IconButton(
+                                            onPressed: () => setState(() {
+                                              _searchController.clear();
+                                            }),
+                                            icon: const Icon(Icons.close),
+                                          ),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8F7FA),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                                const SizedBox(height: 12),
+                                CustomToggle(
+                                  label: 'Show Expired Documents',
+                                  isToggled: _showExpired,
+                                  onToggle: (v) {
+                                    setState(() => _showExpired = v);
+                                    _documentsListCubit.refresh(
+                                      studentCode,
+                                      expiredOnly: v ? true : null,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (state.isLoading && documents.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: PrimaryCircularLoader(),
+                            )
+                          else if (documents.isEmpty)
+                            Text(
+                              _showExpired
+                                  ? 'No expired documents found'
+                                  : (query.isEmpty
+                                      ? 'No documents found'
+                                      : 'No documents match your search'),
+                              style: const TextStyle(
+                                color: AppColors.primaryColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                height: 16,
+                              ),
+                            )
+                          else
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: documents.length,
+                              itemBuilder: (context, i) {
+                                final doc = documents[i];
+                                final uploadedOn = _formatIsoDate(doc.createdAt);
+                                final expiryDisplay = _formatExpiryDate(doc.expiryDate);
+                                final uploadedBy = (doc.uploadedBy ?? '').trim().isEmpty
+                                    ? 'system'
+                                    : doc.uploadedBy!.trim();
+                                final docTypeDisplay =
+                                    _formatDocumentType(doc.documentType);
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.88),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: AppColors.primaryColor.withOpacity(0.2),
+                                      ),
+                                    ),
+                                    child: Theme(
+                                      data: Theme.of(context).copyWith(
+                                        dividerColor: Colors.transparent,
+                                      ),
+                                      child: ExpansionTile(
+                                        tilePadding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 4,
+                                        ),
+                                        childrenPadding: const EdgeInsets.fromLTRB(
+                                          16,
+                                          0,
+                                          16,
+                                          16,
+                                        ),
+                                        title: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                doc.documentName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.primaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              docTypeDisplay,
+                                              style: TextStyle(
+                                                fontFamily: 'Manrope',
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.primaryColor.withOpacity(0.7),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        children: [
+                                          const Divider(
+                                            height: 1,
+                                            color: Color(0xFFE9ECEF),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          _DocumentDetailRow(
+                                            label: 'Document Type',
+                                            value: docTypeDisplay,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _DocumentDetailRow(
+                                            label: 'Uploaded By',
+                                            value: uploadedBy,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _DocumentDetailRow(
+                                            label: 'Uploaded On',
+                                            value: uploadedOn,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _DocumentDetailRow(
+                                            label: 'Expiry Date',
+                                            value: expiryDisplay,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Container(
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    gradient: canStudentWrite
+                                                        ? AppColors.buildPrimaryGradient()
+                                                        : const LinearGradient(
+                                                            colors: [
+                                                              Color(0xFFC9C5CE),
+                                                              Color(0xFFB8B3BE),
+                                                            ],
+                                                          ),
+                                                  ),
+                                                  child: TextButton(
+                                                    onPressed: canStudentWrite
+                                                        ? () => _handleEdit(context, doc)
+                                                        : () => ModuleAccess
+                                                            .showWriteRestricted(
+                                                                context),
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                    ),
+                                                    child: const Text(
+                                                      'Edit',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Manrope',
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 40,
+                                                  child: OutlinedButton(
+                                                    onPressed: canStudentWrite
+                                                        ? () => _handleDelete(context, doc)
+                                                        : () => ModuleAccess
+                                                            .showWriteRestricted(
+                                                                context),
+                                                    style: OutlinedButton.styleFrom(
+                                                      side: const BorderSide(
+                                                        color: Color(0xFF6C7FD8),
+                                                      ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                    ),
+                                                    child: const Text(
+                                                      'Delete',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Manrope',
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Color(0xFF6C7FD8),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Container(
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    gradient: AppColors.buildPrimaryGradient(),
+                                                  ),
+                                                  child: TextButton(
+                                                    onPressed: () => _handleDownload(context, doc),
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                    ),
+                                                    child: const Text(
+                                                      'Download',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Manrope',
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          if (state.isLoadingMore)
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: PrimaryCircularLoader(),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: canStudentWrite
+                ? GradientAddButton(
+                    onTap: () {
+                      Navigator.of(context)
+                          .push(
+                            MaterialPageRoute(
+                              builder: (context) => AddStudentDocumentScreen(
+                                studentCode: widget.studentCode ?? '',
+                              ),
+                            ),
+                          )
+                          .then((result) {
+                        if (result == true && mounted) {
+                          _documentsListCubit.refresh(
+                            studentCode,
+                            expiredOnly: _showExpired ? true : null,
+                          );
+                        }
+                      });
+                    },
+                    size: 50.0,
+                    iconSize: 28.0,
+                    borderRadius: 12.0,
+                  )
+                : Opacity(
+                    opacity: 0.45,
+                    child: GradientAddButton(
+                      onTap: () =>
+                          ModuleAccess.showWriteRestricted(context),
+                      size: 50.0,
+                      iconSize: 28.0,
+                      borderRadius: 12.0,
+                    ),
+                  ),
+          ),
+        ],
       ),
-      floatingActionButton: GradientAddButton(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => AddStudentDocumentScreen(
-                studentCode: widget.studentCode ?? '',
-              ),
-            ),
-          ).then((result) {
-            if (result == true && mounted) {
-              // TODO: Refresh documents list
-              setState(() {
-                // Trigger refresh
-              });
-            }
-          });
-        },
-        size: 50.0,
-        iconSize: 28.0,
-        borderRadius: 12.0,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
-class _DocRow extends StatelessWidget {
-  const _DocRow({required this.label, required this.text, this.trailingIcon});
+class _DocumentDetailRow extends StatelessWidget {
+  const _DocumentDetailRow({
+    required this.label,
+    required this.value,
+  });
+
   final String label;
-  final String text;
-  final IconData? trailingIcon;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -212,38 +673,30 @@ class _DocRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 120,
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: Color(0xff573353),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
           child: Text(
-            label,
+            value.isEmpty ? '-' : value,
+            textAlign: TextAlign.right,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 14,
-              letterSpacing: 14 * (-3 / 100),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        if (trailingIcon == null)
-          Expanded(
-            child: Text(
-              text,
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          )
-        else
-          SvgPicture.asset(
-            MediaRes.documents_drawer_Icon,
-            height: 20,
-            // colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-          ),
       ],
     );
   }

@@ -9,6 +9,11 @@ import '../../../../domain/features/student/repositories/student_repository.dart
 
 part 'student_state.dart';
 
+/// List/pagination and mutations for the student roster.
+///
+/// Permission-aware screens should use [RoleProvider] with
+/// `package:wowcare/presentation/features/student/module_access.dart` ([ModuleAccess])
+/// so guardians, staff, and admins respect the same API module rows.
 class StudentCubit extends Cubit<StudentState> {
   StudentCubit({
     required GetStudentPageUseCase getStudentPageUseCase,
@@ -16,10 +21,12 @@ class StudentCubit extends Cubit<StudentState> {
     required StorageService storageService,
   })  : _getStudentPageUseCase = getStudentPageUseCase,
         _repository = repository,
+        _storageService = storageService,
         super(const StudentState.initial());
 
   final GetStudentPageUseCase _getStudentPageUseCase;
   final StudentRepository _repository;
+  final StorageService _storageService;
   String? _schoolCode;
 
   // How many student records to load per page from the API
@@ -27,8 +34,17 @@ class StudentCubit extends Cubit<StudentState> {
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
-    // TEMP: Always use default school code from StorageKeys (ignore stored prefs).
-    _schoolCode = StorageKeys.defaultSchoolCode;
+    // Take school from login-context API (saved in storage) only.
+    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+    // If schoolCode is still empty, surface a clear error instead of using any
+    // hard-coded fallback. Caller should ensure org/school selection is done.
+    if (_schoolCode!.trim().isEmpty) {
+      throw StateError(
+        'School code is not set. Make sure login and school selection are completed.',
+      );
+    }
+
     return _schoolCode!;
   }
 
@@ -38,8 +54,17 @@ class StudentCubit extends Cubit<StudentState> {
     // Try cache first
     final cached =
         await (_repository is StudentRepositoryWithCache
-            ? (_repository as StudentRepositoryWithCache)
-                .loadCachedStudentPage(schoolCode)
+            ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
+                schoolCode,
+                status: state.statusFilter,
+                classroomCodes: state.classroomCodesFilter,
+                tagCodes: state.tagCodesFilter,
+                guardianCodes: state.guardianCodesFilter,
+                search: state.searchQuery,
+                code: state.codeFilter,
+                firstName: state.firstNameFilter,
+                lastName: state.lastNameFilter,
+              )
             : Future.value(null));
     if (cached != null && !isClosed) {
       emit(
@@ -59,8 +84,8 @@ class StudentCubit extends Cubit<StudentState> {
     await refresh();
   }
 
-  Future<void> refresh() async {
-    if (state.isRefreshing) return;
+  Future<void> refresh({bool ignoreRefreshingGuard = false}) async {
+    if (state.isRefreshing && !ignoreRefreshingGuard) return;
 
     final schoolCode = await _resolveSchoolCode();
 
@@ -78,6 +103,9 @@ class StudentCubit extends Cubit<StudentState> {
         page: 0,
         size: _pageSize,
         status: state.statusFilter,
+        classroomCodes: state.classroomCodesFilter,
+        tagCodes: state.tagCodesFilter,
+        guardianCodes: state.guardianCodesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -99,6 +127,9 @@ class StudentCubit extends Cubit<StudentState> {
           page: 1,
           size: _pageSize,
           status: state.statusFilter,
+          classroomCodes: state.classroomCodesFilter,
+          tagCodes: state.tagCodesFilter,
+          guardianCodes: state.guardianCodesFilter,
           search: state.searchQuery,
           firstName: state.firstNameFilter,
           lastName: state.lastNameFilter,
@@ -136,6 +167,29 @@ class StudentCubit extends Cubit<StudentState> {
     }
   }
 
+  /// Invalidates the cached first-page for the *current* list query and refreshes from API.
+  ///
+  /// Use this after mutations (add/edit) and when filters change to ensure we don't
+  /// re-hydrate stale cached results.
+  Future<void> refreshWithCacheReset() async {
+    final schoolCode = await _resolveSchoolCode();
+    if (_repository is StudentRepositoryWithCache) {
+      await (_repository as StudentRepositoryWithCache).invalidateCachedStudentPage(
+        schoolCode,
+        status: state.statusFilter,
+        classroomCodes: state.classroomCodesFilter,
+        tagCodes: state.tagCodesFilter,
+        guardianCodes: state.guardianCodesFilter,
+        search: state.searchQuery,
+        code: state.codeFilter,
+        firstName: state.firstNameFilter,
+        lastName: state.lastNameFilter,
+      );
+    }
+    // Force reload even if another refresh was triggered very recently.
+    await refresh(ignoreRefreshingGuard: true);
+  }
+
   Future<void> loadNextPage() async {
     if (state.isLoadingMore || !state.hasMore) return;
 
@@ -150,6 +204,9 @@ class StudentCubit extends Cubit<StudentState> {
         page: nextPageIndex,
         size: _pageSize,
         status: state.statusFilter,
+        classroomCodes: state.classroomCodesFilter,
+        tagCodes: state.tagCodesFilter,
+        guardianCodes: state.guardianCodesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -190,6 +247,9 @@ class StudentCubit extends Cubit<StudentState> {
     String? code,
     String? firstName,
     String? lastName,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
   }) {
     emit(
       state.copyWith(
@@ -197,6 +257,9 @@ class StudentCubit extends Cubit<StudentState> {
         codeFilter: code,
         firstNameFilter: firstName,
         lastNameFilter: lastName,
+        classroomCodesFilter: classroomCodes,
+        tagCodesFilter: tagCodes,
+        guardianCodesFilter: guardianCodes,
       ),
     );
   }
@@ -208,7 +271,7 @@ class StudentCubit extends Cubit<StudentState> {
       code: code,
       schoolCode: schoolCode,
     );
-    await refresh();
+    await refreshWithCacheReset();
     return message;
   }
 
@@ -219,7 +282,17 @@ class StudentCubit extends Cubit<StudentState> {
       code: code,
       schoolCode: schoolCode,
     );
-    await refresh();
+    await refreshWithCacheReset();
+    return message;
+  }
+
+  Future<String> deleteStudent(String code) async {
+    final schoolCode = await _resolveSchoolCode();
+    final message = await _repository.deleteStudent(
+      code: code,
+      schoolCode: schoolCode,
+    );
+    await refreshWithCacheReset();
     return message;
   }
 

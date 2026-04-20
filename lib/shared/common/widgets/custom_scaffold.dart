@@ -172,7 +172,7 @@ import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 
-class GlobalScaffold extends StatelessWidget {
+class GlobalScaffold extends StatefulWidget {
   const GlobalScaffold({
     required this.body,
     this.hasBackButton = false,
@@ -180,6 +180,11 @@ class GlobalScaffold extends StatelessWidget {
     this.showCustomNavigationBar = true,
     this.isParent = false,
     this.studentList,
+    this.customButtonLayout,
+    /// When null, defaults to 8 px on all sides. Screens like the activity feed
+    /// can use asymmetric padding (e.g. zero right/bottom) to align with edges and
+    /// sit closer above the bottom navigation bar.
+    this.bodyPadding,
     super.key,
   });
 
@@ -189,34 +194,77 @@ class GlobalScaffold extends StatelessWidget {
   final bool showCustomNavigationBar;
   final bool isParent;
   final List<String>? studentList;
+  final Widget? customButtonLayout;
+  final EdgeInsetsGeometry? bodyPadding;
+
+  @override
+  State<GlobalScaffold> createState() => _GlobalScaffoldState();
+}
+
+class _GlobalScaffoldState extends State<GlobalScaffold> {
+  bool _showBars = true;
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    // Do not auto-hide the app bar or bottom navigation on scroll.
+    // Keeping _showBars always true ensures the blue header divider
+    // remains pinned below the system status bar, and the list content
+    // never scrolls above it.
+    if (!_showBars) {
+      setState(() => _showBars = true);
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleProvider>();
     final isParentRole = roleProvider.isParent;
-    
+
+    final appBar = CustomAppBar(
+      hasBackButton: widget.hasBackButton,
+      isParent: isParentRole || widget.isParent,
+      studentList: widget.studentList,
+    );
+
+    final double navHeight =
+        CustomNavigationBar.navBarHeight > 0 ? CustomNavigationBar.navBarHeight : 72;
+
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: CustomAppBar(
-          hasBackButton: hasBackButton,
-          isParent: isParentRole || isParent,
-          studentList: studentList,
-        ),
+        appBar: _showBars
+            ? appBar
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(0),
+                child: const SizedBox.shrink(),
+              ),
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
-        body: SafeArea(
-          child: GradientBackground(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: body,
+        body: GradientBackground(
+          child: SafeArea(
+            // Let the Scaffold's appBar handle the top inset; we only
+            // inset for bottom so content never goes behind system bars,
+            // while always starting directly under the blue header.
+            top: false,
+            bottom: true,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: Padding(
+                padding: widget.bodyPadding ?? const EdgeInsets.all(8),
+                child: widget.body,
+              ),
             ),
           ),
         ),
         extendBody: true,
-        floatingActionButton: floatingActionButton,
-        bottomNavigationBar:
-            showCustomNavigationBar ? const CustomNavigationBar() : null,
+        floatingActionButton: widget.floatingActionButton,
+        bottomNavigationBar: widget.showCustomNavigationBar
+            ? AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: _showBars ? navHeight : 0,
+                child: const CustomNavigationBar(),
+              )
+            : null,
       ),
     );
   }

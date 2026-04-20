@@ -7,7 +7,9 @@ class DeleteConfirmationBottomSheet extends StatefulWidget {
   final String name; // student name or generic subject name
   final String type;
   final String? planName; // optional plan name for plan actions
-  final VoidCallback onDelete;
+  /// Awaited while the confirm button shows loading; use [Navigator.pop] on the
+  /// sheet context when finished (success or handled error).
+  final Future<void> Function() onDelete;
   final VoidCallback onCancel;
   final bool isLoading;
 
@@ -75,6 +77,10 @@ class _DeleteConfirmationBottomSheetState
         ? (widget.type == 'plan_cancel'
             ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
             : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
+        : widget.type == 'guardian'
+        ? 'Do you want to delete this Parent/Guardian -\n"${widget.name}" ?'
+        : widget.type == 'pickup'
+        ? 'Do you want to delete this Pickup -\n"${widget.name}" ?'
         : widget.type == 'user'
         ? "Do you want to delete this User"
         : widget.type == 'Activity'
@@ -87,6 +93,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'student_reactivate'
         ? 'Do you want to reactivate this Student -\n"${widget.name}" ?'
+        : widget.type == 'student_delete'
+        ? 'Do you want to delete this Student -\n"${widget.name}" ?'
         : widget.type == 'subsidy'
         ? 'Do you want to delete the subsidy -\n${widget.name} ?'
         : widget.type == 'classroom'
@@ -113,6 +121,8 @@ class _DeleteConfirmationBottomSheetState
         ? "Do you want to delete ${widget.name}'s Attendance?"
         : widget.type == 'document'
         ? 'Do you want to delete this Document -\n"${widget.name}" ?'
+        : widget.type == 'physician'
+        ? 'Do you want to delete this Physician -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
@@ -212,15 +222,15 @@ class _DeleteConfirmationBottomSheetState
                 ),
               ),
               SizedBox(height: verticalPadding * 1.5),
-              // Buttons row (shared layout with built-in loader)
               CustomButtonLayout(
                 confirmButtonLabel: buttonText,
                 cancelButtonLabel: 'Cancel',
                 onPressedConfirm: () {
                   if (_isLoading) return;
                   setState(() => _isLoading = true);
-                  // onDelete is responsible for closing the bottom sheet.
-                  widget.onDelete();
+                  widget.onDelete().whenComplete(() {
+                    if (mounted) setState(() => _isLoading = false);
+                  });
                 },
                 onPressedCancel: () {
                   if (_isLoading) return;
