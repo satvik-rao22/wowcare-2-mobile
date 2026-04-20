@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../view/edit_student_profile_details_screen.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
     super.key,
+    required this.studentCode,
     required this.name,
     required this.classroom,
     this.avatarUrl,
     required this.tags,
     required this.sibling,
     required this.schedule,
+    this.scheduleByDay = const <String, String>{},
     required this.birthDate,
     required this.movementDate,
     required this.status,
-    this.onDeactivate,
+    required this.isActive,
+    this.onPrimaryAction,
+    this.onDeleteAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
   });
 
+  final String studentCode;
   final String name;
   final String classroom;
   final String? avatarUrl;
   final List<String> tags;
   final Map<String, dynamic> sibling;
   final List<String> schedule;
+  final Map<String, String> scheduleByDay;
   final String birthDate;
   final String movementDate;
   final String status;
-  final VoidCallback? onDeactivate;
+  final bool isActive;
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
@@ -45,10 +53,48 @@ class StudentCard extends StatefulWidget {
 class _StudentCardState extends State<StudentCard> {
   bool isExpanded = false;
 
+  String _formatBirthDate(String raw) {
+    if (raw.isEmpty) return '-';
+
+    try {
+      // Try ISO and similar formats
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) {
+        return DateFormat('MMM dd, yyyy').format(parsed);
+      }
+    } catch (_) {
+      // ignore and fall through
+    }
+
+    // Fallback: return original string if parsing fails
+    return raw;
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final tags = widget.tags;
+    String _toEnumDay(String shortDay) {
+      switch (shortDay) {
+        case 'Mon':
+          return 'MONDAY';
+        case 'Tue':
+          return 'TUESDAY';
+        case 'Wed':
+          return 'WEDNESDAY';
+        case 'Thu':
+          return 'THURSDAY';
+        case 'Fri':
+          return 'FRIDAY';
+        case 'Sat':
+          return 'SATURDAY';
+        case 'Sun':
+          return 'SUNDAY';
+        default:
+          return shortDay.toUpperCase();
+      }
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -93,34 +139,12 @@ class _StudentCardState extends State<StudentCard> {
                           Stack(
                             children: [
                               DocumentImageWidget(
-                                fileUuid: '',
+                                fileUuid: widget.studentCode,
                                 name: widget.name,
                                 size: 45,
+                                studentCode: widget.studentCode,
+                                studentEnrollmentStatus: widget.status,
                               ),
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: widget.status == 'Upcoming'
-                                        ? const Color.fromARGB(255, 253, 205, 22)
-                                        : widget.status == 'Active'
-                                        ? const Color.fromRGBO(0, 177, 21, 1)
-                                        : widget.status == 'Inactive'
-                                        ? const Color.fromRGBO(200, 32, 32, 1)
-                                        : Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-
-                                ),
-                              ),
-
                             ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -195,7 +219,7 @@ class _StudentCardState extends State<StudentCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        if (widget.tags.isNotEmpty)
+                                        if (tags.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -207,7 +231,7 @@ class _StudentCardState extends State<StudentCard> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.tags[0],
+                                              tags[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -216,7 +240,7 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.tags.length > 1)
+                                        if (tags.length > 1)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,
@@ -228,7 +252,7 @@ class _StudentCardState extends State<StudentCard> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.tags[1],
+                                              tags[1],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -237,11 +261,9 @@ class _StudentCardState extends State<StudentCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.tags.length > 2)
+                                        if (tags.length > 2)
                                           Tooltip(
-                                            message: widget.tags
-                                                .skip(2)
-                                                .join(', '),
+                                            message: tags.skip(2).join(', '),
                                             child: Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -254,7 +276,7 @@ class _StudentCardState extends State<StudentCard> {
                                                     BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${widget.tags.length - 2}',
+                                                '+${tags.length - 2}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,
@@ -319,8 +341,18 @@ class _StudentCardState extends State<StudentCard> {
                                         'Thu',
                                         'Fri',
                                       ].map((day) {
-                                        final isActive = widget.schedule
-                                            .contains(day);
+                                        final enumDay = _toEnumDay(day);
+                                        final scheduleText =
+                                            widget.scheduleByDay[enumDay];
+                                        final hasDayInList = widget.schedule.any(
+                                          (d) =>
+                                              d.trim().toLowerCase() ==
+                                              day.toLowerCase(),
+                                        );
+                                        final hasDayInMap =
+                                            scheduleText != null &&
+                                            scheduleText.trim().isNotEmpty;
+                                        final isActive = hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -349,8 +381,13 @@ class _StudentCardState extends State<StudentCard> {
                                           ),
                                         );
                                         if (!isActive) return dayChip;
+                                        final tooltipText =
+                                            (scheduleText != null &&
+                                                scheduleText.trim().isNotEmpty)
+                                            ? '$day\n$scheduleText'
+                                            : '$day: Scheduled';
                                         return Tooltip(
-                                          message: '',
+                                          message: tooltipText,
                                           child: dayChip,
                                         );
                                       }),
@@ -375,7 +412,7 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 Text(
-                                  widget.birthDate,
+                                  _formatBirthDate(widget.birthDate),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -428,10 +465,12 @@ class _StudentCardState extends State<StudentCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: 'student',
+                                              type: widget.isActive
+                                                  ? 'student_deactivate'
+                                                  : 'student_reactivate',
                                               onDelete: () {
-                                                Navigator.of(ctx).pop();
-                                                //widget.onDelete?.call();
+                                                widget.onPrimaryAction?.call();
+                                                return Future.value();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -451,9 +490,11 @@ class _StudentCardState extends State<StudentCard> {
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
-                                        'Deactivate',
-                                        style: TextStyle(
+                                      child: Text(
+                                        widget.isActive
+                                            ? 'Deactivate'
+                                            : 'Reactivate',
+                                        style: const TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -464,6 +505,55 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
+                                if (!widget.isActive) ...[
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (ctx) {
+                                              return DeleteConfirmationBottomSheet(
+                                                name: widget.name,
+                                                type: 'student_delete',
+                                                onDelete: () {
+                                                  widget.onDeleteAction?.call();
+                                                  return Future.value();
+                                                },
+                                                onCancel: () {
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                              );
+                                            },
+                                          );
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: Color(0xFF6C7FD8),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF6C7FD8),
+                                            height: 16 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Container(
@@ -474,48 +564,7 @@ class _StudentCardState extends State<StudentCard> {
                                           AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
-                                      onPressed: () {
-                                        // Invoke external handler if provided
-                                        widget.onEdit?.call();
-
-                                        // Derive first/last name from full name
-                                        final parts = widget.name.trim().split(' ');
-                                        final initialFirstName = parts.isNotEmpty ? parts.first : '';
-                                        final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => EditStudentProfileDetailsScreen(
-                                              initialFirstName: initialFirstName,
-                                              initialLastName: initialLastName,
-                                              initialStatus: 'Active',
-                                              initialClassroom: '1-Blue D X',
-                                              initialBirthDate: null,
-                                              initialNotes: '',
-                                              initialFTE: '80',
-                                              initialStreet: '',
-                                              initialCity: '',
-                                              initialState: 'New Hampshire',
-                                              initialCountry: 'United States',
-                                              initialZipCode: '',
-                                            ),
-                                          ),
-                                        );
-
-                                        // Navigator.of(context).push(
-                                        //   MaterialPageRoute(
-                                        //     builder: (_) => AddStudentScreen(
-                                        //       isEdit: true,
-                                        //       initialFirstName: initialFirstName,
-                                        //       initialLastName: initialLastName,
-                                        //       initialClassroom: widget.classroom,
-                                        //       //initialStatus: widget.status,
-                                        //       // initialEmail and initialStatus not available here
-                                        //     ),
-                                        //   ),
-                                        // );
-                                      },
+                                      onPressed: widget.onEdit,
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                       ),

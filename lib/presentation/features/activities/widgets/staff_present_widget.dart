@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
@@ -18,43 +19,32 @@ class StaffPresentWidget extends StatefulWidget {
 }
 
 class _StaffPresentWidgetState extends State<StaffPresentWidget> {
- final List<String> staffList =['Staff A', 'Staff B', 'Staff C'];
+ late List<String> staffList;
  late String? selectedStaff;
  bool clickToSign = false;
 
 
   void _showWarningMessage(String message) {
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          const Icon(Icons.warning, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: Colors.orange.shade50,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isWarning: true,
     );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
   void initState(){
     super.initState();
-    selectedStaff = widget.staffName;
+    // Build staff list with the logged-in staff name (if provided) at the top,
+    // followed by fallback demo names.
+    const defaultStaff = ['Staff A', 'Staff B', 'Staff C'];
+    final name = widget.staffName.trim();
+    staffList = [
+      if (name.isNotEmpty) name,
+      ...defaultStaff.where((s) => s != name),
+    ];
+
+    selectedStaff = name.isNotEmpty ? name : staffList.first;
     clickToSign = widget.isAlreadySigned;
   }
 
@@ -84,14 +74,16 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             if (widget.incidentActivity)
               CheckboxWidget(
                 label: 'Click to sign',
-                isEditable: true,
+                isEditable: widget.isEditable,
                 isChecked: clickToSign,
-                onChecked: (newValue){
-                  setState(() {
-                    clickToSign = newValue;
-                  });
-                  widget.onSigned?.call(newValue);
-                },
+                onChecked: widget.isEditable
+                    ? (newValue) {
+                        setState(() {
+                          clickToSign = newValue;
+                        });
+                        widget.onSigned?.call(newValue);
+                      }
+                    : null,
               ),
           ],
         ),

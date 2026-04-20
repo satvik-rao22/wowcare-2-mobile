@@ -24,7 +24,6 @@ class StudentAttendanceFilters extends StatelessWidget {
   final Function(List<String>)? onTagsChanged;
   final VoidCallback? onFilterTap;
   final VoidCallback? onClearAll;
-  final VoidCallback? onCreateAttendance;
 
   const StudentAttendanceFilters({
     super.key,
@@ -42,13 +41,11 @@ class StudentAttendanceFilters extends StatelessWidget {
     this.onTagsChanged,
     this.onFilterTap,
     this.onClearAll,
-    this.onCreateAttendance,
   });
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = responsive.isTablet;
     final spacing = responsive.horizontalSpacing / 2;
 
@@ -105,145 +102,29 @@ class StudentAttendanceFilters extends StatelessWidget {
           ),
         ],
         SizedBox(height: responsive.verticalSpacing / 2),
-        // Responsive layout for filter row
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // For smaller screens, stack vertically if needed
-            if (constraints.maxWidth < 400) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildFilterButton(context, responsive),
-                      SizedBox(width: spacing),
-                      if (hasActiveFilters && onClearAll != null)
-                        Flexible(
-                          child: CustomClearAllChip(
-                            onTap: onClearAll,
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: spacing),
-                  if (onCreateAttendance != null)
-                    Row(
-                      children: [
-                        Container(
-                          height: responsive.inputFieldHeight * 0.83,
-                          constraints: BoxConstraints(
-                            minWidth: responsive.inputFieldHeight * 0.83,
-                            maxWidth: responsive.inputFieldHeight * 0.83,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: AppColors.buildPrimaryGradient(),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: onCreateAttendance,
-                              child: Padding(
-                                padding: EdgeInsets.all(responsive.isTablet ? 10 : 8),
-                                child: Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: responsive.isTablet ? 26 : 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: spacing),
-                        Expanded(
-                          child: CustomToggle(
-                            label: 'Show Absent',
-                            isToggled: showAbsentOnly,
-                            onToggle: onToggleChanged,
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    CustomToggle(
-                      label: 'Show Absent',
-                      isToggled: showAbsentOnly,
-                      onToggle: onToggleChanged,
-                    ),
-                ],
-              );
-            }
-            
-            // For larger screens, use horizontal layout
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Left side - Filter buttons
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildFilterButton(context, responsive),
-                      SizedBox(width: spacing),
-                      if (hasActiveFilters && onClearAll != null)
-                        Flexible(
-                          child: CustomClearAllChip(
-                            onTap: onClearAll,
-                          ),
-                        ),
-                    ],
-                  ),
+        // Filter button, clear-all chip, and "Show Absent" toggle on one row.
+        Row(
+          children: [
+            _buildFilterButton(context, responsive),
+            SizedBox(width: spacing),
+            if (hasActiveFilters && onClearAll != null)
+              Flexible(
+                child: CustomClearAllChip(
+                  onTap: onClearAll,
                 ),
-                SizedBox(width: spacing),
-                // Right side - Show Absent Toggle Button and Create Attendance
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (onCreateAttendance != null) ...[
-                        Container(
-                          height: responsive.inputFieldHeight * 0.83,
-                          constraints: BoxConstraints(
-                            minWidth: responsive.inputFieldHeight * 0.83,
-                            maxWidth: responsive.inputFieldHeight * 0.83,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: AppColors.buildPrimaryGradient(),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: onCreateAttendance,
-                              child: Padding(
-                                padding: EdgeInsets.all(responsive.isTablet ? 10 : 8),
-                                child: Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: responsive.isTablet ? 26 : 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: spacing),
-                      ],
-                      Flexible(
-                        child: CustomToggle(
-                          label: 'Show Absent',
-                          isToggled: showAbsentOnly,
-                          onToggle: onToggleChanged,
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+            const Spacer(),
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: CustomToggle(
+                  label: 'Show Absent',
+                  isToggled: showAbsentOnly,
+                  onToggle: onToggleChanged,
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -258,13 +139,13 @@ class StudentAttendanceFilters extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: hasActiveFilters
-            ? const Color(0xFF6C7FD8).withOpacity(0.15)
-            : Colors.white,
+            ? AppColors.themeColor.withOpacity(0.15)
+            : AppColors.cardColor,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: hasActiveFilters
-              ? const Color(0xFF6C7FD8)
-              : const Color(0xFFE5E9F2),
+              ? AppColors.themeColor
+              : AppColors.cardBorderColor,
           width: 1,
         ),
       ),
@@ -284,8 +165,8 @@ class StudentAttendanceFilters extends StatelessWidget {
                   height: responsive.isTablet ? 26 : 24,
                   colorFilter: ColorFilter.mode(
                     hasActiveFilters
-                        ? const Color(0xFF6C7FD8)
-                        : const Color(0xFF8F9BB3),
+                        ? AppColors.themeColor
+                        : AppColors.secondaryColor.withOpacity(0.6),
                     BlendMode.srcIn,
                   ),
                 ),
@@ -296,8 +177,8 @@ class StudentAttendanceFilters extends StatelessWidget {
                     child: Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF6C7FD8),
+                      decoration: BoxDecoration(
+                        color: AppColors.themeColor,
                         shape: BoxShape.circle,
                       ),
                     ),

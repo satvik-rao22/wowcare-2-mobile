@@ -1,0 +1,113 @@
+/// Rules aligned with [StudentAttendanceProfile] / student attendance pop-up:
+/// - Sign-in: active profile, not currently signed in, not absent, not signed out for today
+/// - Sign-out / Transfer: currently signed in (and not absent)
+/// - Mark absent: active profile, not signed in, not already absent
+class StudentAttendanceGate {
+  const StudentAttendanceGate({
+    required this.isActiveProfile,
+    required this.isSignedInToday,
+    required this.isAbsentToday,
+    this.hasSignedOutToday = false,
+  });
+
+  final bool isActiveProfile;
+  final bool isSignedInToday;
+  final bool isAbsentToday;
+  final bool hasSignedOutToday;
+
+  /// Enablement rules driven by today's attendance status:
+  /// - SIGNED_IN  -> enable Sign-Out + Transfer only
+  /// - SIGNED_OUT -> disable all actions for the day
+  /// - ABSENT     -> enable Sign-In only
+  /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
+  ///   -> enable **Sign-In** + **Mark Absent** only
+  bool get canSignIn {
+    if (!isActiveProfile) return false;
+    if (hasSignedOutToday) return false; // once signed out, no actions allowed
+    if (isSignedInToday) return false;
+    // Absent can be "recovered" by signing in.
+    return true;
+  }
+
+  bool get canSignOut {
+    if (hasSignedOutToday) return false;
+    return isSignedInToday;
+  }
+
+  bool get canTransfer => canSignOut;
+
+  bool get canMarkAbsent {
+    if (!isActiveProfile) return false;
+    if (hasSignedOutToday) return false;
+    if (isSignedInToday) return false;
+    if (isAbsentToday) return false;
+    return true;
+  }
+}
+
+class StudentAttendanceActionAvailability {
+  const StudentAttendanceActionAvailability({
+    required this.signInEnabled,
+    required this.signOutEnabled,
+    required this.transferEnabled,
+    required this.absentEnabled,
+  });
+
+  static const StudentAttendanceActionAvailability allDisabled =
+      StudentAttendanceActionAvailability(
+    signInEnabled: false,
+    signOutEnabled: false,
+    transferEnabled: false,
+    absentEnabled: false,
+  );
+
+  static const StudentAttendanceActionAvailability allEnabled =
+      StudentAttendanceActionAvailability(
+    signInEnabled: true,
+    signOutEnabled: true,
+    transferEnabled: true,
+    absentEnabled: true,
+  );
+
+  final bool signInEnabled;
+  final bool signOutEnabled;
+  final bool transferEnabled;
+  final bool absentEnabled;
+
+  static StudentAttendanceActionAvailability fromGates(
+    Iterable<StudentAttendanceGate> gates,
+  ) {
+    final list = gates.toList();
+    if (list.isEmpty) {
+      return allDisabled;
+    }
+    return StudentAttendanceActionAvailability(
+      signInEnabled: list.every((g) => g.canSignIn),
+      signOutEnabled: list.every((g) => g.canSignOut),
+      transferEnabled: list.every((g) => g.canTransfer),
+      absentEnabled: list.every((g) => g.canMarkAbsent),
+    );
+  }
+}
+
+/// Parses today's status string from [GetStudentTodaySignInStatusMapUseCase] / API.
+StudentAttendanceGate studentAttendanceGateFromTodayStatus({
+  required bool isActiveProfile,
+  required String? todayStatusRaw,
+}) {
+  final su = (todayStatusRaw ?? '').trim().toUpperCase();
+  final isSignedIn = su == 'SIGNED_IN';
+  final isAbsent = su == 'ABSENT';
+  final hasSignedOut = su == 'SIGNED_OUT' ||
+      su == 'SIGN_OUT' ||
+      su == 'COMPLETED' ||
+      su == 'SIGNED_OUT_TODAY' ||
+      su == 'SIGNEDOUT' ||
+      su == 'SIGNED_OUT_FOR_TODAY';
+  return StudentAttendanceGate(
+    isActiveProfile: isActiveProfile,
+    isSignedInToday: isSignedIn,
+    isAbsentToday: isAbsent,
+    hasSignedOutToday: hasSignedOut,
+  );
+}

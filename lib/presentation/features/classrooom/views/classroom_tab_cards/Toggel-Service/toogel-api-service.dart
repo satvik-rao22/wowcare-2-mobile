@@ -40,21 +40,9 @@ class ApiService {
   Future<List<StudentByRoom>> fetchStudentsByRoom(
       String roomId, BuildContext context) async {
     try {
-      // Get token from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('accessToken');
-
-      if (token == null || token.isEmpty) {
-        if (context.mounted) {
-          _showErrorSnackBar(
-              context, 'Authentication token not found. Please login again.');
-        }
-        return [];
-      }
-
-      // Prepare headers
+      // NOTE: Auth token is intentionally NOT sent for this request.
+      // Only send basic JSON headers so the API is called without Authorization.
       final headers = {
-        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       };
 

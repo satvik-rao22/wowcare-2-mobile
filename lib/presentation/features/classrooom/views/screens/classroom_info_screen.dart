@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom_details.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
 
 class ClassroomInfoScreen extends StatefulWidget {
   const ClassroomInfoScreen({super.key});
@@ -19,77 +28,84 @@ class ClassroomInfoScreen extends StatefulWidget {
 }
 
 class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
-  RoomInfo? selectedRoom;
-  int? selectedRoomId = null;
-  bool isFirstTimeLoaded = false;
-  List<RoomInfo> allRooms = [];
+  Classroom? _selectedRoom;
+  ClassroomDetails? _details;
+  bool _isDetailsLoading = false;
+  String? _detailsError;
+  final GetClassroomByCodeUseCase _getClassroomByCodeUseCase =
+      serviceLocator<GetClassroomByCodeUseCase>();
+  final GetStudentAttendanceExpectedSummaryUseCase
+      _getStudentAttendanceExpectedSummaryUseCase =
+      serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
+  final GetStaffAttendanceExpectedSummaryUseCase
+      _getStaffAttendanceExpectedSummaryUseCase =
+      serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
+  StudentAttendanceExpectedSummary? _studentSummary;
+  StudentAttendanceExpectedSummary? _staffSummary;
+  bool _isSummaryLoading = false;
+  String? _summaryError;
 
   @override
   void initState() {
     super.initState();
+    // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Backend disabled: initialize UI with dummy rooms
-      getClassroomsData();
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Classroom) {
+        setState(() {
+          _selectedRoom = args;
+        });
+        _loadDetails(args.code);
+      }
     });
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // No-op in UI-only mode
-  }
-
-  void getClassroomsData() async {
-    allRooms = [
-      RoomInfo(
-        room: RoomDTOInfo(
-          id: 1,
-          name: 'Sunshine Room',
-          ageRange: '2-3 Years',
-          maxCapacity: 20,
-          staffRatio: '10',
-          photoUuid: '',
-        ),
-        isRatioCheck: true,
-        assignedStudent: 12,
-        enrolledButNotStarted: 3,
-        expectedStudent: 15,
-        checkedInStudent: 10,
-        absentStudent: 5,
-        expectedStaff: 4,
-        checkedInStaff: 3,
-        onLeaveStaff: 1,
-      ),
-      RoomInfo(
-        room: RoomDTOInfo(
-          id: 2,
-          name: 'Rainbow Room',
-          ageRange: '3-4 Years',
-          maxCapacity: 18,
-          staffRatio: '9',
-          photoUuid: '',
-        ),
-        isRatioCheck: false,
-        assignedStudent: 9,
-        enrolledButNotStarted: 2,
-        expectedStudent: 11,
-        checkedInStudent: 7,
-        absentStudent: 4,
-        expectedStaff: 3,
-        checkedInStaff: 2,
-        onLeaveStaff: 1,
-      ),
-    ];
-    selectedRoomId ??= allRooms.first.room.id;
+  Future<void> _loadSummaries() async {
     setState(() {
-      selectedRoom = allRooms.firstWhere((r) => r.room.id == selectedRoomId);
+      _isSummaryLoading = true;
+      _summaryError = null;
     });
+    try {
+      final student = await _getStudentAttendanceExpectedSummaryUseCase();
+      final staff = await _getStaffAttendanceExpectedSummaryUseCase();
+      if (!mounted) return;
+      setState(() {
+        _studentSummary = student;
+        _staffSummary = staff;
+        _isSummaryLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSummaryLoading = false;
+        _summaryError = e.toString();
+      });
+    }
   }
 
-  void getClassroomsDataForPhoto() async {}
+  Future<void> _loadDetails(String code) async {
+    setState(() {
+      _isDetailsLoading = true;
+      _detailsError = null;
+    });
+    try {
+      final details = await _getClassroomByCodeUseCase(code: code);
+      if (!mounted) return;
+      setState(() {
+        _details = details;
+        _isDetailsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isDetailsLoading = false;
+        _detailsError = e.toString();
+      });
+    }
+  }
 
-  Widget _buildRoomDetailsCard(RoomInfo room) {
-    bool isRatioGood = room.isRatioCheck;
+  Widget _buildRoomDetailsCard(ClassroomDetails details) {
+    final isRatioGood = (details.status.toUpperCase() == 'ACTIVE');
 
     return Card(
       elevation: 0,
@@ -106,8 +122,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           vertical: 10,
         ),
         leading: DocumentImageWidget(
-          fileUuid: room.room.photoUuid ?? '',
-          name: room.room.name,
+          fileUuid: '',
+          name: details.name,
           size: 60,
           fontSize: 24,
         ),
@@ -115,7 +131,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              room.room.name,
+              details.name,
               style: const TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 20,
@@ -141,8 +157,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                room.room.ageRange.isNotEmpty
-                    ? room.room.ageRange.trim()
+                details.minAgeYear + details.minAgeMonths + details.maxAgeYear + details.maxAgeMonths > 0
+                    ? '${details.minAgeYear}-${details.maxAgeYear} Years'
                     : 'No Age Limit',
                 style: const TextStyle(
                   fontFamily: 'Manrope',
@@ -163,7 +179,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       ),
                       children: [
                         TextSpan(
-                          text: '${room.room.maxCapacity}',
+                          text: '${details.capacity}',
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
@@ -185,9 +201,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       ),
                       children: [
                         TextSpan(
-                          text: room.room.staffRatio.isEmpty
-                              ? '0'
-                              : '${room.room.staffRatio}:1',
+                          text: '${details.studentsPerTeacher}:1',
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
@@ -209,17 +223,32 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GlobalScaffold(
-      body: CustomRefreshIndicator(
-        onRefresh: () async {
-          getClassroomsData();
-        },
-        child: SingleChildScrollView(
-          child: Builder(builder: (context) {
-            final List<String> roomNames =
-                allRooms.map((room) => room.room.name).toList();
-            selectedRoom ??= allRooms.first;
-            return Column(
+    return BlocProvider<ClassroomCubit>(
+      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+        builder: (context, state) {
+          final classrooms = state.classrooms;
+          if (classrooms.isNotEmpty && _selectedRoom == null) {
+            _selectedRoom = classrooms.first;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadDetails(_selectedRoom!.code);
+            });
+          }
+
+          final dropdownItems = classrooms.map((e) => e.name).toList();
+          final isInitialLoading = state.isLoading && classrooms.isEmpty;
+
+          return GlobalScaffold(
+            body: CustomRefreshIndicator(
+              onRefresh: () async {
+                await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
+                if (_selectedRoom != null) {
+                  await _loadDetails(_selectedRoom!.code);
+                }
+                await _loadSummaries();
+              },
+              child: SingleChildScrollView(
+                child: Column(
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.max,
@@ -228,14 +257,17 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
                           child: ClassroomDropdown(
-                            items: roomNames,
-                            value: selectedRoom!.room.name,
+                            items: dropdownItems.isEmpty ? const ['Loading...'] : dropdownItems,
+                            value: dropdownItems.isEmpty
+                                ? 'Loading...'
+                                : (_selectedRoom?.name ?? dropdownItems.first),
                             onChanged: (value) {
+                              if (dropdownItems.isEmpty) return;
+                              final selected = classrooms.firstWhere((c) => c.name == value);
                               setState(() {
-                                selectedRoom = allRooms.firstWhere(
-                                  (room) => room.room.name == value,
-                                );
+                                _selectedRoom = selected;
                               });
+                              _loadDetails(selected.code);
                             },
                           ),
                         ),
@@ -249,23 +281,39 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildRoomDetailsCard(selectedRoom!),
+                    if (isInitialLoading || _isDetailsLoading || _isSummaryLoading)
+                      const Center(child: PrimaryCircularLoader())
+                    else if (_detailsError != null)
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          'Failed to load classroom details',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red),
+                        ),
+                      )
+                    else if (_summaryError != null)
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          'Failed to load summary cards',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red),
+                        ),
+                      )
+                    else if (_details != null)
+                      _buildRoomDetailsCard(_details!),
                     const SizedBox(height: 16),
                     _buildInfoCard(
                       title: 'Enrolled\nStudents',
-                      number:
-                          '${selectedRoom!.assignedStudent + selectedRoom!.enrolledButNotStarted}',
+                      number: '0',
                       items: [
                         _ProgressItem(
-                          label:
-                              'Active (${selectedRoom!.assignedStudent.toString()})',
-                          value: selectedRoom!.assignedStudent.toDouble(),
-                          color: Colors.lightBlue[200]!,
+                          label: 'Active (0)',
+                          value: 0,
+                          color: Colors.lightBlue,
                         ),
                         _ProgressItem(
-                          label:
-                              'Upcoming (${selectedRoom!.enrolledButNotStarted.toString()})',
-                          value: selectedRoom!.enrolledButNotStarted.toDouble(),
+                          label: 'Upcoming (0)',
+                          value: 0,
                           color: Colors.amber,
                         ),
                       ],
@@ -273,38 +321,34 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                     const SizedBox(height: 16),
                     _buildInfoCard(
                       title: 'Expected\nStudents',
-                      number: selectedRoom!.expectedStudent.toString(),
+                      number: (_studentSummary?.expected ?? 0).toString(),
                       items: [
                         _ProgressItem(
-                          label:
-                              'Present  (${selectedRoom!.checkedInStudent.toString()})',
-                          value: selectedRoom!.checkedInStudent.toDouble(),
-                          color: Colors.green[200]!,
+                          label: 'Present (${_studentSummary?.present ?? 0})',
+                          value: (_studentSummary?.present ?? 0).toDouble(),
+                          color: Colors.green,
                         ),
                         _ProgressItem(
-                          label:
-                              'Absent (${selectedRoom!.absentStudent.toString()})',
-                          value: selectedRoom!.absentStudent.toDouble(),
-                          color: Colors.red[200]!,
+                          label: 'Absent (${_studentSummary?.absent ?? 0})',
+                          value: (_studentSummary?.absent ?? 0).toDouble(),
+                          color: Colors.red,
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     _buildInfoCard(
                       title: 'Expected\nStaff',
-                      number: selectedRoom!.expectedStaff.toString(),
+                      number: (_staffSummary?.expected ?? 0).toString(),
                       items: [
                         _ProgressItem(
-                          label:
-                              'Present (${selectedRoom!.checkedInStaff.toString()})',
-                          value: selectedRoom!.checkedInStaff.toDouble(),
-                          color: Colors.green[200]!,
+                          label: 'Present (${_staffSummary?.present ?? 0})',
+                          value: (_staffSummary?.present ?? 0).toDouble(),
+                          color: Colors.green,
                         ),
                         _ProgressItem(
-                          label:
-                              'Absent (${selectedRoom!.onLeaveStaff.toString()})',
-                          value: selectedRoom!.onLeaveStaff.toDouble(),
-                          color: Colors.red[200]!,
+                          label: 'Absent (${_staffSummary?.absent ?? 0})',
+                          value: (_staffSummary?.absent ?? 0).toDouble(),
+                          color: Colors.red,
                         ),
                       ],
                     ),
@@ -333,21 +377,20 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                             // Calendar header simplified for UI-only mode
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Icon(Icons.chevron_left, color: Colors.grey),
-                                  const Text(
-                                    'Nov 2025',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: Color(0xff573353),
-                                    ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Icon(Icons.chevron_left, color: Colors.grey),
+                                Text(
+                                  'Nov 2025',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    color: Color(0xff573353),
                                   ),
-                                  const Icon(Icons.chevron_right, color: Colors.grey),
-                                ],
-                              ),
+                                ),
+                                Icon(Icons.chevron_right, color: Colors.grey),
+                              ],
+                            ),
                             const SizedBox(height: 16),
                             const EventsCard(),
                             const SizedBox(height: 16),
@@ -356,11 +399,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       ),
                     ),
                   ],
-                );
-          }),
-        ),
+                ),
+              ),
+            ),
+            hasBackButton: true,
+          );
+        },
       ),
-      hasBackButton: true,
     );
   }
 
@@ -480,102 +525,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   }
 }
 
-// UI-only lightweight models
-class RoomDTOInfo {
-  final int id;
-  final String name;
-  final String ageRange;
-  final int maxCapacity;
-  final String staffRatio;
-  final String? photoUuid;
-  const RoomDTOInfo({
-    required this.id,
-    required this.name,
-    required this.ageRange,
-    required this.maxCapacity,
-    required this.staffRatio,
-    this.photoUuid,
-  });
-}
-
-class RoomInfo {
-  final RoomDTOInfo room;
-  final bool isRatioCheck;
-  final int assignedStudent;
-  final int enrolledButNotStarted;
-  final int expectedStudent;
-  final int checkedInStudent;
-  final int absentStudent;
-  final int expectedStaff;
-  final int checkedInStaff;
-  final int onLeaveStaff;
-
-  RoomInfo({
-    required this.room,
-    required this.isRatioCheck,
-    required this.assignedStudent,
-    required this.enrolledButNotStarted,
-    required this.expectedStudent,
-    required this.checkedInStudent,
-    required this.absentStudent,
-    required this.expectedStaff,
-    required this.checkedInStaff,
-    required this.onLeaveStaff,
-  });
-}
-
-class _EventRow extends StatelessWidget {
-  final String date;
-  final String month;
-  final String title;
-  final Color borderColor;
-  const _EventRow({
-    required this.date,
-    required this.month,
-    required this.title,
-    required this.borderColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              border: Border.all(color: borderColor, width: 2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(date,
-                    style: const TextStyle(
-                        fontFamily: 'Manrope', fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff573353))),
-                Text(month, style: const TextStyle(fontFamily: 'Manrope', fontSize: 12, color: Color(0xff573353))),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color.fromRGBO(87, 51, 83, 1),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ProgressItem {
   final String label;

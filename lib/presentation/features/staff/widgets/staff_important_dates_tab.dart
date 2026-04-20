@@ -21,10 +21,17 @@ class StaffImportantDatesTab extends StatefulWidget {
 
 class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
   final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
+  static const List<String> _orderedTypes = <String>[
+    'HIRE_DATE',
+    'CDA',
+    'FIRST_AID_CPR',
+    'BRC',
+    'PHYSICAL_CHECKUP',
+  ];
 
   bool _isLoading = true;
   String? _errorMessage;
-  Map<String, String> _dates = const {};
+  List<Map<String, String>> _items = const [];
 
   @override
   void initState() {
@@ -47,20 +54,23 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
               .loadCachedImportantDates(widget.staffCode);
 
           if (cached != null && mounted) {
-            final mapped = <String, String>{};
+            final items = <Map<String, String>>[];
             for (final date in cached) {
               final type = (date['importantDateType'] ?? '').toUpperCase();
               final dueDate = date['dueDate'] ?? '';
               if (dueDate.isEmpty) continue;
-
-              final label = _mapTypeToLabel(type);
-              mapped[label] = _formatDate(dueDate);
+              items.add(<String, String>{
+                'importantDateType': type,
+                'dueDate': dueDate,
+                if ((date['status'] ?? '').toString().isNotEmpty)
+                  'status': (date['status'] ?? '').toString(),
+              });
             }
 
             setState(() {
               _isLoading = false;
               _errorMessage = null;
-              _dates = mapped;
+              _items = items;
             });
 
             // Don't hit API if cache is valid - return early
@@ -80,24 +90,27 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
           setState(() {
             _isLoading = false;
             _errorMessage = failure.message ?? 'Failed to load important dates';
-            _dates = const {};
+            _items = const [];
           });
         },
         (dates) {
-          final mapped = <String, String>{};
+          final items = <Map<String, String>>[];
           for (final date in dates) {
             final type = (date['importantDateType'] ?? '').toUpperCase();
             final dueDate = date['dueDate'] ?? '';
             if (dueDate.isEmpty) continue;
-
-            final label = _mapTypeToLabel(type);
-            mapped[label] = _formatDate(dueDate);
+            items.add(<String, String>{
+              'importantDateType': type,
+              'dueDate': dueDate,
+              if ((date['status'] ?? '').toString().isNotEmpty)
+                'status': (date['status'] ?? '').toString(),
+            });
           }
 
           setState(() {
             _isLoading = false;
             _errorMessage = null;
-            _dates = mapped;
+            _items = items;
           });
         },
       );
@@ -106,7 +119,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Failed to load important dates';
-        _dates = const {};
+        _items = const [];
       });
     }
   }
@@ -139,7 +152,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = _dates.entries.toList();
+    final items = List<Map<String, String>>.from(_items);
 
     return MediaQuery.removePadding(
       context: context,
@@ -149,89 +162,89 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
         onRefresh: () => _loadDates(useCache: false),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Important Dates',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.edit,
-                        size: 10,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (_isLoading)
-                  const Center(
-                    child: PrimaryCircularLoader(
-                      size: 24,
-                      strokeWidth: 2,
-                    ),
-                  )
-                else if (_errorMessage != null)
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 14,
-                    ),
-                  )
-                else if (entries.isEmpty)
-                  const Text(
-                    'No important dates available.',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                    ),
-                  )
-                else
-                  ...List.generate(entries.length * 2 - 1, (i) {
-                    if (i.isOdd) return const SizedBox(height: 16);
-                    final idx = i ~/ 2;
-                    final e = entries[idx];
-                    final lowerLabel = e.key.toLowerCase();
-                    final isCda = lowerLabel.contains('cda');
-                    final isBackgroundRecord = lowerLabel.contains('background') && lowerLabel.contains('record');
-                    return _DateRow(
-                      label: e.key,
-                      text: e.value,
-                      showInfo: isCda && !isBackgroundRecord,
-                      infoText: 'CDA - Child Development Associate',
-                    );
-                  }),
-              ],
-            ),
-          ),
+          child: _buildContent(items),
         ),
       ),
     );
+  }
+
+  Widget _buildContent(List<Map<String, String>> items) {
+    if (_isLoading) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        padding: const EdgeInsets.all(8),
+        child: const Center(
+          child: PrimaryCircularLoader(
+            size: 24,
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          _errorMessage!,
+          style: const TextStyle(
+            color: Colors.redAccent,
+            fontSize: 14,
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: _buildDateCards(items),
+    );
+  }
+
+  List<Widget> _buildDateCards(List<Map<String, String>> items) {
+    final valuesByType = <String, String>{};
+    for (final item in items) {
+      final type = (item['importantDateType'] ?? '').toUpperCase();
+      final dueDate = item['dueDate'] ?? '';
+      if (type.isEmpty || dueDate.trim().isEmpty) continue;
+      valuesByType[type] = dueDate;
+    }
+
+    final cards = <Widget>[];
+    var isFirst = true;
+    for (final type in _orderedTypes) {
+      final dueDate = valuesByType[type];
+      if (dueDate == null) continue;
+
+      final label = _mapTypeToLabel(type);
+      final lowerLabel = label.toLowerCase();
+      final isCda = lowerLabel.contains('cda');
+      final isBackgroundRecord =
+          lowerLabel.contains('background') && lowerLabel.contains('record');
+      cards.add(
+        Container(
+          margin: EdgeInsets.only(top: isFirst ? 16 : 12, bottom: 0),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: _DateRow(
+            label: label,
+            text: _formatDate(dueDate),
+            showInfo: isCda && !isBackgroundRecord,
+            infoText: 'CDA - Child Development Associate',
+          ),
+        ),
+      );
+      isFirst = false;
+    }
+
+    return cards;
   }
 }
 
@@ -323,5 +336,3 @@ class _DateRow extends StatelessWidget {
     );
   }
 }
-
-

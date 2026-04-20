@@ -9,7 +9,8 @@ import 'package:wowcare/presentation/features/billing/view/parent_billing_screen
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/role_selection_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
 import '../presentation/features/students/view/student_screen.dart';
@@ -45,7 +46,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
               create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
             ),
             BlocProvider<ClassroomCubit>(
-              create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  // Staff screen should see all active locations,
+                  // not just type=CLASSROOM.
+                  onlyTypeClassroom: false,
+                ),
             ),
           ],
           child: const StaffScreen(),
@@ -63,12 +69,35 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         settings: settings,
       );
     case EditProfileDetailsScreen.routeName:
-      // Optional navigation via named route; expects a staffCode in arguments.
+      // Optional navigation via named route; expects staffCode in arguments.
+      // When coming from "add staff" -> "Yes" (additional details), args may include initial* for prefill.
       final args = settings.arguments as Map<String, dynamic>?;
-      final staffCode = args?['staffCode'] as String? ?? '';
+      final staffCode = args?['staffCode'] as String? ?? args?['userCode'] as String? ?? '';
+      List<String>? _listArg(String key) {
+        final raw = args?[key];
+        if (raw == null) return null;
+        if (raw is List) return List<String>.from(raw);
+        return null;
+      }
+      Map<String, String>? _mapArg(String key) {
+        final raw = args?[key];
+        if (raw == null) return null;
+        if (raw is Map) return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
+        return null;
+      }
       return MaterialPageRoute(
         builder: (_) => EditProfileDetailsScreen(
           staffCode: staffCode,
+          initialFirstName: args?['initialFirstName'] as String?,
+          initialLastName: args?['initialLastName'] as String?,
+          initialEmail: args?['initialEmail'] as String?,
+          initialStatus: args?['initialStatus'] as String?,
+          initialDesignation: args?['initialDesignation'] as String?,
+          initialAllowedClassrooms: _listArg('initialAllowedClassrooms'),
+          initialPrimaryClassroom: args?['initialPrimaryClassroom'] as String?,
+          initialPhoneNumber: args?['initialPhoneNumber'] as String?,
+          initialClassroomNames: _listArg('initialClassroomNames'),
+          initialClassroomCodeByName: _mapArg('initialClassroomCodeByName'),
         ),
         settings: settings,
       );
@@ -118,9 +147,14 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (_) => const ForgotPasswordScreen(),
         settings: settings,
       );
-    case RoleSelectionScreen.routeName:
+    case FutureAvailabilityScreen.routeName:
       return MaterialPageRoute(
-        builder: (_) => const RoleSelectionScreen(),
+        builder: (_) => const FutureAvailabilityScreen(),
+        settings: settings,
+      );
+    case IndividualMovementScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => const IndividualMovementScreen(),
         settings: settings,
       );
     default:

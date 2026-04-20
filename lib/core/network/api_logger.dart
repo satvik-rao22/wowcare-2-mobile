@@ -30,8 +30,16 @@ class ApiLogger {
     }
     
     if (headers != null) {
+      // Print headers line-by-line to avoid logcat truncation on long tokens.
       // ignore: avoid_print
-      print('Headers: $headers');
+      print('Headers:');
+      headers.forEach((key, value) {
+        final normalizedKey = key.toLowerCase();
+        final displayValue = normalizedKey == 'authorization'
+            ? _maskToken(value?.toString() ?? '')
+            : (value?.toString() ?? '');
+        _printInChunks('  $key: $displayValue');
+      });
     }
     if (body != null) {
       final String bodyString = _stringify(body);
@@ -162,5 +170,14 @@ class ApiLogger {
       print(text.substring(start, end));
       start = end;
     }
+  }
+
+  static String _maskToken(String token) {
+    if (token.isEmpty) return token;
+    const prefix = 'Bearer ';
+    if (!token.startsWith(prefix)) return token;
+    final raw = token.substring(prefix.length);
+    if (raw.length <= 16) return '$prefix***';
+    return '$prefix${raw.substring(0, 8)}...${raw.substring(raw.length - 8)}';
   }
 }

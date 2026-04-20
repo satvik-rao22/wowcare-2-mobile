@@ -12,15 +12,21 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -52,6 +58,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+
+  static const int _nameMaxLength = 50;
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
+  static const int _duplicateQueryPageSize = 25;
+  static const int _duplicateQueryMaxPages = 10; // safety cap (25 * 10 = 250 scanned)
+  static const int _maxParentsPerStudent = 4;
 
   String? _selectedStatus;
   String? _selectedClassroom;
@@ -174,18 +186,38 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _selectSchoolStartDate() async {
     try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final initial = _selectedSchoolStartDate;
+      final DateTime? initialForPicker = _isUpcoming
+          ? (initial == null || initial.isBefore(today) ? today : initial)
+          : initial;
+
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
-          initialDate: _selectedSchoolStartDate,
+          initialDate: initialForPicker,
+          firstDate: _isUpcoming ? today : null,
+          lastDate: DateTime(today.year + 5),
         ),
       );
 
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final selDay =
+            DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+        if (_isUpcoming && selDay.isBefore(today)) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'School start date cannot be in the past',
+            isError: true,
+          );
+          return;
+        }
         setState(() {
-          _selectedSchoolStartDate = result['date'] as DateTime;
+          _selectedSchoolStartDate = selectedDate;
         });
       }
     } catch (e) {
@@ -198,7 +230,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     _lastNameController.text = _lastNameController.text.trim();
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
     _trimAllInputs();
     
     if (_firstNameController.text.isEmpty) {
@@ -209,11 +241,45 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       );
       return;
     }
+
+    if (_firstNameController.text.length > _nameMaxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be at most $_nameMaxLength characters',
+        isError: true,
+      );
+      return;
+    }
+    if (!_nameRegex.hasMatch(_firstNameController.text)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
     
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name is required',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_lastNameController.text.length > _nameMaxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be at most $_nameMaxLength characters',
+        isError: true,
+      );
+      return;
+    }
+    if (!_nameRegex.hasMatch(_lastNameController.text)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -246,15 +312,41 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
+    final proceed = await _confirmIfDuplicateNameExists(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+    );
+    if (!proceed) return;
+
+    final siblingCodesToLink = await _pickSameLastNameSiblings(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+    );
+
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final selectedClassroom = classrooms.where((c) => c.name == _selectedClassroom);
+    final selectedClassroomCode =
+        selectedClassroom.isNotEmpty ? selectedClassroom.first.code : '';
+    if (selectedClassroomCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected classroom is invalid. Please select again.',
+        isError: true,
+      );
+      return;
+    }
+
     final step1Data = {
       'status': _selectedStatus,
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
       'classroom': _selectedClassroom,
+      'classroomCode': selectedClassroomCode,
       'birthdate': _selectedBirthdate,
       'schoolStartDate': _selectedSchoolStartDate,
       'profilePhoto': _profilePhoto,
       'age': _calculatedAge,
+      'siblingCodesToLink': siblingCodesToLink,
     };
 
     // Navigate to step 2
@@ -274,100 +366,231 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     });
   }
 
-  void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
-    // Ask if user wants to add another parent
-    final addAnother = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add another parent?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.family_restroom,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
+  Future<bool> _confirmIfDuplicateNameExists({
+    required String firstName,
+    required String lastName,
+  }) async {
+    if (firstName.isEmpty || lastName.isEmpty) return true;
 
-    if (addAnother == true) {
-      // Navigate to step 2 again to add another parent
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep2Screen(
-            initialSelectFromExisting: false,
-            initialSelectedExistingParents: const [],
-          ),
-        ),
-      ).then((nextParentResult) {
-        if (nextParentResult != null) {
-          final updatedParents = List<dynamic>.from(parents)..add(nextParentResult);
-          _handleStep2Result(step1Data, updatedParents);
+    // Best-effort duplicate check. If it fails, do not block the flow.
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return true;
+
+      final repo = serviceLocator<StudentRepository>();
+
+      String norm(String s) => s.trim().toLowerCase();
+      final firstNorm = norm(firstName);
+      final lastNorm = norm(lastName);
+
+      // Paginate to avoid missing duplicates beyond first page.
+      final matches = <Student>[];
+      int pageIndex = 0;
+      bool hasMore = true;
+      while (hasMore && pageIndex < _duplicateQueryMaxPages) {
+        final page = await repo.getStudentPage(
+          schoolCode: schoolCode,
+          firstName: firstName,
+          lastName: lastName,
+          page: pageIndex,
+          size: _duplicateQueryPageSize,
+        );
+
+        for (final s in page.items) {
+          if (norm(s.firstName) == firstNorm && norm(s.lastName) == lastNorm) {
+            matches.add(s);
+          }
         }
-      });
-      return;
+
+        // If backend correctly filters by first+last, there shouldn't be many results,
+        // but this keeps us safe if it returns broader matches.
+        hasMore = page.hasMore;
+        pageIndex++;
+
+        // Early exit: if we already found at least one exact match and this page
+        // returned fewer than page size, there are no further pages.
+        if (!page.hasMore) break;
+      }
+
+      if (matches.isEmpty) return true;
+
+      // Show bottom sheet with clickable matches.
+      final enteredName = '$firstName $lastName'.trim();
+      final result = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) {
+          return DuplicateStudentBottomSheet(
+            enteredName: enteredName,
+            matches: matches.map((m) => m.fullName.isNotEmpty ? m.fullName : enteredName).toList(),
+            onTapMatch: (matchName) {
+              final match = matches.firstWhere(
+                (m) => (m.fullName.isNotEmpty ? m.fullName : enteredName) == matchName,
+                orElse: () => matches.first,
+              );
+              Navigator.of(ctx).pop(false);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StudentProfileScreen(
+                    name: match.fullName.isNotEmpty ? match.fullName : enteredName,
+                    classroom: match.classroom,
+                    tags: match.tags,
+                    schedule: match.schedule,
+                    sibling: const {},
+                    studentCode: match.code,
+                    initialEnrollmentStatus: match.status,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+
+      // true => add anyway. null/false => cancel.
+      return result == true;
+    } catch (e) {
+      CoreUtils.logApiError('Duplicate name check failed: $e');
+      return true;
+    }
+  }
+
+  Future<List<Student>> _fetchSameLastNameStudents({
+    required String firstName,
+    required String lastName,
+  }) async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+    if (schoolCode.isEmpty) return <Student>[];
+
+    final repo = serviceLocator<StudentRepository>();
+    String norm(String s) => s.trim().toLowerCase();
+    final firstNorm = norm(firstName);
+    final lastNorm = norm(lastName);
+
+    final matches = <Student>[];
+    int pageIndex = 0;
+    bool hasMore = true;
+    while (hasMore && pageIndex < _duplicateQueryMaxPages) {
+      final page = await repo.getStudentPage(
+        schoolCode: schoolCode,
+        lastName: lastName,
+        page: pageIndex,
+        size: _duplicateQueryPageSize,
+      );
+
+      for (final s in page.items) {
+        if (norm(s.lastName) != lastNorm) continue;
+        if (norm(s.firstName) == firstNorm && norm(s.lastName) == lastNorm) {
+          continue;
+        }
+        matches.add(s);
+      }
+
+      hasMore = page.hasMore;
+      pageIndex++;
+      if (!page.hasMore) break;
     }
 
-    // Ask if user wants to add schedule
+    return matches;
+  }
+
+  Future<List<String>> _pickSameLastNameSiblings({
+    required String firstName,
+    required String lastName,
+  }) async {
+    try {
+      final candidates = await _fetchSameLastNameStudents(
+        firstName: firstName,
+        lastName: lastName,
+      );
+      if (candidates.isEmpty) return <String>[];
+      if (!mounted) return <String>[];
+      final result = await showSameLastNameSiblingsDialog(
+        context: context,
+        candidates: candidates,
+      );
+      if (result == null) return <String>[];
+      return result;
+    } catch (e) {
+      CoreUtils.logApiError('Same-last-name siblings lookup failed: $e');
+      return <String>[];
+    }
+  }
+
+  void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
+    if (parents.length < _maxParentsPerStudent) {
+      final addAnother = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ConfirmationBottomSheet(
+          title: 'Do you want to add another parent?',
+          confirmText: 'Yes',
+          cancelText: 'Skip',
+          icon: Icons.family_restroom,
+          onConfirm: () => Navigator.of(context).pop(true),
+          onCancel: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (addAnother == true) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddStudentStep2Screen(
+              initialSelectFromExisting: false,
+              initialSelectedExistingParents: const [],
+            ),
+          ),
+        ).then((nextParentResult) {
+          if (nextParentResult != null) {
+            final updatedParents = List<dynamic>.from(parents)..add(nextParentResult);
+            _handleStep2Result(step1Data, updatedParents);
+          }
+        });
+        return;
+      }
+    }
+
+    // After parent completion (or max parents), ask for schedule.
     final addSchedule = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule for this child now?',
+        title: 'Do you want to add schedule?',
         confirmText: 'Yes',
         cancelText: 'Skip',
-        icon: Icons.calendar_today,
+        icon: Icons.schedule,
         onConfirm: () => Navigator.of(context).pop(true),
         onCancel: () => Navigator.of(context).pop(false),
       ),
     );
 
+    dynamic scheduleData;
     if (addSchedule == true) {
-      // Navigate to step 3
-      Navigator.push(
+      final step3Result = await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep3Screen(),
-        ),
-      ).then((step3Result) {
-        _handleStep3Result(step1Data, parents, step3Result);
-      });
-    } else {
-      // Complete without schedule
-      _completeWizard(step1Data, parents, null);
+        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
+      );
+      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
+        scheduleData = step3Result;
+      } else if (step3Result is Map) {
+        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
+          step3Result.map(
+            (k, v) => MapEntry(
+              k.toString(),
+              Map<String, TimeOfDay>.from(v as Map),
+            ),
+          ),
+        );
+      }
     }
-  }
 
-  void _handleStep3Result(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-    dynamic step3Result,
-  ) async {
-    // Ask if user wants to create recurring invoices
-    final addInvoices = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to create recurring invoices for this child now?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.receipt_long,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
-
-    if (addInvoices == true) {
-      // TODO: Navigate to recurring invoices screen
-      // For now, just complete the wizard
-      _completeWizard(step1Data, parents, step3Result);
-    } else {
-      // Complete the wizard
-      _completeWizard(step1Data, parents, step3Result);
-    }
+    _completeWizard(step1Data, parents, scheduleData);
   }
 
   Future<void> _completeWizard(
@@ -384,11 +607,22 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
       final rawStatus = (step1Data['status'] as String?) ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroom = (step1Data['classroom'] as String?) ?? '';
+      final classroomCode = (step1Data['classroomCode'] as String?)?.trim() ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
+      final siblingCodesToLink = (step1Data['siblingCodesToLink'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          <String>[];
 
-      final schoolCode = StorageKeys.defaultSchoolCode;
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final organizationCode =
+          await storage.getString(StorageKeys.organizationCode) ?? '';
+      final userCode =
+          await storage.getString(StorageKeys.userCode) ?? '';
 
       final repo = serviceLocator<StudentRepository>();
 
@@ -397,7 +631,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         firstName: firstName,
         lastName: lastName,
         status: status,
-        classroom: classroom,
+        classroom: classroomCode,
         dob: birthdate,
         schoolStartDate: schoolStartDate,
         profilePhotoUrl: null,
@@ -406,6 +640,210 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final studentName = student.fullName.isNotEmpty
           ? student.fullName
           : '$firstName $lastName'.trim();
+
+      // Create guardian-user records for each newly entered parent (step 2).
+      // Existing parents selected from the list are skipped here.
+      if (organizationCode.trim().isEmpty) {
+        if (mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Organization is missing; cannot add guardians. Re-select your school and try again.',
+            isError: true,
+          );
+        }
+      } else {
+        for (final parent in parents) {
+        if (parent is! Map) continue;
+        final map = Map<String, dynamic>.from(parent);
+        final bool selectFromExisting =
+            map['selectFromExisting'] as bool? ?? false;
+        if (selectFromExisting) {
+          final selectedExistingParents =
+              (map['selectedExistingParents'] as List<dynamic>? ?? const <dynamic>[])
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+          if (selectedExistingParents.isEmpty) {
+            continue;
+          }
+          try {
+            final nameCodeMap =
+                await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
+
+            final relationLabel =
+                (map['relation'] as String?)?.trim() ?? '';
+            final relationOther =
+                (map['relationOther'] as String?)?.trim() ?? '';
+            final relationEnum = relationLabel.isEmpty
+                ? null
+                : relationLabel.toUpperCase().replaceAll(' ', '_');
+            final relationDescription =
+                relationLabel == 'Other' && relationOther.isNotEmpty
+                    ? relationOther
+                    : null;
+
+            for (final selectedName in selectedExistingParents) {
+              final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
+              if (guardianCode.isEmpty) continue;
+              await repo.linkExistingGuardian(
+                guardianCode: guardianCode,
+                studentCode: student.code,
+                relation: relationEnum,
+                relationDescription: relationDescription,
+              );
+            }
+          } catch (e) {
+            final message = ApiErrorHandler.extractErrorMessage(e);
+            if (mounted) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Failed to link existing parent: $message',
+                isError: true,
+              );
+            }
+          }
+          continue;
+        }
+
+        final parentFirst =
+            (map['firstName'] as String?)?.trim() ?? '';
+        final parentLast =
+            (map['lastName'] as String?)?.trim() ?? '';
+        final parentEmail =
+            (map['email'] as String?)?.trim().toLowerCase() ?? '';
+        final parentPhoneRaw =
+            (map['phoneNumber'] as String?)?.trim() ?? '';
+        final parentPhoneDigits =
+            parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
+
+        if (parentFirst.isEmpty ||
+            parentLast.isEmpty ||
+            parentEmail.isEmpty ||
+            parentPhoneDigits.isEmpty) {
+          continue;
+        }
+
+        final relationLabel =
+            (map['relation'] as String?)?.trim() ?? '';
+        final relationOther =
+            (map['relationOther'] as String?)?.trim() ?? '';
+        final relationToStudent = (relationLabel == 'Other' && relationOther.isNotEmpty
+                ? relationOther
+                : relationLabel)
+            .toUpperCase();
+
+        final bool primaryContact =
+            map['isEmergencyContact'] as bool? ?? true;
+        final bool legalCustody =
+            map['isChildCustody'] as bool? ?? true;
+
+        try {
+          await repo.createGuardianUser(
+            schoolCode: schoolCode,
+            studentCode: student.code,
+            firstName: parentFirst,
+            lastName: parentLast,
+            email: parentEmail,
+            mobile: parentPhoneDigits,
+            relationToStudent: relationToStudent,
+            primaryContact: primaryContact,
+            legalCustody: legalCustody,
+            profilePhotoUrl: null,
+            userCode: userCode.isEmpty ? null : userCode,
+            organizationCode: organizationCode.trim(),
+          );
+        } catch (e) {
+          final message = ApiErrorHandler.extractErrorMessage(e);
+          if (mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Failed to add guardian: $message',
+              isError: true,
+            );
+          }
+        }
+        }
+      }
+
+      // Link siblings after guardians (PUT /api/v1/student/student/{code}/siblings).
+      if (siblingCodesToLink.isNotEmpty) {
+        try {
+          await repo.updateStudentSiblings(
+            studentCode: student.code,
+            siblingCodes: siblingCodesToLink,
+          );
+        } catch (e) {
+          final message = ApiErrorHandler.extractErrorMessage(e);
+          if (mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Student created, but linking siblings failed: $message',
+              isError: true,
+            );
+          }
+        }
+      }
+
+      // If a schedule was provided from Step 3, send it to the regular-schedules API.
+      try {
+        if (schedule is Map) {
+          final rawSchedule = Map<String, dynamic>.from(schedule);
+          final List<Map<String, dynamic>> payloadSchedule = [];
+
+          String _formatLocalTime(TimeOfDay time) {
+            final h = time.hour.toString().padLeft(2, '0');
+            final m = time.minute.toString().padLeft(2, '0');
+            // Use HH:mm:ss which Jackson's LocalTime can parse by default.
+            return '$h:$m:00';
+          }
+
+          for (final entry in rawSchedule.entries) {
+            final dayName = entry.key.toString();
+            final timesMap = Map<String, dynamic>.from(entry.value as Map);
+            final start = timesMap['start'] as TimeOfDay?;
+            final end = timesMap['end'] as TimeOfDay?;
+
+            if (start == null || end == null) {
+              continue;
+            }
+
+            // Compute a simple mid-point time for halfDay between start and end.
+            final startMinutes = start.hour * 60 + start.minute;
+            final endMinutes = end.hour * 60 + end.minute;
+            final midMinutes = ((startMinutes + endMinutes) / 2).floor();
+            final halfDay = TimeOfDay(
+              hour: (midMinutes ~/ 60) % 24,
+              minute: midMinutes % 60,
+            );
+
+            payloadSchedule.add({
+              'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
+              'startTime': _formatLocalTime(start),
+              'halfDay': _formatLocalTime(halfDay),
+              'endTime': _formatLocalTime(end),
+            });
+          }
+
+          if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
+            final remote = serviceLocator<StudentRemoteDataSource>();
+            await remote.updateStudentRegularSchedules(
+              schoolCode: schoolCode,
+              studentCode: student.code,
+              schedule: payloadSchedule,
+            );
+          }
+        }
+      } catch (e) {
+        final message = ApiErrorHandler.extractErrorMessage(e);
+        if (mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Student created but failed to save schedule: $message',
+            isError: true,
+          );
+        }
+      }
 
       CoreUtils.showTopSnackBar(
         context: context,
@@ -417,6 +855,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       Navigator.pop(context, {
         'showPostAddPrompt': true,
         'studentName': studentName,
+        'studentCode': student.code,
       });
     } catch (e) {
       final message = ApiErrorHandler.extractErrorMessage(e);
@@ -614,27 +1053,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
-              child: Container(
-                height: responsive.buttonHeight,
-                decoration: BoxDecoration(
-                  gradient:
-                      _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                  color: _isSubmitting ? Colors.grey[300] : null,
-                  borderRadius: BorderRadius.circular(
-                      responsive.isTablet ? 16.0 : 8.0),
-                ),
-                child: TextButton(
-                  onPressed: _isSubmitting ? null : _onNext,
-                  child: Text(
-                    'Next',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: responsive.buttonFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+              child: CustomButtonLayout(
+                confirmButtonLabel: 'Next',
+                onPressedConfirm: _isSubmitting ? null : _onNext,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: _isSubmitting,
               ),
             ),
           ),
@@ -653,8 +1077,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             "E.g. John",
             _firstNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
-              LengthLimitingTextInputFormatter(100),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -667,8 +1091,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             "E.g. Smith",
             _lastNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
-              LengthLimitingTextInputFormatter(100),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],

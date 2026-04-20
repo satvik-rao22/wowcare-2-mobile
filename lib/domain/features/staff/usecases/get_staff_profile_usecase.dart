@@ -8,9 +8,11 @@ class GetStaffProfileUseCase {
 
   Future<StaffProfile> call({
     required String staffCode,
+    bool forEditStaff = true,
   }) {
     return _repository.getStaffProfile(
       staffCode: staffCode,
+      forEditStaff: forEditStaff,
     );
   }
 }

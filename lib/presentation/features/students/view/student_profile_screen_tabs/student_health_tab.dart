@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../student_health_tab_cards/student_dates_tab_card.dart';
@@ -16,12 +20,16 @@ class StudentHealthTab extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
+    this.studentCode,
+    this.onHealthChanged,
   });
 
   final int initialTabIndex;
   final ScrollController scrollController;
   final String name;
   final String classroom;
+  final String? studentCode;
+  final VoidCallback? onHealthChanged;
 
 
   @override
@@ -35,6 +43,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
   final ScrollController _physicianScrollController = ScrollController();
   final ScrollController _datesScrollController = ScrollController();
   final ScrollController _immunizationScrollController = ScrollController();
+  bool _isImmunizationExempt = false;
 
 
   @override
@@ -92,12 +101,31 @@ class _StudentHealthTabState extends State<StudentHealthTab>
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canEditStudentData =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bool isImmunizationTab = _tabController.index == 3;
-    return Column(
+    return Stack(
       children: [
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.buildScaffoldGradient(),
+            ),
+            child: Image.asset(
+              MediaRes.wowcareMobileBg,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+        ),
+        Column(
+          children: [
         if (isImmunizationTab) ...[
           SizedBox(height: 10,),
-          CustomSectionCard(
+          Opacity(
+            opacity: canEditStudentData ? 1 : 0.45,
+            child: CustomSectionCard(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -107,18 +135,23 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CustomToggle(
-                        key: ValueKey(false),
+                        key: ValueKey(_isImmunizationExempt),
                         label: '',
-                        isToggled: false,
-                        onToggle: (v) => setState(() {
-                          // _searchController.clear();
-                          // _isToggled = v;
-                        }),
+                        isToggled: _isImmunizationExempt,
+                        onToggle: (v) {
+                          if (!canEditStudentData) {
+                            ModuleAccess.showWriteRestricted(context);
+                            return;
+                          }
+                          setState(() => _isImmunizationExempt = v);
+                        },
                       ),
                       SizedBox(width: 10),
                       Flexible(
                         child: const Text(
                           'Exempt students from immunizations',
+                          maxLines: 3,
+                          softWrap: true,
                           style: TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -139,29 +172,42 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                     padding: EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      gradient:
-                      AppColors.buildPrimaryGradient(),
+                      gradient: _isImmunizationExempt
+                          ? const LinearGradient(
+                              colors: [Color(0xFFC9C5CE), Color(0xFFB8B3BE)],
+                            )
+                          : AppColors.buildPrimaryGradient(),
                     ),
                     child: TextButton(
-                      onPressed: () {
-                      },
+                      onPressed: _isImmunizationExempt
+                          ? null
+                          : () {
+                              if (!canEditStudentData) {
+                                ModuleAccess.showWriteRestricted(context);
+                                return;
+                              }
+                            },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                       ),
-                      child: const Text(
-                        'Send Reminder',
-                        style: TextStyle(
+                      child: Text(
+                        _isImmunizationExempt ? 'Reminder Disabled' : 'Send Reminder',
+                        style: const TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           height: 16 / 16,
                         ),
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        softWrap: true,
                       ),
                     ),
                   ),
                 ),
               ],
+            ),
             ),
           ),
           const SizedBox(height: 20),
@@ -245,18 +291,35 @@ class _StudentHealthTabState extends State<StudentHealthTab>
           child: TabBarView(
             controller: _tabController,
             children: [
-              StudentHealthTabCard(scrollController: _healthScrollController, name: widget.name, classroom: widget.classroom),
-              StudentPhysicianTabCard(scrollController: _physicianScrollController, name: widget.name, classroom: widget.classroom),
-              StudentDatesTabCard(scrollController: _datesScrollController, name: widget.name, classroom: widget.classroom),
-              StudentImmunizationTabCard(scrollController: _immunizationScrollController, name: widget.name, classroom: widget.classroom),
+              StudentHealthTabCard(
+                scrollController: _healthScrollController,
+                studentCode: widget.studentCode,
+                onHealthChanged: widget.onHealthChanged,
+              ),
+              StudentPhysicianTabCard(
+                scrollController: _physicianScrollController,
+                name: widget.name,
+                classroom: widget.classroom,
+                studentCode: widget.studentCode,
+              ),
+              StudentDatesTabCard(
+                scrollController: _datesScrollController,
+                name: widget.name,
+                classroom: widget.classroom,
+                studentCode: widget.studentCode,
+              ),
+              StudentImmunizationTabCard(
+                scrollController: _immunizationScrollController,
+                name: widget.name,
+                classroom: widget.classroom,
+                studentCode: widget.studentCode,
+              ),
             ],
           ),
         ),
+          ],
+        ),
       ],
-
-
-
-
     );
   }
 }

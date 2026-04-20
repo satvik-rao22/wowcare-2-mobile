@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class InputWidget extends StatefulWidget {
-  const InputWidget({super.key, required this.controller, this.isRequired = false, this.label = 'Description', this.hint , this.height});
+  const InputWidget({
+    super.key,
+    required this.controller,
+    this.isRequired = false,
+    this.label = 'Description',
+    this.hint,
+    this.height,
+    this.readOnly = false,
+  });
   final String label;
   final String? hint;
   final TextEditingController controller;
-  final bool isRequired ;
+  final bool isRequired;
   final double? height;
+  final bool readOnly;
 
   @override
   State<InputWidget> createState() => _InputWidgetState();
@@ -45,6 +54,8 @@ class _InputWidgetState extends State<InputWidget> {
           ),
           child: TextField(
             controller: widget.controller,
+            readOnly: widget.readOnly,
+            enableInteractiveSelection: !widget.readOnly,
             decoration: InputDecoration(
               hintText: widget.hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),

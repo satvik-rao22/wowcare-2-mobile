@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
-
+/// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
+/// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + gradient edit row.
 class ProfileInfoCard extends StatelessWidget {
   const ProfileInfoCard({
     super.key,
-    required this.cardType,
     this.title = 'Profile Information',
     this.onEdit,
     this.scrollController,
@@ -13,10 +13,8 @@ class ProfileInfoCard extends StatelessWidget {
     this.outerPadding = const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
     this.innerPadding = const EdgeInsets.all(16),
     this.showHeaderEdit = true,
-    this.studentFirstField
   });
 
-  final String cardType;
   final String title;
   final VoidCallback? onEdit;
   final ScrollController? scrollController;
@@ -24,39 +22,31 @@ class ProfileInfoCard extends StatelessWidget {
   final EdgeInsets outerPadding;
   final EdgeInsets innerPadding;
   final bool showHeaderEdit;
-  final Widget? studentFirstField;
+
+  static const BorderRadius _borderRadius = BorderRadius.vertical(
+    top: Radius.circular(12),
+    bottom: Radius.circular(16),
+  );
+
+  static const TextStyle _titleStyle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final isStudent = cardType.toLowerCase() == 'student';
-
-    final borderRadius = isStudent
-        ? const BorderRadius.only(
-      topRight: Radius.circular(8),
-      bottomLeft: Radius.circular(8),
-      bottomRight: Radius.circular(8),
-    )
-        : const BorderRadius.vertical(
-      top: Radius.circular(12),
-      bottom: Radius.circular(16),
-    );
-
-    final headerTextStyle = TextStyle(
-      color: AppColors.primaryColor,
-      fontSize: isStudent ? 17 : 16,
-      fontWeight: FontWeight.w600,
-    );
-
     return SingleChildScrollView(
       controller: scrollController,
-      //padding: outerPadding,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: outerPadding,
       child: Container(
         width: double.infinity,
         padding: innerPadding,
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: AppColors.themeColor),
-          borderRadius: borderRadius,
+          borderRadius: _borderRadius,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,10 +55,7 @@ class ProfileInfoCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if(isStudent)
-                  studentFirstField!
-                else
-                  Text(title, style: headerTextStyle),
+                Text(title, style: _titleStyle),
                 if (showHeaderEdit && onEdit != null)
                   GestureDetector(
                     onTap: onEdit,
@@ -89,84 +76,66 @@ class ProfileInfoCard extends StatelessWidget {
                   ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             ...children.map((child) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: child,
-            )),
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: child,
+                )),
           ],
         ),
       ),
     );
   }
-
-
 }
 
+/// Label/value column matching staff profile [_Field]: label 16 w600 #573353,
+/// 6px gap, value 15 w400 #573353.
 class ProfileField extends StatelessWidget {
   const ProfileField({
     super.key,
     required this.label,
     this.value,
     this.valueWidget,
-    this.isStudentStyle = false,
   });
 
   final String label;
   final String? value;
   final Widget? valueWidget;
-  final bool isStudentStyle;
+
+  static const TextStyle _labelStaff = TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Color(0xff573353),
+  );
+
+  static const TextStyle _valueStaff = TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: 15,
+    color: Color(0xff573353),
+    fontWeight: FontWeight.w400,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = isStudentStyle
-        ? const TextStyle(
-      fontFamily: 'Manrope',
-      fontSize: 15,
-      letterSpacing: -0.03 * 15,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFF6C6377),
-    )
-        : const TextStyle(
-      fontFamily: 'Manrope',
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      color: Color(0xff573353),
-    );
-
-    final valueStyle = isStudentStyle
-        ? const TextStyle(
-      fontFamily: 'Manrope',
-      fontSize: 16,
-      color: Color(0xff573353),
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.03 * 16,
-    )
-        : const TextStyle(
-      fontFamily: 'Manrope',
-      fontSize: 15,
-      color: Color(0xff573353),
-      fontWeight: FontWeight.w400,
-    );
+    final String resolved = () {
+      if (valueWidget != null) return '';
+      final v = value;
+      if (v == null || v.trim().isEmpty) return '-';
+      return v;
+    }();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: labelStyle),
+        Text(label, style: _labelStaff),
         const SizedBox(height: 6),
         valueWidget ??
             Text(
-              value ?? '- -',
-              style: valueStyle,
+              resolved,
+              style: _valueStaff,
             ),
       ],
     );
   }
 }
-
-
-
-
-

@@ -2,7 +2,9 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
@@ -19,15 +21,18 @@ class StaffCubit extends Cubit<StaffState> {
   })  : _getStaffPageUseCase = getStaffPageUseCase,
         _getStaffCountUseCase = getStaffCountUseCase,
         _repository = repository,
+        _storageService = storageService,
         super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
   final StaffRepository _repository;
+  final StorageService _storageService;
   String? _schoolCode;
+  String? _organizationCode;
 
   // How many staff records to load per page from the API
-  static const int _pageSize = 15;
+  static const int _pageSize = 10;
 
   String? _effectiveStatusFilter() {
     final raw = state.statusFilter;
@@ -37,9 +42,16 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
-    // TEMP: Always use default school code from StorageKeys (ignore stored prefs).
-    _schoolCode = StorageKeys.defaultSchoolCode;
+    // Take school from login-context API (saved in storage) only.
+    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
     return _schoolCode!;
+  }
+
+  Future<String> _resolveOrganizationCode() async {
+    if (_organizationCode != null) return _organizationCode!;
+    _organizationCode =
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    return _organizationCode!;
   }
 
   Future<void> loadInitial() async {
@@ -54,6 +66,9 @@ class StaffCubit extends Cubit<StaffState> {
                   status: _effectiveStatusFilter(),
                   designation: state.designationFilter,
                   search: state.searchQuery,
+                  primaryClassroomCodes: state.primaryClassroomCodes,
+                  classCodes: state.classCodes,
+                  sortBy: state.sortBy,
                 )
             : Future.value(null));
     if (cached != null && !isClosed) {
@@ -78,8 +93,12 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> _refreshStaffCountOnly() async {
     try {
+      final organizationCode = await _resolveOrganizationCode();
       final schoolCode = await _resolveSchoolCode();
-      final staffCount = await _getStaffCountUseCase(schoolCode: schoolCode);
+      final staffCount = await _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -107,20 +126,35 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     try {
+      final organizationCode = await _resolveOrganizationCode();
       // Start both requests in parallel.
-      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final staffCountFuture = _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
       final firstPageFuture = _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
         status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
       );
 
       if (isClosed) return;
 
-      final staffCount = await staffCountFuture;
+      // Staff count is non-fatal: if it fails, use defaults so list still shows.
+      // Error is already logged by API interceptor -> CoreUtils.
+      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
+      try {
+        staffCount = await staffCountFuture;
+      } catch (_) {}
+
+
       final firstPage = await firstPageFuture;
 
       var items = List<StaffMember>.from(firstPage.items);
@@ -130,12 +164,16 @@ class StaffCubit extends Cubit<StaffState> {
       // Auto-load next page so that page 0 and 1 are both visible initially
       if (hasMore) {
         final secondPage = await _getStaffPageUseCase(
+          organizationCode: organizationCode,
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
           status: _effectiveStatusFilter(),
           designation: state.designationFilter,
           search: state.searchQuery,
+          primaryClassroomCodes: state.primaryClassroomCodes,
+          classCodes: state.classCodes,
+          sortBy: state.sortBy,
         );
 
         items.addAll(secondPage.items);
@@ -143,6 +181,7 @@ class StaffCubit extends Cubit<StaffState> {
         hasMore = secondPage.hasMore;
       }
 
+      if (isClosed) return;
       emit(
         state.copyWith(
           items: items,
@@ -158,6 +197,7 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
       emit(
         state.copyWith(
           isLoading: false,
@@ -169,25 +209,46 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   Future<void> loadNextPage() async {
-    if (state.isLoadingMore || !state.hasMore) return;
+    // ignore: avoid_print
+    print('[StaffCubit] loadNextPage called: '
+        'isLoadingMore=${state.isLoadingMore}, '
+        'hasMore=${state.hasMore}, '
+        'currentPage=${state.currentPage}, '
+        'items=${state.items.length}');
+    if (state.isLoadingMore || !state.hasMore) {
+      // ignore: avoid_print
+      print('[StaffCubit] loadNextPage aborted due to guard.');
+      return;
+    }
 
     final schoolCode = await _resolveSchoolCode();
+    final organizationCode = await _resolveOrganizationCode();
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
     try {
       final nextPageIndex = state.currentPage + 1;
+      // ignore: avoid_print
+      print('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
       final page = await _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: nextPageIndex,
         size: _pageSize,
         status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: state.searchQuery,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
       );
 
       if (isClosed) return;
 
+      // ignore: avoid_print
+      print('[StaffCubit] loaded page=${page.page}, '
+          'itemsAdded=${page.items.length}, '
+          'hasMore=${page.hasMore}');
       emit(
         state.copyWith(
           items: [...state.items, ...page.items],
@@ -211,17 +272,38 @@ class StaffCubit extends Cubit<StaffState> {
   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
   Future<String> deactivateStaff(String staffCode) async {
     // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(staffCode: staffCode);
+    final profile = await _repository.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
 
-    // Map staffType from profile to backend role expected by deactivate API
-    // Example: admins should use SCHOOL_ADMIN instead of STAFF.
-    final staffTypeUpper = profile.staffType.toUpperCase();
-    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+    final staffTypeUpper = profile.staffType.toUpperCase().trim();
+    final schoolCode = profile.schoolCode.trim();
+    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+        staffTypeUpper.contains('ADMIN');
+
+    // Organization admins are deactivated via a different endpoint that
+    // does not take `schoolCode` or `role`.
+    if (isOrganizationAdmin || schoolCodeMissing) {
+      final message = await _repository.deactivateOrganizationAdmin(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+      );
+      await refresh();
+      return message;
+    }
+
+    // Map staffType from profile to backend role expected by school-users APIs.
+    // Backend role differs for school admins vs regular staff.
+    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+        ? 'SCHOOL_ADMIN'
+        : 'STAFF';
 
     final message = await _repository.deactivateSchoolUser(
       userCode: profile.userCode,
       organizationCode: profile.organizationCode,
-      schoolCode: profile.schoolCode,
+      schoolCode: schoolCode,
       role: role,
     );
 
@@ -235,16 +317,35 @@ class StaffCubit extends Cubit<StaffState> {
    /// Returns the success message from the backend. Errors are rethrown for UI to handle.
   Future<String> activateStaff(String staffCode) async {
     // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(staffCode: staffCode);
+    final profile = await _repository.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
 
-    // Map staffType from profile to backend role expected by activate API
-    final staffTypeUpper = profile.staffType.toUpperCase();
-    final role = staffTypeUpper == 'ADMIN' ? 'SCHOOL_ADMIN' : 'STAFF';
+    final staffTypeUpper = profile.staffType.toUpperCase().trim();
+    final schoolCode = profile.schoolCode.trim();
+    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+        staffTypeUpper.contains('ADMIN');
+
+    if (isOrganizationAdmin || schoolCodeMissing) {
+      final message = await _repository.activateOrganizationAdmin(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+      );
+
+      await refresh();
+      return message;
+    }
+
+    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+        ? 'SCHOOL_ADMIN'
+        : 'STAFF';
 
     final message = await _repository.activateSchoolUser(
       userCode: profile.userCode,
       organizationCode: profile.organizationCode,
-      schoolCode: profile.schoolCode,
+      schoolCode: schoolCode,
       role: role,
     );
 
@@ -258,6 +359,7 @@ class StaffCubit extends Cubit<StaffState> {
   /// refresh or automatic second-page preloading). Intended for rapid typing.
   Future<void> searchStaff(String query) async {
     final schoolCode = await _resolveSchoolCode();
+    final organizationCode = await _resolveOrganizationCode();
 
     emit(
       state.copyWith(
@@ -270,12 +372,16 @@ class StaffCubit extends Cubit<StaffState> {
 
     try {
       final firstPage = await _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
         status: _effectiveStatusFilter(),
         designation: state.designationFilter,
         search: query,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
       );
 
       if (isClosed) return;
@@ -319,52 +425,76 @@ class StaffCubit extends Cubit<StaffState> {
   void updateFilters({
     String? status,
     String? designation,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) {
     // Normalize empty / null to empty-string so that copyWith can
     // clear filters instead of keeping the previous non-null value.
     final normalizedStatus = (status ?? '').trim();
     final normalizedDesignation = (designation ?? '').trim();
+    final normalizedSortBy = (sortBy ?? '').trim().toLowerCase();
 
     emit(
       state.copyWith(
         statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
         designationFilter:
             normalizedDesignation.isEmpty ? '' : normalizedDesignation,
+        primaryClassroomCodes: primaryClassroomCodes ?? state.primaryClassroomCodes,
+        classCodes: classCodes ?? state.classCodes,
+        sortBy: normalizedSortBy.isEmpty ? state.sortBy : (normalizedSortBy == 'asc' ? 'asc' : 'desc'),
       ),
     );
   }
 
-  /// Clears all filters (search, status, designation) and refreshes the list.
+  /// Clears all filters (search, status, designation, classroom) and refreshes the list.
   Future<void> clearAllFiltersAndRefresh() async {
-    // Update state first to clear filters
+    // Update state first to clear filters (use [] so copyWith clears classroom filters)
     emit(
       state.copyWith(
         searchQuery: '',
-        // Reset to defaults used by the API (ACTIVE, no designation)
         statusFilter: 'ACTIVE',
         designationFilter: '',
+        primaryClassroomCodes: const [],
+        classCodes: const [],
+        sortBy: 'desc',
         isRefreshing: true,
         errorMessage: null,
       ),
     );
 
+    final organizationCode = await _resolveOrganizationCode();
     final schoolCode = await _resolveSchoolCode();
 
     try {
       // Start both requests in parallel with cleared filters
-      final staffCountFuture = _getStaffCountUseCase(schoolCode: schoolCode);
+      final staffCountFuture = _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
       final firstPageFuture = _getStaffPageUseCase(
+        organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: 'ACTIVE', // Default to ACTIVE when filters are cleared
-        designation: null, // Explicitly null
-        search: '', // Explicitly empty
+        status: 'ACTIVE',
+        designation: null,
+        search: '',
+        primaryClassroomCodes: null,
+        classCodes: null,
+        sortBy: 'desc',
       );
 
       if (isClosed) return;
 
-      final staffCount = await staffCountFuture;
+      // Staff count is non-fatal: if it fails, use defaults so list still shows.
+      // Error is already logged by API interceptor -> CoreUtils.
+      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
+      try {
+        staffCount = await staffCountFuture;
+      } catch (_) {}
+
+
       final firstPage = await firstPageFuture;
 
       var items = List<StaffMember>.from(firstPage.items);
@@ -374,12 +504,16 @@ class StaffCubit extends Cubit<StaffState> {
       // Auto-load next page so that page 0 and 1 are both visible initially
       if (hasMore) {
         final secondPage = await _getStaffPageUseCase(
+          organizationCode: organizationCode,
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: 'ACTIVE', // Default to ACTIVE when filters are cleared
-          designation: null, // Explicitly null
-          search: '', // Explicitly empty
+          status: 'ACTIVE',
+          designation: null,
+          search: '',
+          primaryClassroomCodes: null,
+          classCodes: null,
+          sortBy: 'desc',
         );
 
         items.addAll(secondPage.items);
@@ -387,6 +521,7 @@ class StaffCubit extends Cubit<StaffState> {
         hasMore = secondPage.hasMore;
       }
 
+      if (isClosed) return;
       emit(
         state.copyWith(
           items: items,
@@ -402,6 +537,7 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
       emit(
         state.copyWith(
           isLoading: false,

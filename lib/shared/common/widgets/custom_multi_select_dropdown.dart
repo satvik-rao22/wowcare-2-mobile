@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -14,6 +12,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final bool isField;
   final double? width;
   final double gapHeight;
+  final double maxDropdownHeight;
 
   const CustomMultiSelectDropdown({
     Key? key,
@@ -25,7 +24,9 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.suffix,
     this.isField = false,
     this.width,
-    this.gapHeight = 70
+    /// Extra spacing between the field and dropdown (in addition to field height).
+    this.gapHeight = 6,
+    this.maxDropdownHeight = 250,
 
   }) : super(key: key);
 
@@ -38,6 +39,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   late List<String> _localSelectedItems;
   bool isDropdownOpen = false;
   final LayerLink _layerLink = LayerLink();
+  final GlobalKey _fieldKey = GlobalKey();
   OverlayEntry? _overlayEntry;
 
 
@@ -87,16 +89,22 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     });
   }
 
-  void _closeDropdown() {
+  void _closeDropdown({bool updateState = true}) {
     _overlayEntry?.remove();
     _overlayEntry = null;
-
+    if (updateState && mounted) {
+      setState(() {
+        isDropdownOpen = false;
+      });
+    }
 
   }
 
   OverlayEntry _createOverlayEntry() {
-    RenderBox renderBox = context.findRenderObject() as RenderBox;
-    var size = renderBox.size;
+    final renderObject =
+        _fieldKey.currentContext?.findRenderObject() ?? context.findRenderObject();
+    final renderBox = renderObject as RenderBox;
+    final size = renderBox.size;
 
     return OverlayEntry(
       builder: (context) => Stack(
@@ -124,14 +132,14 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               link: _layerLink,
               showWhenUnlinked: false,
               //offset: Offset(0.0, size.height + 5.0),
-              offset: Offset.fromDirection(pi / 2, widget.gapHeight),
+              offset: Offset(0.0, size.height + widget.gapHeight),
               child: Material(
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),
                 shadowColor: Colors.black26,
                 child: Container(
-                  constraints: const BoxConstraints(
-                    maxHeight: 250,
+                  constraints: BoxConstraints(
+                    maxHeight: widget.maxDropdownHeight,
                     minWidth: 120,
                   ),
                   decoration: BoxDecoration(
@@ -223,7 +231,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
   @override
   void dispose() {
-    _closeDropdown();
+    // Do not call setState while disposing.
+    _closeDropdown(updateState: false);
     super.dispose();
   }
 
@@ -233,22 +242,23 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         ? widget.hintText
         : '${_localSelectedItems.length} $displaySuffix';
 
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.label != null)
-            Text(
-              widget.label!,
-              style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.label != null)
+          Text(
+            widget.label!,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
             ),
-          if (widget.label != null) const SizedBox(height: 8),
-          GestureDetector(
+          ),
+        if (widget.label != null) const SizedBox(height: 8),
+        CompositedTransformTarget(
+          link: _layerLink,
+          child: GestureDetector(
+            key: _fieldKey,
             onTap: _toggleDropdown,
             child: Container(
               height: 40,
@@ -276,8 +286,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                     ),
                   ),
                   Icon(
-                    isDropdownOpen 
-                        ? Icons.keyboard_arrow_up 
+                    isDropdownOpen
+                        ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     size: 24,
                   ),
@@ -285,8 +295,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
