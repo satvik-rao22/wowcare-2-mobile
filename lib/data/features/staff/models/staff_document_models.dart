@@ -8,6 +8,8 @@ class StaffDocumentRequestModel extends Equatable {
     required this.documentSizeKb,
     required this.mimeType,
     required this.expiryDate,
+    this.documentNotes,
+    this.updatedBy,
   });
 
   final String documentType;
@@ -15,7 +17,10 @@ class StaffDocumentRequestModel extends Equatable {
   final String documentUrl;
   final int documentSizeKb;
   final String mimeType;
-  final String expiryDate; // ISO date string: "2026-01-30"
+  final String expiryDate; // ISO date string or empty when optional
+  final String? documentNotes;
+  /// Name or code of staff/admin who uploaded/last updated the document.
+  final String? updatedBy;
 
   Map<String, dynamic> toJson() {
     return {
@@ -25,12 +30,16 @@ class StaffDocumentRequestModel extends Equatable {
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
       'expiryDate': expiryDate,
+      if (documentNotes != null && documentNotes!.isNotEmpty)
+        'documentNotes': documentNotes,
+      // Backend contract: field is named "uploadedBy" in the request body.
+      if (updatedBy != null && updatedBy!.isNotEmpty) 'uploadedBy': updatedBy,
     };
   }
 
   @override
   List<Object?> get props =>
-      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate];
+      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate, documentNotes, updatedBy];
 }
 
 class StaffDocumentResponseModel extends Equatable {
@@ -68,8 +77,11 @@ class StaffDocumentItemModel extends Equatable {
     required this.documentSizeKb,
     required this.mimeType,
     required this.expiryDate,
+    this.documentNotes,
     required this.expired,
     required this.createdAt,
+    required this.updatedBy,
+    required this.updatedAt,
   });
 
   final String documentUuid;
@@ -79,8 +91,11 @@ class StaffDocumentItemModel extends Equatable {
   final int documentSizeKb;
   final String mimeType;
   final String expiryDate;
+  final String? documentNotes;
   final bool expired;
   final String createdAt;
+  final String updatedBy;
+  final String updatedAt;
 
   factory StaffDocumentItemModel.fromJson(Map<String, dynamic> json) {
     return StaffDocumentItemModel(
@@ -91,8 +106,12 @@ class StaffDocumentItemModel extends Equatable {
       documentSizeKb: json['documentSizeKb'] as int? ?? 0,
       mimeType: json['mimeType'] as String? ?? '',
       expiryDate: json['expiryDate'] as String? ?? '',
+      documentNotes: json['documentNotes'] as String?,
       expired: json['expired'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
+      // API may return either `uploadedBy` (current) or `updatedBy` (legacy).
+      updatedBy: (json['uploadedBy'] ?? json['updatedBy'] ?? '').toString(),
+      updatedAt: json['updatedAt'] as String? ?? '',
     );
   }
 
@@ -105,8 +124,11 @@ class StaffDocumentItemModel extends Equatable {
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
       'expiryDate': expiryDate,
+      if (documentNotes != null) 'documentNotes': documentNotes,
       'expired': expired,
       'createdAt': createdAt,
+      'updatedBy': updatedBy,
+      'updatedAt': updatedAt,
     };
   }
 
@@ -119,8 +141,11 @@ class StaffDocumentItemModel extends Equatable {
         documentSizeKb,
         mimeType,
         expiryDate,
+        documentNotes,
         expired,
         createdAt,
+        updatedBy,
+        updatedAt,
       ];
 }
 

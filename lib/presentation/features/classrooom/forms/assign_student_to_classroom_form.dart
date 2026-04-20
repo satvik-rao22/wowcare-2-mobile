@@ -7,26 +7,16 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
-// import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
-// import 'package:wowcare/core/services/injection_container.dart'; // UI-only
-// import 'package:wowcare/core/util/core_utils.dart'; // UI-only
-// import 'package:wowcare/core/util/typedefs.dart'; // UI-only
-// import 'package:wowcare/features/...'; // UI-only
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
 import 'package:shimmer/shimmer.dart';
 
 // UI-only lightweight types
-typedef DataMap = Map<String, dynamic>;
-
-class RoomDTO {
-  final int id;
-  final String name;
-  const RoomDTO({required this.id, required this.name});
-}
-
 class _TagEntity {
   final String name;
   const _TagEntity(this.name);
@@ -34,12 +24,14 @@ class _TagEntity {
 
 class StudentEntity {
   final int id;
+  final String code;
   final String fullName;
   final String photoUuid;
   final String? roomName;
   final List<_TagEntity> tags;
   const StudentEntity({
     required this.id,
+    required this.code,
     required this.fullName,
     this.photoUuid = '',
     this.roomName,
@@ -50,10 +42,12 @@ class StudentEntity {
 class AssignStudentToClassroomForm extends StatefulWidget {
   final VoidCallback onStudentsAssigned; // Add this line
   final String selectedRoomName;
+  final String classroomCode;
 
   const AssignStudentToClassroomForm({
     required this.onStudentsAssigned,
     required this.selectedRoomName,
+    required this.classroomCode,
     super.key,
   });
 
@@ -64,6 +58,8 @@ class AssignStudentToClassroomForm extends StatefulWidget {
 
 class _AssignStudentToClassroomFormState
     extends State<AssignStudentToClassroomForm> {
+  static const int _pageSize = 100;
+
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
   List<String> _selectedTag = [];
@@ -71,15 +67,15 @@ class _AssignStudentToClassroomFormState
   final List<StudentEntity> _allStudents = [];
   final List<String> _allRooms = [];
   final List<String> _allTags = [];
+  bool _isLoadingStudents = false;
+  String? _studentsError;
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    getAllStudents();
-    getAllTags();
-    getClassroomsData();
+    _loadStudentsFromApi();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -90,51 +86,87 @@ class _AssignStudentToClassroomFormState
     super.dispose();
   }
 
-  void getAllStudents() {
-    // UI-only: populate with dummy students
-    _allStudents
-      ..clear()
-      ..addAll([
-        StudentEntity(
-          id: 1,
-          fullName: 'Alice Johnson',
-          photoUuid: '',
-          roomName: 'Room A',
-          tags: const [_TagEntity('Tag 1')],
-        ),
-        StudentEntity(
-          id: 2,
-          fullName: 'Bob Smith',
-          photoUuid: '',
-          roomName: 'Room B',
-          tags: const [_TagEntity('Tag 2')],
-        ),
-        StudentEntity(
-          id: 3,
-          fullName: 'Charlie Davis',
-          photoUuid: '',
-          roomName: 'Room A',
-          tags: const [_TagEntity('Tag 3')],
-        ),
-      ]);
-    _filterStudents();
-    setState(() {});
-  }
+  Future<void> _loadStudentsFromApi() async {
+    setState(() {
+      _isLoadingStudents = true;
+      _studentsError = null;
+    });
 
-  void getAllTags() {
-    // UI-only: static tags
-    _allTags
-      ..clear()
-      ..addAll(['Tag 1', 'Tag 2', 'Tag 3']);
-    setState(() {});
-  }
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.trim().isEmpty) {
+        throw 'School code is not set. Please sign in and select a school.';
+      }
 
-  void getClassroomsData() {
-    // UI-only: static rooms, exclude currently selected in filter dropdown later
-    _allRooms
-      ..clear()
-      ..addAll(['Room A', 'Room B', 'Room C']);
-    setState(() {});
+      final getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+      final fetchedStudents = <StudentEntity>[];
+      final uniqueRooms = <String>{};
+      final uniqueTags = <String>{};
+
+      int page = 0;
+      bool hasMore = true;
+      while (hasMore) {
+        final studentPage = await getStudentPageUseCase(
+          schoolCode: schoolCode,
+          page: page,
+          size: _pageSize,
+          status: 'ACTIVE',
+        );
+
+        for (final s in studentPage.items) {
+          final tagEntities = s.tags
+              .where((t) => t.trim().isNotEmpty)
+              .map((t) => _TagEntity(t.trim()))
+              .toList();
+          fetchedStudents.add(
+            StudentEntity(
+              id: fetchedStudents.length + 1,
+              code: s.code,
+              fullName: s.fullName,
+              photoUuid: '',
+              roomName: s.classroom,
+              tags: tagEntities,
+            ),
+          );
+          if (s.classroom.trim().isNotEmpty) {
+            uniqueRooms.add(s.classroom.trim());
+          }
+          for (final t in s.tags) {
+            final normalized = t.trim();
+            if (normalized.isNotEmpty) uniqueTags.add(normalized);
+          }
+        }
+
+        hasMore = studentPage.hasMore;
+        page += 1;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _allStudents
+          ..clear()
+          ..addAll(fetchedStudents);
+        _allRooms
+          ..clear()
+          ..addAll(uniqueRooms.toList()..sort());
+        _allTags
+          ..clear()
+          ..addAll(uniqueTags.toList()..sort());
+        _filterStudents();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _studentsError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingStudents = false;
+        });
+      }
+    }
   }
 
   void _onSearchChanged() {
@@ -144,6 +176,10 @@ class _AssignStudentToClassroomFormState
   void _filterStudents() {
     final allStudents = _allStudents;
     _filteredStudents = allStudents.where((student) {
+      // Exclude students already in the selected classroom from ClassroomScreen
+      if ((student.roomName ?? '').trim() == widget.selectedRoomName.trim()) {
+        return false;
+      }
       bool matchesSearch = true;
       bool matchesRoom = true;
       bool matchesTag = true;
@@ -211,21 +247,6 @@ class _AssignStudentToClassroomFormState
             _selectedTag.isEmpty
         ? _allStudents
         : _filteredStudents;
-  }
-
-  Widget _buildShimmerGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 69,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
-    );
   }
 
   @override
@@ -339,26 +360,49 @@ class _AssignStudentToClassroomFormState
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                mainAxisExtent: 52,
-              ),
-              itemCount: _getVisibleStudents().length,
-              itemBuilder: (context, index) {
-                final student = _getVisibleStudents()[index];
-                final isSelected = selectedStudents.contains(student);
-                return StudentListItem(
-                  student: student,
-                  isSelected: isSelected,
-                  onSelectionChanged: (value) {
-                    _toggleStudentSelection(student, value);
-                  },
-                );
-              },
-            ),
+            child: _isLoadingStudents
+                ? const Center(child: CircularProgressIndicator())
+                : _studentsError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _studentsError!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                color: Colors.red,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ElevatedButton(
+                              onPressed: _loadStudentsFromApi,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 52,
+                        ),
+                        itemCount: _getVisibleStudents().length,
+                        itemBuilder: (context, index) {
+                          final student = _getVisibleStudents()[index];
+                          final isSelected = selectedStudents.contains(student);
+                          return StudentListItem(
+                            student: student,
+                            isSelected: isSelected,
+                            onSelectionChanged: (value) {
+                              _toggleStudentSelection(student, value);
+                            },
+                          );
+                        },
+                      ),
           ),
           const SizedBox(height: 16),
           CustomButtonLayout(
@@ -383,6 +427,7 @@ class _AssignStudentToClassroomFormState
                     builder: (_, controller) => StudentConfirmationForm(
                       selectedStudents: selectedStudents,
                       selectedRoomName: widget.selectedRoomName,
+                      classroomCode: widget.classroomCode,
                       onStudentsAssigned: widget.onStudentsAssigned,
                     ),
                   ),
@@ -399,12 +444,14 @@ class _AssignStudentToClassroomFormState
 class StudentConfirmationForm extends StatefulWidget {
   final Set<StudentEntity> selectedStudents;
   final String selectedRoomName;
+  final String classroomCode;
   final VoidCallback onStudentsAssigned;
 
   const StudentConfirmationForm({
     Key? key,
     required this.selectedStudents,
     required this.selectedRoomName,
+    required this.classroomCode,
     required this.onStudentsAssigned,
   }) : super(key: key);
 
@@ -415,6 +462,7 @@ class StudentConfirmationForm extends StatefulWidget {
 
 class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
   late Set<StudentEntity> currentSelectedStudents;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -530,16 +578,55 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
             confirmButtonLabel: 'Submit',
             cancelButtonLabel: 'Cancel',
             onPressedCancel: () => Navigator.pop(context),
-            onPressedConfirm: () {
+            onPressedConfirm: _isSubmitting
+                ? () {}
+                : () async {
               if (currentSelectedStudents.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please select at least one student')),
                 );
                 return;
               }
-              // UI-only: no backend. Simulate success and close.
-              widget.onStudentsAssigned();
-              Navigator.pop(context);
+
+              setState(() => _isSubmitting = true);
+              try {
+                final storage = serviceLocator<StorageService>();
+                final schoolCode = await storage.getString(StorageKeys.schoolCode);
+                if (schoolCode == null || schoolCode.trim().isEmpty) {
+                  throw 'Missing schoolCode. Please sign in / select a school again.';
+                }
+
+                // NOTE: In this UI module we only have the selected room name.
+                // The backend expects classroomCode; we pass the selectedRoomName
+                // as the code until the classroom code is wired into this form.
+                final classroomCode = widget.classroomCode.trim();
+                final studentCodes = currentSelectedStudents
+                    .map((s) => s.code.trim())
+                    .where((code) => code.isNotEmpty)
+                    .toList();
+
+                final message =
+                    await serviceLocator<AssignStudentsToClassroomUseCase>()(
+                  schoolCode: schoolCode,
+                  classroomCode: classroomCode,
+                  studentCodes: studentCodes,
+                );
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message.isEmpty ? 'Assigned successfully' : message)),
+                );
+
+                widget.onStudentsAssigned();
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())),
+                );
+              } finally {
+                if (mounted) setState(() => _isSubmitting = false);
+              }
             },
           ),
         ],
@@ -631,7 +718,6 @@ class StudentProfileImage extends StatefulWidget {
 
 class _StudentProfileImageState extends State<StudentProfileImage> {
   // UI-only: remove backend image fetching; keep shimmer to preserve UI feel
-  static final Map<String, Uint8List?> _imageCache = {};
   StreamSubscription? _subscription; // not used in UI-only
   Uint8List? _currentImage;
   bool _isLoading = false;

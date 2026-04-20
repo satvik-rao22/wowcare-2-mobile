@@ -1,0 +1,68 @@
+import 'dart:convert';
+
+/// True for parent/guardian API personas (not staff/teachers).
+bool roleStringIsGuardianPersona(String role) {
+  final u = role.toUpperCase().trim();
+  return u == 'GUARDIAN' ||
+      u == 'PARENT' ||
+      u.contains('GUARDIAN') ||
+      u.contains('PARENT');
+}
+
+/// Roles that match [organizationCode] and [schoolCode].
+///
+/// When [schoolCode] is non-empty, a role must match that school or have an
+/// empty school (org-wide) to be included.
+Iterable<Map<String, String>> matchingRolesForOrgSchool(
+  List<dynamic> rolesList,
+  String organizationCode,
+  String schoolCode,
+) sync* {
+  final org = organizationCode.trim();
+  final school = schoolCode.trim();
+  if (org.isEmpty) return;
+  for (final r in rolesList) {
+    if (r is! Map) continue;
+    final m = Map<String, dynamic>.from(r);
+    final rOrg = (m['organizationCode'] ?? '').toString().trim();
+    if (rOrg != org) continue;
+    final rSchool = (m['schoolCode'] ?? '').toString().trim();
+    if (school.isNotEmpty &&
+        rSchool.isNotEmpty &&
+        rSchool != school &&
+        rSchool != '-') {
+      continue;
+    }
+    yield {
+      'role': (m['role'] ?? '').toString(),
+      'organizationCode': rOrg,
+      'schoolCode': rSchool,
+    };
+  }
+}
+
+/// Whether to skip `GET /staff/code` for this org/school context.
+///
+/// When every role tied to the context is guardian/parent-only, the user has
+/// no staff record and the staff lookup returns 404.
+bool shouldSkipStaffCodeResolutionForContext({
+  required String rolesJson,
+  required String organizationCode,
+  required String schoolCode,
+}) {
+  if (rolesJson.trim().isEmpty) return false;
+  try {
+    final decoded = jsonDecode(rolesJson);
+    if (decoded is! List<dynamic>) return false;
+    final matching =
+        matchingRolesForOrgSchool(decoded, organizationCode, schoolCode)
+            .toList();
+    if (matching.isEmpty) return false;
+    final hasNonGuardian = matching.any(
+      (m) => !roleStringIsGuardianPersona(m['role'] ?? ''),
+    );
+    return !hasNonGuardian;
+  } catch (_) {
+    return false;
+  }
+}

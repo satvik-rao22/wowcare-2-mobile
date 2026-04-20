@@ -9,7 +9,14 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -25,6 +32,11 @@ class AddStudentStep2Screen extends StatefulWidget {
     this.initialIsEmergencyContact = true,
     this.initialIsChildCustody = true,
     this.initialProfilePhoto,
+    this.studentCode,
+    this.schoolCode,
+    this.createGuardianDirectly = false,
+    this.editGuardianCode,
+    this.initialUserCode,
   });
 
   static const String routeName = '/add-student-step2-screen';
@@ -40,6 +52,11 @@ class AddStudentStep2Screen extends StatefulWidget {
   final bool initialIsEmergencyContact;
   final bool initialIsChildCustody;
   final File? initialProfilePhoto;
+  final String? studentCode;
+  final String? schoolCode;
+  final bool createGuardianDirectly;
+  final String? editGuardianCode;
+  final String? initialUserCode;
 
   @override
   _AddStudentStep2ScreenState createState() => _AddStudentStep2ScreenState();
@@ -53,19 +70,30 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   final TextEditingController _relationOtherController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
+  static const int _nameMaxLength = 50;
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
+
   bool _selectFromExisting = false;
   List<String> _selectedExistingParents = [];
   String? _selectedRelation;
   bool _isEmergencyContact = true;
   bool _isChildCustody = true;
   File? _profilePhoto;
+  bool _isSubmitting = false;
 
-  final List<String> _relationOptions = ['Mother', 'Father', 'Guardian', 'Other'];
-  final List<String> _existingParents = [
-    'John Smith (john@example.com)',
-    'Jane Doe (jane@example.com)',
-    'Mike Johnson (mike@example.com)',
-  ]; // Mock data - should come from API
+  final List<String> _relationOptions = [
+    'Mother',
+    'Father',
+    'Grandmother',
+    'Grandfather',
+    'Stepmother',
+    'Stepfather',
+    'Other',
+  ];
+  List<String> _existingParents = const [];
+
+  late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
+  late final StorageService _storageService;
 
   // Email validation regexes: strict and permissive; accept if any matches
   static final RegExp _emailRegexStrict = RegExp(
@@ -74,12 +102,18 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   static final RegExp _emailRegexPermissive = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$',
   );
+  static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
 
   bool get _showRelationOther => _selectedRelation == 'Other';
+  bool get _isEditMode =>
+      widget.editGuardianCode != null && widget.editGuardianCode!.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    _getGuardianNamesForSchoolUseCase =
+        serviceLocator<GetGuardianNamesForSchoolUseCase>();
+    _storageService = serviceLocator<StorageService>();
     _selectFromExisting = widget.initialSelectFromExisting;
     _selectedExistingParents = List<String>.from(widget.initialSelectedExistingParents);
     if (widget.initialFirstName != null) {
@@ -92,7 +126,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       _emailController.text = widget.initialEmail!.trim();
     }
     if (widget.initialPhoneNumber != null) {
-      _phoneController.text = widget.initialPhoneNumber!.trim();
+      _phoneController.text = _formatPhoneNumber(widget.initialPhoneNumber!.trim());
     }
     _selectedRelation = widget.initialRelation;
     if (widget.initialRelationOther != null) {
@@ -101,6 +135,25 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     _isEmergencyContact = widget.initialIsEmergencyContact;
     _isChildCustody = widget.initialIsChildCustody;
     _profilePhoto = widget.initialProfilePhoto;
+
+    if (_isEditMode) {
+      // Edit should always use the direct parent form (same UI layout, prefilled).
+      _selectFromExisting = false;
+      _selectedExistingParents = [];
+    }
+
+    _loadExistingParents();
+  }
+
+  String _formatPhoneNumber(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3)}';
+    }
+    final take = digits.length >= 10 ? 10 : digits.length;
+    final d = digits.substring(0, take);
+    return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
   }
 
   @override
@@ -183,7 +236,69 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     if (digits.length != 10) {
       return 'Please enter a valid 10-digit phone number';
     }
+    if (!_phoneRegex.hasMatch(raw)) {
+      return 'Please enter a valid 10-digit phone number';
+    }
     return null;
+  }
+
+  Future<void> _createGuardiansForExistingParents({
+    required String schoolCode,
+    required String studentCode,
+  }) async {
+    final repo = serviceLocator<StudentRepository>();
+    // Map display names back to guardian codes.
+    final nameCodeMap =
+        await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
+
+    final relationLabel = (_selectedRelation ?? '').trim();
+    final relationOther = _relationOtherController.text.trim();
+    final relationEnum = relationLabel.toUpperCase().replaceAll(' ', '_');
+    final relationDescription = relationLabel == 'Other' && relationOther.isNotEmpty
+        ? relationOther
+        : null;
+
+    for (final selected in _selectedExistingParents) {
+      final key = selected.trim();
+      if (key.isEmpty) continue;
+      final guardianCode = nameCodeMap[key];
+      if (guardianCode == null || guardianCode.isEmpty) continue;
+
+      await repo.linkExistingGuardian(
+        guardianCode: guardianCode,
+        studentCode: studentCode,
+        relation: relationEnum,
+        relationDescription: relationDescription,
+      );
+    }
+  }
+
+  Future<void> _loadExistingParents() async {
+    try {
+      // Prefer explicit schoolCode from widget; fall back to storage.
+      String schoolCode = widget.schoolCode ?? '';
+      if (schoolCode.isEmpty) {
+        schoolCode =
+            await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      }
+      if (schoolCode.isEmpty) {
+        return;
+      }
+
+      final names =
+          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      if (!mounted) return;
+
+      setState(() {
+        _existingParents = names;
+        // Ensure initially selected parents still exist in the latest list.
+        _selectedExistingParents.removeWhere(
+          (parent) => !_existingParents.contains(parent),
+        );
+      });
+    } catch (_) {
+      // Non-critical for this screen; ignore errors and keep list empty.
+    }
   }
 
   void _onNext() {
@@ -199,6 +314,23 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         );
         return;
       }
+      if (_selectedRelation == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a relation',
+          isError: true,
+        );
+        return;
+      }
+      if (_selectedRelation == 'Other' &&
+          _relationOtherController.text.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please specify the relation',
+          isError: true,
+        );
+        return;
+      }
     } else {
       // Validate new parent form
       if (_firstNameController.text.isEmpty) {
@@ -210,10 +342,44 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
+      if (_firstNameController.text.length > _nameMaxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'First name must be at most $_nameMaxLength characters',
+          isError: true,
+        );
+        return;
+      }
+      if (!_nameRegex.hasMatch(_firstNameController.text)) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'First name must be letters only and max 50 characters',
+          isError: true,
+        );
+        return;
+      }
+
       if (_lastNameController.text.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Last name is required',
+          isError: true,
+        );
+        return;
+      }
+
+      if (_lastNameController.text.length > _nameMaxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Last name must be at most $_nameMaxLength characters',
+          isError: true,
+        );
+        return;
+      }
+      if (!_nameRegex.hasMatch(_lastNameController.text)) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Last name must be letters only and max 50 characters',
           isError: true,
         );
         return;
@@ -248,7 +414,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
-      if (_selectedRelation == 'Other' && _relationOtherController.text.trim().isEmpty) {
+      if (_selectedRelation == 'Other' &&
+          _relationOtherController.text.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please specify the relation',
@@ -256,6 +423,128 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         );
         return;
       }
+    }
+
+    // If launched from Family tab to create guardian immediately
+    final studentCode = widget.studentCode ?? '';
+    final schoolCode = widget.schoolCode ?? '';
+    if (widget.createGuardianDirectly &&
+        studentCode.isNotEmpty &&
+        schoolCode.isNotEmpty) {
+      if (_isSubmitting) return;
+      setState(() => _isSubmitting = true);
+
+      () async {
+        try {
+          if (_selectFromExisting) {
+            // Use full guardian details from guardian API for existing parents.
+            await _createGuardiansForExistingParents(
+              schoolCode: schoolCode,
+              studentCode: studentCode,
+            );
+
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Parents linked successfully',
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          } else {
+            final orgCode =
+                await _storageService.getString(StorageKeys.organizationCode) ??
+                    '';
+            final loggedInUserCode =
+                await _storageService.getString(StorageKeys.userCode) ?? '';
+            if (orgCode.trim().isEmpty) {
+              if (!mounted) return;
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message:
+                    'Organization is missing. Re-select your school from the menu and try again.',
+                isError: true,
+              );
+              return;
+            }
+
+            final repo = serviceLocator<StudentRepository>();
+            final first = _firstNameController.text.trim();
+            final last = _lastNameController.text.trim();
+            final email = _emailController.text.trim().toLowerCase();
+            final rawPhone = _phoneController.text.trim();
+            final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+
+            final relationLabel = (_selectedRelation ?? '').trim();
+            final relationOther = _relationOtherController.text.trim();
+            final relationToStudent =
+                (relationLabel == 'Other' && relationOther.isNotEmpty
+                        ? relationOther
+                        : relationLabel)
+                    .toUpperCase();
+
+            final primaryContact = _isEmergencyContact;
+            final legalCustody = _isChildCustody;
+            final String message;
+            if (_isEditMode) {
+              final guardianCode = widget.editGuardianCode!.trim();
+              final fields = <String, dynamic>{
+                'userCode': (widget.initialUserCode ?? '').trim(),
+                'code': guardianCode,
+                'schoolCode': schoolCode,
+                'studentCode': studentCode,
+                'firstName': first,
+                'lastName': last,
+                'email': email,
+                'mobile': digits,
+                'relationToStudent': relationToStudent,
+                'primaryContact': primaryContact,
+                'legalCustody': legalCustody,
+                'updatedBy': loggedInUserCode.trim(),
+              };
+              message = await repo.updateGuardian(
+                code: guardianCode,
+                studentCode: studentCode,
+                fields: fields,
+              );
+            } else {
+              message = await repo.createGuardianUser(
+                schoolCode: schoolCode,
+                studentCode: studentCode,
+                firstName: first,
+                lastName: last,
+                email: email,
+                mobile: digits,
+                relationToStudent: relationToStudent,
+                primaryContact: primaryContact,
+                legalCustody: legalCustody,
+                userCode:
+                    loggedInUserCode.trim().isEmpty ? null : loggedInUserCode.trim(),
+                organizationCode: orgCode.trim(),
+              );
+            }
+
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: message,
+              isSuccess: true,
+            );
+            Navigator.pop(context, true);
+          }
+        } catch (e) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: ApiErrorHandler.extractErrorMessage(e),
+            isError: true,
+          );
+        } finally {
+          if (mounted) {
+            setState(() => _isSubmitting = false);
+          }
+        }
+      }();
+      return;
     }
 
     final step2Data = {
@@ -308,7 +597,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add Student - Step 2 of 3',
+                      _isEditMode ? 'Edit parent' : 'Add parent',
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,
@@ -344,31 +633,34 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                             padding: EdgeInsets.zero,
                             children: [
                               SizedBox(height: responsive.verticalSpacing),
-                              // Toggle: Select from existing
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Select from existing',
-                                    style: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
+                              // Toggle is hidden in edit mode so the screen remains
+                              // the same prefilled form UI as Add Step 2.
+                              if (!_isEditMode) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Select from existing',
+                                      style: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: "Manrope",
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xff573353),
+                                      ),
                                     ),
-                                  ),
-                                  CustomToggle(
-                                    label: '',
-                                    isToggled: _selectFromExisting,
-                                    onToggle: (value) {
-                                      setState(() {
-                                        _selectFromExisting = value;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
+                                    CustomToggle(
+                                      label: '',
+                                      isToggled: _selectFromExisting,
+                                      onToggle: (value) {
+                                        setState(() {
+                                          _selectFromExisting = value;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: responsive.verticalSpacing),
+                              ],
                               // Show either existing parents dropdown or new parent form
                               if (_selectFromExisting) ...[
                                 // Existing parents multiselect
@@ -395,6 +687,43 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         });
                                       },
                                     ),
+                                    SizedBox(height: responsive.verticalSpacing),
+                                    CustomDropdown(
+                                      label: "Relation",
+                                      hintText: 'Select',
+                                      items: _relationOptions,
+                                      selectedItem: _selectedRelation,
+                                      labelStyle: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: "Manrope",
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xff573353),
+                                      ),
+                                      showAsterisk: true,
+                                      labelBottomSpacing:
+                                          responsive.isTablet ? 8.0 : 6.0,
+                                      onSelect: (val) {
+                                        setState(() {
+                                          _selectedRelation = val;
+                                        });
+                                      },
+                                    ),
+                                    if (_showRelationOther) ...[
+                                      SizedBox(height: responsive.verticalSpacing),
+                                      _buildInputField(
+                                        "Specify Relation",
+                                        "E.g. Grandmother",
+                                        _relationOtherController,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r"[A-Za-z\s\-']"),
+                                          ),
+                                          LengthLimitingTextInputFormatter(50),
+                                          NameCapitalizationFormatter(),
+                                          TrimFormatter(),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ] else ...[
@@ -544,24 +873,12 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _onNext,
-              child: Text(
-                'Next',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          child: CustomButtonLayout(
+            confirmButtonLabel: _isEditMode ? 'SAVE' : 'ADD',
+            onPressedConfirm: _isSubmitting ? null : _onNext,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: _isSubmitting,
           ),
         ),
       ),
@@ -579,7 +896,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             _firstNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
-              LengthLimitingTextInputFormatter(50),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -593,7 +910,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             _lastNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
-              LengthLimitingTextInputFormatter(50),
+              LengthLimitingTextInputFormatter(_nameMaxLength),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+enum AbsentMarkMethod { gps, qr, kiosk, app, web }
 
 class StudentAbsentCardData {
   final String id;
+  final String? studentCode;
   final String name;
   final String? photoUuid;
   final String roomName;
@@ -20,9 +27,11 @@ class StudentAbsentCardData {
   final bool expectedToday;
   final String? signInTime;
   final String? signOutTime;
+  final AbsentMarkMethod? markAbsentMethod;
 
   StudentAbsentCardData({
     required this.id,
+    this.studentCode,
     required this.name,
     this.photoUuid,
     required this.roomName,
@@ -38,6 +47,7 @@ class StudentAbsentCardData {
     this.expectedToday = true,
     this.signInTime,
     this.signOutTime,
+    this.markAbsentMethod,
   });
 }
 
@@ -80,8 +90,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
+          border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -100,93 +111,59 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                     DocumentImageWidget(
                       fileUuid: student.photoUuid ?? '',
                       name: student.name,
+                      studentCode:
+                          (student.studentCode ?? '').trim().isNotEmpty
+                              ? student.studentCode
+                              : student.id,
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
-                    // Status dot for absent list
-                    if (student.hasSignIn &&
-                        (student.signOutTime == null ||
-                            student.signOutTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(0, 177, 21, 1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (student.expectedToday &&
-                        !student.hasSignIn &&
-                        (student.signOutTime == null ||
-                            student.signOutTime!.isEmpty) &&
-                        (student.signInTime == null ||
-                            student.signInTime!.isEmpty))
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          width: responsive.isTablet ? 14 : 12,
-                          height: responsive.isTablet ? 14 : 12,
-                          decoration: BoxDecoration(
-                            color: const Color.fromRGBO(200, 32, 32, 1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: responsive.isTablet ? 2.5 : 2,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 SizedBox(width: spacing),
                 Expanded(
-                  child: Text(
+                  child: AppText.body(
                     student.name,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: responsive.labelFontSize,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF573353),
-                      height: 19 / responsive.labelFontSize,
+                      color: AppColors.primaryColor,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 SizedBox(width: spacing / 2),
-                Flexible(
-                  child: Text(
-                    student.roomName,
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: responsive.isTablet ? 16 : 15,
-                      color: const Color(0xFF6C7FD8),
-                      fontWeight: FontWeight.w500,
-                      height: 19 / (responsive.isTablet ? 16 : 15),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: AppText.body(
+                      student.roomName,
+                      style: TextStyle(
+                        fontSize: responsive.isTablet ? 16 : 15,
+                        color: AppColors.themeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
                   ),
                 ),
               ],
             ),
             if (widget.isExpanded) ...[
               SizedBox(height: responsive.verticalSpacing / 2),
-              const Divider(height: 1, color: Color(0xFFE5E9F2)),
+              Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
               _buildDetailRow(context, responsive, 'Room', student.roomName),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(context, responsive, 'Absent Time', student.absentTime),
+              _buildDetailRow(
+                context,
+                responsive,
+                'Absent Time',
+                student.absentTime,
+                method: student.markAbsentMethod,
+              ),
               if (student.absentBy.isNotEmpty && student.absentBy != 'Unknown') ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
                 _buildDetailRow(context, responsive, 'Marked by', student.absentBy),
@@ -198,28 +175,21 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                   children: [
                     Expanded(
                       flex: responsive.isTablet ? 2 : 1,
-                      child: Text(
+                      child: AppText.small(
                         'Note',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
                           fontSize: responsive.isTablet ? 14 : 12,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF8F9BB3),
-                          height: responsive.isTablet ? 18 / 14 : 16 / 12,
+                          color: AppColors.secondaryColor.withOpacity(0.6),
                         ),
                       ),
                     ),
                     SizedBox(width: responsive.horizontalSpacing / 2),
                     Expanded(
                       flex: responsive.isTablet ? 3 : 2,
-                      child: Text(
+                      child: AppText.value(
                         student.note!,
                         style: TextStyle(
-                          fontFamily: 'Manrope',
                           fontSize: responsive.isTablet ? 16 : 14,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF573353),
-                          height: responsive.isTablet ? 21 / 16 : 19 / 14,
                         ),
                         textAlign: TextAlign.end,
                         maxLines: 3,
@@ -252,25 +222,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                 SizedBox(
                   width: double.infinity,
                   height: responsive.buttonHeight * 0.8,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: Text(
-                      "View",
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.isTablet ? 16 : 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                        height: 19 / (responsive.isTablet ? 16 : 15),
-                      ),
-                    ),
+                  child: CustomCancelButton(
+                    cancelButtonLabel: 'View',
+                    onPressedCancel: widget.onView,
                   ),
                 ),
             ],
@@ -280,41 +234,77 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, ResponsiveHelper responsive, String label, String value) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    String label,
+    String value, {
+    AbsentMarkMethod? method,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: Text(
+          child: AppText.small(
             label,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.isTablet ? 14 : 12,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF8F9BB3),
-              height: responsive.isTablet ? 18 / 14 : 16 / 12,
+              color: AppColors.secondaryColor.withOpacity(0.6),
             ),
           ),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.isTablet ? 16 : 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF573353),
-              height: responsive.isTablet ? 21 / 16 : 19 / 14,
-            ),
-            textAlign: TextAlign.end,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (method != null) ...[
+                _buildMethodIcon(method, responsive),
+                SizedBox(width: responsive.horizontalSpacing / 4),
+              ],
+              Flexible(
+                child: AppText.value(
+                  value,
+                  style: TextStyle(
+                    fontSize: responsive.isTablet ? 16 : 14,
+                  ),
+                  textAlign: TextAlign.end,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildMethodIcon(AbsentMarkMethod method, ResponsiveHelper responsive) {
+    final size = responsive.isTablet ? 20.0 : 18.0;
+    switch (method) {
+      case AbsentMarkMethod.gps:
+        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+      case AbsentMarkMethod.qr:
+        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+      case AbsentMarkMethod.kiosk:
+        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+      case AbsentMarkMethod.app:
+        return SvgPicture.asset(
+          MediaRes.appMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+      case AbsentMarkMethod.web:
+        return SvgPicture.asset(
+          MediaRes.webMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+        );
+    }
   }
 }

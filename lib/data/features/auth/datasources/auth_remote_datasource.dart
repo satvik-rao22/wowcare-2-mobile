@@ -16,6 +16,13 @@ abstract class AuthRemoteDataSource {
   Future<Map<String, dynamic>> getLoginContext({
     required String accessToken,
   });
+  Future<void> patchLoginContext({
+    required String accessToken,
+    required String? lastLoginOrganizationCode,
+    required String? lastLoginSchoolCode,
+    String? lastLoginApp,
+    DateTime? lastLoginAt,
+  });
   Future<SchoolNamesResponseModel> getSchoolNamesByOrg({
     required String organizationCode,
     required List<String> schoolCodes,
@@ -24,6 +31,9 @@ abstract class AuthRemoteDataSource {
   });
   Future<List<String>> getOrganizationNames({
     required List<String> organizationCodes,
+    required String accessToken,
+  });
+  Future<List<Map<String, dynamic>>> getUserDetails({
     required String accessToken,
   });
   Future<String> forgotPassword({required String email});
@@ -49,7 +59,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.authLogin,
+        loginUrl,
         data: requestBody,
         options: Options(
           headers: ApiHeaders.json,
@@ -64,12 +74,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final apiResponse = ApiResponse<LoginResponseModel>.fromJson(
-          response.data!,
-          (dataJson) =>
-              LoginResponseModel.fromJson(dataJson as Map<String, dynamic>),
-        );
-        if (apiResponse.data == null) {
+        final rawMap = response.data!;
+        // Extract data - handle both { data: {...} } and { data: { data: {...} } }
+        Object? dataPayload = rawMap['data'];
+        if (dataPayload is Map<String, dynamic> &&
+            dataPayload['accessToken'] == null &&
+            dataPayload['access_token'] == null &&
+            dataPayload['data'] != null) {
+          dataPayload = dataPayload['data'];
+        }
+        final dataMap = dataPayload as Map<String, dynamic>?;
+        if (dataMap == null) {
           throw DioException(
             requestOptions: response.requestOptions,
             response: response,
@@ -77,7 +92,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             error: 'Login failed: Missing data in response',
           );
         }
-        return apiResponse.data!;
+        final loginModel = LoginResponseModel.fromJson(dataMap);
+        if (loginModel.accessToken.isEmpty) {
+          throw DioException(
+            requestOptions: response.requestOptions,
+            response: response,
+            type: DioExceptionType.badResponse,
+            error: 'Login failed: Missing accessToken in response',
+          );
+        }
+        return loginModel;
       } else {
         throw DioException(
           requestOptions: response.requestOptions,
@@ -143,7 +167,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post(
-        ApiPaths.authLogout,
+        url,
         data: requestBody,
         options: Options(
           headers: ApiHeaders.json,
@@ -197,6 +221,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final url = ApiPaths.url(ApiPaths.authLoginContext);
 
     try {
+      // Call login-context WITH Authorization header
       final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
@@ -221,12 +246,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200 && response.data != null) {
+        final raw = response.data!;
         final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
-          response.data!,
+          raw,
           (dataJson) =>
               (dataJson as Map<String, dynamic>? ?? <String, dynamic>{}),
         );
-        return apiResponse.data ?? <String, dynamic>{};
+        // Login-context may return payload at top level (no "data" wrapper).
+        // If apiResponse.data is null/empty, use raw response as context.
+        final context = apiResponse.data;
+        if (context != null &&
+            (context['LastLoginOrganizationCode'] != null ||
+                context['LastLoginSchoolCode'] != null)) {
+          return context;
+        }
+        return raw;
       } else {
         throw DioException(
           requestOptions: response.requestOptions,
@@ -278,6 +312,93 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
+  Future<void> patchLoginContext({
+    required String accessToken,
+    required String? lastLoginOrganizationCode,
+    required String? lastLoginSchoolCode,
+    String? lastLoginApp,
+    DateTime? lastLoginAt,
+  }) async {
+    final url = ApiPaths.url(ApiPaths.authLoginContext);
+    final org = lastLoginOrganizationCode?.trim();
+    final school = lastLoginSchoolCode?.trim();
+    final body = <String, dynamic>{
+      'lastLoginApp': lastLoginApp ?? 'wowcare',
+      'lastLoginOrganizationCode': (org == null || org.isEmpty) ? null : org,
+      'lastLoginSchoolCode': (school == null || school.isEmpty) ? null : school,
+      'lastLoginAt': (lastLoginAt ?? DateTime.now().toUtc()).toIso8601String(),
+    };
+    final requestBody = jsonEncode(body);
+
+    try {
+      // Call login-context PATCH WITH Authorization header
+      final headers = ApiHeaders.authorizedJson(accessToken);
+      ApiLogger.logRequest(
+        url: url,
+        method: 'PATCH',
+        headers: headers,
+        body: requestBody,
+      );
+
+      final response = await _dio.patch<Map<String, dynamic>>(
+        url,
+        data: requestBody,
+        options: Options(headers: headers),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'PATCH',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode != 200) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Failed to update login context: Invalid response',
+        );
+      }
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'PATCH',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      if (e.response != null) {
+        final statusCode = e.response?.statusCode;
+        final errorMessage = e.response?.data?['message'] ??
+            e.response?.data?['error'] ??
+            'Failed to update login context';
+        throw DioException(
+          requestOptions: e.requestOptions,
+          response: e.response,
+          type: DioExceptionType.badResponse,
+          error: 'Status: $statusCode - $errorMessage',
+        );
+      }
+      rethrow;
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'PATCH',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: url),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
   Future<SchoolNamesResponseModel> getSchoolNamesByOrg({
     required String organizationCode,
     required List<String> schoolCodes,
@@ -285,19 +406,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String accessToken,
   }) async {
     try {
-      // Use Sairam base URL for school-ms API
-      final url = ApiPaths.urlWithBase(
-        ApiPaths.schoolNamesByOrg,
-        ApiConstants.Sairam,
-      );
-      
-      // Build query parameters
-      final queryParams = <String, dynamic>{
-        'organizationCode': organizationCode,
-        'isAdmin': isAdmin,
-        'schoolCodes': schoolCodes, // Include even if empty array
-      };
+      // GET /api/v1/schools/names-by-org/{organizationCode}?isAdmin=true|false
+      final path = ApiPaths.schoolNamesByOrgPath(organizationCode);
+      final url = ApiPaths.urlWithBase(path, ApiConstants.schoolMs);
 
+      final queryParams = <String, dynamic>{
+        'isAdmin': isAdmin,
+      };
+      if (schoolCodes.isNotEmpty) {
+        queryParams['schoolCodes'] = schoolCodes;
+      }
+
+      // Call school-names endpoint WITH Authorization header
       final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
@@ -335,8 +455,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } on DioException catch (e) {
       final errorUrl = ApiPaths.urlWithBase(
-        ApiPaths.schoolNamesByOrg,
-        ApiConstants.Sairam,
+        ApiPaths.schoolNamesByOrgPath(organizationCode),
+        ApiConstants.schoolMs,
       );
       ApiLogger.logError(
         url: errorUrl,
@@ -366,8 +486,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     } catch (e, stackTrace) {
       final errorUrl = ApiPaths.urlWithBase(
-        ApiPaths.schoolNamesByOrg,
-        ApiConstants.Sairam,
+        ApiPaths.schoolNamesByOrgPath(organizationCode),
+        ApiConstants.schoolMs,
       );
       ApiLogger.logUnexpectedError(
         url: errorUrl,
@@ -389,16 +509,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String accessToken,
   }) async {
     try {
-      // Use Sairam base URL for organization names (same as school-ms)
       final url = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
-        ApiConstants.Sairam,
+        ApiConstants.baseUrl,
       );
 
       final queryParams = <String, dynamic>{
         'organizationCodes': organizationCodes,
       };
 
+      // Call organization-names endpoint WITH Authorization header
       final headers = ApiHeaders.authorizedJson(accessToken);
       ApiLogger.logRequest(
         url: url,
@@ -428,10 +548,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         final apiResponse = ApiResponse<List<String>>.fromJson(
           response.data!,
           (dataJson) {
-            if (dataJson is List) {
-              return dataJson.map((e) => e.toString()).toList();
+            if (dataJson is! List) return <String>[];
+            final codeToName = <String, String>{};
+            for (final e in dataJson) {
+              if (e is Map && e['code'] != null && e['name'] != null) {
+                codeToName[e['code'].toString()] = e['name'].toString();
+              }
             }
-            return <String>[];
+            return organizationCodes
+                .map((c) => codeToName[c] ?? c)
+                .toList();
           },
         );
         return apiResponse.data ?? <String>[];
@@ -446,7 +572,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       final errorUrl = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
-        ApiConstants.Sairam,
+        ApiConstants.baseUrl,
       );
       ApiLogger.logError(
         url: errorUrl,
@@ -477,7 +603,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e, stackTrace) {
       final errorUrl = ApiPaths.urlWithBase(
         ApiPaths.organizationNames,
-        ApiConstants.Sairam,
+        ApiConstants.baseUrl,
       );
       ApiLogger.logUnexpectedError(
         url: errorUrl,
@@ -487,6 +613,75 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
       throw DioException(
         requestOptions: RequestOptions(path: errorUrl),
+        type: DioExceptionType.unknown,
+        error: 'Unexpected error: $e',
+      );
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getUserDetails({
+    required String accessToken,
+  }) async {
+    final url = ApiPaths.url(ApiPaths.userDetails);
+    final headers = ApiHeaders.authorizedJson(accessToken);
+    try {
+      ApiLogger.logRequest(
+        url: url,
+        method: 'GET',
+        headers: headers,
+        queryParameters: const <String, dynamic>{},
+        body: null,
+      );
+
+      final response = await _dio.get<Map<String, dynamic>>(
+        url,
+        options: Options(headers: headers),
+      );
+
+      ApiLogger.logResponse(
+        url: url,
+        method: 'GET',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final rawData = response.data!['data'];
+        if (rawData is List) {
+          return rawData
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        return const <Map<String, dynamic>>[];
+      }
+
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Failed to get user details: Invalid response',
+      );
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: url,
+        method: 'GET',
+        type: e.type.toString(),
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      rethrow;
+    } catch (e, stackTrace) {
+      ApiLogger.logUnexpectedError(
+        url: url,
+        method: 'GET',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      throw DioException(
+        requestOptions: RequestOptions(path: url),
         type: DioExceptionType.unknown,
         error: 'Unexpected error: $e',
       );
@@ -511,7 +706,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.authForgotPassword,
+        url,
         queryParameters: queryParams,
         data: null,
         options: Options(

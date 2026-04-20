@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -52,12 +53,12 @@ class StudentAttendanceSummary extends StatelessWidget {
             ProgressItemHelper(
               label: 'Active ($active)',
               value: active.toDouble(),
-              color: const Color(0xFF9BE8FF),
+              color: AppColors.lightBlueProgressBar,
             ),
             ProgressItemHelper(
               label: 'Upcoming ($upcoming)',
               value: upcoming.toDouble(),
-              color: const Color(0xFFFDCD16),
+              color: AppColors.mustardProgressBar,
             ),
           ],
           onLegendTap: onLegendTap != null
@@ -73,38 +74,40 @@ class StudentAttendanceSummary extends StatelessWidget {
         CustomStatBarCard(
           title: 'Expected\nStudents',
           number: expected.toString(),
+          normalizeBarByItemSum: true,
           items: [
             ProgressItemHelper(
-              label: 'Present ($present)',
+              label: 'Signed-In ($present)',
               value: present.toDouble(),
-              color: const Color(0xFFACF3AA),
-              filterValue: 'Present',
+              color: AppColors.lightGreenProgressBar,
+              filterValue: 'Signed-In',
             ),
             ProgressItemHelper(
               label: 'Absent ($absent)',
               value: absent.toDouble(),
-              color: const Color(0xFFF38D8D),
+              color: AppColors.redProgressBar,
               filterValue: 'Absent',
             ),
-            if (signedOut > 0)
-              ProgressItemHelper(
-                label: 'Signed Out ($signedOut)',
-                value: signedOut.toDouble(),
-                color: const Color(0xFF9BE8FF),
-                filterValue: 'Signed Out',
-              ),
-            if (notMarked > 0)
-              ProgressItemHelper(
-                label: 'Not Marked ($notMarked)',
-                value: notMarked.toDouble(),
-                color: const Color(0xFFFDCD16),
-                filterValue: 'Not Marked',
-              ),
+            ProgressItemHelper(
+              label: 'Signed Out ($signedOut)',
+              value: signedOut.toDouble(),
+              color: AppColors.lightBlueProgressBar,
+              filterValue: 'Signed Out',
+            ),
+            ProgressItemHelper(
+              label: 'Not Marked ($notMarked)',
+              value: notMarked.toDouble(),
+              color: AppColors.mustardProgressBar,
+              filterValue: 'Not Marked',
+            ),
           ],
           onLegendTap: onLegendTap != null
               ? (label, filterValue) {
                   final status = label.split(' ').first;
-                  if (status == 'Present' || status == 'Absent' || status == 'Signed' || status == 'Not') {
+                  if (status == 'Signed-In' ||
+                      status == 'Absent' ||
+                      status == 'Signed' ||
+                      status == 'Not') {
                     if (status == 'Signed') {
                       onLegendTap!('Signed Out');
                     } else if (status == 'Not') {
@@ -121,15 +124,10 @@ class StudentAttendanceSummary extends StatelessWidget {
   }
 
   Widget _buildSummaryCardShimmer(BuildContext context, ResponsiveHelper responsive) {
-    return Container(
+    return CustomSectionCard(
       padding: EdgeInsets.symmetric(
         horizontal: responsive.horizontalSpacing,
         vertical: responsive.verticalSpacing / 2,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(responsive.isTablet ? 14 : 12),
-        color: AppColors.cardColor,
       ),
       child: Row(
         children: [

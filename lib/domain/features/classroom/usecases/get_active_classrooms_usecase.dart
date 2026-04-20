@@ -8,8 +8,12 @@ class GetActiveClassroomsUseCase {
 
   Future<List<Classroom>> call({
     required String schoolCode,
+    bool onlyTypeClassroom = true,
   }) {
-    return _repository.getActiveClassrooms(schoolCode: schoolCode);
+    return _repository.getActiveClassrooms(
+      schoolCode: schoolCode,
+      onlyTypeClassroom: onlyTypeClassroom,
+    );
   }
 }
 

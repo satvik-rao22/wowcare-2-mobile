@@ -3,7 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 // Backend/bloc imports disabled for UI-only mode
 // import 'package:carousel_slider/carousel_slider.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,16 +14,8 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 // import 'package:wowcare/core/util/typedefs.dart';
 // import 'package:wowcare/features/...';
 // import 'package:intl/intl.dart' as intl;
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_date_seperator_row.dart';
-
 // UI-only lightweight models and typedefs
 typedef DataMap = Map<String, dynamic>;
-
-class RoomDTO {
-  final int id;
-  final String name;
-  const RoomDTO({required this.id, required this.name});
-}
 
 class FirestoreUser {
   final String id;
@@ -61,7 +53,7 @@ class ClassroomNotesTabCard extends StatefulWidget {
   });
 
   final ScrollController scrollController;
-  final RoomDTO? selectedRoom;
+  final Classroom? selectedRoom;
   static const routeName = '/classroom-notes-screen';
 
   @override
@@ -74,7 +66,6 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
   List<FirestoreUser> filteredUsers = [];
   List<ClassroomMessage> _messages = [];
   bool _showUnreadOnly = false;
-  String _searchQuery = '';
 
   @override
   void initState() {
@@ -134,9 +125,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
 
   void _onSearchChanged() {
     if (mounted) {
-      setState(() {
-        _searchQuery = _searchController.text.trim().toLowerCase();
-      });
+      setState(() {});
     }
   }
 

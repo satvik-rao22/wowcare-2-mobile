@@ -7,6 +7,7 @@ class GetStaffPageUseCase {
   final StaffRepository _repository;
 
   Future<StaffPage> call({
+    required String organizationCode,
     required String schoolCode,
     String? code,
     int page = 0,
@@ -14,8 +15,12 @@ class GetStaffPageUseCase {
     String? status,
     String? designation,
     String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
   }) {
     return _repository.getStaffPage(
+      organizationCode: organizationCode,
       schoolCode: schoolCode,
       code: code,
       page: page,
@@ -23,6 +28,9 @@ class GetStaffPageUseCase {
       status: status,
       designation: designation,
       search: search,
+      primaryClassroomCodes: primaryClassroomCodes,
+      classCodes: classCodes,
+      sortBy: sortBy,
     );
   }
 }

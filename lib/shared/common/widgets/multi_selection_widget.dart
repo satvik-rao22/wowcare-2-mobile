@@ -13,6 +13,9 @@ class MultiSelectWidget extends StatefulWidget {
   final bool isRequired;
   final String? errorText;
   final bool colorfulSelection;
+  /// When true, renders a fixed-height field with "N selected" summary
+  /// (useful inside GridViews to avoid layout overflow).
+  final bool compact;
   final bool showClearAllOption;
   final String clearSelectionText;
 
@@ -26,6 +29,7 @@ class MultiSelectWidget extends StatefulWidget {
     this.isRequired = true,
     this.errorText = "This is a mandatory field please select one option",
     this.colorfulSelection = true,
+    this.compact = false,
     this.showClearAllOption = false,
     this.clearSelectionText = 'Clear All'
   });
@@ -101,6 +105,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
+                      final responsive = ResponsiveHelper(context);
                       filteredTags = widget.availableOptions
                           .where((tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()))
                           .toList();
@@ -152,7 +157,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                                     widget.clearSelectionText,
                                                     style: TextStyle(
                                                       fontFamily: "Manrope",
-                                                      fontSize: 14,
+                                                      fontSize: responsive.inputFontSize,
                                                       fontWeight: FontWeight.w500,
                                                       color: hasSelections
                                                           ? Color(0xff573353)
@@ -194,11 +199,11 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                         Expanded(
                                           child: Text(
                                             tag,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontFamily: "Manrope",
-                                              fontSize: 14,
+                                              fontSize: responsive.inputFontSize,
                                               fontWeight: FontWeight.w500,
-                                              color: Color(0xff573353),
+                                              color: const Color(0xff573353),
                                             ),
                                           ),
                                         ),
@@ -240,6 +245,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final String displayText = widget.selectedOptions.isEmpty
+        ? widget.hintText
+        : '${widget.selectedOptions.length} selected';
 
     return CompositedTransformTarget(
       link: _layerLink,
@@ -251,7 +259,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
             text: TextSpan(
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
-                fontFamily: "Manpore",
+                fontFamily: "Manrope",
                 fontWeight: FontWeight.w400,
                 color: const Color(0xff573353),
               ),
@@ -261,7 +269,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
       
           // Main field with chips
           GestureDetector(
@@ -269,10 +277,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
             onTap: _toggleDropdown,
             child: Container(
               width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: responsive.isTablet ? 20 : 16,
-                vertical: responsive.isTablet ? 16 : 12,
-              ),
+              height: widget.compact ? 40 : null,
+              padding: widget.compact
+                  ? const EdgeInsets.symmetric(horizontal: 10)
+                  : EdgeInsets.symmetric(
+                      horizontal: responsive.isTablet ? 20 : 16,
+                      vertical: responsive.isTablet ? 16 : 12,
+                    ),
               // decoration: BoxDecoration(
               //   color: Colors.white,
               //   border: Border.all(
@@ -287,12 +298,31 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               ),
               child: Stack(
                 children: [
-                  if (widget.selectedOptions.isEmpty)
+                  if (widget.compact)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        displayText,
+                        style: TextStyle(
+                          color: widget.selectedOptions.isEmpty
+                              ? Colors.grey[600]
+                              : Colors.black87,
+                          fontSize: 15,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  else if (widget.selectedOptions.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         widget.hintText,
-                        style: const TextStyle(color: Color(0xff573353), fontSize: 14),
+                        style: TextStyle(
+                          color: const Color(0xff573353),
+                          fontSize: responsive.inputFontSize,
+                          fontFamily: 'Manrope',
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     )
                   else
@@ -315,7 +345,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                   style: TextStyle(
                                     color: _getTagTextColor(tag),
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 14,
+                                    fontSize: responsive.inputFontSize,
                                     fontFamily: 'Manrope',
                                   ),
                                   overflow: TextOverflow.ellipsis,

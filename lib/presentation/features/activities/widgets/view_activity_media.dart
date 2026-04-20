@@ -3,6 +3,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../core/util/core_utils.dart';
 import '../view/activity_daily_tab.dart';
 
 class ActivityMediaViewer extends StatefulWidget {
@@ -29,6 +30,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPlaying = false;
+  bool _videoInitFailed = false;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
   }
 
   void _initializeVideo() async {
+    _videoInitFailed = false;
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.activity.videoUrl!));
     _controller!.addListener(() {
       if(_controller!.value.position >= _controller!.value.duration){
@@ -62,6 +65,18 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
       }
     } catch (e) {
       debugPrint("Video failed to initialize: $e");
+      _controller?.dispose();
+      _controller = null;
+      if (!mounted) return;
+      setState(() {
+        _videoInitFailed = true;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Video preview is not supported on this device. Please open in full screen or use standard MP4 (H.264).',
+        isWarning: true,
+      );
     }
   }
 
@@ -122,7 +137,11 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                     child: VideoPlayer(_controller!),
                   )
                 else if (hasVideo)
-                  const Center(child: CircularProgressIndicator(color: Colors.white))
+                  _videoInitFailed
+                      ? _buildVideoUnsupportedPlaceholder()
+                      : const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
                 else if (hasPhoto)
                     Image.network(
                       widget.activity.photoUrl!,
@@ -189,6 +208,25 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
       color: Colors.black12.withOpacity(0.3),
       child: const Center(
         child: Icon(Icons.broken_image, size: 60, color: Colors.white70),
+      ),
+    );
+  }
+
+  Widget _buildVideoUnsupportedPlaceholder() {
+    return Container(
+      color: Colors.black12.withOpacity(0.25),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_off_outlined, size: 42, color: Colors.white70),
+            SizedBox(height: 8),
+            Text(
+              'Video preview unavailable',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
       ),
     );
   }

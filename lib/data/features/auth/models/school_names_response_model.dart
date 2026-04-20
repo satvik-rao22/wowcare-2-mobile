@@ -2,37 +2,58 @@ class SchoolNamesResponseModel {
   final bool success;
   final String message;
   final List<String> data;
+  /// Full list of {schoolCode, schoolName} when API returns objects.
+  final List<Map<String, String>> dataWithCodes;
+  /// Optional organization display name when API returns
+  /// { organizationName, schools: [...] }.
+  final String organizationName;
   final String timestamp;
 
   SchoolNamesResponseModel({
     required this.success,
     required this.message,
     required this.data,
+    this.dataWithCodes = const [],
+    this.organizationName = '',
     required this.timestamp,
   });
 
   factory SchoolNamesResponseModel.fromJson(Map<String, dynamic> json) {
+    // API returns data as object: {organizationName, schools: [{code, name, ...}]}
+    List<dynamic> rawList = [];
+    final data = json['data'];
+    String orgName = '';
+    if (data is List) {
+      rawList = data;
+    } else if (data is Map<String, dynamic>) {
+      orgName = (data['organizationName'] ?? '').toString().trim();
+      final schools = data['schools'];
+      rawList = schools is List ? schools : [];
+    }
+    final names = <String>[];
+    final withCodes = <Map<String, String>>[];
+    for (final item in rawList) {
+      if (item is String) {
+        names.add(item);
+        withCodes.add({'schoolCode': item, 'schoolName': item});
+      } else if (item is Map<String, dynamic>) {
+        final name = (item['schoolName'] ?? item['name'] ?? item['value'] ?? '')
+            .toString()
+            .trim();
+        final code =
+            (item['schoolCode'] ?? item['code'] ?? item['id'] ?? name).toString().trim();
+        if (name.isNotEmpty) {
+          names.add(name);
+          withCodes.add({'schoolCode': code, 'schoolName': name});
+        }
+      }
+    }
     return SchoolNamesResponseModel(
       success: json['success'] as bool? ?? false,
       message: json['message'] as String? ?? '',
-      // API returns a list of objects; extract the name field safely
-      data: (json['data'] as List?)
-              ?.map((item) {
-                if (item is String) return item;
-                if (item is Map<String, dynamic>) {
-                  // Try common keys; adjust if backend uses a different one
-                  return (item['schoolName'] ??
-                          item['name'] ??
-                          item['value'] ??
-                          '')
-                      .toString();
-                }
-                return item.toString();
-              })
-              .where((e) => e.isNotEmpty)
-              .toList()
-              .cast<String>() ??
-          <String>[],
+      data: names,
+      dataWithCodes: withCodes,
+      organizationName: orgName,
       timestamp: json['timestamp'] as String? ?? '',
     );
   }

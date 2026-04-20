@@ -7,9 +7,14 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -20,23 +25,22 @@ import 'package:wowcare/app/theme/media_res.dart';
 // import 'package:wowcare/features/...'; // UI-only
 import 'package:shimmer/shimmer.dart';
 
-// UI-only lightweight types
-typedef DataMap = Map<String, dynamic>;
-
 class RoomDTO {
-  final int id;
+  final String code;
   final String name;
-  const RoomDTO({required this.id, required this.name});
+  const RoomDTO({required this.code, required this.name});
 }
 
 class Staff {
   final int id;
+  final String code;
   final String name;
   final String designation;
   final String photoUuid;
   final List<RoomDTO> rooms;
   const Staff({
     required this.id,
+    required this.code,
     required this.name,
     required this.designation,
     this.photoUuid = '',
@@ -47,11 +51,13 @@ class Staff {
 class AssignStaffToClassroomForm extends StatefulWidget {
   const AssignStaffToClassroomForm({
     required this.selectedRoomName,
+    required this.classroomCode,
     required this.onStaffsAssigned,
     super.key,
   });
 
   final String selectedRoomName;
+  final String classroomCode;
   final VoidCallback onStaffsAssigned;
 
   @override
@@ -61,6 +67,8 @@ class AssignStaffToClassroomForm extends StatefulWidget {
 
 class _AssignStaffToClassroomFormState
     extends State<AssignStaffToClassroomForm> {
+  static const int _pageSize = 100;
+
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
   List<String> _selectedDesignations = [];
@@ -68,15 +76,15 @@ class _AssignStaffToClassroomFormState
   final List<Staff> _allStaffs = [];
   final List<String> _allRooms = [];
   final List<String> _allDesignations = [];
+  bool _isLoadingStaffs = false;
+  String? _staffsError;
   Set<Staff> selectedStaffs = {};
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    getAllStaffs();
-    getAllDesignationsFromMasterLookup();
-    getAllClassrooms();
+    _loadStaffsFromApi();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -87,57 +95,111 @@ class _AssignStaffToClassroomFormState
     super.dispose();
   }
 
-  void getAllStaffs() {
-    // UI-only: populate with dummy staff
-    _allStaffs
-      ..clear()
-      ..addAll([
-        Staff(
-          id: 1,
-          name: 'Ava Johnson',
-          designation: 'Lead Teacher',
-          rooms: [const RoomDTO(id: 1, name: 'Room A')],
-        ),
-        Staff(
-          id: 2,
-          name: 'Michael Chen',
-          designation: 'Assistant Teacher',
-          rooms: [const RoomDTO(id: 2, name: 'Room B')],
-        ),
-        Staff(
-          id: 3,
-          name: 'Priya Patel',
-          designation: 'Floater',
-          rooms: [const RoomDTO(id: 1, name: 'Room A'), const RoomDTO(id: 3, name: 'Room C')],
-        ),
-      ]);
-    _filterStaffs();
-    setState(() {});
-  }
+  Future<void> _loadStaffsFromApi() async {
+    setState(() {
+      _isLoadingStaffs = true;
+      _staffsError = null;
+    });
 
-  void getAllClassrooms() {
-    // UI-only: static room names
-    _allRooms
-      ..clear()
-      ..addAll(['Room A', 'Room B', 'Room C']);
-    setState(() {});
-  }
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      final organizationCode =
+          await storage.getString(StorageKeys.organizationCode) ?? '';
+      if (schoolCode.trim().isEmpty || organizationCode.trim().isEmpty) {
+        throw 'Missing school/organization code. Please sign in again.';
+      }
 
-  void getAllDesignationsFromMasterLookup() {
-    // UI-only: static designations list
-    _allDesignations
-      ..clear()
-      ..addAll([
-        'Director',
-        'Assistant Director',
-        'Admin',
-        'Lead Teacher',
-        'Associate Teacher',
-        'Assistant Teacher',
-        'Owner',
-        'Floater',
-      ]);
-    setState(() {});
+      final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getClassrooms(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+      final classroomNameByCode = <String, String>{
+        for (final c in classrooms) c.code: c.name,
+      };
+
+      final getStaffPageUseCase = serviceLocator<GetStaffPageUseCase>();
+      final fetchedStaffs = <Staff>[];
+      final uniqueRoomNames = <String>{};
+      final uniqueDesignations = <String>{};
+
+      int page = 0;
+      bool hasMore = true;
+      while (hasMore) {
+        final staffPage = await getStaffPageUseCase(
+          organizationCode: organizationCode,
+          schoolCode: schoolCode,
+          page: page,
+          size: _pageSize,
+          status: 'ACTIVE',
+        );
+
+        for (final s in staffPage.items) {
+          final roomCodes = <String>{
+            if (s.primaryClassroomCode.trim().isNotEmpty) s.primaryClassroomCode.trim(),
+            ...s.allowedClassroomCodes
+                .where((code) => code.trim().isNotEmpty)
+                .map((code) => code.trim()),
+          };
+          final rooms = roomCodes
+              .map(
+                (code) => RoomDTO(
+                  code: code,
+                  name: classroomNameByCode[code] ?? code,
+                ),
+              )
+              .toList();
+
+          fetchedStaffs.add(
+            Staff(
+              id: fetchedStaffs.length + 1,
+              code: s.code,
+              name: s.name,
+              designation: s.designation,
+              photoUuid: '',
+              rooms: rooms,
+            ),
+          );
+          if (s.designation.trim().isNotEmpty) {
+            uniqueDesignations.add(s.designation.trim());
+          }
+          for (final r in rooms) {
+            if (r.name.trim().isNotEmpty) {
+              uniqueRoomNames.add(r.name.trim());
+            }
+          }
+        }
+
+        hasMore = staffPage.hasMore;
+        page += 1;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _allStaffs
+          ..clear()
+          ..addAll(fetchedStaffs);
+        _allRooms
+          ..clear()
+          ..addAll(uniqueRoomNames.toList()..sort());
+        _allDesignations
+          ..clear()
+          ..addAll(uniqueDesignations.toList()..sort());
+        _filterStaffs();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _staffsError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingStaffs = false;
+        });
+      }
+    }
   }
 
   void _onSearchChanged() {
@@ -147,6 +209,14 @@ class _AssignStaffToClassroomFormState
   void _filterStaffs() {
     final allStaffs = _allStaffs;
     _filteredStaffs = allStaffs.where((staff) {
+      // Exclude staff who are already associated with the selected classroom
+      final excludeDueToSelectedClassroom = staff.rooms.any((room) {
+        final byCode = room.code.trim() == (widget.classroomCode.trim());
+        final byName = room.name.trim() == (widget.selectedRoomName.trim());
+        return byCode || byName;
+      });
+      if (excludeDueToSelectedClassroom) return false;
+
       bool matchesSearch = true;
       bool matchesRoom = true;
       bool matchesDesignation = true;
@@ -210,21 +280,6 @@ class _AssignStaffToClassroomFormState
             _selectedDesignations.isEmpty
         ? _allStaffs
         : _filteredStaffs;
-  }
-
-  Widget _buildShimmerGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 69,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
-    );
   }
 
   @override
@@ -338,26 +393,49 @@ class _AssignStaffToClassroomFormState
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                mainAxisExtent: 52,
-              ),
-              itemCount: _getVisibleStaffs().length,
-              itemBuilder: (context, index) {
-                final staff = _getVisibleStaffs()[index];
-                final isSelected = selectedStaffs.contains(staff);
-                return StaffListItem(
-                  staff: staff,
-                  isSelected: isSelected,
-                  onSelectionChanged: (value) {
-                    _toggleStaffSelection(staff, value);
-                  },
-                );
-              },
-            ),
+            child: _isLoadingStaffs
+                ? const Center(child: CircularProgressIndicator())
+                : _staffsError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _staffsError!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                color: Colors.red,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ElevatedButton(
+                              onPressed: _loadStaffsFromApi,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 52,
+                        ),
+                        itemCount: _getVisibleStaffs().length,
+                        itemBuilder: (context, index) {
+                          final staff = _getVisibleStaffs()[index];
+                          final isSelected = selectedStaffs.contains(staff);
+                          return StaffListItem(
+                            staff: staff,
+                            isSelected: isSelected,
+                            onSelectionChanged: (value) {
+                              _toggleStaffSelection(staff, value);
+                            },
+                          );
+                        },
+                      ),
           ),
           const SizedBox(height: 16),
           CustomButtonLayout(
@@ -381,6 +459,7 @@ class _AssignStaffToClassroomFormState
                     builder: (_, controller) => StaffConfirmationForm(
                       selectedStaffs: selectedStaffs,
                       selectedRoomName: widget.selectedRoomName,
+                      classroomCode: widget.classroomCode,
                       onStaffsAssigned: widget.onStaffsAssigned,
                     ),
                   ),
@@ -397,12 +476,14 @@ class _AssignStaffToClassroomFormState
 class StaffConfirmationForm extends StatefulWidget {
   final Set<Staff> selectedStaffs;
   final String selectedRoomName;
+  final String classroomCode;
   final VoidCallback onStaffsAssigned;
 
   const StaffConfirmationForm({
     Key? key,
     required this.selectedStaffs,
     required this.selectedRoomName,
+    required this.classroomCode,
     required this.onStaffsAssigned,
   }) : super(key: key);
 
@@ -412,6 +493,7 @@ class StaffConfirmationForm extends StatefulWidget {
 
 class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
   late Set<Staff> currentSelectedStaffs;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -528,16 +610,55 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
             confirmButtonLabel: 'Submit',
             cancelButtonLabel: 'Cancel',
             onPressedCancel: () => Navigator.pop(context),
-            onPressedConfirm: () {
+            onPressedConfirm: _isSubmitting
+                ? () {}
+                : () async {
               if (currentSelectedStaffs.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please select at least one staff member')),
                 );
                 return;
               }
-              // UI-only: simulate success and close
-              widget.onStaffsAssigned();
-              Navigator.pop(context);
+              setState(() => _isSubmitting = true);
+              try {
+                final storage = serviceLocator<StorageService>();
+                final schoolCode = await storage.getString(StorageKeys.schoolCode);
+                if (schoolCode == null || schoolCode.trim().isEmpty) {
+                  throw 'Missing schoolCode. Please sign in / select a school again.';
+                }
+
+                final staffCodes =
+                    currentSelectedStaffs
+                        .map((s) => s.code.trim())
+                        .where((code) => code.isNotEmpty)
+                        .toList();
+
+                final message =
+                    await serviceLocator<AssignStaffToClassroomUseCase>()(
+                  schoolCode: schoolCode,
+                  classroomCode: widget.classroomCode,
+                  staffCodes: staffCodes,
+                );
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      message.isEmpty ? 'Assigned successfully' : message,
+                    ),
+                  ),
+                );
+
+                widget.onStaffsAssigned();
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())),
+                );
+              } finally {
+                if (mounted) setState(() => _isSubmitting = false);
+              }
             },
           ),
         ],
@@ -634,7 +755,6 @@ class StaffProfileImage extends StatefulWidget {
 
 class _StaffProfileImageState extends State<StaffProfileImage> {
   // UI-only: remove backend image fetching; keep shimmer interface if needed
-  static final Map<String, Uint8List?> _imageCache = {};
   StreamSubscription? _subscription; // not used in UI-only
   Uint8List? _currentImage;
   bool _isLoading = false;

@@ -13,6 +13,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'dart:convert';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -68,6 +71,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   String? _selectedStatus;
   bool get _isAdminSelected => (_selectedRole ?? '').toLowerCase() == 'admin';
 
+  /// True when the *logged-in* user has an admin persona (e.g. SCHOOL_ADMIN / ORGANIZATION_ADMIN).
+  /// Used to make classroom fields read-only in edit flow for admin persona users.
+  bool _isLoggedInAdminPersona = false;
+
   OverlayEntry? _overlayEntry;
   String? _warningMessage;
   Timer? _warningTimer;
@@ -88,7 +95,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   ];
 
   // Phone number validation regex - now requires exactly 10 digits
-  static final RegExp _phoneRegex = RegExp(r'^\\(\\d{3}\\)\\s\\d{3}-\\d{4}$');
+  static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
+  // First/Last name: first character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   // Email validation regex
   // Email validation regexes: strict and permissive; accept if any matches
   static final RegExp _emailRegexStrict = RegExp(
@@ -127,29 +136,44 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Default role when creating new entry
     _selectedRole ??= widget.initialRole ?? 'Staff';
 
-    // If classrooms were prefetched by a parent screen (e.g. StaffScreen),
-    // hydrate local caches from those and avoid hitting the classrooms API again.
-    if (widget.initialClassroomNames != null &&
-        widget.initialClassroomNames!.isNotEmpty) {
-      _classrooms
-        ..clear()
-        ..addAll(widget.initialClassroomNames!);
-      _classroomCodeByName
-        ..clear()
-        ..addAll(widget.initialClassroomCodeByName ?? {});
+    _loadClassrooms();
+    _loadCurrentPersonaAdminFlag();
+  }
 
-      // For admin, all classrooms are auto-allowed and primary defaults to first.
-      if (_isAdminSelected) {
-        _selectedAllowedClassroomNames = List<String>.from(_classrooms);
-        if (_classrooms.isNotEmpty &&
-            _selectedPrimaryClassroomName == null) {
-          _selectedPrimaryClassroomName = _classrooms.first;
+  Future<void> _loadCurrentPersonaAdminFlag() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      // Prefer staffType from profile.
+      String staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+
+      // Fallback to roles JSON when staffType is not available.
+      if (!isAdmin) {
+        final rolesJson = await storage.getString(StorageKeys.roles);
+        if (rolesJson != null && rolesJson.isNotEmpty) {
+          try {
+            final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+            for (final r in roles) {
+              final roleCode =
+                  ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
+              if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+                isAdmin = true;
+                break;
+              }
+            }
+          } catch (_) {
+            // Ignore parsing errors; default to non-admin persona.
+          }
         }
-        _selectedStatus ??= 'Active';
       }
-    } else {
-      // No prefetched classrooms available – fall back to API call.
-      _loadClassrooms();
+
+      if (!mounted) return;
+      setState(() {
+        _isLoggedInAdminPersona = isAdmin;
+      });
+    } catch (_) {
+      // If anything fails, default to non-admin persona (fields stay editable).
     }
   }
 
@@ -169,7 +193,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
   void _addStaff() {
     _trimAllInputs();
-    if (_firstNameController.text.isEmpty) {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+
+    if (firstName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'First name is required',
@@ -177,10 +204,26 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       );
       return;
     }
-    if (_lastNameController.text.isEmpty) {
+    if (firstName.length > 50 || !_nameRegex.hasMatch(firstName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (lastName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last name is required',
+        isError: true,
+      );
+      return;
+    }
+    if (lastName.length > 50 || !_nameRegex.hasMatch(lastName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last name must be letters only and max 50 characters',
         isError: true,
       );
       return;
@@ -245,7 +288,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       return;
     }
 
-    if (_selectedStatus == null) {
+    if (!_isAdminSelected && _selectedStatus == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select a status',
@@ -282,8 +325,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       }
     }
 
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
+    // firstName / lastName already trimmed and validated above
     final displayName = _composeStaffName();
     final email = _emailController.text.trim();
     final mobileDigits = _phoneController.text.trim().replaceAll(
@@ -296,11 +338,35 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     final primaryClassroomCode = _selectedPrimaryClassroomName == null
         ? ''
-        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '');
-    final allowedClassroomCodes = _selectedAllowedClassroomNames
+        : (_classroomCodeByName[_selectedPrimaryClassroomName!] ?? '').trim();
+    var allowedClassroomCodes = _selectedAllowedClassroomNames
         .map((name) => _classroomCodeByName[name])
         .whereType<String>()
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
         .toList();
+
+    // Block submit if classroom codes could not be resolved (API needs valid codes)
+    if (primaryClassroomCode.isEmpty) {
+      if (!_isAdminSelected) {
+        setState(() => _primaryClassroomError = 'Please select a primary classroom');
+      }
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not resolve classroom code. Please refresh the page and try again.',
+        isError: true,
+      );
+      return;
+    }
+    if (!_isAdminSelected && allowedClassroomCodes.isEmpty && _selectedAllowedClassroomNames.isNotEmpty) {
+      setState(() => _allowedClassroomsError = 'Could not resolve classroom codes');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not resolve classroom codes. Please refresh the page and try again.',
+        isError: true,
+      );
+      return;
+    }
 
     _createSchoolUserCubit.create(
       isAdmin: isAdmin,
@@ -311,7 +377,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       email: email,
       role: role,
       designation: _mapDesignationToApiValue(_selectedDesignation),
-      status: _selectedStatus,
+      // Admin: no status UI — backend always receives ACTIVE.
+      status: _isAdminSelected ? 'Active' : _selectedStatus,
       primaryClassroomCode: primaryClassroomCode,
       allowedClassroomCodes: allowedClassroomCodes,
     );
@@ -325,18 +392,17 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   }
 
   Future<void> _loadClassrooms() async {
-    // Load classrooms via cubit
-    _classroomCubit!.loadActiveClassrooms();
+    // Load classrooms via cubit using the classroom-only API
+    // (maps to type=CLASSROOM in the backend URL for all roles).
+    _classroomCubit!.loadActiveClassrooms(
+      onlyTypeClassroom: true,
+    );
   }
 
   void _updateClassroomsFromCubitState(ClassroomState state) {
     if (state.classrooms.isEmpty) {
       if (state.errorMessage != null) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: state.errorMessage!,
-          isError: true,
-        );
+        CoreUtils.logApiError(state.errorMessage!);
       } else if (!state.isLoading) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -367,7 +433,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             _selectedPrimaryClassroomName == null) {
           _selectedPrimaryClassroomName = _classrooms.first;
         }
-        _selectedStatus ??= 'Active';
       }
     });
   }
@@ -474,6 +539,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
+    final bool isEditAdminReadOnly =
+        widget.isEdit && _isLoggedInAdminPersona;
 
     // Get ClassroomCubit from context if available, otherwise use the one from service locator
     ClassroomCubit classroomCubit;
@@ -492,11 +559,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         value: _createSchoolUserCubit,
         child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, classroomState) {
-          // Update local state when classrooms are loaded from cubit
-          if (!classroomState.isLoading && 
-              classroomState.classrooms.isNotEmpty && 
-              _classrooms.isEmpty &&
-              (widget.initialClassroomNames == null || widget.initialClassroomNames!.isEmpty)) {
+          // Update local caches once classrooms are loaded from cubit.
+          // We no longer rely on any prefetched classroom list for this screen.
+          if (!classroomState.isLoading &&
+              classroomState.classrooms.isNotEmpty &&
+              _classrooms.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _updateClassroomsFromCubitState(classroomState);
             });
@@ -511,6 +578,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               if (!mounted) return;
 
               if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+                CoreUtils.logApiError(state.errorMessage!);
                 CoreUtils.showTopSnackBar(
                   context: context,
                   message: state.errorMessage!,
@@ -529,10 +597,23 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       : 'User created successfully',
                   isSuccess: true,
                 );
+                // Prefill from API response so edit profile shows exactly what was saved
+                final u = result.user;
                 Navigator.pop(context, {
                   'showPostAddPrompt': true,
                   'staffName': staffName,
-                  'userCode': result.user.userCode,
+                  'userCode': u.userCode,
+                  'staffCode': u.staffCode ?? u.userCode,
+                  'initialFirstName': u.firstName,
+                  'initialLastName': u.lastName,
+                  'initialEmail': u.email,
+                  'initialDesignation': u.designation,
+                  'initialPhoneNumber': u.mobile,
+                  'initialPrimaryClassroom': _selectedPrimaryClassroomName,
+                  'initialAllowedClassrooms': List<String>.from(_selectedAllowedClassroomNames),
+                  'initialClassroomNames': List<String>.from(_classrooms),
+                  'initialClassroomCodeByName': Map<String, String>.from(_classroomCodeByName),
+                  'initialStatus': u.status ?? _selectedStatus,
                 });
               }
             },
@@ -661,12 +742,19 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                   if (_classrooms.isNotEmpty) {
                                     _selectedPrimaryClassroomName = _classrooms.first;
                                   }
-                                  _selectedStatus ??= 'Active';
                                 } else {
                                   _selectedAllowedClassroomNames = [];
                                   _selectedPrimaryClassroomName = null;
                                 }
                               });
+                              // Reload classrooms for the selected role.
+                              // For both Admin and Staff, use type=CLASSROOM
+                              // so the dropdown is populated only with classrooms.
+                              final classroomCubit = context.read<ClassroomCubit>();
+                              classroomCubit.loadActiveClassrooms(
+                                force: true,
+                                onlyTypeClassroom: true,
+                              );
                             },
                           ),
                                 SizedBox(height: responsive.verticalSpacing),
@@ -721,68 +809,87 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             Column(
                               children: [
                                 // Allowed Classrooms
-                                ClassroomSelectionWidgetExact(
-                                  primaryClassroom: _selectedPrimaryClassroomName,
-                                  allowedClassrooms: _selectedAllowedClassroomNames,
-                                  availableClassrooms: _classrooms,
-                                  onPrimaryClassroomChanged: (classroom) {
-                                    setState(() {
-                                      _selectedPrimaryClassroomName = classroom;
-                                      _primaryClassroomError = null;
-                                    });
-                                  },
-                                  onAllowedClassroomsChanged: (classrooms) {
-                                    setState(() {
-                                      _selectedAllowedClassroomNames = classrooms;
-                                      _allowedClassroomsError = null;
-                                      // Clear primary classroom if it's not in allowed classrooms anymore
-                                      if (_selectedPrimaryClassroomName != null && 
-                                          !classrooms.contains(_selectedPrimaryClassroomName)) {
-                                        _selectedPrimaryClassroomName = null;
-                                      }
-                                    });
-                                  },
-                                  primaryClassroomError: _primaryClassroomError,
-                                  allowedClassroomsError: _allowedClassroomsError,
-                                  showPrimaryClassroom: false, // Hide primary classroom section
+                                Opacity(
+                                  opacity: isEditAdminReadOnly ? 0.6 : 1.0,
+                                  child: IgnorePointer(
+                                    ignoring: isEditAdminReadOnly,
+                                    child: ClassroomSelectionWidgetExact(
+                                      primaryClassroom: _selectedPrimaryClassroomName,
+                                      allowedClassrooms: _selectedAllowedClassroomNames,
+                                      availableClassrooms: _classrooms,
+                                      onPrimaryClassroomChanged: (classroom) {
+                                        setState(() {
+                                          _selectedPrimaryClassroomName = classroom;
+                                          _primaryClassroomError = null;
+                                        });
+                                      },
+                                      onAllowedClassroomsChanged: (classrooms) {
+                                        setState(() {
+                                          _selectedAllowedClassroomNames = classrooms;
+                                          _allowedClassroomsError = null;
+                                          // Clear primary classroom if it's not in allowed classrooms anymore
+                                          if (_selectedPrimaryClassroomName != null && 
+                                              !classrooms.contains(_selectedPrimaryClassroomName)) {
+                                            _selectedPrimaryClassroomName = null;
+                                          }
+                                        });
+                                      },
+                                      primaryClassroomError: _primaryClassroomError,
+                                      allowedClassroomsError: _allowedClassroomsError,
+                                      showPrimaryClassroom: false, // Hide primary classroom section
+                                    ),
+                                  ),
                                 ),
                                 SizedBox(height: responsive.verticalSpacing),
                                 // Primary Classroom Dropdown
                                 Stack(
                                   children: [
-                                    CustomDropdown(
-                                      label: "Primary Classroom",
-                                      hintText: 'Select',
-                                      items: _selectedAllowedClassroomNames,
-                                      selectedItem: _selectedPrimaryClassroomName,
-                                      labelStyle: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                    Opacity(
+                                      opacity: isEditAdminReadOnly ? 0.6 : 1.0,
+                                      child: CustomDropdown(
+                                        label: "Primary Classroom",
+                                        hintText: 'Select',
+                                        items: _selectedAllowedClassroomNames,
+                                        selectedItem: _selectedPrimaryClassroomName,
+                                        labelStyle: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontFamily: "Manrope",
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xff573353),
+                                        ),
+                                        showAsterisk: true,
+                                        labelBottomSpacing:
+                                            responsive.isTablet ? 8.0 : 6.0,
+                                        fieldHeight:
+                                            responsive.isTablet ? 64.0 : 56.0, // Bigger height
+                                        onSelect: (val) {
+                                          if (val == null || isEditAdminReadOnly) return;
+                                          setState(() {
+                                            _selectedPrimaryClassroomName = val;
+                                            _primaryClassroomError = null;
+                                          });
+                                        },
                                       ),
-                                      showAsterisk: true,
-                                      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                                      fieldHeight: responsive.isTablet ? 64.0 : 56.0, // Bigger height
-                                      onSelect: (val) {
-                                        if (val == null) return;
-                                        setState(() {
-                                          _selectedPrimaryClassroomName = val;
-                                          _primaryClassroomError = null;
-                                        });
-                                      },
                                     ),
-                                    if (_selectedAllowedClassroomNames.isEmpty)
+                                    if (_selectedAllowedClassroomNames.isEmpty && !isEditAdminReadOnly)
                                       Positioned.fill(
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
                                           onTap: () {
                                             CoreUtils.showTopSnackBar(
                                               context: context,
-                                              message: 'Please select Allowed Classrooms first',
+                                              message:
+                                                  'Please select Allowed Classrooms first',
                                               isError: true,
                                             );
                                           },
+                                        ),
+                                      ),
+                                    if (isEditAdminReadOnly)
+                                      const Positioned.fill(
+                                        child: IgnorePointer(
+                                          ignoring: false,
+                                          child: SizedBox.expand(),
                                         ),
                                       ),
                                   ],
@@ -815,21 +922,25 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                               ),
                             ),
                                 SizedBox(height: responsive.verticalSpacing),
-                          CustomDropdown(
-                            label: "Status",
-                            hintText: 'Select',
-                            items: const ['Active', 'Upcoming'],
-                            selectedItem: _selectedStatus,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                          if (!_isAdminSelected) ...[
+                            CustomDropdown(
+                              label: "Status",
+                              hintText: 'Select',
+                              items: const ['Active', 'Upcoming'],
+                              selectedItem: _selectedStatus,
+                              labelStyle: TextStyle(
+                                fontSize: responsive.labelFontSize,
+                                fontFamily: "Manrope",
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xff573353),
+                              ),
+                              showAsterisk: true,
+                              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                              onSelect: (val) =>
+                                  setState(() => _selectedStatus = val ?? _selectedStatus),
                             ),
-                            showAsterisk: true,
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) => setState(() => _selectedStatus = val ?? _selectedStatus),
-                          ),
+                            SizedBox(height: responsive.verticalSpacing),
+                          ],
                                 const SizedBox(height: 12),
                               ],
                             ),
@@ -838,6 +949,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       ),
                       ),
                     ),
+                    const SizedBox(height: 12),
                   ],
                 ),
                   ],
@@ -891,7 +1003,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             "E.g. John",
             _firstNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+              LengthLimitingTextInputFormatter(50),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -904,7 +1017,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             "E.g. Smith",
             _lastNameController,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s]")),
+              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+              LengthLimitingTextInputFormatter(50),
               NameCapitalizationFormatter(),
               TrimFormatter(),
             ],
@@ -987,23 +1101,46 @@ class PhoneNumberFormatter extends TextInputFormatter {
       return newValue;
     }
 
+    // Extract only digits from the new text
     final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
     final charCount = digitsOnly.length;
 
+    // Build the formatted text from the digits
     String formattedText;
     if (charCount == 0) {
       formattedText = '';
     } else if (charCount <= 3) {
       formattedText = '($digitsOnly';
     } else if (charCount <= 6) {
-      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
+      formattedText =
+          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
     } else {
-      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+      formattedText =
+          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
     }
+
+    // Preserve the caret position by:
+    // 1. Counting how many digits are before the current caret.
+    // 2. Placing the caret after the same number of digits in the formatted text.
+    final oldSelectionIndex = newValue.selection.extentOffset.clamp(0, newText.length);
+    final substringBeforeCaret = newText.substring(0, oldSelectionIndex);
+    final digitsBeforeCaret =
+        substringBeforeCaret.replaceAll(RegExp(r'\D'), '').length;
+
+    int caretIndex = 0;
+    int digitCount = 0;
+    while (caretIndex < formattedText.length && digitCount < digitsBeforeCaret) {
+      if (RegExp(r'\d').hasMatch(formattedText[caretIndex])) {
+        digitCount++;
+      }
+      caretIndex++;
+    }
+
+    caretIndex = caretIndex.clamp(0, formattedText.length);
 
     return TextEditingValue(
       text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
+      selection: TextSelection.collapsed(offset: caretIndex),
     );
   }
 }
@@ -1014,15 +1151,20 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    String text = newValue.text;
+    String original = newValue.text;
 
-    // Remove trailing spaces
-    text = text.replaceFirst(RegExp(r"\s+"), ' '); // collapse multiple spaces inside
+    // Normalize spaces: collapse multiple and remove trailing spaces
+    String text = original;
+    text = text.replaceFirst(RegExp(r"\s+"), ' '); // collapse first occurrence
     text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
     text = text.replaceAll(RegExp(r"\s+\z"), '');
 
     if (text.isEmpty) {
-      return newValue.copyWith(text: text, selection: const TextSelection.collapsed(offset: 0));
+      return newValue.copyWith(
+        text: text,
+        selection:
+            const TextSelection.collapsed(offset: 0),
+      );
     }
 
     // Enforce first letter uppercase, remaining lowercase
@@ -1030,9 +1172,14 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
     final formatted = firstChar + rest;
 
+    // Try to preserve caret position relative to the transformation
+    final oldOffset = newValue.selection.extentOffset;
+    final lengthDelta = formatted.length - original.length;
+    final newOffset = (oldOffset + lengthDelta).clamp(0, formatted.length);
+
     return TextEditingValue(
       text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      selection: TextSelection.collapsed(offset: newOffset),
     );
   }
 }
@@ -1040,11 +1187,19 @@ class NameCapitalizationFormatter extends TextInputFormatter {
 class TrimFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final trimmed = newValue.text.trimLeft();
-    // Preserve caret at end for simplicity
+    final original = newValue.text;
+    final trimmed = original.trimLeft();
+
+    // Number of leading characters removed
+    final leadingRemoved = original.length - trimmed.length;
+
+    // Adjust caret to account for removed leading spaces
+    final oldOffset = newValue.selection.extentOffset;
+    final newOffset = (oldOffset - leadingRemoved).clamp(0, trimmed.length);
+
     return TextEditingValue(
       text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
+      selection: TextSelection.collapsed(offset: newOffset),
     );
   }
 } 

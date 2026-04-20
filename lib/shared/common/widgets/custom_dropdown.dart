@@ -148,6 +148,9 @@ class CustomDropdown extends StatefulWidget {
     this.contentPadding,
     this.height = null,
     this.leadingIcon,
+    /// When true (default), [hintText] is the first menu item; choosing it clears the selection.
+    /// Set false when a value must always stay chosen (e.g. parent global child picker).
+    this.prependHintAsSelectableItem = true,
   });
 
   final String? label;
@@ -170,6 +173,7 @@ class CustomDropdown extends StatefulWidget {
   final double? height;
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
+  final bool prependHintAsSelectableItem;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -197,12 +201,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    // Build a list where the first option is always the hint text.
-    // Selecting it will clear the current selection.
-    final List<String> displayItems = <String>[
-      widget.hintText,
-      ...widget.items,
-    ];
+    final List<String> displayItems = widget.prependHintAsSelectableItem
+        ? <String>[widget.hintText, ...widget.items]
+        : List<String>.from(widget.items);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,85 +231,125 @@ class _CustomDropdownState extends State<CustomDropdown> {
         LayoutBuilder(
           builder: (context, constraints) {
             return Container(
-              constraints: BoxConstraints(minHeight: widget.height ?? widget.fieldHeight ?? (widget.isField ? 40 : 30)),
+              constraints: BoxConstraints(
+                minHeight: widget.height ??
+                    widget.fieldHeight ??
+                    (widget.isField ? 40 : 30),
+              ),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFFB1AFE9).withOpacity(0.102),
                 //color: const Color(0xFFF8F7FA),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: PopupMenuButton<String>(
-                enabled: widget.isEnabled,
-                constraints: BoxConstraints(
-                  minWidth: constraints.maxWidth,
-                  maxWidth: constraints.maxWidth,
-                ),
-                onSelected: (value) {
-                  setState(() {
-                    // Treat selecting the hint text as "clear selection".
-                    if (value == widget.hintText) {
-                      selectedItem = null;
-                    } else {
-                      selectedItem = value; // Update the selected item
-                    }
-                  });
-                  // Call the onSelect callback if it's provided
-                  if (widget.onSelect != null) {
-                    widget.onSelect!(selectedItem);
-                  }
+              // Ensure dropdown interactions never trigger the software keyboard.
+              // On some screens, after selecting an item the focus returns to a text field,
+              // which causes the keyboard to pop open unexpectedly (e.g., State/Country).
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) {
+                  FocusManager.instance.primaryFocus?.unfocus();
                 },
-                itemBuilder: (BuildContext context) {
-                  return displayItems.map((String item) {
-                    return PopupMenuItem<String>(
-                      value: item,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item,
-                              style: widget.popupItemTextStyle ?? TextStyle(
-                                color: AppColors.primaryColor.withOpacity(0.9),
-                                fontSize: widget.isField ? 17 : 15,
-                                fontWeight: FontWeight.w400,
+                child: Focus(
+                  canRequestFocus: false,
+                  descendantsAreFocusable: false,
+                  child: PopupMenuButton<String>(
+                    enabled: widget.isEnabled,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth,
+                      maxWidth: constraints.maxWidth,
+                    ),
+                    onSelected: (value) {
+                      setState(() {
+                        if (widget.prependHintAsSelectableItem &&
+                            value == widget.hintText) {
+                          selectedItem = null;
+                        } else {
+                          selectedItem = value;
+                        }
+                      });
+
+                      // Call the onSelect callback if it's provided
+                      if (widget.onSelect != null) {
+                        widget.onSelect!(selectedItem);
+                      }
+
+                      // After the popup closes, ensure we don't restore focus to a text field.
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      });
+                    },
+                    onCanceled: () {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      });
+                    },
+                    itemBuilder: (BuildContext context) {
+                      return displayItems.map((String item) {
+                        return PopupMenuItem<String>(
+                          value: item,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: widget.popupItemTextStyle ??
+                                      TextStyle(
+                                        color: AppColors.primaryColor
+                                            .withOpacity(0.9),
+                                        fontSize: widget.isField ? 17 : 15,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                ),
                               ),
+                            ],
+                          ),
+                        );
+                      }).toList();
+                    },
+                    child: Padding(
+                      padding: widget.contentPadding ??
+                          const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (widget.leadingIcon != null) ...[
+                            widget.leadingIcon!,
+                            const SizedBox(width: 8),
+                          ],
+                          Flexible(
+                            child: Text(
+                              selectedItem ?? widget.hintText,
+                              style: widget.selectedTextStyle ??
+                                  TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 14,
+                                    fontWeight: selectedItem != null
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: selectedItem != null
+                                        ? const Color(0xff573353)
+                                        : Colors.grey[600],
+                                    height: 19 / 14,
+                                  ),
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.left,
                             ),
                           ),
+                          const SizedBox(width: 4),
+                          if (widget.isEnabled)
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.primaryColor,
+                              size: 24,
+                            ),
                         ],
                       ),
-                    );
-                  }).toList();
-                },
-                child: Padding(
-                  padding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (widget.leadingIcon != null) ...[
-                        widget.leadingIcon!,
-                        const SizedBox(width: 8),
-                      ],
-                      Flexible(
-                        child: Text(
-                          selectedItem ?? widget.hintText,
-                          style: widget.selectedTextStyle ?? TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
-                            color: selectedItem != null ? const Color(0xff573353) : Colors.grey[600],
-                            height: 19 / 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.left,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      if (widget.isEnabled)
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: AppColors.primaryColor,
-                          size: 24,
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),

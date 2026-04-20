@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
-  const OrganizationSelectionScreen({super.key});
+  const OrganizationSelectionScreen({super.key, this.isSwitchFlow = false});
+
+  final bool isSwitchFlow;
 
   @override
   State<OrganizationSelectionScreen> createState() =>
@@ -20,6 +24,36 @@ class OrganizationSelectionScreen extends StatefulWidget {
 class _OrganizationSelectionScreenState
     extends State<OrganizationSelectionScreen> {
   String? _selectedOrgCode;
+  bool _hasTriggeredOrgNamesLoad = false;
+
+  String _formatRole(String role) {
+    if (role.isEmpty) return '';
+    final cleaned = role.toLowerCase().replaceAll('_', ' ');
+    return cleaned
+        .split(' ')
+        .map((word) =>
+            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Always fetch fresh org names from API (no cache)
+    if (_hasTriggeredOrgNamesLoad) return;
+    final authCubit = context.read<AuthCubit>();
+    if (authCubit.state is! AuthLoaded) return;
+    final orgCodes = (authCubit.state as AuthLoaded)
+        .loginResponse
+        .roles
+        .map((r) => r.organizationCode)
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+    if (orgCodes.isEmpty) return;
+    _hasTriggeredOrgNamesLoad = true;
+    authCubit.loadOrganizationNames(orgCodes);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,16 +62,28 @@ class _OrganizationSelectionScreenState
     final screenHeight = size.height - padding.top - padding.bottom;
     final screenWidth = size.width;
 
-    void logoutAndGoToSignIn() {
-      // If org/school selection isn't completed, user must login again.
-      context.read<AuthCubit>().logout();
-      Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+    void onBack() {
+      if (widget.isSwitchFlow) {
+        // When opened as a "switch organisation" flow:
+        // - If there's a previous route (e.g. from Dashboard), just pop back.
+        // - If this is the root route (e.g. app opened directly into
+        //   Select Organization via login-context), exit the app instead
+        //   of leaving a blank screen.
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          SystemNavigator.pop();
+        }
+      } else {
+        context.read<AuthCubit>().logout();
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      }
     }
 
     return PopScope(
-      canPop: false,
+      canPop: widget.isSwitchFlow,
       onPopInvoked: (_) {
-        logoutAndGoToSignIn();
+        if (!widget.isSwitchFlow) onBack();
       },
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
@@ -51,22 +97,36 @@ class _OrganizationSelectionScreenState
           final userName = login.displayName.isNotEmpty
               ? login.displayName
               : login.email;
-          final userRole =
+          final rawRole =
               login.roles.isNotEmpty ? login.roles.first.role : '';
+          final userRole = _formatRole(rawRole);
 
-          final orgCodes = login.roles
+          // Always use roles for org codes; org names from API (no cache)
+          final orgCodes = state.loginResponse.roles
               .map((r) => r.organizationCode)
               .where((c) => c.isNotEmpty)
               .toSet()
               .toList();
-
-          // Use API-provided organization NAMES when available, otherwise fall back to codes.
           final orgNames = state.orgNames;
-          final List<String> orgDisplayItems = (orgNames.length == orgCodes.length && orgNames.isNotEmpty)
+          final orgDisplayItems = (orgNames.length == orgCodes.length &&
+                  orgNames.isNotEmpty)
               ? orgNames
               : orgCodes;
+          // Hide unresolved items (fallback raw org codes) from dropdown.
+          final resolvedOrgCodes = <String>[];
+          final resolvedOrgDisplayItems = <String>[];
+          for (var i = 0; i < orgCodes.length && i < orgDisplayItems.length; i++) {
+            final code = orgCodes[i].trim();
+            final display = orgDisplayItems[i].trim();
+            final isFallbackCode =
+                display.isEmpty || display == code || display.toUpperCase().startsWith('ORG_');
+            if (isFallbackCode) continue;
+            resolvedOrgCodes.add(code);
+            resolvedOrgDisplayItems.add(display);
+          }
 
-          final isNextEnabled = _selectedOrgCode != null && orgCodes.isNotEmpty;
+          final isNextEnabled =
+              _selectedOrgCode != null && resolvedOrgCodes.contains(_selectedOrgCode);
 
           return Scaffold(
             body: Container(
@@ -85,7 +145,7 @@ class _OrganizationSelectionScreenState
                             color: const Color(0xFF333333),
                             size: screenHeight * 0.03,
                           ),
-                          onPressed: logoutAndGoToSignIn,
+                          onPressed: onBack,
                         ),
                       ),
                     ),
@@ -195,15 +255,17 @@ class _OrganizationSelectionScreenState
                               ),
                               SizedBox(height: screenHeight * 0.02),
                               CustomDropdown(
-                                hintText: orgDisplayItems.isNotEmpty
+                                hintText: resolvedOrgDisplayItems.isNotEmpty
                                     ? 'Select organization'
                                     : 'No organizations',
-                                items: orgDisplayItems,
+                                items: resolvedOrgDisplayItems,
                                 selectedItem: () {
                                   if (_selectedOrgCode == null) return null;
-                                  final index = orgCodes.indexOf(_selectedOrgCode!);
-                                  if (index != -1 && index < orgDisplayItems.length) {
-                                    return orgDisplayItems[index];
+                                  final index =
+                                      resolvedOrgCodes.indexOf(_selectedOrgCode!);
+                                  if (index != -1 &&
+                                      index < resolvedOrgDisplayItems.length) {
+                                    return resolvedOrgDisplayItems[index];
                                   }
                                   return null;
                                 }(),
@@ -238,9 +300,11 @@ class _OrganizationSelectionScreenState
                                     if (value == null) {
                                       _selectedOrgCode = null;
                                     } else {
-                                      final index = orgDisplayItems.indexOf(value);
-                                      if (index != -1 && index < orgCodes.length) {
-                                        _selectedOrgCode = orgCodes[index];
+                                      final index =
+                                          resolvedOrgDisplayItems.indexOf(value);
+                                      if (index != -1 &&
+                                          index < resolvedOrgCodes.length) {
+                                        _selectedOrgCode = resolvedOrgCodes[index];
                                       }
                                     }
                                   });
@@ -254,47 +318,32 @@ class _OrganizationSelectionScreenState
                     ),
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: screenHeight * 0.06,
-                        child: InkWell(
-                          onTap: isNextEnabled
-                              ? () {
-                                  if (_selectedOrgCode == null) return;
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => SchoolSelectionScreen(
-                                        selectedOrg: _selectedOrgCode!,
-                                      ),
+                      child: CustomButtonLayout(
+                        confirmButtonLabel: 'Next',
+                        showCancelButton: false,
+                        isForm: false,
+                        onPressedConfirm: isNextEnabled
+                            ? () async {
+                                if (_selectedOrgCode == null) return;
+                                final authCubit = context.read<AuthCubit>();
+                                await authCubit.updateLoginContext(
+                                  lastLoginOrganizationCode: _selectedOrgCode!,
+                                  lastLoginSchoolCode: null,
+                                );
+                                if (!context.mounted) return;
+                                // Always pass null so school selection fetches fresh from API
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => SchoolSelectionScreen(
+                                      selectedOrg: _selectedOrgCode!,
+                                      isSwitchFlow: widget.isSwitchFlow,
+                                      schoolsForOrg: null,
+                                      orgFromLoginContext: !widget.isSwitchFlow,
                                     ),
-                                  );
-                                }
-                              : null,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              gradient: isNextEnabled
-                                  ? AppColors.buildPrimaryGradient()
-                                  : LinearGradient(
-                                      colors: [
-                                        Colors.grey.shade400,
-                                        Colors.grey.shade500,
-                                      ],
-                                    ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Continue',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Manrope',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                                  ),
+                                );
+                              }
+                            : null,
                       ),
                     ),
                   ],

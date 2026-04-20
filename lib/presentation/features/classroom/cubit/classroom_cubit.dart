@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
@@ -9,23 +10,43 @@ part 'classroom_state.dart';
 class ClassroomCubit extends Cubit<ClassroomState> {
   ClassroomCubit({
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
+    required StorageService storageService,
   })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+        _storageService = storageService,
         super(const ClassroomState.initial());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
+  final StorageService _storageService;
 
-  Future<void> loadActiveClassrooms({bool force = false}) async {
+  Future<void> loadActiveClassrooms({
+    bool force = false,
+    bool onlyTypeClassroom = true,
+  }) async {
     if (state.isLoading) return;
-    if (!force && state.classrooms.isNotEmpty) return;
+    // If we already have classrooms for the same filter mode,
+    // avoid reloading unless explicitly forced.
+    if (!force &&
+        state.classrooms.isNotEmpty &&
+        state.onlyTypeClassroom == onlyTypeClassroom) {
+      return;
+    }
 
-    emit(state.copyWith(isLoading: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        isLoading: true,
+        errorMessage: null,
+        onlyTypeClassroom: onlyTypeClassroom,
+      ),
+    );
 
     try {
-      // TEMP: Always use default school code constant, ignore stored prefs.
-      final schoolCode = StorageKeys.defaultSchoolCode;
+      // Take school from login-context API (saved in storage) only.
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
 
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: schoolCode,
+        onlyTypeClassroom: onlyTypeClassroom,
       );
 
       if (isClosed) return;
@@ -34,6 +55,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         state.copyWith(
           classrooms: classrooms,
           isLoading: false,
+          onlyTypeClassroom: onlyTypeClassroom,
         ),
       );
     } catch (e) {

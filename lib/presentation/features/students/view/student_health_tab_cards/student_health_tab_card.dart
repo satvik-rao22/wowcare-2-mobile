@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
 
 
 
 class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
     required this.scrollController,
-    required this.name,
-    required this.classroom,
+    this.studentCode,
+    this.onHealthChanged,
     super.key,
   });
 
   final ScrollController scrollController;
-  final String name;
-  final String classroom;
+  final String? studentCode;
+  final VoidCallback? onHealthChanged;
 
 
   @override
@@ -23,20 +35,190 @@ class StudentHealthTabCard extends StatefulWidget {
 }
 
 class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
+  late Future<StudentHealthModel?> _healthFuture;
+  bool _photoPermission = true;
+  bool _hasShownErrorSnackBar = false;
 
   @override
   void initState() {
     super.initState();
+    _healthFuture = _buildHealthFuture();
+  }
+
+  Future<StudentHealthModel?> _buildHealthFuture() async {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return null;
+    }
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    try {
+      final model = await repo.getStudentHealth(studentCode: code);
+      _photoPermission = model.photoPermission ?? true;
+      return model;
+    } catch (_) {
+      rethrow;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      child: _HealthCard(
-        allergies: "No allergies",
-        medication: 'No medication',
-        dietRestrictions: "Can not eat candy",
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
+
+    return CustomRefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _healthFuture = _buildHealthFuture();
+          _hasShownErrorSnackBar = false;
+        });
+        try {
+          await _healthFuture;
+        } catch (_) {
+          // errors handled by FutureBuilder
+        }
+      },
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: FutureBuilder<StudentHealthModel?>(
+          future: _healthFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(child: PrimaryCircularLoader()),
+              );
+            }
+
+            if (snapshot.hasError) {
+              final message = snapshot.error.toString();
+              CoreUtils.logApiError(message);
+              if (!_hasShownErrorSnackBar) {
+                _hasShownErrorSnackBar = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: message,
+                    isError: true,
+                  );
+                });
+              }
+              // Do not show an inline error widget; just keep the card hidden.
+              return const SizedBox.shrink();
+            }
+
+            final health = snapshot.data;
+
+            return Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      if (!canStudentWrite) {
+                        ModuleAccess.showWriteRestricted(context);
+                        return;
+                      }
+                      final code = widget.studentCode;
+                      if (code == null || code.isEmpty) return;
+                      final currentHealth = health;
+                      final result = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => EditStudentHealthScreen(
+                            studentCode: code,
+                            initialHealth: currentHealth,
+                          ),
+                        ),
+                      );
+                      if (result == true && mounted) {
+                        setState(() {
+                          _healthFuture = _buildHealthFuture();
+                          _hasShownErrorSnackBar = false;
+                        });
+                        widget.onHealthChanged?.call();
+                      }
+                    },
+                    child: Opacity(
+                      opacity: canStudentWrite ? 1 : 0.45,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Health',
+                            style: AppTextStyles.title,
+                          ),
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.buildPrimaryGradient(),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.edit,
+                              size: 22,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _HealthCard(
+                    allergies: health?.allergy,
+                    medication: health?.medications,
+                    dietRestrictions: health?.dietRestrictions,
+                    photoPermission: _photoPermission,
+                    canMutateStudent: canStudentWrite,
+                    onTogglePhotoPermission: (v) async {
+                      final code = widget.studentCode;
+                      if (code == null || code.isEmpty) return;
+                      setState(() {
+                        _photoPermission = v;
+                      });
+                      try {
+                        final repo = serviceLocator<StudentRepository>()
+                            as StudentRepositoryImpl;
+                        final body = {
+                          'allergy': health?.allergy ?? '',
+                          'medications': health?.medications ?? '',
+                          'dietRestrictions': health?.dietRestrictions ?? '',
+                          'photoPermission': v,
+                        };
+                        await repo.updateStudentHealth(
+                          studentCode: code,
+                          body: body,
+                        );
+                        widget.onHealthChanged?.call();
+                      } catch (e) {
+                        CoreUtils.logApiError(e.toString());
+                        if (mounted) {
+                          setState(() {
+                            _photoPermission = !v;
+                          });
+                        }
+                        if (!mounted) return;
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: 'Failed to update photo permission',
+                          isError: true,
+                        );
+                      }
+                    },
+                  ),
+                  SizedBox(height: 24 + bottomSafe),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -44,39 +226,49 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
 }
 
 class _HealthCard extends StatelessWidget{
-  const _HealthCard({required this.allergies, required this.medication, required this.dietRestrictions});
-  final String allergies;
+  const _HealthCard({
+    required this.allergies,
+    required this.medication,
+    required this.dietRestrictions,
+    required this.photoPermission,
+    required this.onTogglePhotoPermission,
+    this.canMutateStudent = true,
+  });
+  final String? allergies;
   final String? medication;
   final String? dietRestrictions;
+  final bool photoPermission;
+  final ValueChanged<bool> onTogglePhotoPermission;
+  final bool canMutateStudent;
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    String _displayOrDash(String? v) {
+      if (v == null) return '-';
+      final t = v.trim();
+      return t.isEmpty ? '-' : t;
+    }
+
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          // Match staff card styling: 12 radius on all non-shared corners,
-          // 1px border with themed color.
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(12),
-            bottomLeft: Radius.circular(12),
-            bottomRight: Radius.circular(12),
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
           ),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          border: Border.fromBorderSide(
+            BorderSide(color: AppColors.themeColor, width: 1),
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(
-                isTablet ? 24 : 16,
-                16,
-                isTablet ? 24 : 16,
-                0,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -84,39 +276,28 @@ class _HealthCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         'Allergies',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
                         ),
                       ),
-                      Text(
-                        allergies,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Medication',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
-                        ),
-                      ),
-                      Text(
-                        medication!,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
+                      Flexible(
+                        child: Text(
+                          _displayOrDash(allergies),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
                         ),
                       ),
                     ],
@@ -126,29 +307,105 @@ class _HealthCard extends StatelessWidget{
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        'Diet Restrictions',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
+                      const Text(
+                        'Medications',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
                         ),
                       ),
-                      Text(
-                        dietRestrictions!,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
+                      Flexible(
+                        child: Text(
+                          _displayOrDash(medication),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Diet Restriction',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          _displayOrDash(dietRestrictions),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Photo Permission',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
+                        ),
+                      ),
+                      if (canMutateStudent)
+                        CustomToggle(
+                          label: '',
+                          isToggled: photoPermission,
+                          onToggle: onTogglePhotoPermission,
+                        )
+                      else
+                        GestureDetector(
+                          onTap: () =>
+                              ModuleAccess.showWriteRestricted(context),
+                          child: Opacity(
+                            opacity: 0.45,
+                            child: AbsorbPointer(
+                              child: CustomToggle(
+                                label: '',
+                                isToggled: photoPermission,
+                                onToggle: (_) {},
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
-
         ),
       ),
     );

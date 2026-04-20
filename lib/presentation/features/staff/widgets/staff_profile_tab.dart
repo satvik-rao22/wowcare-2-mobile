@@ -9,9 +9,11 @@ import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.da
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
@@ -19,6 +21,7 @@ class StaffProfileTab extends StatefulWidget {
     required this.staffCode,
     this.classroomNames,
     this.classroomNameByCode,
+    this.onProfileSummaryChanged,
   });
 
   final String staffCode;
@@ -26,6 +29,10 @@ class StaffProfileTab extends StatefulWidget {
   final List<String>? classroomNames;
   /// Optional mapping from classroom code -> display name (from StaffScreen).
   final Map<String, String>? classroomNameByCode;
+  /// Optional callback so parent (StaffProfileScreen) can update
+  /// the header card when core profile info changes.
+  final void Function(String name, String classroom, String designation)?
+      onProfileSummaryChanged;
 
   @override
   State<StaffProfileTab> createState() => _StaffProfileTabState();
@@ -33,6 +40,8 @@ class StaffProfileTab extends StatefulWidget {
 
 class _StaffProfileTabState extends State<StaffProfileTab> {
   late final StaffProfileCubit _profileCubit;
+  final Map<String, String> _resolvedClassroomNameByCode = {};
+  final Set<String> _classroomFetchInFlight = <String>{};
 
   @override
   void initState() {
@@ -65,11 +74,90 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
     }
   }
 
+  /// US ZIP+4: inserts hyphen after 5 digits when 9+ digits (e.g. 030601234 → 03060-1234).
+  String _formatZipCodeDisplay(String? zip) {
+    if (zip == null || zip.trim().isEmpty) return '';
+    final digits = zip.replaceAll(RegExp(r'\D'), '');
+    if (digits.length >= 9) {
+      return '${digits.substring(0, 5)}-${digits.substring(5, 9)}';
+    }
+    if (digits.length == 5) {
+      return digits;
+    }
+    return zip.trim();
+  }
+
+  /// Address line for display with formatted ZIP (hyphen for ZIP+4).
+  String _formatAddressForDisplay(StaffProfileAddress address) {
+    final zip = _formatZipCodeDisplay(address.zipCode);
+    final parts = <String>[];
+    if (address.street.isNotEmpty) parts.add(address.street);
+    if (address.line2.isNotEmpty) parts.add(address.line2);
+    if (address.city.isNotEmpty) parts.add(address.city);
+    if (address.state.isNotEmpty) parts.add(address.state);
+    if (zip.isNotEmpty) parts.add(zip);
+    if (address.country.isNotEmpty) parts.add(address.country);
+    return parts.isEmpty ? '' : parts.join(', ');
+  }
+
   String _formatPhoneNumber(String? number) {
     if (number == null || number.isEmpty) return '-';
     final digits = number.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return number;
-    return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
+    // Prefer US-style formatting when we can derive a 10-digit local number.
+    // Supports:
+    // - "9876543212"
+    // - "+1 9876543212"
+    // - "1-987-654-3212"
+    String local10 = digits;
+    if (digits.length == 11 && digits.startsWith('1')) {
+      local10 = digits.substring(1);
+    } else if (digits.length > 11) {
+      // If backend sends E.164 with country code, keep last 10 digits as a best-effort.
+      local10 = digits.substring(digits.length - 10);
+    }
+
+    if (local10.length != 10) return number;
+    return '(${local10.substring(0, 3)}) ${local10.substring(3, 6)}-${local10.substring(6, 10)}';
+  }
+
+  String _displayClassroomName(String code) {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return '-';
+
+    final cachedFromParent = widget.classroomNameByCode?[trimmed]?.trim();
+    if (cachedFromParent != null && cachedFromParent.isNotEmpty) {
+      return cachedFromParent;
+    }
+
+    final local = _resolvedClassroomNameByCode[trimmed]?.trim();
+    if (local != null && local.isNotEmpty) {
+      return local;
+    }
+
+    if (!_classroomFetchInFlight.contains(trimmed)) {
+      _classroomFetchInFlight.add(trimmed);
+      // ignore: discarded_futures
+      _fetchClassroomNameByCode(trimmed);
+    }
+
+    return trimmed;
+  }
+
+  Future<void> _fetchClassroomNameByCode(String code) async {
+    try {
+      final details = await serviceLocator<GetClassroomByCodeUseCase>()(code: code);
+      if (!mounted) return;
+      final name = details.name.trim();
+      if (name.isNotEmpty) {
+        setState(() {
+          _resolvedClassroomNameByCode[code] = name;
+        });
+      }
+    } catch (_) {
+      // Keep showing code when lookup fails.
+    } finally {
+      _classroomFetchInFlight.remove(code);
+    }
   }
 
   String _getStatusLabel(String? status) {
@@ -101,6 +189,29 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
       return const Color.fromRGBO(250, 65, 65, 0.1);
     }
     return const Color.fromARGB(255, 242, 238, 176);
+  }
+
+  /// Formats enum-style strings from the API into human readable labels.
+  /// Examples:
+  /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
+  /// - "FULL_TIME" -> "Full-Time"
+  /// - "PART_TIME" -> "Part-Time"
+  String _formatEnumLabel(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    final upper = value.trim().toUpperCase();
+
+    // Special cases for job type
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+
+    // Generic: split on underscores/spaces and title‑case each part.
+    final parts = upper.split(RegExp(r'[_\s]+'));
+    final words = parts.map((part) {
+      if (part.isEmpty) return '';
+      final lower = part.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).where((w) => w.isNotEmpty);
+    return words.join(' ');
   }
 
   @override
@@ -139,6 +250,28 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               );
             }
 
+            final addressDisplay = _formatAddressForDisplay(profile.address);
+
+            // Notify parent about updated summary info (name, classroom, role)
+            // so the header card stays in sync with this tab.
+            if (widget.onProfileSummaryChanged != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                final displayName =
+                    profile.fullName.isEmpty ? '-' : profile.fullName;
+                final primaryClassroomName =
+                    profile.primaryClassroomCode.isEmpty
+                        ? '-'
+                        : _displayClassroomName(profile.primaryClassroomCode);
+                final designation = _formatEnumLabel(profile.designation);
+                widget.onProfileSummaryChanged!(
+                  displayName,
+                  primaryClassroomName,
+                  designation,
+                );
+              });
+            }
+
             // Build work and break times maps
             final workTimes = <String, String>{};
             final breakTimes = <String, String>{};
@@ -152,6 +285,8 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
             for (final schedule in profile.breakSchedules) {
               final day = schedule.dayOfWeek;
+              // Treat break schedules as "available" too so day chip doesn't look disabled.
+              availableDays.add(day);
               breakTimes[day] = schedule.formattedTime;
             }
 
@@ -190,14 +325,12 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                 GestureDetector(
                   onTap: () async {
                     // Map allowed/primary classroom codes to display names using cached metadata.
-                    final codeToName = widget.classroomNameByCode ?? const {};
                     final allowedClassroomNames = profile.allowedClassroomCodes
-                        .map((code) => codeToName[code] ?? code)
+                        .map(_displayClassroomName)
                         .toList();
                     final primaryClassroomName = profile.primaryClassroomCode.isEmpty
                         ? null
-                        : (codeToName[profile.primaryClassroomCode] ??
-                            profile.primaryClassroomCode);
+                        : _displayClassroomName(profile.primaryClassroomCode);
 
                     final result = await Navigator.push(
                       context,
@@ -264,7 +397,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               trailing: _buildStatusChip(profile.status),
             ),
             const SizedBox(height: 12),
-            _Field(label: 'Designation', value: profile.designation.isEmpty ? '-' : profile.designation),
+            _Field(
+              label: 'Designation',
+              value: _formatEnumLabel(profile.designation),
+            ),
             const SizedBox(height: 16),
             _Field(label: 'Email', value: profile.email.isEmpty ? '-' : profile.email),
             const SizedBox(height: 16),
@@ -279,7 +415,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
             const SizedBox(height: 16),
             _Field(
               label: 'Address',
-              value: profile.address.formattedAddress.isEmpty ? '-' : profile.address.formattedAddress,
+              value: addressDisplay.isEmpty ? '-' : addressDisplay,
             ),
             const SizedBox(height: 16),
             _Field(
@@ -289,7 +425,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
             const SizedBox(height: 16),
             _Field(
               label: 'Job Tag',
-              value: profile.jobTag.isEmpty ? '-' : profile.jobTag,
+              value: _formatEnumLabel(profile.jobTag),
             ),
             const SizedBox(height: 16),
             _Field(
@@ -312,8 +448,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                         profile.allowedClassroomCodes.length,
                         (index) {
                           final code = profile.allowedClassroomCodes[index];
-                          final name =
-                              widget.classroomNameByCode?[code] ?? code;
+                          final name = _displayClassroomName(code);
                           return _Chip(
                             label: name,
                             labelColor: const Color.fromRGBO(27, 35, 126, 1),
@@ -338,183 +473,156 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                       ),
                     )
                   : _Chip(
-                      label: widget.classroomNameByCode?[
-                              profile.primaryClassroomCode] ??
-                          profile.primaryClassroomCode,
+                      label: _displayClassroomName(profile.primaryClassroomCode),
                       labelColor: const Color.fromRGBO(27, 35, 126, 1),
                       color: chipColors.first,
                     ),
             ),
-          // Availability + surrounding area navigates to EditScheduleScreen
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              // Convert profile schedules to ScheduleEntry format for EditScheduleScreen
-              final schedules = <ScheduleEntry>[];
-              for (final workSchedule in profile.workSchedules) {
-                schedules.add(ScheduleEntry(
-                  day: workSchedule.dayOfWeek.toLowerCase(),
-                  startTime: workSchedule.workStartTime.formattedTime,
-                  endTime: workSchedule.workEndTime.formattedTime,
-                  isBreakTime: false,
-                ));
-              }
-              for (final breakSchedule in profile.breakSchedules) {
-                schedules.add(ScheduleEntry(
-                  day: breakSchedule.dayOfWeek.toLowerCase(),
-                  startTime: breakSchedule.breakStartTime.formattedTime,
-                  endTime: breakSchedule.breakEndTime.formattedTime,
-                  isBreakTime: true,
-                ));
-              }
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditScheduleScreen(
-                    staffCode: widget.staffCode,
-                    initialSchedules: schedules,
-                  ),
-                ),
-              ).then((updated) async {
-                if (updated == true) {
-                  await _profileCubit.refresh(widget.staffCode);
+            // Schedule section – layout aligned with student profile schedule card
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                final schedules = <ScheduleEntry>[];
+                for (final workSchedule in profile.workSchedules) {
+                  schedules.add(ScheduleEntry(
+                    day: workSchedule.dayOfWeek.toLowerCase(),
+                    startTime: workSchedule.workStartTime.formattedTime,
+                    endTime: workSchedule.workEndTime.formattedTime,
+                    isBreakTime: false,
+                  ));
                 }
-              });
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                // Availability with edit icon on the right, chips below
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Availability',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xff573353),
-                      ),
+                for (final breakSchedule in profile.breakSchedules) {
+                  schedules.add(ScheduleEntry(
+                    day: breakSchedule.dayOfWeek.toLowerCase(),
+                    startTime: breakSchedule.breakStartTime.formattedTime,
+                    endTime: breakSchedule.breakEndTime.formattedTime,
+                    isBreakTime: true,
+                  ));
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditScheduleScreen(
+                      staffCode: widget.staffCode,
+                      initialSchedules: schedules,
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        final schedules = <ScheduleEntry>[];
-                        for (final workSchedule in profile.workSchedules) {
-                          schedules.add(ScheduleEntry(
-                            day: workSchedule.dayOfWeek.toLowerCase(),
-                            startTime: workSchedule.workStartTime.formattedTime,
-                            endTime: workSchedule.workEndTime.formattedTime,
-                            isBreakTime: false,
-                          ));
-                        }
-                        for (final breakSchedule in profile.breakSchedules) {
-                          schedules.add(ScheduleEntry(
-                            day: breakSchedule.dayOfWeek.toLowerCase(),
-                            startTime: breakSchedule.breakStartTime.formattedTime,
-                            endTime: breakSchedule.breakEndTime.formattedTime,
-                            isBreakTime: true,
-                          ));
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditScheduleScreen(
-                              staffCode: widget.staffCode,
-                              initialSchedules: schedules,
-                            ),
-                          ),
-                        ).then((updated) async {
-                          if (updated == true) {
-                            await _profileCubit.refresh(widget.staffCode);
-                          }
-                        });
-                      },
-                      child: const Icon(
+                  ),
+                ).then((updated) async {
+                  if (updated == true) {
+                    await _profileCubit.refresh(widget.staffCode);
+                  }
+                });
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Schedule',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff573353),
+                        ),
+                      ),
+                      const Icon(
                         Icons.edit,
                         size: 16,
                         color: Color(0x99573353),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: _allDays.map((day) {
-                          final isAvailable = availableDays.contains(day);
-                          final displayDay = day.substring(0, 1) + day.substring(1).toLowerCase();
-                          return Opacity(
-                            opacity: isAvailable ? 1 : 0.4,
-                            child: _Chip(
-                              label: displayDay,
-                              labelColor: isAvailable
-                                  ? const Color.fromRGBO(27, 35, 126, 1)
-                                  : Colors.grey[700]!,
-                              color: isAvailable
-                                  ? const Color.fromRGBO(203, 246, 255, 0.4)
-                                  : const Color(0xFFF3F4FB),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _Field(
-                  label: 'Work Time',
-                  value: null,
-                  trailing: Row(
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
                     children: [
                       Expanded(
                         child: Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: _allDays.map((day) {
+                            // Map internal enum-style day to display name (Monday, etc.)
+                            String displayDay;
+                            switch (day) {
+                              case 'MONDAY':
+                                displayDay = 'Monday';
+                                break;
+                              case 'TUESDAY':
+                                displayDay = 'Tuesday';
+                                break;
+                              case 'WEDNESDAY':
+                                displayDay = 'Wednesday';
+                                break;
+                              case 'THURSDAY':
+                                displayDay = 'Thursday';
+                                break;
+                              case 'FRIDAY':
+                                displayDay = 'Friday';
+                                break;
+                              default:
+                                displayDay = day.toLowerCase();
+                                displayDay =
+                                    displayDay[0].toUpperCase() +
+                                        displayDay.substring(1);
+                                break;
+                            }
+
                             final isAvailable = availableDays.contains(day);
-                            final String value = workTimes[day] ?? '-';
-                            return Opacity(
-                              opacity: isAvailable ? 1 : 0.4,
-                              child: _TimeChip(label: value),
+                            final String? workLabel =
+                                isAvailable ? workTimes[day] : null;
+                            final String? breakLabel =
+                                isAvailable ? breakTimes[day] : null;
+
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _ScheduleChip(
+                                  width: 110,
+                                  label: displayDay,
+                                  labelColor: isAvailable
+                                      ? const Color.fromRGBO(27, 35, 126, 1)
+                                      : Colors.grey.shade700,
+                                  color: isAvailable
+                                      ? const Color(0x4DB1AFE9)
+                                      : const Color(0xFFF3F4FB),
+                                ),
+                                if (workLabel != null &&
+                                    workLabel.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  _ScheduleChip(
+                                    width: 110,
+                                    label: workLabel,
+                                    labelColor:
+                                        const Color.fromRGBO(27, 35, 126, 1),
+                                    color: Colors.transparent,
+                                    isTimeChip: true,
+                                  ),
+                                ],
+                                if (breakLabel != null &&
+                                    breakLabel.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  _ScheduleChip(
+                                    width: 110,
+                                    label: '$breakLabel',
+                                    labelColor:
+                                        const Color.fromRGBO(27, 35, 126, 1),
+                                    color: Colors.transparent,
+                                    isTimeChip: true,
+                                  ),
+                                ],
+                              ],
                             );
                           }).toList(),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                _Field(
-                  label: 'Break Time',
-                  value: null,
-                  trailing: Row(
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _allDays.map((day) {
-                            final isAvailable = availableDays.contains(day);
-                            final String value = breakTimes[day] ?? '-';
-                            return Opacity(
-                              opacity: isAvailable ? 1 : 0.4,
-                              child: _TimeChip(label: value),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           ],
         ),
       ),
@@ -550,6 +658,50 @@ class ScheduleEntry {
   final String startTime; // e.g. '09:00 AM'
   final String endTime; // e.g. '05:00 PM'
   final bool isBreakTime;
+}
+
+class _ScheduleChip extends StatelessWidget {
+  const _ScheduleChip({
+    required this.label,
+    required this.labelColor,
+    required this.color,
+    required this.width,
+    this.isTimeChip = false,
+  });
+
+  final String label;
+  final Color labelColor;
+  final Color color;
+  final double width;
+  final bool isTimeChip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: isTimeChip
+            ? Border.all(color: const Color(0x4DB1AFE9), width: 1.5)
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: isTimeChip ? 2 : 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF4B5B7A),
+        ),
+      ),
+    );
+  }
 }
 
 class _Field extends StatelessWidget {
@@ -626,30 +778,4 @@ class _Chip extends StatelessWidget {
     );
   }
 }
-
-class _TimeChip extends StatelessWidget {
-  const _TimeChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4FB),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF4B5B7A),
-        ),
-      ),
-    );
-  }
-}
-
 

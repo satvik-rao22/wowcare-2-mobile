@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/data/features/student/models/student_models.dart';
 
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentProfileScreen extends StatefulWidget {
@@ -20,6 +32,10 @@ class StudentProfileScreen extends StatefulWidget {
     required this.tags,
     required this.schedule,
     required this.sibling,
+    this.studentCode,
+    /// Raw API status (e.g. ACTIVE, UPCOMING) so the header dot is correct before the profile tab loads.
+    this.initialEnrollmentStatus,
+    this.syncWithParentChildSelection = false,
   });
 
   final String name;
@@ -27,6 +43,12 @@ class StudentProfileScreen extends StatefulWidget {
   final List<String> tags;
   final List<String> schedule;
   final Map<String, dynamic> sibling;
+  final String? studentCode;
+
+  final String? initialEnrollmentStatus;
+
+  /// When true (e.g. parent opens My Child from drawer), child dropdown updates this screen.
+  final bool syncWithParentChildSelection;
 
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
@@ -40,15 +62,230 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
+  late Future<StudentHealthModel?> _healthFuture;
+  late String _displayName;
+  late String _displayClassroom;
+  /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
+  String? _profileStatusUpper;
+  String? _activeStudentCode;
+  late List<String> _profileTags;
+  late List<String> _profileSchedule;
+  late Map<String, dynamic> _profileSibling;
+  ParentChildProvider? _parentChildProvider;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _activeStudentCode = widget.studentCode;
+    _profileTags = List<String>.from(widget.tags);
+    _profileSchedule = List<String>.from(widget.schedule);
+    _profileSibling = Map<String, dynamic>.from(widget.sibling);
+    _healthFuture = _buildHealthFuture();
+    _displayName = widget.name;
+    _displayClassroom = widget.classroom;
+    _profileStatusUpper =
+        widget.initialEnrollmentStatus?.trim().toUpperCase();
+
+    // Cache-first classroom load (won't refetch if already loaded).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.read<ClassroomCubit>().loadActiveClassrooms();
+      } catch (_) {
+        // If no ClassroomCubit is provided above, build() will wrap with one.
+      }
+    });
+  }
+
+  void _onProfileChanged(StudentProfileModel profile) {
+    if (!mounted) return;
+    setState(() {
+      final nextName = profile.fullName.trim();
+      _displayName = nextName.isEmpty ? _displayName : nextName;
+      final nextClassroom = (profile.classroom ?? '').trim();
+      _displayClassroom =
+          nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
+      _profileStatusUpper = profile.status.trim().toUpperCase();
+    });
+  }
+
+  void _showHealthDetailsDialog(StudentHealthModel health) {
+    final items = <Widget>[];
+    void addLine(String text, Widget leading) {
+      final t = text.trim();
+      if (t.isEmpty) return;
+      items.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leading,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  t,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xff573353),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final med = (health.medications ?? '').trim();
+    if (med.isNotEmpty) {
+      addLine(
+        med,
+        SvgPicture.asset(
+          MediaRes.healthIcon,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+    final allergy = (health.allergy ?? '').trim();
+    if (allergy.isNotEmpty) {
+      addLine(
+        allergy,
+        SvgPicture.asset(
+          MediaRes.alertIcon,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+    final diet = (health.dietRestrictions ?? '').trim();
+    if (diet.isNotEmpty) {
+      addLine(
+        diet,
+        Image.asset(
+          MediaRes.foodIcon2,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+    if (health.photoPermission == false) {
+      addLine(
+        'Photo permission not granted',
+        SvgPicture.asset(
+          MediaRes.cameraIcon,
+          height: 22,
+          width: 22,
+        ),
+      );
+    }
+
+    if (items.isEmpty) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Details',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xff573353),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...items,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<StudentHealthModel?> _buildHealthFuture() async {
+    final code = _activeStudentCode;
+    if (code == null || code.isEmpty) {
+      return null;
+    }
+    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    try {
+      return await repo.getStudentHealth(studentCode: code);
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      return null;
+    }
+  }
+
+  void _refreshHeaderHealth() {
+    if (!mounted) return;
+    setState(() {
+      _healthFuture = _buildHealthFuture();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
+      return;
+    }
+    final p = context.read<ParentChildProvider>();
+    _parentChildProvider = p;
+    p.addListener(_onParentChildSelectionChanged);
+  }
+
+  void _onParentChildSelectionChanged() {
+    if (!widget.syncWithParentChildSelection) return;
+    final child = _parentChildProvider?.selectedChild;
+    final code = child?.code.trim() ?? '';
+    if (code.isEmpty || code == (_activeStudentCode ?? '').trim()) return;
+    setState(() {
+      _activeStudentCode = code;
+      _displayName = child!.name;
+      _displayClassroom = child.classroom;
+      _profileTags = List<String>.from(child.tags);
+      _profileSchedule = List<String>.from(child.schedule);
+      _profileSibling = <String, dynamic>{
+        'name': <dynamic>[],
+        'relation': <dynamic>[],
+        'status': <dynamic>[],
+      };
+      _profileStatusUpper = null;
+      _healthFuture = _buildHealthFuture();
+    });
   }
 
   @override
   void dispose() {
+    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -58,22 +295,60 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Future<void> _pickProfileImage() async {
+    final role = context.read<RoleProvider>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selected profile image')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected profile image',
+        isSuccess: true,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Ensure classroom list is available for any downstream screens (edit dropdown etc.)
+    // - If a ClassroomCubit is already provided (e.g. from StudentScreen), reuse it.
+    // - Otherwise, create it here and load once.
+    final hasClassroomCubit = (() {
+      try {
+        context.read<ClassroomCubit>();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    if (!hasClassroomCubit) {
+      return BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        child: Builder(
+          builder: (context) => _buildScreen(context),
+        ),
+      );
+    }
+
+    return _buildScreen(context);
+  }
+
+  Widget _buildScreen(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canChangePhoto =
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
+
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -113,7 +388,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               ],
             ),
           ),
-          _buildStudentProfileCard(context),
+          _buildStudentProfileCard(context, role, canChangePhoto),
 
           const SizedBox(height: 16),
           Expanded(
@@ -121,27 +396,45 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               controller: _tabController,
               children: [
                 StudentProfileTab(
+                  key: ValueKey<String>(
+                    'profile_tab_${_activeStudentCode ?? 'none'}',
+                  ),
                   scrollController: _profileScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
-                  tags: widget.tags,
-                  schedule: widget.schedule,
-                  sibling: widget.sibling,
+                  name: _displayName,
+                  classroom: _displayClassroom,
+                  tags: _profileTags,
+                  schedule: _profileSchedule,
+                  sibling: _profileSibling,
+                  studentCode: _activeStudentCode,
+                  onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
+                  key: ValueKey<String>(
+                    'health_tab_${_activeStudentCode ?? 'none'}',
+                  ),
                   scrollController: _healthScrollController,
-                  name: widget.name,
-                  classroom: widget.classroom,
+                  name: _displayName,
+                  classroom: _displayClassroom,
+                  studentCode: _activeStudentCode,
+                  onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
-                    scrollController: _importantDatesScrollController,
-                    name: widget.name,
-                    classroom: widget.classroom
+                  key: ValueKey<String>(
+                    'dates_tab_${_activeStudentCode ?? 'none'}',
+                  ),
+                  scrollController: _importantDatesScrollController,
+                  name: _displayName,
+                  classroom: _displayClassroom,
+                  studentCode: _activeStudentCode,
                 ),
                 StudentDocumentsTab(
-                    scrollController: _documentsScrollController,
-                    name: widget.name,
-                    classroom: widget.classroom
+                  key: ValueKey<String>(
+                    'docs_tab_${_activeStudentCode ?? 'none'}',
+                  ),
+                  scrollController: _documentsScrollController,
+                  name: _displayName,
+                  classroom: _displayClassroom,
+                  studentCode: _activeStudentCode,
                 )
 
               ],
@@ -152,7 +445,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     );
   }
 
-  Widget _buildStudentProfileCard(BuildContext context) {
+  Widget _buildStudentProfileCard(
+    BuildContext context,
+    RoleProvider role,
+    bool canChangePhoto,
+  ) {
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white,
@@ -164,40 +461,45 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               children: [
                 GestureDetector(
                   onTap: _pickProfileImage,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      DocumentImageWidget(
-                        fileUuid: widget.name, // seed for stable color when no image
-                        name: widget.name,
-                        size: 90,
-                        fontSize: 24,
-                        statusColor: const Color(0xFF00B115),
-                      ),
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
-                            ],
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                          ),
+                  child: Opacity(
+                    opacity: canChangePhoto ? 1 : 0.55,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        DocumentImageWidget(
+                          fileUuid: _activeStudentCode ?? _displayName,
+                          name: _displayName,
+                          studentCode: _activeStudentCode,
+                          studentEnrollmentStatus: _profileStatusUpper,
+                          size: 90,
+                          fontSize: 24,
                         ),
-                      ),
-                    ],
+                        if (canChangePhoto)
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                                ],
+                              ),
+                              child: Container(
+                                margin: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.buildPrimaryGradient(),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 28),
@@ -206,7 +508,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.name,
+                        _displayName,
                         style: const TextStyle(
                           color: AppColors.primaryColor,
                           fontSize: 23,
@@ -217,30 +519,94 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        widget.classroom,
-                        style: TextStyle(
-                          color: AppColors.primaryColor.withOpacity(0.7),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          widget.classroom,
+                          _displayClassroom,
                           style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<StudentHealthModel?>(
+                        future: _healthFuture,
+                        builder: (context, snapshot) {
+                          final health = snapshot.data;
+                          final hasAllergy =
+                              (health?.allergy ?? '').trim().isNotEmpty;
+                          final hasMedication =
+                              (health?.medications ?? '').trim().isNotEmpty;
+                          final hasDietRestrictions =
+                              (health?.dietRestrictions ?? '').trim().isNotEmpty;
+                          final isPhotoPermissionOff =
+                              (health?.photoPermission ?? true) == false;
+
+                          final hasAnyHealthIcon =
+                              hasAllergy ||
+                              hasMedication ||
+                              hasDietRestrictions ||
+                              isPhotoPermissionOff;
+
+                          if (!hasAnyHealthIcon) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final h = health;
+                              if (h == null) return;
+                              _showHealthDetailsDialog(h);
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                if (hasDietRestrictions)
+                                  Image.asset(
+                                    MediaRes.foodIcon2,
+                                    height: 20,
+                                    width: 20,
+                                  ),
+                                if (hasMedication)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: SvgPicture.asset(
+                                      MediaRes.healthIcon,
+                                      height: 20,
+                                      width: 20,
+                                    ),
+                                  ),
+                                if (hasAllergy)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: SvgPicture.asset(
+                                      MediaRes.alertIcon,
+                                      height: 20,
+                                      width: 20,
+                                    ),
+                                  ),
+                                if (isPhotoPermissionOff)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: SvgPicture.asset(
+                                      MediaRes.cameraIcon,
+                                      height: 20,
+                                      width: 20,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -248,13 +614,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               ],
             ),
           ),
-          _buildStudentActionButtons(context, widget.name),
+          _buildStudentActionButtons(context, role),
         ],
       ),
     );
   }
 
-  Widget _buildStudentActionButtons(BuildContext context, studentName) {
+  Widget _buildStudentActionButtons(
+    BuildContext context,
+    RoleProvider role,
+  ) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -264,38 +633,169 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildActionIcon(MediaRes.attendanceIcon, onTap: () {}),
           _buildActionIcon(
-              MediaRes.activitesIcon, onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityFeedScreen(fromStudentProfile: true, studentName: {'name' : widget.name, 'classroom': widget.classroom, 'tags': widget.tags, 'nappingStatus': false},))); //get this data from database for now hardcoding napping status
-
-          }
+            context,
+            role,
+            MediaRes.attendanceIcon,
+            enabled: role.canOpenModule(AppAccessModules.studentAttendance),
+            onTap: () {
+              ModuleAccess.runIfFeatureAllowed(
+                context,
+                role,
+                AppAccessModules.studentAttendance,
+                () {
+                  final code = (_activeStudentCode ?? '').trim();
+                  if (code.isEmpty) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Student code is required for attendance.',
+                      isError: true,
+                    );
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      settings: const RouteSettings(
+                        name: StudentAttendanceProfile.routeName,
+                      ),
+                      builder: (_) => StudentAttendanceProfile(
+                        studentCode: code,
+                        studentId: 0,
+                        studentName: _displayName,
+                        studentPhotoUuid: null,
+                        roomName: _displayClassroom,
+                        isSignedIn: false,
+                        syncWithParentChildSelection:
+                            widget.syncWithParentChildSelection,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           ),
-          _buildActionIcon(MediaRes.message_panel_icon, onTap: () {}),
-          _buildActionIcon(MediaRes.billing_drawer_icon, onTap: () {}),
+          _buildActionIcon(
+            context,
+            role,
+            MediaRes.activitesIcon,
+            enabled: role.canOpenModule(AppAccessModules.dailyActivity),
+            onTap: () {
+              ModuleAccess.runIfFeatureAllowed(
+                context,
+                role,
+                AppAccessModules.dailyActivity,
+                () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ActivityFeedScreen(
+                        fromStudentProfile: true,
+                        allowActivityWrite: ModuleAccess.mayWrite(
+                          role,
+                          AppAccessModules.dailyActivity,
+                        ),
+                        studentName: {
+                          'name': _displayName,
+                          if (_activeStudentCode != null &&
+                              _activeStudentCode!.trim().isNotEmpty)
+                            'studentCode': _activeStudentCode!.trim(),
+                          'classroom': _displayClassroom,
+                          'tags': _profileTags,
+                          'nappingStatus': false,
+                        },
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          _buildActionIcon(
+            context,
+            role,
+            MediaRes.message_panel_icon,
+            enabled: role.canAccessAny([
+              AppAccessModules.parentMessaging,
+              AppAccessModules.staffMessaging,
+            ]),
+            onTap: () {
+              final messagingOk = role.canAccessAny([
+                AppAccessModules.parentMessaging,
+                AppAccessModules.staffMessaging,
+              ]);
+              if (messagingOk) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Messaging is available from the Messages section.',
+                  isError: false,
+                );
+              } else {
+                ModuleAccess.showFeatureRestricted(context);
+              }
+            },
+          ),
+          _buildActionIcon(
+            context,
+            role,
+            MediaRes.billing_drawer_icon,
+            enabled: role.canAccessAny([
+              AppAccessModules.transaction,
+              AppAccessModules.invoices,
+              AppAccessModules.recurringPlans,
+              AppAccessModules.billingSettings,
+            ]),
+            onTap: () {
+              final billingOk = role.canAccessAny([
+                AppAccessModules.transaction,
+                AppAccessModules.invoices,
+                AppAccessModules.recurringPlans,
+                AppAccessModules.billingSettings,
+              ]);
+              if (billingOk) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Billing is available from the Transactions section.',
+                  isError: false,
+                );
+              } else {
+                ModuleAccess.showFeatureRestricted(context);
+              }
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActionIcon(String asset, {required VoidCallback onTap}) {
+  Widget _buildActionIcon(
+    BuildContext context,
+    RoleProvider role,
+    String asset, {
+    required VoidCallback onTap,
+    required bool enabled,
+  }) {
     final bool isSvg = asset.toLowerCase().endsWith('.svg');
+    final void Function() tap = enabled
+        ? onTap
+        : () => ModuleAccess.showFeatureRestricted(context);
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          child: isSvg
-              ? SvgPicture.asset(
-                  asset,
-                  height: 28,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                )
-              : Image.asset(asset, height: 28, color: Colors.white),
+      onTap: tap,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            child: isSvg
+                ? SvgPicture.asset(
+                    asset,
+                    height: 28,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                  )
+                : Image.asset(asset, height: 28, color: Colors.white),
+          ),
         ),
       ),
     );

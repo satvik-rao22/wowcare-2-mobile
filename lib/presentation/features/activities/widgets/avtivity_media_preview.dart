@@ -4,6 +4,7 @@ import 'package:wowcare/presentation/features/activities/view/activity_daily_tab
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/util/core_utils.dart';
 
 class ActivityMediaPreview extends StatefulWidget {
   final ActivityItem activity;
@@ -18,6 +19,7 @@ class ActivityMediaPreview extends StatefulWidget {
 class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
+  bool _videoInitFailed = false;
   static final Map<String, dynamic> activityIcons = {
     'Nap': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
@@ -43,6 +45,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   void _loadThumbnail() async{
     final videoUrl = widget.activity.videoUrl;
     if(videoUrl == null || videoUrl.isEmpty) return;
+    _videoInitFailed = false;
     _controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
     try{
       await _controller!.initialize();
@@ -54,6 +57,18 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
       }
     } catch(e){
       debugPrint('Error in loading thumbnail : $e');
+      _controller?.dispose();
+      _controller = null;
+      if (!mounted) return;
+      setState(() {
+        _videoInitFailed = true;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Video thumbnail preview is not supported for this format on this device.',
+        isWarning: true,
+      );
     }
   }
 
@@ -95,8 +110,17 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
           else if (hasVideo)
             Container(
               color: widget.activityColor.withOpacity(0.3),
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2,),
+              child: Center(
+                child: _videoInitFailed
+                    ? const Icon(
+                        Icons.videocam_off_outlined,
+                        color: Colors.white70,
+                        size: 38,
+                      )
+                    : const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
               ),
 
             )

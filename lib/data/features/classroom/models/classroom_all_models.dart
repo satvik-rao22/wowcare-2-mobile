@@ -8,10 +8,11 @@ class ClassroomAllItemModel {
   final String name;
 
   factory ClassroomAllItemModel.fromJson(Map<String, dynamic> json) {
-    return ClassroomAllItemModel(
-      code: json['code'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-    );
+    // Support both 'code' and 'classroomCode' (backend may use either)
+    final code = (json['code'] as String? ?? json['classroomCode'] as String?) ??
+        (json['id']?.toString() ?? '');
+    final name = (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
+    return ClassroomAllItemModel(code: code, name: name);
   }
 }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -26,6 +28,8 @@ class StaffCard extends StatefulWidget {
     this.onSelected,
     required this.availableClassrooms,
     required this.classroomCodeByName,
+    this.workScheduleByDay = const <String, String>{},
+    this.breakScheduleByDay = const <String, String>{},
   });
 
   final String staffCode;
@@ -45,6 +49,10 @@ class StaffCard extends StatefulWidget {
   final ValueChanged<bool?>? onSelected;
   final List<String> availableClassrooms;
   final Map<String, String> classroomCodeByName;
+  /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" work time.
+  final Map<String, String> workScheduleByDay;
+  /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
+  final Map<String, String> breakScheduleByDay;
 
   @override
   State<StaffCard> createState() => _StaffCardState();
@@ -52,6 +60,29 @@ class StaffCard extends StatefulWidget {
 
 class _StaffCardState extends State<StaffCard> {
   bool isExpanded = false;
+
+  /// Formats enum-style strings from the API into human readable labels.
+  /// Examples:
+  /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
+  /// - "FULL_TIME" -> "Full-Time"
+  /// - "PART_TIME" -> "Part-Time"
+  String _formatEnumLabel(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    final upper = value.trim().toUpperCase();
+
+    // Special cases for job type
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+
+    // Generic: split on underscores/spaces and title‑case each part.
+    final parts = upper.split(RegExp(r'[_\s]+'));
+    final words = parts.map((part) {
+      if (part.isEmpty) return '';
+      final lower = part.toLowerCase();
+      return lower[0].toUpperCase() + lower.substring(1);
+    }).where((w) => w.isNotEmpty);
+    return words.join(' ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,8 +161,10 @@ class _StaffCardState extends State<StaffCard> {
                           ),
                           */
                           DocumentImageWidget(
-                            fileUuid: '',
+                            fileUuid: widget.staffCode,
                             name: widget.name,
+                            staffCode: widget.staffCode,
+                            staffEmploymentStatus: widget.status,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -272,18 +305,53 @@ class _StaffCardState extends State<StaffCard> {
                                   runSpacing: 4,
                                   alignment: WrapAlignment.start,
                                   children: [
-                                      ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) {
-                                        final isActive = widget.schedule.contains(day);
-                                        final dayChip = Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(
+                                      (shortDay) {
+                                        String enumDay;
+                                        switch (shortDay) {
+                                          case 'Mon':
+                                            enumDay = 'MONDAY';
+                                            break;
+                                          case 'Tue':
+                                            enumDay = 'TUESDAY';
+                                            break;
+                                          case 'Wed':
+                                            enumDay = 'WEDNESDAY';
+                                            break;
+                                          case 'Thu':
+                                            enumDay = 'THURSDAY';
+                                            break;
+                                          case 'Fri':
+                                          default:
+                                            enumDay = 'FRIDAY';
+                                            break;
+                                        }
+
+                                        final work =
+                                            widget.workScheduleByDay[enumDay];
+                                        final brk =
+                                            widget.breakScheduleByDay[enumDay];
+                                        final hasWork = work != null &&
+                                            work.trim().isNotEmpty;
+                                        final hasBreak = brk != null &&
+                                            brk.trim().isNotEmpty;
+                                        final isActive = hasWork || hasBreak;
+
+                                        final chip = Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0xFF6C7FD8).withOpacity(0.12)
+                                                ? const Color(0xFF6C7FD8)
+                                                    .withOpacity(0.12)
                                                 : const Color(0xFFF3F4FB),
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Text(
-                                            day,
+                                            shortDay,
                                             style: TextStyle(
                                               fontFamily: 'Manrope',
                                               fontWeight: FontWeight.w600,
@@ -294,12 +362,32 @@ class _StaffCardState extends State<StaffCard> {
                                             ),
                                           ),
                                         );
-                                        if (!isActive) return dayChip;
+
+                                        if (!isActive) {
+                                          // Greyed-out, non-interactive for days without schedule.
+                                          return Opacity(
+                                            opacity: 0.4,
+                                            child: chip,
+                                          );
+                                        }
+
+                                        final tooltipLines = <String>[];
+                                        if (hasWork) {
+                                          tooltipLines.add('Work: $work');
+                                        }
+                                        if (hasBreak) {
+                                          tooltipLines.add('Break: $brk');
+                                        }
+                                        final tooltipText = tooltipLines.isEmpty
+                                            ? '$shortDay: Scheduled'
+                                            : '$shortDay\n${tooltipLines.join('\n')}';
+
                                         return Tooltip(
-                                          message: 'Work - 09:50 AM - 04:50 PM\nBreak - 12:50 PM - 01:50 PM',
-                                          child: dayChip,
+                                          message: tooltipText,
+                                          child: chip,
                                         );
-                                      }),
+                                      },
+                                    ),
                                   ],
                                 ),
                               ],
@@ -320,7 +408,7 @@ class _StaffCardState extends State<StaffCard> {
                                   ),
                                 ),
                                 Text(
-                                  widget.designation,
+                                  _formatEnumLabel(widget.designation),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -426,9 +514,8 @@ class _StaffCardState extends State<StaffCard> {
                                                   ? 'staff_deactivate'
                                                   : 'staff_reactivate',
                                               onDelete: () {
-                                                // Let the confirmation sheet show its loader
-                                                // while the actual API logic runs.
                                                 widget.onPrimaryAction?.call();
+                                                return Future.value();
                                               },
                                               onCancel: () {
                                                 Navigator.of(ctx).pop();
@@ -509,7 +596,11 @@ class _StaffCardState extends State<StaffCard> {
                                               },
                                             ),
                                           ),
-                                        );
+                                        ).then((_) {
+                                          if (context.mounted) {
+                                            context.read<StaffCubit>().refresh();
+                                          }
+                                        });
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,

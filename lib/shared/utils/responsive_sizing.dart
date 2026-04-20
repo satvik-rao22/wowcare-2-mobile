@@ -25,6 +25,12 @@ class ResponsiveSizing {
     final double extra = (desiredOuter - 8).clamp(0, 32).toDouble();
     return EdgeInsets.fromLTRB(extra, extra, 8, 0);
   }
+
+  /// Activity feed list area: same insets as [StudentScreen] scroll body — default
+  /// [GlobalScaffold] body padding (8) plus this [contentPadding] (e.g. phone: +8 L/T/R).
+  static EdgeInsets activityFeedListPadding(BuildContext context) {
+    return contentPadding(context);
+  }
 }
 
 

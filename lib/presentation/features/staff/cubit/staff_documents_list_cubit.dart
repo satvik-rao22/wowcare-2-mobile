@@ -39,7 +39,10 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
           isFromCache: true,
         ),
       );
-      // If we have a fresh enough cache, don't auto-hit the API.
+      // Stale-while-revalidate: show cached immediately, but refresh from API so
+      // newly-added fields (e.g. uploadedBy/createdAt) appear even if cache is old.
+      // ignore: unawaited_futures
+      refresh(staffCode, expired: expired);
       return;
     }
 

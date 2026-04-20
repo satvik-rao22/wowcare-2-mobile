@@ -35,8 +35,8 @@ class LoginResponseModel {
     }
 
     return LoginResponseModel(
-      accessToken: json['accessToken'] as String? ?? '',
-      refreshToken: json['refreshToken'] as String? ?? '',
+      accessToken: (json['accessToken'] ?? json['access_token']) as String? ?? '',
+      refreshToken: (json['refreshToken'] ?? json['refresh_token']) as String? ?? '',
       expiresIn: _toInt(json['expiresIn']),
       refreshExpiresIn: _toInt(json['refreshExpiresIn']),
       tokenType: json['tokenType'] as String? ?? 'Bearer',

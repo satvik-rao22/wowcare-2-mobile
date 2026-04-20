@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -11,10 +12,12 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
 class EditProfileDetailsScreen extends StatefulWidget {
   const EditProfileDetailsScreen({
@@ -76,17 +79,34 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
   
+  ClassroomCubit? _classroomCubit;
+
   String? _selectedStatus;
   String? _selectedDesignation;
   List<String> _selectedAllowedClassrooms = [];
   String? _selectedPrimaryClassroom;
   DateTime? _selectedBirthDate;
   String? _selectedJobTag;
+  // Gender is not needed for this form (per product requirement).
+  // String? _selectedGender;
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
+  String _originalEmail = '';
+  String _profileUserCode = '';
+  String _profileOrganizationCode = '';
+  String _profileSchoolCode = '';
 
-  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
+  static const List<String> _staffStatusOptions = [
+    'Active',
+    'Inactive',
+    'Upcoming',
+  ];
+  static const List<String> _adminStatusOptions = [
+    'Active',
+    'Inactive',
+  ];
+  // Full designation list (union of admin + staff) for mapping helpers.
   final List<String> _designationOptions = [
     'Director',
     'Admin',
@@ -97,26 +117,67 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     'Assistant teacher',
     'Floater',
   ];
+  // Admin-only designations (used when role is admin).
+  static const List<String> _adminDesignationOptions = [
+    'Director',
+    'Admin',
+    'Assistant Director',
+    'Owner',
+  ];
+  // Staff-only designations (used when role is staff).
+  static const List<String> _staffDesignationOptions = [
+    'Lead teacher',
+    'Associate Teacher',
+    'Assistant teacher',
+    'Floater',
+  ];
   // Backed by classroom names; populated from widget.initialClassroomNames/CodeByName.
   final List<String> _classroomOptions = [];
   final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
+  // Gender is not needed for this form (per product requirement).
+  // final List<String> _genderOptions = ['Male', 'Female'];
   final List<String> _stateOptions =
       US_STATES.map((s) => s.name).toList(growable: false);
-  final List<String> _countryOptions =
-      COUNTRY_LIST.map((c) => c.name).toList(growable: false);
+  // Country is fixed to United States for this screen; no need to build a dropdown list.
+
+  late final GetStaffProfileUseCase _getStaffProfileUseCase;
 
   // Simple validators (align with Add Staff)
-  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}");
+  // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
+  static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
   static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
   /// Map from classroom display name -> classroom code (for API payload).
   final Map<String, String> _classroomCodeByName = {};
 
+  /// Admin designations share the "admin" classroom behavior (no type filter).
+  bool get _isAdminSelected {
+    const adminDesignations = <String>[
+      'Director',
+      'Admin',
+      'Assistant Director',
+      'Owner',
+    ];
+    return _selectedDesignation != null &&
+        adminDesignations.contains(_selectedDesignation);
+  }
+
+  /// Staff: Active / Inactive / Upcoming. Admin: no Upcoming option.
+  List<String> get _statusOptionsForCurrentRole =>
+      _isAdminSelected ? _adminStatusOptions : _staffStatusOptions;
+
   @override
   void initState() {
     super.initState();
-    // Hydrate classrooms from cached metadata if available (no extra API calls).
+    _getStaffProfileUseCase = serviceLocator<GetStaffProfileUseCase>();
+    _classroomCubit = serviceLocator<ClassroomCubit>();
+
+    // Country is fixed to United States for staff address in this form.
+    // Keep it prefilled and non-editable.
+    _selectedCountry = 'United States';
+
+    // Hydrate classrooms from cached metadata if available (before cubit load).
     if (widget.initialClassroomNames != null &&
         widget.initialClassroomNames!.isNotEmpty) {
       _classroomOptions
@@ -134,51 +195,184 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       ..clear()
       ..addAll(widget.initialClassroomCodeByName ?? {});
 
-    // Prefill when editing (use existing profile values; no mock defaults).
-    _firstNameController.text = widget.initialFirstName ?? '';
-    _lastNameController.text = widget.initialLastName ?? '';
-    _selectedStatus = widget.initialStatus;
-    _selectedDesignation =
-        _mapDesignationFromApiOrLabel(widget.initialDesignation);
-    _selectedAllowedClassrooms =
-        List<String>.from(widget.initialAllowedClassrooms ?? const []);
+    // Prefill selected classrooms from navigation args immediately.
+    // (These are display names when available; if they are codes we will
+    // normalize them once classroom metadata loads.)
+    _selectedAllowedClassrooms = List<String>.from(
+      widget.initialAllowedClassrooms ?? const <String>[],
+    );
     _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
-    _selectedBirthDate = widget.initialBirthDate;
-    _selectedJobTag = widget.initialJobTag?.isNotEmpty == true
-        ? _mapJobTagFromApiOrLabel(widget.initialJobTag)
-        : null;
-    _emailController.text = widget.initialEmail ?? '';
-    _phoneNumberController.text =
-        _formatUsPhone(widget.initialPhoneNumber ?? '');
-    _streetController.text = widget.initialStreet ?? '';
-    _street2Controller.text = '';
-    _cityController.text = widget.initialCity ?? '';
 
-    // Map initial state (name or abbreviation) to display name from US_STATES.
-    if (widget.initialState != null && widget.initialState!.isNotEmpty) {
-      final raw = widget.initialState!;
-      final match = US_STATES.firstWhere(
-        (s) =>
-            s.name.toLowerCase() == raw.toLowerCase() ||
-            s.abbreviation.toLowerCase() == raw.toLowerCase(),
-        orElse: () => US_STATES.first,
-      );
-      _selectedState = match.name;
+    // Load classrooms via cubit using role-aware filter:
+    // - Staff: type=CLASSROOM (onlyTypeClassroom=true)
+    // - Admin: all active locations (onlyTypeClassroom=false)
+    _loadClassrooms();
+
+    // All fields are prefilled from GET /api/v1/staff/{staffCode}/profile (see _loadProfileForPrefill).
+    if (widget.staffCode.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfileForPrefill());
+    }
+  }
+
+  Future<void> _loadClassrooms({bool force = false}) async {
+    final isAdmin = _isAdminSelected;
+    _classroomCubit?.loadActiveClassrooms(
+      force: force,
+      // Staff: type=CLASSROOM; Admin: no type filter.
+      onlyTypeClassroom: !isAdmin,
+    );
+  }
+
+  void _updateClassroomsFromCubitState(ClassroomState state) {
+    if (state.classrooms.isEmpty) {
+      if (state.errorMessage != null) {
+        CoreUtils.logApiError(state.errorMessage!);
+      }
+      return;
     }
 
-    // Map initial country (name or code) to display name from COUNTRY_LIST.
-    if (widget.initialCountry != null && widget.initialCountry!.isNotEmpty) {
-      final raw = widget.initialCountry!;
-      final match = COUNTRY_LIST.firstWhere(
-        (c) =>
-            c.name.toLowerCase() == raw.toLowerCase() ||
-            c.code.toLowerCase() == raw.toLowerCase(),
-        orElse: () => COUNTRY_LIST.first,
-      );
-      _selectedCountry = match.name;
+    final names = state.classrooms.map((c) => c.name).toList();
+    final codeByName = <String, String>{};
+    for (final c in state.classrooms) {
+      codeByName[c.name] = c.code;
     }
+    // Build reverse map (code -> name) so we can normalize selections
+    // even when initial values were passed as codes.
+    final nameByCode = <String, String>{
+      for (final e in codeByName.entries) e.value: e.key,
+    };
 
-    _zipCodeController.text = widget.initialZipCode ?? '';
+    setState(() {
+      _classroomOptions
+        ..clear()
+        ..addAll(names);
+      _classroomCodeByName
+        ..clear()
+        ..addAll(codeByName);
+
+      // Normalize selected allowed classrooms:
+      // If an entry looks like a code and we can resolve it, replace with name.
+      if (_selectedAllowedClassrooms.isNotEmpty) {
+        _selectedAllowedClassrooms = _selectedAllowedClassrooms
+            .map((v) => nameByCode[v] ?? v)
+            .where((v) => v.trim().isNotEmpty)
+            .toList();
+      }
+
+      // Normalize selected primary classroom.
+      if ((_selectedPrimaryClassroom ?? '').trim().isNotEmpty) {
+        _selectedPrimaryClassroom =
+            nameByCode[_selectedPrimaryClassroom!] ?? _selectedPrimaryClassroom;
+      }
+    });
+  }
+
+  String _statusApiToLabel(String? status) {
+    if (status == null) return 'Active';
+    switch (status.toUpperCase()) {
+      case 'ACTIVE': return 'Active';
+      case 'INACTIVE': return 'Inactive';
+      case 'UPCOMING': return 'Upcoming';
+      default: return status;
+    }
+  }
+
+  Future<void> _loadProfileForPrefill() async {
+    if (!mounted) return;
+    try {
+      final profile = await _getStaffProfileUseCase(staffCode: widget.staffCode);
+      if (!mounted) return;
+      final codeToName = {
+        for (final e in _classroomCodeByName.entries) e.value: e.key,
+      };
+      final hasCodeToName = codeToName.isNotEmpty;
+      final a = profile.address;
+      setState(() {
+        _firstNameController.text = profile.firstName;
+        _lastNameController.text = profile.lastName;
+        _emailController.text = profile.email;
+        _originalEmail = profile.email.trim().toLowerCase();
+        _profileUserCode = profile.userCode.trim();
+        _profileOrganizationCode = profile.organizationCode.trim();
+        _profileSchoolCode = profile.schoolCode.trim();
+        _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
+        _selectedDesignation =
+            _mapDesignationFromApiOrLabel(profile.designation);
+        _selectedStatus = _statusApiToLabel(profile.status);
+        // Admin roles cannot be Upcoming — normalize to Active if API returned it.
+        if (_isAdminSelected && _selectedStatus == 'Upcoming') {
+          _selectedStatus = 'Active';
+        }
+
+        // Derive allowed classrooms display names:
+        // 1) Prefer mapping from code -> name using cached metadata.
+        // 2) Fallback to already-passed initialAllowedClassrooms when mapping is missing.
+        final mappedAllowed = hasCodeToName
+            ? profile.allowedClassroomCodes
+                .map((c) => codeToName[c] ?? c)
+                .toList()
+            : const <String>[];
+        if (mappedAllowed.isNotEmpty) {
+          _selectedAllowedClassrooms = mappedAllowed;
+        } else if (widget.initialAllowedClassrooms != null &&
+            widget.initialAllowedClassrooms!.isNotEmpty) {
+          _selectedAllowedClassrooms =
+              List<String>.from(widget.initialAllowedClassrooms!);
+        } else {
+          _selectedAllowedClassrooms = const <String>[];
+        }
+
+        // Derive primary classroom display name:
+        // 1) Prefer mapping from primaryClassroomCode using cached metadata.
+        // 2) Fallback to initialPrimaryClassroom passed into the screen.
+        if (profile.primaryClassroomCode.isNotEmpty && hasCodeToName) {
+          _selectedPrimaryClassroom =
+              codeToName[profile.primaryClassroomCode] ??
+                  profile.primaryClassroomCode;
+        } else {
+          _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
+        }
+
+        // Ensure dropdown options contain any preselected values.
+        if (_classroomOptions.isEmpty) {
+          _classroomOptions.addAll(
+            Set<String>.from(_selectedAllowedClassrooms).toList(),
+          );
+        }
+        if (_selectedPrimaryClassroom != null &&
+            _selectedPrimaryClassroom!.isNotEmpty &&
+            !_classroomOptions.contains(_selectedPrimaryClassroom)) {
+          _classroomOptions.add(_selectedPrimaryClassroom!);
+        }
+
+        _selectedBirthDate = profile.birthDate.isEmpty
+            ? null
+            : DateTime.tryParse(profile.birthDate);
+        _selectedJobTag = profile.jobTag.isEmpty
+            ? null
+            : _mapJobTagFromApiOrLabel(profile.jobTag);
+        // Gender is currently not included in StaffProfileModel; keep null for now.
+
+        _streetController.text = a.street;
+        _street2Controller.text = a.line2;
+        _cityController.text = a.city;
+        _zipCodeController.text = _formatUsZipForDisplay(a.zipCode);
+        if (a.state.isNotEmpty) {
+          final match = US_STATES.firstWhere(
+            (s) =>
+                s.name.toLowerCase() == a.state.toLowerCase() ||
+                s.abbreviation.toLowerCase() == a.state.toLowerCase(),
+            orElse: () => US_STATES.first,
+          );
+          _selectedState = match.name;
+        }
+
+        // Country is fixed to United States for this screen; ignore API value.
+        _selectedCountry = 'United States';
+      });
+    } catch (_) {
+      // Ignore; form stays empty
+    }
   }
 
   @override
@@ -191,6 +385,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
+    // Do not close _classroomCubit here; it may be provided higher in the tree.
     super.dispose();
   }
 
@@ -200,8 +395,12 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final email = _emailController.text.trim().toLowerCase();
     final phoneRaw = _phoneNumberController.text.trim();
     final phoneDigits = phoneRaw.replaceAll(RegExp(r'\D'), '');
+    final street = _streetController.text.trim();
+    final city = _cityController.text.trim();
+    final zip = _zipCodeController.text.trim();
+    final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
 
-    if (first.isEmpty || !_nameRegex.hasMatch(first)) {
+    if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'First Name is required',
@@ -209,7 +408,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (last.isEmpty || !_nameRegex.hasMatch(last)) {
+    if (first.length > 50 || !_nameRegex.hasMatch(first)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name must be letters only and max 50 characters',
+        isError: true,
+      );
+      return;
+    }
+    if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Last Name is required',
@@ -217,21 +424,31 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_selectedAllowedClassrooms.isEmpty) {
+    if (last.length > 50 || !_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'At least one classroom must be selected',
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
-    if (_selectedPrimaryClassroom == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Primary Classroom is required',
-        isError: true,
-      );
-      return;
+    if (!_isAdminSelected) {
+      if (_selectedAllowedClassrooms.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'At least one classroom must be selected',
+          isError: true,
+        );
+        return;
+      }
+      if (_selectedPrimaryClassroom == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Primary Classroom is required',
+          isError: true,
+        );
+        return;
+      }
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
       CoreUtils.showTopSnackBar(
@@ -241,7 +458,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (phoneDigits.length < 10 || (!_e164Regex.hasMatch('+' + phoneDigits))) {
+    if (phoneDigits.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Phone Number is required',
@@ -249,7 +466,16 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_streetController.text.isEmpty) {
+    if (phoneDigits.length != 10 || !_e164Regex.hasMatch('+' + phoneDigits)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please enter a valid 10-digit phone number',
+        isError: true,
+      );
+      return;
+    }
+    // Address - Street: required, max 150 chars.
+    if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Street is required',
@@ -257,7 +483,17 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_cityController.text.isEmpty) {
+    if (street.length > 150) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
+      return;
+    }
+
+    // Address - City: required, max 50 chars.
+    if (city.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'City is required',
@@ -265,10 +501,47 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (_zipCodeController.text.trim().isEmpty) {
+    if (city.length > 50) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
+      return;
+    }
+
+    // Address - Zip: required, US ZIP format: 5 digits or ZIP+4 (9 digits).
+    if (zip.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code is required',
+        isError: true,
+      );
+      return;
+    }
+    // Validate using digits-only (formatter may insert a hyphen).
+    if (!RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
+        isError: true,
+      );
+      return;
+    }
+
+    // Address - State / Country: required dropdowns.
+    if ((_selectedState ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
+      return;
+    }
+    if ((_selectedCountry ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Country is required',
         isError: true,
       );
       return;
@@ -283,6 +556,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
       final jobTagApi =
           _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
+      // Backend contract uses `birthdate` (lowercase) and expects ISO timestamp.
+      final birthDateApi = _selectedBirthDate == null
+          ? null
+          : _selectedBirthDate!.toIso8601String();
+      // Gender is not collected in this form (per product requirement).
 
       final primaryClassroomCode = _selectedPrimaryClassroom == null
           ? null
@@ -299,8 +577,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'phoneNumber': phoneDigits,
         'designation': designationApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
-        if (_selectedBirthDate != null)
-          'birthdate': _selectedBirthDate!.toIso8601String(),
+        if (birthDateApi != null) 'birthdate': birthDateApi,
         'primaryClassroomCode': primaryClassroomCode,
         'allowedClassroomCodes': allowedClassroomCodes,
       };
@@ -329,11 +606,28 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'addressLine2': _street2Controller.text.trim(),
         'addressCity': _cityController.text.trim(),
         'addressState': stateCode,
-        'addressZipCode': _zipCodeController.text.trim(),
+        // Send digits-only to backend for consistent storage.
+        'addressZipCode': zipDigits,
         'addressCountry': countryCode,
       };
 
       final repository = serviceLocator<StaffRepository>();
+
+      // If email changed, call email-change API first (same behavior as EditUserProfileScreen).
+      final newEmail = email.trim().toLowerCase();
+      if (_profileUserCode.isNotEmpty &&
+          _profileOrganizationCode.isNotEmpty &&
+          _profileSchoolCode.isNotEmpty &&
+          _originalEmail.isNotEmpty &&
+          _originalEmail != newEmail) {
+        await repository.changeUserEmail(
+          userCode: _profileUserCode,
+          oldEmail: _originalEmail,
+          newEmail: newEmail,
+          organizationCode: _profileOrganizationCode,
+          schoolCode: _profileSchoolCode,
+        );
+      }
 
       // Update core profile fields
       final profileMessage = await repository.updateStaffProfile(
@@ -409,7 +703,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
   String? _mapDesignationFromApiOrLabel(String? value) {
     if (value == null || value.isEmpty) return null;
-    // If it's already a friendly label from dropdown, just return it.
+    // If it's already a friendly label from dropdown (admin or staff), just return it.
     if (_designationOptions.contains(value)) return value;
 
     // Reverse mapping from known API enums to UI labels.
@@ -470,10 +764,24 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           initialDate: _selectedBirthDate,
         ),
       );
-      
+
       if (result != null && result['date'] != null) {
+        final selectedDate = result['date'] as DateTime;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        // Birthdate must be a past date (not today or future)
+        if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Birthdate must be a past date',
+            isError: true,
+          );
+          return;
+        }
+
         setState(() {
-          _selectedBirthDate = result['date'] as DateTime;
+          _selectedBirthDate = selectedDate;
         });
       }
     } catch (e) {
@@ -487,65 +795,101 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold
-      (
-        key: _scaffoldKey,
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: true),
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            Column(
-              children: [
-                const SizedBox(height: 16),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Edit Staff',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.titleFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+    // Get ClassroomCubit from context if available, otherwise use the one from service locator.
+    ClassroomCubit classroomCubit;
+    try {
+      classroomCubit = context.read<ClassroomCubit>();
+    } catch (_) {
+      classroomCubit = _classroomCubit ?? serviceLocator<ClassroomCubit>();
+      _classroomCubit = classroomCubit;
+    }
+
+    return BlocProvider<ClassroomCubit>.value(
+      value: classroomCubit,
+      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+        builder: (context, classroomState) {
+          final desiredOnlyTypeClassroom = !_isAdminSelected;
+
+          // If cubit is loaded with the wrong filter for current role,
+          // trigger a reload with correct onlyTypeClassroom.
+          if (!classroomState.isLoading &&
+              classroomState.classrooms.isNotEmpty &&
+              classroomState.onlyTypeClassroom != desiredOnlyTypeClassroom) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadClassrooms(force: true);
+            });
+          } else if (!classroomState.isLoading &&
+              classroomState.classrooms.isNotEmpty &&
+              classroomState.onlyTypeClassroom == desiredOnlyTypeClassroom) {
+            // Sync local options from correctly-filtered cubit state.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateClassroomsFromCubitState(classroomState);
+            });
+          }
+
+          return GestureDetector(
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: Scaffold(
+              key: _scaffoldKey,
+              backgroundColor: Colors.white,
+              appBar: const CustomAppBar(hasBackButton: true),
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildScaffoldGradient(),
+                      ),
+                      child: Image.asset(
+                        MediaRes.wowcareMobileBg,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                Expanded(
-                  child: Container(
-                    width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
-                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(Radius.circular(responsive.isTablet ? 40.0 : 24.0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                  Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: responsive.horizontalSpacing),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Edit Staff',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.titleFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff573353),
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
+                      ),
+                      SizedBox(
+                          height: responsive.isTablet ? 32.0 : 20.0),
+                      Expanded(
+                        child: Container(
+                          width: responsive.containerWidth,
+                          margin: EdgeInsets.symmetric(
+                              horizontal: responsive.horizontalSpacing),
+                          padding: EdgeInsets.all(
+                              responsive.isTablet ? 32.0 : 16.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.all(Radius.circular(
+                                responsive.isTablet ? 40.0 : 24.0)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ListView(
+                            padding: EdgeInsets.zero,
+                            children: [
                         Row(
                           children: [
                             Expanded(
@@ -566,79 +910,144 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           ],
                         ),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
-          SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Designation", "Select", _designationOptions, _selectedDesignation, (v) => setState(() => _selectedDesignation = v), isRequired: true),
-          SizedBox(height: responsive.verticalSpacing),
-
-                        // Allowed Classrooms like Add Staff
-                        ClassroomSelectionWidgetExact(
-                          primaryClassroom: _selectedPrimaryClassroom,
-                          allowedClassrooms: _selectedAllowedClassrooms,
-                          availableClassrooms: _classroomOptions,
-                          onPrimaryClassroomChanged: (classroom) {
-                            setState(() {
-                              _selectedPrimaryClassroom = classroom;
-                            });
-                          },
-                          onAllowedClassroomsChanged: (classrooms) {
-                            setState(() {
-                              _selectedAllowedClassrooms = classrooms;
-                              if (_selectedPrimaryClassroom != null && !classrooms.contains(_selectedPrimaryClassroom)) {
-                                _selectedPrimaryClassroom = null;
-                              }
-                            });
-                          },
-                          primaryClassroomError: null,
-                          allowedClassroomsError: null,
-                          showPrimaryClassroom: false,
+                        // Gender is not needed for this form (per product requirement).
+                        // _buildCustomDropdown(
+                        //   "Gender",
+                        //   "Select",
+                        //   _genderOptions,
+                        //   _selectedGender,
+                        //   (v) => setState(() => _selectedGender = v),
+                        //   isRequired: false,
+                        // ),
+                        // SizedBox(height: responsive.verticalSpacing),
+                        _buildCustomDropdown(
+                          "Status",
+                          "Select",
+                          _statusOptionsForCurrentRole,
+                          _selectedStatus,
+                          (v) => setState(() => _selectedStatus = v),
+                          isRequired: true,
                         ),
           SizedBox(height: responsive.verticalSpacing),
-          
-                        // Primary Classroom Dropdown with guard
+                        _buildCustomDropdown(
+                          "Designation",
+                          "Select",
+                          // Show only admin or staff designations based on current role.
+                          _isAdminSelected
+                              ? _adminDesignationOptions
+                              : _staffDesignationOptions,
+                          _selectedDesignation,
+                          (v) {
+                            setState(() {
+                              _selectedDesignation = v;
+                              // Upcoming is not valid for admin designations.
+                              if (_isAdminSelected &&
+                                  _selectedStatus == 'Upcoming') {
+                                _selectedStatus = 'Active';
+                              }
+                            });
+                            // Reload classrooms when switching between admin/staff
+                            // so we use the correct API (with or without type filter).
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _loadClassrooms(force: true);
+                            });
+                          },
+                          isRequired: true,
+                        ),
+          SizedBox(height: responsive.verticalSpacing),
+
+                        // Allowed / Primary Classroom section (same view for staff & admin).
+                        // For admin roles: disabled (greyish), values visible but not editable.
+                        Opacity(
+                          opacity: _isAdminSelected ? 0.7 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: _isAdminSelected,
+                            child: ClassroomSelectionWidgetExact(
+                              primaryClassroom: _selectedPrimaryClassroom,
+                              allowedClassrooms: _selectedAllowedClassrooms,
+                              availableClassrooms: _classroomOptions,
+                              onPrimaryClassroomChanged: (classroom) {
+                                setState(() {
+                                  _selectedPrimaryClassroom = classroom;
+                                });
+                              },
+                              onAllowedClassroomsChanged: (classrooms) {
+                                setState(() {
+                                  _selectedAllowedClassrooms = classrooms;
+                                  if (_selectedPrimaryClassroom != null &&
+                                      !classrooms
+                                          .contains(_selectedPrimaryClassroom)) {
+                                    _selectedPrimaryClassroom = null;
+                                  }
+                                });
+                              },
+                              primaryClassroomError: null,
+                              allowedClassroomsError: null,
+                              showPrimaryClassroom: false,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
+                        // Primary Classroom Dropdown (disabled for admin roles)
                         Stack(
                           children: [
-                            CustomDropdown(
-                              label: "Primary Classroom",
-                              hintText: 'Select',
-                              items: _selectedAllowedClassrooms.isEmpty ? [] : _selectedAllowedClassrooms,
-                              selectedItem: _selectedPrimaryClassroom,
-                              labelStyle: TextStyle(
-                                fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                            Opacity(
+                              opacity: _isAdminSelected ? 0.7 : 1.0,
+                              child: CustomDropdown(
+                                label: "Primary Classroom",
+                                hintText: 'Select',
+                                items: _selectedAllowedClassrooms.isEmpty
+                                    ? []
+                                    : _selectedAllowedClassrooms,
+                                selectedItem: _selectedPrimaryClassroom,
+                                isEnabled: !_isAdminSelected,
+                                labelStyle: TextStyle(
+                                  fontSize: responsive.labelFontSize,
+                                  fontFamily: "Manrope",
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xff573353),
+                                ),
+                                showAsterisk: !_isAdminSelected,
+                                labelBottomSpacing:
+                                    responsive.isTablet ? 8.0 : 6.0,
+                                fieldHeight:
+                                    responsive.isTablet ? 64.0 : 56.0,
+                                selectedTextStyle: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: responsive.inputFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isAdminSelected
+                                      ? Colors.grey.shade600
+                                      : const Color(0xff573353),
+                                  height: 19 / 14,
+                                ),
+                                popupItemTextStyle: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: responsive.inputFontSize,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xff573353),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal:
+                                      responsive.isTablet ? 16.0 : 12.0,
+                                  vertical:
+                                      responsive.isTablet ? 16.0 : 12.0,
+                                ),
+                                onSelect: _isAdminSelected
+                                    ? null
+                                    : (val) =>
+                                        setState(() => _selectedPrimaryClassroom = val),
                               ),
-                              showAsterisk: true,
-                              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                              fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                              selectedTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: responsive.inputFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                                height: 19 / 14,
-                              ),
-                              popupItemTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: responsive.inputFontSize,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: responsive.isTablet ? 16.0 : 12.0,
-                                vertical: responsive.isTablet ? 16.0 : 12.0,
-                              ),
-                              onSelect: (val) => setState(() => _selectedPrimaryClassroom = val),
                             ),
-                            if (_selectedAllowedClassrooms.isEmpty)
+                            if (_selectedAllowedClassrooms.isEmpty && !_isAdminSelected)
                               Positioned.fill(
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onTap: () {
                                     CoreUtils.showTopSnackBar(
                                       context: context,
-                                      message: 'Please select Allowed Classrooms first',
+                                      message:
+                                          'Please select Allowed Classrooms first',
                                       isError: true,
                                     );
                                   },
@@ -700,63 +1109,106 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
           SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Country", "Select", _countryOptions, _selectedCountry, (v) => setState(() => _selectedCountry = v), isRequired: true),
+                        // Country is fixed to United States; show as non-editable.
+                        Opacity(
+                          opacity: 0.8,
+                          child: CustomDropdown(
+                            label: "Country",
+                            hintText: 'United States',
+                            items: const <String>['United States'],
+                            selectedItem: 'United States',
+                            isEnabled: false,
+                            showAsterisk: true,
+                            labelStyle: TextStyle(
+                              fontSize: responsive.labelFontSize,
+                              fontFamily: "Manrope",
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            selectedTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                              height: 19 / 14,
+                            ),
+                            popupItemTextStyle: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: responsive.inputFontSize,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xff573353),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: responsive.isTablet ? 16.0 : 12.0,
+                              vertical: responsive.isTablet ? 16.0 : 12.0,
+                            ),
+                            onSelect: null,
+                          ),
+                        ),
           SizedBox(height: responsive.verticalSpacing),
           _buildInputField(
             "Zip Code",
-            "Eg. 85001",
+            "E.g. 12345 or 12345-6789",
             _zipCodeController,
             isRequired: true,
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
+              // Limit to 9 digits; formatter will render it as either 12345 or 12345-6789.
+              LengthLimitingTextInputFormatter(9),
+              _ZipCodeFormatter(),
             ],
           ),
-                        SizedBox(height: responsive.verticalSpacing),
-                        // _buildPinField(responsive),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        // _buildWorkTimeSection(responsive),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        // _buildBreakTimeSection(responsive),
-                      ],
+                              SizedBox(
+                                  height: responsive.verticalSpacing),
+                              // _buildPinField(responsive),
+                              // SizedBox(height: responsive.verticalSpacing),
+                              // _buildWorkTimeSection(responsive),
+                              // SizedBox(height: responsive.verticalSpacing),
+                              // _buildBreakTimeSection(responsive),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ],
+              ),
+              bottomNavigationBar: Container(
+                padding: EdgeInsets.only(
+                  bottom: safeAreaBottom,
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      offset: const Offset(0, -4),
+                      blurRadius: 16,
                     ),
+                  ],
+                  borderRadius: BorderRadius.only(
+                    topLeft:
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight:
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                   ),
                 ),
-          const SizedBox(height: 12),
-        ],
-      ),
-          ],
-        ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
+                child: CustomButtonLayout(
+                  confirmButtonLabel: 'Save',
+                  onPressedConfirm: _saveProfileDetails,
+                  showCancelButton: false,
+                  isForm: false,
+                  isLoading: _isSubmitting,
+                ),
               ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
-          ),
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
-            onPressedConfirm: _saveProfileDetails,
-            showCancelButton: false,
-            isForm: false,
-            isLoading: _isSubmitting,
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -961,4 +1413,42 @@ class _EditPhoneNumberFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
+}
+
+/// Formats US ZIP codes as either:
+/// - 12345
+/// - 12345-6789
+/// while keeping only digits for validation/API submission.
+class _ZipCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(text: '');
+    }
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < digitsOnly.length && i < 9; i++) {
+      if (i == 5) buffer.write('-');
+      buffer.write(digitsOnly[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatUsZipForDisplay(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  if (digits.length <= 5) return digits.substring(0, digits.length);
+  final first5 = digits.substring(0, 5);
+  final last4 = digits.substring(5, digits.length.clamp(5, 9));
+  return last4.isEmpty ? first5 : '$first5-$last4';
 }
