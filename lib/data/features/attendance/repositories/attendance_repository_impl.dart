@@ -1119,14 +1119,16 @@ class AttendanceRepositoryImpl
     String? timeZone,
   }) async {
     final tz = await _effectiveSchoolTimeZone(timeZone);
+    final recordCode = attendanceRecordCode.trim().toUpperCase();
+    final isTransferRecord = recordCode.startsWith('SCTR_');
     final payload = <String, dynamic>{
       'staffCode': staffCode,
       'timeZone': tz,
       if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
       if (signedOutAt != null)
         'signedOutAt': signedOutAt.toUtc().toIso8601String(),
-      if (signedInAt != null) 'SignedInMethod': 'APP',
-      if (signedOutAt != null) 'SignedOutMethod': 'APP',
+      if (!isTransferRecord && signedInAt != null) 'SignedInMethod': 'APP',
+      if (!isTransferRecord && signedOutAt != null) 'SignedOutMethod': 'APP',
       if (originalClassroomCode != null && originalClassroomCode.trim().isNotEmpty)
         'originalClassroomCode': originalClassroomCode.trim(),
       if (currentClassroomCode != null && currentClassroomCode.trim().isNotEmpty)
