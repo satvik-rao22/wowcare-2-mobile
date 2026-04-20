@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -46,6 +48,7 @@ class StaffTransferForm extends StatefulWidget {
 class _StaffTransferFormState extends State<StaffTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  String? _schoolIana;
   String? _selectedToClassroomCode;
   final Map<String, String> _classroomNameToCode = <String, String>{};
   List<StaffEntity> _selectedStaff = [];
@@ -80,11 +83,24 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
 
   Future<void> _loadPersonaFlags() async {
+    String? schoolIana;
+    try {
+      schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+    } catch (_) {}
+
     final isAdmin = await _resolveIsStaffAdminPersona();
     if (!mounted) return;
     setState(() {
+      _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
-      if (!isAdmin) {
+      if (schoolIana != null && schoolIana.isNotEmpty) {
+        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolIana);
+        _selectedTransferDate = dt.$1;
+        _selectedTransferTime = dt.$2;
+      } else {
         _selectedTransferDate = DateTime.now();
         _selectedTransferTime = TimeOfDay.now();
       }
@@ -351,6 +367,15 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     }
   }
 
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>.value(
@@ -392,8 +417,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    RemoveStaffTile(staff: _selectedStaff[index]),
+                itemBuilder: (context, index) => RemoveStaffTile(
+                  staff: _selectedStaff[index],
+                  canRemove: _selectedStaff.length > 1,
+                  onRemove: () => _removeStaff(_selectedStaff[index]),
+                ),
               ),
             const SizedBox(height: 20),
             // Date + Time (50/50 split) - match StudentTransferForm alignment
@@ -414,8 +442,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
                             final picked =
                                 DateTime(date.year, date.month, date.day);
                             _selectedTransferDate =
@@ -526,10 +557,14 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
 class RemoveStaffTile extends StatelessWidget {
   final StaffEntity staff;
+  final bool canRemove;
+  final VoidCallback onRemove;
 
   const RemoveStaffTile({
     super.key,
     required this.staff,
+    required this.canRemove,
+    required this.onRemove,
   });
 
   @override
@@ -575,6 +610,11 @@ class RemoveStaffTile extends StatelessWidget {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: onRemove,
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );

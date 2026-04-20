@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -69,7 +71,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         ),
       ];
     }
-    _initializeSchoolAndPersona();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeSchoolAndPersona();
+    });
   }
 
   String _naiveCalendarYyyyMmDd(DateTime d) =>
@@ -84,25 +88,31 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     setState(() {
       _schoolIana = z;
     });
+    _setCurrentDateTimeFromSchool();
 
     final isAdmin = await _resolveIsStaffAdminPersona();
     if (!mounted) return;
     setState(() {
       _isStaffAdminPersona = isAdmin;
-      if (!isAdmin) {
-        final iana = _schoolIana;
-        if (iana != null && iana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-          selectedDate = dt.$1;
-          selectedTime = dt.$2;
-        } else {
-          final n = DateTime.now();
-          selectedDate = n;
-          selectedTime = TimeOfDay.fromDateTime(n);
-        }
-      }
     });
     await _runUnexpectedSignInGate();
+  }
+
+  void _setCurrentDateTimeFromSchool() {
+    final iana = _schoolIana;
+    if (iana != null && iana.isNotEmpty) {
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+      setState(() {
+        selectedDate = dt.$1;
+        selectedTime = dt.$2;
+      });
+      return;
+    }
+    final now = DateTime.now();
+    setState(() {
+      selectedDate = now;
+      selectedTime = TimeOfDay.fromDateTime(now);
+    });
   }
 
   bool _hasUnexpectedAmongSelected() {
@@ -533,6 +543,15 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
   }
 
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StaffFormLayout(
@@ -553,8 +572,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    _buildStaffCard(_selectedStaff[index]),
+                itemBuilder: (context, index) => _buildStaffCard(
+                  _selectedStaff[index],
+                  canRemove: _selectedStaff.length > 1,
+                ),
               ),
             const SizedBox(height: 20),
             Row(
@@ -630,7 +651,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     );
   }
 
-  Widget _buildStaffCard(StaffEntity staff) {
+  Widget _buildStaffCard(
+    StaffEntity staff, {
+    required bool canRemove,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 12,
@@ -666,6 +690,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: () => _removeStaff(staff),
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );

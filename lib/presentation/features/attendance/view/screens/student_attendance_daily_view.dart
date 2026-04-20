@@ -45,6 +45,8 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_screen.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -735,63 +737,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     }
   }
 
-  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
-    final trimmed = rawCode.trim();
-    if (trimmed.isEmpty) return trimmed;
-    // Daily view can return a composite code like:
-    // SATR_xxx~A_IN~A_OUT
-    // Delete endpoint expects the base attendance record identifier.
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
-  }
-
-  /// DELETE expects the parent student attendance record id, not transfer row `SCTR_*`.
-  /// If the expanded row only has a segment id, reuse another loaded row for the same student.
+  /// Student daily edit/delete APIs expect rowCode from daily list item `code`.
   String? _resolveStudentDeleteAttendanceRecordCode({
     required StudentAttendanceCardData card,
     required List<StudentAttendanceDailyItem> allItems,
   }) {
-    bool isTransferSegment(String? c) =>
-        c != null && c.toUpperCase().startsWith('SCTR_');
-
-    String norm(String c) => _normalizeAttendanceRecordCodeForMutation(c);
-
-    final fromCard = card.attendanceRecordCode;
-    if (fromCard != null && fromCard.isNotEmpty) {
-      final n = norm(fromCard);
-      if (n.isNotEmpty && !isTransferSegment(n)) return n;
-    }
-
-    final sc = (card.studentCode ?? '').trim();
-    if (sc.isEmpty) {
-      return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
-    }
-
-    for (final item in allItems) {
-      if ((item.studentCode ?? '').trim() != sc) continue;
-      final c = item.attendanceRecordCode;
-      if (c == null || c.isEmpty) continue;
-      final n = norm(c);
-      if (n.isEmpty || isTransferSegment(n)) continue;
-      return n;
-    }
-
-    StudentAttendanceDailyItem? lowestSeq;
-    for (final item in allItems) {
-      if ((item.studentCode ?? '').trim() != sc) continue;
-      final c = item.attendanceRecordCode;
-      if (c == null || c.isEmpty) continue;
-      if (lowestSeq == null ||
-          (item.sequenceNumber ?? 1) < (lowestSeq.sequenceNumber ?? 1)) {
-        lowestSeq = item;
-      }
-    }
-    if (lowestSeq?.attendanceRecordCode != null) {
-      return norm(lowestSeq!.attendanceRecordCode!);
-    }
-
-    return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+    final fromCard = card.attendanceRecordCode?.trim();
+    if (fromCard == null || fromCard.isEmpty) return null;
+    return fromCard;
   }
 
   @override
@@ -897,6 +850,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         state.isRefreshing ||
                         state.isSummaryLoading,
                     onLegendTap: (status) {
+                      final normalizedStatus = status.trim().toUpperCase();
+                      if (normalizedStatus == 'ACTIVE' ||
+                          normalizedStatus == 'UPCOMING') {
+                        _openStudentListWithIncomingFilter(normalizedStatus);
+                        return;
+                      }
                       final normalized = status == 'Present' ? 'Signed-In' : status;
                       final currentLegend =
                           _statusLegendFilter == 'Present' ? 'Signed-In' : _statusLegendFilter;
@@ -1496,6 +1455,28 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     
     // Reload attendance data with new filters
     _loadAttendanceData(reset: true);
+  }
+
+  void _openStudentListWithIncomingFilter(String status) {
+    final normalized = status.trim().toUpperCase();
+    if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StudentCubit>(
+              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(),
+            ),
+          ],
+          child: StudentScreen(incomingStatusFilter: normalized),
+        ),
+      ),
+    );
   }
 
 }

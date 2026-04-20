@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/util/classroom_visibility.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/entities/classroom.dart';
@@ -48,12 +49,13 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         schoolCode: schoolCode,
         onlyTypeClassroom: onlyTypeClassroom,
       );
+      final visibleClassrooms = filterSelectableClassrooms(classrooms);
 
       if (isClosed) return;
 
       emit(
         state.copyWith(
-          classrooms: classrooms,
+          classrooms: visibleClassrooms,
           isLoading: false,
           onlyTypeClassroom: onlyTypeClassroom,
         ),

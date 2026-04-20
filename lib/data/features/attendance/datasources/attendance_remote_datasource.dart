@@ -1191,16 +1191,15 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String staffCode,
     required List<String> allowedClassroomCodes,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final queryParameters = <String, dynamic>{
       'staffCode': staffCode,
     };
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceDailyRecordByRowCode(attendanceRecordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
     await _client.delete<dynamic>(
       endpoint,
       queryParameters: queryParameters,
@@ -1237,16 +1236,15 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String staffCode,
     required List<String> allowedClassroomCodes,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffAttendanceRecords}/$attendanceRecordCode',
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final queryParameters = <String, dynamic>{
       'staffCode': staffCode,
     };
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceDailyRecordByRowCode(attendanceRecordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
     await _client.delete<dynamic>(
       endpoint,
       queryParameters: queryParameters,
@@ -1428,14 +1426,12 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> payload,
     required List<String> allowedClassroomCodes,
   }) async {
+    final body = Map<String, dynamic>.from(payload);
+
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
+      ApiPaths.studentAttendanceDailyRecordByRowCode(attendanceRecordCode),
       ApiConstants.attendanceBaseUrl,
     );
-
-    final body = Map<String, dynamic>.from(payload)
-      ..['allowedClassroomCodes'] = List<String>.from(allowedClassroomCodes);
-
     final response = await _client.patch<Map<String, dynamic>>(
       endpoint,
       data: body,

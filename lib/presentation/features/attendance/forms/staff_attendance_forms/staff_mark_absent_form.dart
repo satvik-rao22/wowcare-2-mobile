@@ -1,15 +1,20 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
@@ -32,6 +37,7 @@ class StaffMarkAbsentForm extends StatefulWidget {
 class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
+  String? _schoolIana;
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _typeController = TextEditingController();
@@ -56,10 +62,26 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   }
 
   Future<void> _loadPersonaFlags() async {
+    String? schoolIana;
+    try {
+      schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+    } catch (_) {}
+
     final isAdmin = await _resolveIsStaffAdminPersona();
     if (!mounted) return;
     setState(() {
+      _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
+      if (schoolIana != null && schoolIana.isNotEmpty) {
+        startDate = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana);
+      } else {
+        final now = DateTime.now();
+        startDate = DateTime(now.year, now.month, now.day);
+      }
+      endDate = startDate;
     });
   }
 
@@ -227,6 +249,15 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     }
   }
 
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StaffFormLayout(
@@ -275,7 +306,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
             TextField(
               controller: _typeController,
               decoration: InputDecoration(
-                hintText: 'Enter absence type (e.g. FULL_DAY, HALF_DAY)',
+                hintText: 'Enter absence type',
                 hintStyle: AppTextStyles.body.copyWith(
                   color: const Color.fromRGBO(87, 51, 83, 0.5),
                   fontSize: 15,
@@ -322,8 +353,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            // Use the user's selected calendar date (no clamping).
-                            startDate = DateTime(date.year, date.month, date.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            startDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }
@@ -349,8 +385,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            // Use the user's selected calendar date (no clamping).
-                            endDate = DateTime(date.year, date.month, date.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            endDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }
@@ -374,8 +415,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    RemoveStaffTile(staff: _selectedStaff[index]),
+                itemBuilder: (context, index) => RemoveStaffTile(
+                  staff: _selectedStaff[index],
+                  canRemove: _selectedStaff.length > 1,
+                  onRemove: () => _removeStaff(_selectedStaff[index]),
+                ),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -442,10 +486,14 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
 
 class RemoveStaffTile extends StatelessWidget {
   final StaffEntity staff;
+  final bool canRemove;
+  final VoidCallback onRemove;
 
   const RemoveStaffTile({
     super.key,
     required this.staff,
+    required this.canRemove,
+    required this.onRemove,
   });
 
   @override
@@ -491,6 +539,11 @@ class RemoveStaffTile extends StatelessWidget {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: onRemove,
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );

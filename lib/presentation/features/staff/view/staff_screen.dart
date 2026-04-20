@@ -42,9 +42,13 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 class StaffScreen extends StatefulWidget {
-  const StaffScreen({super.key});
+  const StaffScreen({
+    super.key,
+    this.incomingStatusFilter,
+  });
 
   static const String routeName = '/staff';
+  final String? incomingStatusFilter;
 
   @override
   State<StaffScreen> createState() => _StaffScreenState();
@@ -80,9 +84,34 @@ class _StaffScreenState extends State<StaffScreen> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        _applyIncomingStatusFilter();
         _loadExpectedStaffSummary();
       }
     });
+  }
+
+  Future<void> _applyIncomingStatusFilter() async {
+    final incoming = (widget.incomingStatusFilter ?? '').trim().toUpperCase();
+    if (incoming != 'ACTIVE' && incoming != 'UPCOMING' && incoming != 'INACTIVE') {
+      return;
+    }
+
+    final staffCubit = context.read<StaffCubit>();
+    final currentState = staffCubit.state;
+    staffCubit.updateFilters(
+      status: incoming,
+      designation: currentState.designationFilter,
+      primaryClassroomCodes: currentState.primaryClassroomCodes,
+      classCodes: currentState.classCodes,
+      sortBy: currentState.sortBy,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _showInactive = incoming == 'INACTIVE';
+      _refreshTriggeredByFilters = true;
+    });
+    await staffCubit.refresh();
   }
 
   void _onScroll() {

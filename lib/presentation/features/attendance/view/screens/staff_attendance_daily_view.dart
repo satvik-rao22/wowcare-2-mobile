@@ -38,6 +38,8 @@ import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -438,6 +440,30 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     _loadAttendanceData(context, reset: true);
   }
 
+  void _openStaffListWithIncomingFilter(String status) {
+    final normalized = status.trim().toUpperCase();
+    if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>(
+              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  onlyTypeClassroom: false,
+                ),
+            ),
+          ],
+          child: StaffScreen(incomingStatusFilter: normalized),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
@@ -527,6 +553,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                                   state.isSummaryLoading) &&
                               !_showAbsentOnly,
                           onLegendTap: (status) {
+                            final normalized = status.trim().toUpperCase();
+                            if (normalized == 'ACTIVE' ||
+                                normalized == 'UPCOMING') {
+                              _openStaffListWithIncomingFilter(normalized);
+                              return;
+                            }
                             setState(() {
                               final normalized =
                                   status == 'Present' ? 'Signed-In' : status;
@@ -1073,60 +1105,14 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     }
   }
 
-  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
-    final trimmed = rawCode.trim();
-    if (trimmed.isEmpty) return trimmed;
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
-  }
-
-  /// DELETE expects the parent staff attendance record id, not transfer row `SFTR_*`.
-  /// If the expanded row only has a segment id, reuse another loaded row for the same staff.
+  /// Staff daily edit/delete APIs expect rowCode from daily list item `code`.
   String? _resolveStaffDeleteAttendanceRecordCode({
     required StaffAttendanceCardData card,
     required List<StaffAttendanceDailyItem> allItems,
   }) {
-    bool isTransferSegment(String? c) =>
-        c != null && c.toUpperCase().startsWith('SFTR_');
-
-    String norm(String c) => _normalizeAttendanceRecordCodeForMutation(c);
-
-    final fromCard = card.attendanceRecordCode;
-    if (fromCard != null && fromCard.isNotEmpty) {
-      final n = norm(fromCard);
-      if (n.isNotEmpty && !isTransferSegment(n)) return n;
-    }
-
-    final sc = card.id.trim();
-    if (sc.isEmpty) {
-      return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
-    }
-
-    for (final item in allItems) {
-      if (item.staffCode.trim() != sc) continue;
-      final c = item.attendanceRecordCode;
-      if (c == null || c.isEmpty) continue;
-      final n = norm(c);
-      if (n.isEmpty || isTransferSegment(n)) continue;
-      return n;
-    }
-
-    StaffAttendanceDailyItem? lowestSeq;
-    for (final item in allItems) {
-      if (item.staffCode.trim() != sc) continue;
-      final c = item.attendanceRecordCode;
-      if (c == null || c.isEmpty) continue;
-      if (lowestSeq == null ||
-          (item.sequenceNumber ?? 1) < (lowestSeq.sequenceNumber ?? 1)) {
-        lowestSeq = item;
-      }
-    }
-    if (lowestSeq?.attendanceRecordCode != null) {
-      return norm(lowestSeq!.attendanceRecordCode!);
-    }
-
-    return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+    final fromCard = card.attendanceRecordCode?.trim();
+    if (fromCard == null || fromCard.isEmpty) return null;
+    return fromCard;
   }
 
   Widget _buildAbsentStaffList(
