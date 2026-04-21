@@ -14,6 +14,46 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 
+/// Breakpoint helper — call once per build, pass [_NavSizes] around.
+class _NavSizes {
+  _NavSizes(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final w = mq.size.width;
+    final bottomPadding = mq.padding.bottom; // safe-area inset (home bar etc.)
+
+    // Three tiers: phone (<600), tablet (600-900), large tablet (>900)
+    if (w >= 900) {
+      iconSize = 30;
+      fontSize = 13;
+      itemPaddingH = 16;
+      itemPaddingV = 12;
+      barPadding = EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPadding);
+      activeRadius = 16;
+    } else if (w >= 600) {
+      iconSize = 26;
+      fontSize = 12;
+      itemPaddingH = 10;
+      itemPaddingV = 10;
+      barPadding = EdgeInsets.fromLTRB(12, 8, 12, 8 + bottomPadding);
+      activeRadius = 14;
+    } else {
+      iconSize = 22;
+      fontSize = 10;
+      itemPaddingH = 4;
+      itemPaddingV = 6;
+      barPadding = EdgeInsets.fromLTRB(6, 6, 6, 6 + bottomPadding);
+      activeRadius = 12;
+    }
+  }
+
+  late final double iconSize;
+  late final double fontSize;
+  late final double itemPaddingH;
+  late final double itemPaddingV;
+  late final EdgeInsets barPadding;
+  late final double activeRadius;
+}
+
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
 
@@ -54,28 +94,25 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
   void _updateIndexFromRoute() {
     if (!mounted) return;
-
     final roleProvider = Provider.of<RoleProvider>(context, listen: false);
     final isParent = roleProvider.isParent;
 
     if (isParent) {
-      if (_currentRoute == DashboardScreen.routeName) {
+      if (_currentRoute == DashboardScreen.routeName)
         _index = 0;
-      } else if (_currentRoute == ActivityFeedScreen.routeName) {
+      else if (_currentRoute == ActivityFeedScreen.routeName)
         _index = 2;
-      } else if (_currentRoute == MessagingScreen.routeName) {
+      else if (_currentRoute == MessagingScreen.routeName)
         _index = 3;
-      } else if (_currentRoute == ParentBillingScreen.routeName) {
+      else if (_currentRoute == ParentBillingScreen.routeName)
         _index = 4;
-      }
     } else {
-      if (_currentRoute == DashboardScreen.routeName) {
+      if (_currentRoute == DashboardScreen.routeName)
         _index = 0;
-      } else if (_currentRoute == ActivityFeedScreen.routeName) {
+      else if (_currentRoute == ActivityFeedScreen.routeName)
         _index = 3;
-      } else if (_currentRoute == MessagingScreen.routeName) {
+      else if (_currentRoute == MessagingScreen.routeName)
         _index = 4;
-      }
     }
   }
 
@@ -84,20 +121,17 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     final RenderBox? renderBox =
         _containerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null) {
-      _navBarHeight = renderBox.size.height;
-      _hasMeasured = true;
-      setState(() {});
+      setState(() {
+        _navBarHeight = renderBox.size.height;
+        _hasMeasured = true;
+      });
     }
   }
 
   void _onItemTapped(int index, BuildContext context, bool isParent) {
-    setState(() {
-      _index = index;
-    });
+    setState(() => _index = index);
 
     if (isParent) {
-      // Parent navigation items: Dashboard, Attendance, Activities,
-      // Communication, Billing.
       switch (index) {
         case 0:
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
@@ -126,13 +160,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           break;
       }
     } else {
-      // Admin navigation items: Dashboard, Attendance, Classrooms, Activities, Messages
       switch (index) {
         case 0:
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
           break;
         case 1:
-          // Show attendance popup instead of directly navigating
           AttendancePopupManager.showAttendancePopup(context);
           break;
         case 2:
@@ -164,61 +196,71 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     required int index,
     required BuildContext context,
     required bool isParent,
+    required _NavSizes sizes,
   }) {
     final bool isActive = _index == index;
 
     return Expanded(
       child: InkWell(
         onTap: () => _onItemTapped(index, context, isParent),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        borderRadius: BorderRadius.circular(sizes.activeRadius),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: EdgeInsets.symmetric(
+            horizontal: sizes.itemPaddingH,
+            vertical: sizes.itemPaddingV,
+          ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.black.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
-              : null,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Use SVG for vector icons
-                SvgPicture.asset(
-                  icon,
-                  height: 24,
-                  colorFilter: isActive
-                      ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
-                      : null,
-                ),
-                const SizedBox(height: 4),
-                Text(
+              : const BoxDecoration(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                icon,
+                height: sizes.iconSize,
+                colorFilter: isActive
+                    ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
+                    : null,
+              ),
+              const SizedBox(height: 3),
+              // FittedBox prevents label overflow on very narrow items
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
                   label,
                   style: TextStyle(
                     color: Colors.white,
                     fontFamily: Fonts.inter,
-                    fontSize: 12,
+                    fontSize: sizes.fontSize,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   ),
-                  textAlign: TextAlign.center,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
+  /// Invisible placeholder that keeps the flex layout balanced
+  /// when a permission-gated tab is hidden.
   Widget _hiddenNavSlot() => const Expanded(child: SizedBox.shrink());
 
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleProvider>();
     final isParent = roleProvider.isParent;
+
+    // Permission flags — unchanged from original
     final showParentAttendance = roleProvider.canOpenModule(
       AppAccessModules.studentAttendance,
     );
@@ -249,13 +291,20 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       AppAccessModules.billingSettings,
     ]);
 
+    // Compute responsive sizes once per build
+    final sizes = _NavSizes(context);
+
     return SafeArea(
       top: false,
+      // SafeArea already handles the system bottom inset on most devices,
+      // but _NavSizes.barPadding adds it explicitly so we opt out here
+      // to avoid double-padding.
+      bottom: false,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         child: Container(
           key: _containerKey,
-          padding: const EdgeInsets.all(8),
+          padding: sizes.barPadding,
           decoration: BoxDecoration(
             gradient: AppColors.buildPrimaryGradient(),
             boxShadow: [
@@ -267,16 +316,16 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             ],
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: isParent
                 ? [
-                    // Parent navigation: Dashboard, Attendance, Activities,
-                    // Communication, Billing.
                     _buildNavItem(
                       icon: MediaRes.dashboardIcon,
                       label: 'Dashboard',
                       index: 0,
                       context: context,
                       isParent: isParent,
+                      sizes: sizes,
                     ),
                     showParentAttendance
                         ? _buildNavItem(
@@ -285,6 +334,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 1,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                     showActivities
@@ -294,6 +344,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 2,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                     showCommunication
@@ -303,6 +354,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 3,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                     showBilling
@@ -312,17 +364,18 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 4,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                   ]
                 : [
-                    // Admin navigation: Dashboard, Attendance, Classrooms, Activities, Messages
                     _buildNavItem(
                       icon: MediaRes.dashboardIcon,
                       label: 'Dashboard',
                       index: 0,
                       context: context,
                       isParent: isParent,
+                      sizes: sizes,
                     ),
                     showStaffAdminAttendance
                         ? _buildNavItem(
@@ -331,6 +384,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 1,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                     showClassrooms
@@ -340,6 +394,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 2,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                     showActivities
@@ -349,6 +404,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 3,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                     showCommunication
@@ -358,6 +414,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                             index: 4,
                             context: context,
                             isParent: isParent,
+                            sizes: sizes,
                           )
                         : _hiddenNavSlot(),
                   ],
