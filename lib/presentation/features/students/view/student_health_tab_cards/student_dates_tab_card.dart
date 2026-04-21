@@ -394,7 +394,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canMutateStudent =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
@@ -448,67 +450,62 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
               });
             }
 
-              return Padding(
+            return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: _disableAddPhysicalExam
-                        ? null
-                        : () async {
-                      if (!canMutateStudent) {
-                        ModuleAccess.showWriteRestricted(context);
-                        return;
-                      }
-                      final code = widget.studentCode;
-                      if (code == null || code.isEmpty) return;
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => EditStudentPhysicalExamScreen(
-                            studentCode: code,
-                            // For now we don't prefill from a specific record.
-                          ),
+                  if (canMutateStudent)
+                    GestureDetector(
+                      onTap: _disableAddPhysicalExam
+                          ? null
+                          : () async {
+                              final code = widget.studentCode;
+                              if (code == null || code.isEmpty) return;
+                              final result = await Navigator.of(context).push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) => EditStudentPhysicalExamScreen(
+                                    studentCode: code,
+                                  ),
+                                ),
+                              );
+                              if (!mounted || result != true) return;
+                              await _reloadPhysicalExams();
+                            },
+                      child: Opacity(
+                        opacity: !_disableAddPhysicalExam ? 1 : 0.45,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Physical Exams',
+                              style: AppTextStyles.title,
+                            ),
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                gradient: _disableAddPhysicalExam
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFFC9C5CE),
+                                          Color(0xFFB8B3BE),
+                                        ],
+                                      )
+                                    : AppColors.buildPrimaryGradient(),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.edit,
+                                size: 22,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                      if (!mounted || result != true) return;
-                      await _reloadPhysicalExams();
-                    },
-                    child: Opacity(
-                      opacity:
-                          canMutateStudent && !_disableAddPhysicalExam ? 1 : 0.45,
-                      child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Physical Exams',
-                          style: AppTextStyles.title,
-                        ),
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            gradient: _disableAddPhysicalExam || !canMutateStudent
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFFC9C5CE),
-                                      Color(0xFFB8B3BE),
-                                    ],
-                                  )
-                                : AppColors.buildPrimaryGradient(),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.edit,
-                            size: 22,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   if (exams.isEmpty)
                     Text(
@@ -518,29 +515,26 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                       ),
                     )
                   else
-                for (final e in exams) ...[
-                  _PhysicalExamCard(
-                    status: _prettyStatus(e.status),
-                    checkupDate: _formatExamDate(e.examDate),
-                    notes: (e.notes ?? '').trim(),
-                        showMore: !_isCompletedStatus(e.status),
-                        onMore: _isCompletedStatus(e.status)
+                    for (final e in exams) ...[
+                      _PhysicalExamCard(
+                        status: _prettyStatus(e.status),
+                        checkupDate: _formatExamDate(e.examDate),
+                        notes: (e.notes ?? '').trim(),
+                        showMore:
+                            canMutateStudent && !_isCompletedStatus(e.status),
+                        onMore: !canMutateStudent || _isCompletedStatus(e.status)
                             ? null
                             : () {
-                                if (!canMutateStudent) {
-                                  ModuleAccess.showWriteRestricted(context);
-                                  return;
-                                }
                                 _openEditPhysicalBottomSheet(
                                   initialDate: _parseIsoDate(e.examDate),
                                   initialStatusUi: _prettyStatus(e.status),
                                   examCode: e.code,
                                 );
                               },
-                  ),
-                  const SizedBox(height: 20),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                 ],
-              ],
               ),
             );
           },

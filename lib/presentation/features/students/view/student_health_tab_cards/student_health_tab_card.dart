@@ -63,7 +63,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
@@ -118,12 +120,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: () async {
-                      if (!canStudentWrite) {
-                        ModuleAccess.showWriteRestricted(context);
-                        return;
-                      }
+                  if (canStudentWrite)
+                    GestureDetector(
+                      onTap: () async {
                       final code = widget.studentCode;
                       if (code == null || code.isEmpty) return;
                       final currentHealth = health;
@@ -143,8 +142,6 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         widget.onHealthChanged?.call();
                       }
                     },
-                    child: Opacity(
-                      opacity: canStudentWrite ? 1 : 0.45,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -169,7 +166,6 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         ],
                       ),
                     ),
-                  ),
                   const SizedBox(height: 16),
                   _HealthCard(
                     allergies: health?.allergy,
@@ -386,18 +382,14 @@ class _HealthCard extends StatelessWidget{
                           onToggle: onTogglePhotoPermission,
                         )
                       else
-                        GestureDetector(
-                          onTap: () =>
-                              ModuleAccess.showWriteRestricted(context),
-                          child: Opacity(
-                            opacity: 0.45,
-                            child: AbsorbPointer(
-                              child: CustomToggle(
-                                label: '',
-                                isToggled: photoPermission,
-                                onToggle: (_) {},
-                              ),
-                            ),
+                        Text(
+                          photoPermission ? 'Yes' : 'No',
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
                           ),
                         ),
                     ],

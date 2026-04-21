@@ -102,7 +102,9 @@ class _StudentHealthTabState extends State<StudentHealthTab>
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canEditStudentData =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bool isImmunizationTab = _tabController.index == 3;
     return Stack(
@@ -121,11 +123,9 @@ class _StudentHealthTabState extends State<StudentHealthTab>
         ),
         Column(
           children: [
-        if (isImmunizationTab) ...[
+        if (isImmunizationTab && canEditStudentData) ...[
           SizedBox(height: 10,),
-          Opacity(
-            opacity: canEditStudentData ? 1 : 0.45,
-            child: CustomSectionCard(
+          CustomSectionCard(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -139,10 +139,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                         label: '',
                         isToggled: _isImmunizationExempt,
                         onToggle: (v) {
-                          if (!canEditStudentData) {
-                            ModuleAccess.showWriteRestricted(context);
-                            return;
-                          }
                           setState(() => _isImmunizationExempt = v);
                         },
                       ),
@@ -182,10 +178,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                       onPressed: _isImmunizationExempt
                           ? null
                           : () {
-                              if (!canEditStudentData) {
-                                ModuleAccess.showWriteRestricted(context);
-                                return;
-                              }
                             },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -209,7 +201,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               ],
             ),
             ),
-          ),
           const SizedBox(height: 20),
         ],
 

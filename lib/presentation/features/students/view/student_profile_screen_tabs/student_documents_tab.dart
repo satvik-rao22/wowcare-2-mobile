@@ -265,7 +265,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
@@ -501,73 +503,60 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                           const SizedBox(height: 16),
                                           Row(
                                             children: [
-                                              Expanded(
-                                                child: Container(
-                                                  height: 40,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    gradient: canStudentWrite
-                                                        ? AppColors.buildPrimaryGradient()
-                                                        : const LinearGradient(
-                                                            colors: [
-                                                              Color(0xFFC9C5CE),
-                                                              Color(0xFFB8B3BE),
-                                                            ],
-                                                          ),
-                                                  ),
-                                                  child: TextButton(
-                                                    onPressed: canStudentWrite
-                                                        ? () => _handleEdit(context, doc)
-                                                        : () => ModuleAccess
-                                                            .showWriteRestricted(
-                                                                context),
-                                                    style: TextButton.styleFrom(
-                                                      padding: EdgeInsets.zero,
+                                              if (canStudentWrite) ...[
+                                                Expanded(
+                                                  child: Container(
+                                                    height: 40,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      gradient: AppColors.buildPrimaryGradient(),
                                                     ),
-                                                    child: const Text(
-                                                      'Edit',
-                                                      style: TextStyle(
-                                                        fontFamily: 'Manrope',
-                                                        fontSize: 16,
-                                                        fontWeight: FontWeight.w700,
-                                                        color: Colors.white,
+                                                    child: TextButton(
+                                                      onPressed: () => _handleEdit(context, doc),
+                                                      style: TextButton.styleFrom(
+                                                        padding: EdgeInsets.zero,
+                                                      ),
+                                                      child: const Text(
+                                                        'Edit',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Colors.white,
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: SizedBox(
-                                                  height: 40,
-                                                  child: OutlinedButton(
-                                                    onPressed: canStudentWrite
-                                                        ? () => _handleDelete(context, doc)
-                                                        : () => ModuleAccess
-                                                            .showWriteRestricted(
-                                                                context),
-                                                    style: OutlinedButton.styleFrom(
-                                                      side: const BorderSide(
-                                                        color: Color(0xFF6C7FD8),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: SizedBox(
+                                                    height: 40,
+                                                    child: OutlinedButton(
+                                                      onPressed: () => _handleDelete(context, doc),
+                                                      style: OutlinedButton.styleFrom(
+                                                        side: const BorderSide(
+                                                          color: Color(0xFF6C7FD8),
+                                                        ),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(8),
+                                                        ),
+                                                        padding: EdgeInsets.zero,
                                                       ),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                      padding: EdgeInsets.zero,
-                                                    ),
-                                                    child: const Text(
-                                                      'Delete',
-                                                      style: TextStyle(
-                                                        fontFamily: 'Manrope',
-                                                        fontSize: 16,
-                                                        fontWeight: FontWeight.w700,
-                                                        color: Color(0xFF6C7FD8),
+                                                      child: const Text(
+                                                        'Delete',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Color(0xFF6C7FD8),
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 12),
+                                                const SizedBox(width: 12),
+                                              ],
                                               Expanded(
                                                 child: Container(
                                                   height: 40,
@@ -614,44 +603,34 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
               );
             },
           ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: canStudentWrite
-                ? GradientAddButton(
-                    onTap: () {
-                      Navigator.of(context)
-                          .push(
-                            MaterialPageRoute(
-                              builder: (context) => AddStudentDocumentScreen(
-                                studentCode: widget.studentCode ?? '',
-                              ),
-                            ),
-                          )
-                          .then((result) {
-                        if (result == true && mounted) {
-                          _documentsListCubit.refresh(
-                            studentCode,
-                            expiredOnly: _showExpired ? true : null,
-                          );
-                        }
-                      });
-                    },
-                    size: 50.0,
-                    iconSize: 28.0,
-                    borderRadius: 12.0,
-                  )
-                : Opacity(
-                    opacity: 0.45,
-                    child: GradientAddButton(
-                      onTap: () =>
-                          ModuleAccess.showWriteRestricted(context),
-                      size: 50.0,
-                      iconSize: 28.0,
-                      borderRadius: 12.0,
-                    ),
-                  ),
-          ),
+          if (canStudentWrite)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: GradientAddButton(
+                onTap: () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (context) => AddStudentDocumentScreen(
+                            studentCode: widget.studentCode ?? '',
+                          ),
+                        ),
+                      )
+                      .then((result) {
+                    if (result == true && mounted) {
+                      _documentsListCubit.refresh(
+                        studentCode,
+                        expiredOnly: _showExpired ? true : null,
+                      );
+                    }
+                  });
+                },
+                size: 50.0,
+                iconSize: 28.0,
+                borderRadius: 12.0,
+              ),
+            ),
         ],
       ),
     );
