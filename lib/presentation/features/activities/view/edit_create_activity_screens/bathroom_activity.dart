@@ -52,10 +52,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
 
-  /// Description is required only when bathroom type is Potty (label match).
+  /// Bathroom description is required for every bathroom activity.
   bool get _descriptionRequiredForPotty {
-    final t = (_selectedBathroomType ?? '').toLowerCase();
-    return t.contains('potty');
+    return true;
   }
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -1222,7 +1221,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                     _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
-              isEditable: _canInteract,
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(

@@ -699,7 +699,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                     _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
-              isEditable: _canInteract,
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing,),
             InputWidget(

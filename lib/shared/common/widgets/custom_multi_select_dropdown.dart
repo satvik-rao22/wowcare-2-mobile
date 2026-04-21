@@ -11,6 +11,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final ValueChanged<List<String>> onChanged;
   final bool isField;
   final double? width;
+  final double? labelBottomSpacing;
   final double gapHeight;
   final double maxDropdownHeight;
 
@@ -24,6 +25,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.suffix,
     this.isField = false,
     this.width,
+    this.labelBottomSpacing,
     /// Extra spacing between the field and dropdown (in addition to field height).
     this.gapHeight = 6,
     this.maxDropdownHeight = 250,
@@ -254,7 +256,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               fontWeight: FontWeight.w400,
             ),
           ),
-        if (widget.label != null) const SizedBox(height: 8),
+        if (widget.label != null)
+          SizedBox(height: widget.labelBottomSpacing ?? 8),
         CompositedTransformTarget(
           link: _layerLink,
           child: GestureDetector(

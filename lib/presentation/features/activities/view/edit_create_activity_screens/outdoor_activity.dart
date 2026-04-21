@@ -436,23 +436,42 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final message = await _createActivityUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachments,
-      );
+      String? message;
+      if (attachments.length <= 1) {
+        message = await _createActivityUseCase(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: attachments,
+        );
+      } else {
+        // Backend accepts one attachment per created activity row.
+        for (final att in attachments) {
+          message = await _createActivityUseCase(
+            activityTypeCode: activityTypeCode,
+            classroomCode: classroomCode,
+            studentCodes: studentCodes,
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+            activityDate: activityDateIso,
+            description: description,
+            parameterValues: parameterValues,
+            attachments: [att],
+          );
+        }
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: message ?? 'Activity created successfully',
         isSuccess: true,
       );
 
@@ -558,11 +577,16 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       }
     }
 
+    final ownerCode = studentCodes.first;
     final attachments = <Map<String, dynamic>>[];
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
       if (assetCode != null && assetCode.isNotEmpty) {
-        attachments.add({'assetCode': assetCode});
+        attachments.add({
+          'assetCode': assetCode,
+          'studentCode': ownerCode,
+          'bindingMode': 'SHARED',
+        });
       }
     }
     return attachments;
@@ -1082,7 +1106,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                     _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
-              isEditable: _canInteract,
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(

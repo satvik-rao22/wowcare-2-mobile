@@ -716,23 +716,42 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (categoryEntry != null) categoryEntry,
       ];
 
-      final message = await _createActivityUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachments,
-      );
+      String? message;
+      if (attachments.length <= 1) {
+        message = await _createActivityUseCase(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: attachments,
+        );
+      } else {
+        // Backend accepts one attachment per created activity row.
+        for (final att in attachments) {
+          message = await _createActivityUseCase(
+            activityTypeCode: activityTypeCode,
+            classroomCode: classroomCode,
+            studentCodes: studentCodes,
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+            activityDate: activityDateIso,
+            description: description,
+            parameterValues: parameterValues,
+            attachments: [att],
+          );
+        }
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: message ?? 'Activity created successfully',
         isSuccess: true,
       );
 
@@ -1281,7 +1300,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     _layoutAsEdit ? _effectiveActivity.createdBy : '',
                 loggedInDisplayName: _staffName,
               ),
-              isEditable: _canInteract,
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(

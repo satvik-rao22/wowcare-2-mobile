@@ -853,7 +853,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                 loggedInDisplayName: _staffName,
                 staffLabelFromParameters: _staffPresentLabelForEdit,
               ),
-              isEditable: _canInteract,
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing,),
             InputWidget(

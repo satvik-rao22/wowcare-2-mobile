@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -22,6 +23,7 @@ import '../../../../core/util/guardian_code_resolver.dart';
 import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
@@ -34,6 +36,7 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../util/activity_filter_metadata_cache.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
@@ -113,6 +116,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   ];
   List<String> _classroomOptions = [];
   final Map<String, String> _classroomCodeByName = {};
+  final Map<String, String> _classroomNameByCode = {};
   final Map<String, String> _studentCodeByName = {};
   List<ActivityItem> _activities = [];
   static const int _feedPageSize = 10;
@@ -137,6 +141,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   /// Guardian home: children we may show activities for.
   final Set<String> _parentAllowedStudentCodes = {};
   final Map<String, String> _parentStudentClassroomByCode = {};
+
+  // Staff persona scoping
+  List<String> _allowedClassroomCodes = const [];
+  String? _primaryClassroomCode;
   bool _loadingParentContext = false;
   String? _lastGlobalSelectedStudentCode;
 
@@ -429,6 +437,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       return;
     }
 
+    await _loadStaffClassroomScope();
+
     final classroomCacheKey = CacheManager.buildCacheKey(
       feature: 'activity',
       resource: 'classrooms',
@@ -446,16 +456,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             .where((e) => e['name']!.isNotEmpty && e['code']!.isNotEmpty)
             .toList();
         if (list.isNotEmpty && mounted) {
+          final scoped = _allowedClassroomCodes.isEmpty
+              ? list
+              : list
+                  .where((c) => _allowedClassroomCodes.contains((c['code'] ?? '').trim()))
+                  .toList();
           _classroomCodeByName
             ..clear()
-            ..addEntries(list.map((c) => MapEntry(c['name']!, c['code']!)));
+            ..addEntries(scoped.map((c) => MapEntry(c['name']!, c['code']!)));
+          _classroomNameByCode
+            ..clear()
+            ..addEntries(scoped.map((c) => MapEntry(c['code']!, c['name']!)));
           setState(() {
-            _classroomOptions = list.map((c) => c['name']!).toList()..sort();
+            _classroomOptions = scoped.map((c) => c['name']!).toList()..sort();
             _feedError = null;
             if (_classroomOptions.isNotEmpty) {
               final keep = _selectdClassroom != null &&
                   _classroomOptions.contains(_selectdClassroom);
-              _selectdClassroom = keep ? _selectdClassroom : _classroomOptions.first;
+              if (keep) {
+                _selectdClassroom = _selectdClassroom;
+              } else {
+                final primaryCode = (_primaryClassroomCode ?? '').trim();
+                final primaryName =
+                    primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+                _selectdClassroom = primaryName ?? _classroomOptions.first;
+              }
             } else {
               _selectdClassroom = null;
             }
@@ -473,23 +498,37 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _isFeedRequestInFlight = false;
         return;
       }
+      final scoped = _allowedClassroomCodes.isEmpty
+          ? classrooms
+          : classrooms
+              .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+              .toList();
       _classroomCodeByName
         ..clear()
-        ..addEntries(classrooms.map((c) => MapEntry(c.name, c.code)));
+        ..addEntries(scoped.map((c) => MapEntry(c.name, c.code)));
+      _classroomNameByCode
+        ..clear()
+        ..addEntries(scoped.map((c) => MapEntry(c.code, c.name)));
       setState(() {
-        _classroomOptions = classrooms.map((c) => c.name).toList()..sort();
+        _classroomOptions = scoped.map((c) => c.name).toList()..sort();
         _feedError = null;
         if (_classroomOptions.isNotEmpty) {
           final keep = _selectdClassroom != null &&
               _classroomOptions.contains(_selectdClassroom);
-          _selectdClassroom =
-              keep ? _selectdClassroom : _classroomOptions.first;
+          if (keep) {
+            _selectdClassroom = _selectdClassroom;
+          } else {
+            final primaryCode = (_primaryClassroomCode ?? '').trim();
+            final primaryName =
+                primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+            _selectdClassroom = primaryName ?? _classroomOptions.first;
+          }
         } else {
           _selectdClassroom = null;
         }
       });
       await _cacheManager.saveCache(classroomCacheKey, {
-        'classrooms': classrooms
+        'classrooms': scoped
             .map((c) => {'name': c.name, 'code': c.code})
             .toList(),
       });
@@ -509,6 +548,77 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
     }
+  }
+
+  Future<void> _loadStaffClassroomScope() async {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
+    final roles =
+        (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+      _allowedClassroomCodes = const [];
+      _primaryClassroomCode = null;
+      return;
+    }
+
+    final staffType =
+        (await _storageService.getString(StorageKeys.staffType) ?? '')
+            .trim()
+            .toUpperCase();
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      _allowedClassroomCodes = const [];
+      _primaryClassroomCode = null;
+      return;
+    }
+
+    List<String> decodeCodes(String raw) {
+      if (raw.trim().isEmpty) return <String>[];
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+      return <String>[];
+    }
+
+    final cached =
+        (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ??
+                '')
+            .trim();
+    var allowed = decodeCodes(cached);
+
+    try {
+      final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      if (staffCode.isNotEmpty) {
+        final repo = serviceLocator<StaffRepository>();
+        final profile = await repo.getStaffProfile(
+          staffCode: staffCode,
+          forEditStaff: true,
+        );
+        final primary = profile.primaryClassroomCode.trim();
+        final profileAllowed = profile.allowedClassroomCodes
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+
+        if (profileAllowed.isNotEmpty) {
+          allowed = profileAllowed;
+          await _storageService.saveString(
+            StorageKeys.staffAllowedClassroomCodes,
+            jsonEncode(profileAllowed),
+          );
+        }
+
+        _primaryClassroomCode = primary.isNotEmpty ? primary : null;
+      }
+    } catch (_) {
+      // Non-blocking: fall back to cached allowed codes.
+    }
+
+    _allowedClassroomCodes = allowed;
   }
 
   Future<void> _bootstrapParentHome() async {
