@@ -79,7 +79,9 @@ class _StudentSelectionTransferFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms();
+    _classroomCubit.loadActiveClassrooms(
+      applyAttendanceStaffScope: true,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -459,6 +461,7 @@ class _StudentSelectionTransferFormState
                 MaterialPageRoute(
                   builder: (context) => StudentTransferForm(
                     students: selectedStudents.toSet().toList(),
+                    classroomNameToCode: _classroomNameToCode,
                   ),
                 ),
               );

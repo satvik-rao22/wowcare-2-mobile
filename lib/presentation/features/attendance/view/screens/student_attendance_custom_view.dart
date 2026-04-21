@@ -102,6 +102,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       // Transfers / historical attendance can reference non-CLASSROOM locations.
       // Load all types so classroomCode → name resolution and filters work reliably.
       onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
     );
 
     // Mark ready immediately if data already exists.

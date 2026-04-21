@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -79,6 +80,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   String? _statusLegendFilter;
   String? _signInAtFilter;
   String? _signOutAtFilter;
+  bool? _isExpectedNotMarkedFilter;
   FilterData? _studentFilters;
   int? _expandedStudentIndex;
   
@@ -93,6 +95,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   bool _isLoadingTagMap = false;
   bool _isClassroomDataReady = false;
   String? _loggedInUserName;
+  bool _isTeacherStaffPersona = false;
 
   // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
   int enrolled = 0;
@@ -173,6 +176,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     _loadClassroomData();
     _loadTagNameCodeMap();
     _loadLoggedInUserName();
+    _loadStaffPersonaFlags();
     _searchController.addListener(_onSearchChanged);
     
     // Handle incoming filter
@@ -230,7 +234,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   Future<void> _loadClassroomData() async {
     // Transfers can involve non-CLASSROOM locations; load all types to maximize
     // classroomCode → name resolution across the app.
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    _classroomCubit.loadActiveClassrooms(
+      onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
+    );
     
     // Check if data is already available
     if (!_classroomCubit.state.isLoading && _classroomCubit.state.classrooms.isNotEmpty) {
@@ -305,6 +312,39 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         _loggedInUserName = fallback;
       });
     } catch (_) {}
+  }
+
+  Future<void> _loadStaffPersonaFlags() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      final staffType =
+          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      bool isStaffAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      if (!isStaffAdmin) {
+        final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+        if (rolesJson.isNotEmpty) {
+          final roles = jsonDecode(rolesJson);
+          if (roles is List) {
+            isStaffAdmin = roles.any((r) {
+              if (r is! Map) return false;
+              final roleCode = (r['role'] ?? '').toString().trim().toUpperCase();
+              return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+            });
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isTeacherStaffPersona = false;
+      });
+    }
   }
 
   @override
@@ -421,6 +461,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         tagCodes: tagCodes,
         signInAtFilter: _signInAtFilter,
         signOutAtFilter: _signOutAtFilter,
+        isExpectedNotMarked: _isExpectedNotMarkedFilter,
         search: search,
       );
     } else {
@@ -430,6 +471,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         tagCodes: tagCodes,
         signInAtFilter: _signInAtFilter,
         signOutAtFilter: _signOutAtFilter,
+        isExpectedNotMarked: _isExpectedNotMarkedFilter,
         search: search,
       );
     }
@@ -441,26 +483,31 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NULL';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NULL';
+        _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'IGNORE';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
+        _isExpectedNotMarkedFilter = null;
     }
   }
 
@@ -836,42 +883,43 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(height: responsive.verticalSpacing / 4),
-                  // Summary cards (only show for admin/director - for now show for all)
-                  StudentAttendanceSummary(
-                    enrolled: enrolled,
-                    active: active,
-                    upcoming: upcoming,
-                    expected: state.expectedCount ?? expected,
-                    present: state.presentCount ?? present,
-                    absent: state.absentCount ?? absent,
-                    signedOut: state.signedOutCount ?? signedOut,
-                    notMarked: state.notMarkedCount ?? notMarked,
-                    isLoading: state.isLoading ||
-                        state.isRefreshing ||
-                        state.isSummaryLoading,
-                    onLegendTap: (status) {
-                      final normalizedStatus = status.trim().toUpperCase();
-                      if (normalizedStatus == 'ACTIVE' ||
-                          normalizedStatus == 'UPCOMING') {
-                        _openStudentListWithIncomingFilter(normalizedStatus);
-                        return;
-                      }
-                      final normalized = status == 'Present' ? 'Signed-In' : status;
-                      final currentLegend =
-                          _statusLegendFilter == 'Present' ? 'Signed-In' : _statusLegendFilter;
-                      setState(() {
-                        if (currentLegend == normalized) {
-                          _statusLegendFilter = null;
-                          _applyLegendApiFilters(null);
-                        } else {
-                          _statusLegendFilter = normalized;
-                          _applyLegendApiFilters(normalized);
+                  if (!_isTeacherStaffPersona) ...[
+                    StudentAttendanceSummary(
+                      enrolled: enrolled,
+                      active: active,
+                      upcoming: upcoming,
+                      expected: state.expectedCount ?? expected,
+                      present: state.presentCount ?? present,
+                      absent: state.absentCount ?? absent,
+                      signedOut: state.signedOutCount ?? signedOut,
+                      notMarked: state.notMarkedCount ?? notMarked,
+                      isLoading: state.isLoading ||
+                          state.isRefreshing ||
+                          state.isSummaryLoading,
+                      onLegendTap: (status) {
+                        final normalizedStatus = status.trim().toUpperCase();
+                        if (normalizedStatus == 'ACTIVE' ||
+                            normalizedStatus == 'UPCOMING') {
+                          _openStudentListWithIncomingFilter(normalizedStatus);
+                          return;
                         }
-                      });
-                      _loadAttendanceData();
-                    },
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
+                        final normalized = status == 'Present' ? 'Signed-In' : status;
+                        final currentLegend =
+                            _statusLegendFilter == 'Present' ? 'Signed-In' : _statusLegendFilter;
+                        setState(() {
+                          if (currentLegend == normalized) {
+                            _statusLegendFilter = null;
+                            _applyLegendApiFilters(null);
+                          } else {
+                            _statusLegendFilter = normalized;
+                            _applyLegendApiFilters(normalized);
+                          }
+                        });
+                        _loadAttendanceData();
+                      },
+                    ),
+                    SizedBox(height: responsive.verticalSpacing),
+                  ],
                   // Filters row styled similar to StaffScreen: search, filter, date, clear all, show absent toggle
                   _buildFilterCard(responsive),
                   SizedBox(height: responsive.verticalSpacing),
@@ -1310,6 +1358,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                           _showAbsentOnly = false;
                           _signInAtFilter = null;
                           _signOutAtFilter = null;
+                          _isExpectedNotMarkedFilter = null;
                         });
                         _loadAttendanceData(reset: false);
                       }
@@ -1330,6 +1379,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                     _statusLegendFilter = 'Absent';
                     _signInAtFilter = null;
                     _signOutAtFilter = null;
+                    _isExpectedNotMarkedFilter = null;
                   } else if (_statusLegendFilter == 'Absent') {
                     _statusLegendFilter = null;
                   }
@@ -1358,7 +1408,10 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       try {
         // Reload classroom data if needed
         if (_classroomCubit.state.classrooms.isEmpty) {
-          _classroomCubit.loadActiveClassrooms(force: true);
+          _classroomCubit.loadActiveClassrooms(
+            force: true,
+            applyAttendanceStaffScope: true,
+          );
         }
         
         // Wait for classroom data to load (max 10 seconds)
@@ -1470,7 +1523,9 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
             ),
             BlocProvider<ClassroomCubit>(
               create: (_) => serviceLocator<ClassroomCubit>()
-                ..loadActiveClassrooms(),
+                ..loadActiveClassrooms(
+                  applyAttendanceStaffScope: true,
+                ),
             ),
           ],
           child: StudentScreen(incomingStatusFilter: normalized),

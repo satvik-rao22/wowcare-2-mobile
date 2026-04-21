@@ -12,6 +12,7 @@ abstract class AttendanceRemoteDataSource {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -114,6 +115,7 @@ abstract class AttendanceRemoteDataSource {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -319,6 +321,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -358,6 +361,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
     if (signOutAtFilter != null && signOutAtFilter.isNotEmpty) {
       queryParameters['signOutAtFilter'] = signOutAtFilter;
+    }
+    if (isExpectedNotMarked == true) {
+      queryParameters['isExpectedNotMarked'] = true;
     }
 
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
@@ -743,6 +749,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -772,6 +779,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
     if (signOutAtFilter != null && signOutAtFilter.isNotEmpty) {
       queryParameters['signOutAtFilter'] = signOutAtFilter;
+    }
+    if (isExpectedNotMarked == true) {
+      queryParameters['isExpectedNotMarked'] = true;
     }
 
     if (sort != null && sort.isNotEmpty) {

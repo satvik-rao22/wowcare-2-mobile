@@ -67,6 +67,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   String? _statusLegendFilter;
   String? _signInAtFilter;
   String? _signOutAtFilter;
+  bool? _isExpectedNotMarkedFilter;
   FilterData? _staffFilters;
 
   // Total staff summary: same API as StaffScreen "Total Staff" (headline = active + upcoming).
@@ -160,7 +161,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   Future<void> _loadClassroomData() async {
     // Transfers can involve non-CLASSROOM locations; load all types to maximize
     // classroomCode → name resolution across the app.
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    _classroomCubit.loadActiveClassrooms(
+      onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -256,6 +260,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         tagCodes: tagCodes,
         signInAtFilter: _signInAtFilter,
         signOutAtFilter: _signOutAtFilter,
+        isExpectedNotMarked: _isExpectedNotMarkedFilter,
         search: search,
       );
     } else {
@@ -265,6 +270,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         tagCodes: tagCodes,
         signInAtFilter: _signInAtFilter,
         signOutAtFilter: _signOutAtFilter,
+        isExpectedNotMarked: _isExpectedNotMarkedFilter,
         search: search,
       );
     }
@@ -276,26 +282,31 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NULL';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NULL';
+        _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'IGNORE';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
+        _isExpectedNotMarkedFilter = null;
     }
   }
 
@@ -435,6 +446,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       _statusLegendFilter = null;
       _signInAtFilter = null;
       _signOutAtFilter = null;
+      _isExpectedNotMarkedFilter = null;
       _staffFilters = null;
     });
     _loadAttendanceData(context, reset: true);
@@ -757,6 +769,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                     _statusLegendFilter = 'Absent';
                     _signInAtFilter = null;
                     _signOutAtFilter = null;
+                    _isExpectedNotMarkedFilter = null;
                   } else if (_statusLegendFilter == 'Absent') {
                     _statusLegendFilter = null;
                   }

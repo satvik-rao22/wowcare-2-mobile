@@ -122,6 +122,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
     );
 
     if (!_classroomCubit.state.isLoading &&
