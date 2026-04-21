@@ -60,7 +60,7 @@ abstract class ActivityRepository {
     List<Map<String, dynamic>> attachments = const [],
   });
 
-  /// `DELETE /api/v1/activities/{code}` (soft delete).
+  /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
   /// Creates a new activity via `POST /api/v1/activities`.

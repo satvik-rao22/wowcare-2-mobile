@@ -27,7 +27,7 @@ abstract class ActivityRemoteDataSource {
     required List<Map<String, dynamic>> attachments,
   });
 
-  /// `DELETE /api/v1/activities/{code}` (soft delete).
+  /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
   /// Fetches activity settings for a classroom via
@@ -138,9 +138,14 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       if (assetCode.isEmpty) continue;
       final studentCode = (row['studentCode'] ?? '').toString().trim();
       final bindingMode = (row['bindingMode'] ?? '').toString().trim();
+      final isShared = bindingMode.toUpperCase() == 'SHARED';
       out.add({
         'assetCode': assetCode,
-        if (studentCode.isNotEmpty) 'studentCode': studentCode,
+        // For SHARED attachments backend expects no studentCode.
+        if (studentCode.isNotEmpty &&
+            !isShared &&
+            studentCode.toUpperCase().startsWith('STD_'))
+          'studentCode': studentCode,
         if (bindingMode.isNotEmpty) 'bindingMode': bindingMode,
       });
     }
@@ -191,6 +196,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final attachmentBindingMode = normalizedAttachments
         .map((a) => (a['bindingMode'] ?? '').toString().trim())
         .firstWhere((v) => v.isNotEmpty, orElse: () => '');
+    final effectiveBindingMode = effectiveStudentCodes.length <= 1
+        ? 'PER_STUDENT'
+        : (attachmentBindingMode.isNotEmpty ? attachmentBindingMode : 'SHARED');
 
     final payload = <String, dynamic>{
       if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
@@ -200,7 +208,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'activityDate': activityDate,
       'description': description,
       'parameterValues': parameterValues,
-      if (attachmentBindingMode.isNotEmpty) 'bindingMode': attachmentBindingMode,
+      'bindingMode': effectiveBindingMode,
       'attachments': normalizedAttachments,
     };
     final response = await _client.patch<dynamic>(endpoint, data: payload);
@@ -217,10 +225,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   @override
   Future<String> deleteActivity({required String code}) async {
-    final base = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
+    final base = ApiPaths.url('/api/v2/activities');
     final raw = code.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
     final endpoint = '$base/$segment';
