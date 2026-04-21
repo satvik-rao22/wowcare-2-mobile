@@ -368,6 +368,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
 }
 
 class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
+  static const double _dropdownRowHeight = 44;
   late List<String> _localSelectedItems;
   bool isDropdownOpen = false;
   final LayerLink _layerLink = LayerLink();
@@ -481,10 +482,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: widget.maxDropdownHeight,
-                    minWidth: 120,
-                  ),
+                  constraints: const BoxConstraints(minWidth: 120),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
@@ -492,12 +490,26 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
-                      return ListView.builder(
-                        padding: EdgeInsets.zero,
-                        itemCount:
-                            widget.items.length +
-                            (widget.showSelectAll ? 1 : 0),
-                        itemBuilder: (context, index) {
+                      final itemCount =
+                          widget.items.length + (widget.showSelectAll ? 1 : 0);
+                      final targetHeight = itemCount * _dropdownRowHeight;
+                      final dropdownHeight =
+                          targetHeight > widget.maxDropdownHeight
+                          ? widget.maxDropdownHeight
+                          : targetHeight;
+                      return SizedBox(
+                        height: dropdownHeight,
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          physics: targetHeight > widget.maxDropdownHeight
+                              ? const AlwaysScrollableScrollPhysics()
+                              : const NeverScrollableScrollPhysics(),
+                          itemExtent: _dropdownRowHeight,
+                          itemCount:
+                              widget.items.length +
+                              (widget.showSelectAll ? 1 : 0),
+                          itemBuilder: (context, index) {
                           /// 🔥 SELECT ALL
                           if (widget.showSelectAll && index == 0) {
                             final isAllSelected =
@@ -532,6 +544,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
                                     ),
                                   ],
                                 ),
@@ -571,13 +586,17 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                     child: Text(
                                       item,
                                       style: const TextStyle(fontSize: 14),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           );
-                        },
+                          },
+                        ),
                       );
                     },
                   ),
