@@ -359,6 +359,7 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.suffix,
     this.isField = false,
     this.width,
+    this.labelBottomSpacing,
     this.gapHeight = 6,
     this.maxDropdownHeight = 250,
   }) : super(key: key);

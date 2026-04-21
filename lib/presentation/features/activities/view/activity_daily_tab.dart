@@ -1686,38 +1686,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () {
                                         setState(() {
-                                          if (_classroomOptions.isNotEmpty) {
-                                            _selectdClassroom =
-                                                _classroomOptions.first;
-                                          }
-                                          _selectedStudent = null;
-                                          _filterActivityTypes.clear();
-                                          _filterTags.clear();
-                                        });
-                                        _reloadStudentsAndSettingsThenFeed();
-                                      },
-                                      label: 'Clear All',
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          : SizedBox(
-                              height: 40,
-                              child: _datePickerFilter(
-                                selectedDate: _selectedDate,
-                                onDateSelected: (date) {
-                                  setState(() {
-                                    _selectedDate = date;
-                                  });
-                                  _loadDailyFeed();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
                                   final now = DateTime.now();
                                   _selectedDate =
                                       DateTime(now.year, now.month, now.day);
@@ -1751,6 +1719,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                             ),
                           ),
                   ),
+                ),
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(height: _parentHome ? 0 : 12),
@@ -1802,7 +1771,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         ),
                       ),
                     ),
-                  ),
+                  )),
 
                 // if (activities.isNotEmpty)
                 //   SliverPadding(
@@ -3150,25 +3119,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () {
                                       setState(() {
-                                        if (_classroomOptions.isNotEmpty) {
-                                          _selectdClassroom =
-                                              _classroomOptions.first;
-                                        }
-                                        _selectedStudent = null;
-                                        _filterActivityTypes.clear();
-                                        _filterTags.clear();
-                                      });
-                                      _reloadStudentsAndSettingsThenFeed();
-                                    },
-                                    label: 'Clear All',
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
                                   final now = DateTime.now();
                                   _selectedDate =
                                       DateTime(now.year, now.month, now.day);
