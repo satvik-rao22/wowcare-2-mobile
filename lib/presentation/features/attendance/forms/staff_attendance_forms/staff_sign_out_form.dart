@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -73,17 +75,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     setState(() {
       _schoolIana = iana;
       _isStaffAdminPersona = isAdmin;
-      // Teachers cannot modify date/time — use school-local "now".
-      if (!_isStaffAdminPersona!) {
-        if (iana != null && iana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-          selectedDate = dt.$1;
-          selectedTime = dt.$2;
-        } else {
-          final n = DateTime.now();
-          selectedDate = n;
-          selectedTime = TimeOfDay.fromDateTime(n);
-        }
+      if (iana != null && iana.isNotEmpty) {
+        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+        selectedDate = dt.$1;
+        selectedTime = dt.$2;
+      } else {
+        final n = DateTime.now();
+        selectedDate = n;
+        selectedTime = TimeOfDay.fromDateTime(n);
       }
     });
   }
@@ -330,6 +329,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
   }
 
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StaffFormLayout(
@@ -350,8 +358,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    _buildStaffCard(_selectedStaff[index]),
+                itemBuilder: (context, index) => _buildStaffCard(
+                  _selectedStaff[index],
+                  canRemove: _selectedStaff.length > 1,
+                ),
               ),
             const SizedBox(height: 20),
             Row(
@@ -428,7 +438,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     );
   }
 
-  Widget _buildStaffCard(StaffEntity staff) {
+  Widget _buildStaffCard(
+    StaffEntity staff, {
+    required bool canRemove,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -465,6 +478,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: () => _removeStaff(staff),
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );

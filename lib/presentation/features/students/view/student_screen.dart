@@ -52,9 +52,13 @@ import '../widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
 
 class StudentScreen extends StatefulWidget {
-  const StudentScreen({super.key});
+  const StudentScreen({
+    super.key,
+    this.incomingStatusFilter,
+  });
 
   static const String routeName = '/students';
+  final String? incomingStatusFilter;
 
   @override
   State<StudentScreen> createState() => _StudentScreenState();
@@ -94,6 +98,7 @@ class _StudentScreenState extends State<StudentScreen> {
   @override
   void initState(){
     super.initState();
+    _applyIncomingStatusFilter();
     _searchController.addListener(_onSearchChanged);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,6 +115,16 @@ class _StudentScreenState extends State<StudentScreen> {
         _loadExpectedStudentsSummary();
       }
     });
+  }
+
+  void _applyIncomingStatusFilter() {
+    final incoming = (widget.incomingStatusFilter ?? '').trim().toUpperCase();
+    if (incoming != 'ACTIVE' && incoming != 'UPCOMING' && incoming != 'INACTIVE') {
+      return;
+    }
+    final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
+    _currentFilters['Status'] = [statusLabel];
+    _syncShowInactiveFromStatus(statusLabel);
   }
 
   @override

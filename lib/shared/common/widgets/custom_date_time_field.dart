@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 
@@ -114,9 +119,24 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
-    // WowCare app does not rely on the legacy timezone helper from `schoolerp`.
-    // Use local device time as a safe default.
-    final DateTime dateTime = DateTime.now();
+    DateTime dateTime = DateTime.now();
+    try {
+      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
+      dateTime = DateTime(
+        dt.$1.year,
+        dt.$1.month,
+        dt.$1.day,
+        dt.$2.hour,
+        dt.$2.minute,
+      );
+    } catch (_) {
+      // Fallback to local device time.
+    }
+    if (!mounted) return;
     setState(() {
       selectedDate = dateTime; // Store the entire dateTime object
       selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);

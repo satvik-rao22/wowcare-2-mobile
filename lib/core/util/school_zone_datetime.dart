@@ -45,6 +45,16 @@ abstract final class SchoolZoneDateTime {
         '${t.day.toString().padLeft(2, '0')}';
   }
 
+  /// Time-of-day of [instant] as seen in the school zone.
+  static TimeOfDay timeOfDayFromInstantInSchool(
+    DateTime instant,
+    String ianaName,
+  ) {
+    final loc = locationForIana(ianaName);
+    final t = tz.TZDateTime.from(instant.toUtc(), loc);
+    return TimeOfDay(hour: t.hour, minute: t.minute);
+  }
+
   /// Date-only "today" in the school calendar (for comparing picked dates).
   static DateTime schoolCalendarTodayOnly(String ianaName) {
     final n = tz.TZDateTime.now(locationForIana(ianaName));
