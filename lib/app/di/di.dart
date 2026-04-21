@@ -152,6 +152,7 @@ import '../../data/features/communication/datasources/communication_remote_data_
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
+import '../../shared/services/image_upload/image_upload_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -186,6 +187,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
         AuthInterceptor(serviceLocator<StorageService>()),
       ],
     ),
+  );
+  serviceLocator.registerLazySingleton<ImageUploadService>(
+    () => ImageUploadService(serviceLocator<ApiClient>()),
   );
 
   // Auth Data Sources

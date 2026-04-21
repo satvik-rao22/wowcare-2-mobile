@@ -192,6 +192,8 @@ class ActivityRepositoryImpl implements ActivityRepository {
       organizationCode: organizationCode,
       activityDate: activityDate,
       description: description,
+      // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
+      bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       parameterValues: parameterValues,
       attachments: attachments,
     );

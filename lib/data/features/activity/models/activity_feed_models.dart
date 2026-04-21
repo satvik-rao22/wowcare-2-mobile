@@ -32,8 +32,7 @@ class ActivityFeedPageModel {
     if (rawContent is List<dynamic>) {
       for (final e in rawContent) {
         if (e is Map<String, dynamic>) {
-          final row = _rowFromJson(e);
-          if (row != null) list.add(row);
+          list.addAll(_rowsFromJson(e));
         }
       }
     }
@@ -55,7 +54,7 @@ class ActivityFeedPageModel {
         last: last,
       );
 
-  static ActivityFeedRow? _rowFromJson(Map<String, dynamic> json) {
+  static List<ActivityFeedRow> _rowsFromJson(Map<String, dynamic> json) {
     try {
       final params = <Map<String, dynamic>>[];
       final rawPv = json['parameterValues'];
@@ -71,37 +70,73 @@ class ActivityFeedPageModel {
           if (a is Map<String, dynamic>) atts.add(a);
         }
       }
+      final singleAttachment = json['attachment'];
+      if (singleAttachment is Map<String, dynamic>) {
+        atts.add(singleAttachment);
+      }
 
       final activityDate = (json['activityDate'] ?? '').toString();
       if (activityDate.isEmpty) {
-        return null;
+        return const [];
       }
-      final first = (json['studentFirstName'] ?? '').toString();
-      final last = (json['studentLastName'] ?? '').toString();
 
       final code = (json['code'] ?? json['activityCode'] ?? '')
           .toString()
           .trim();
-      final stu = (json['studentCode'] ?? '').toString().trim();
       final room = (json['classroomCode'] ?? '').toString().trim();
+      final activityTypeCode = (json['activityTypeCode'] ?? '').toString();
+      final activityTypeName = (json['activityTypeName'] ?? '').toString();
+      final description = (json['description'] ?? '').toString();
+      final createdBy = (json['createdBy'] ?? '').toString();
 
-      return ActivityFeedRow(
-        activityCode: code.isEmpty ? null : code,
-        studentCode: stu.isEmpty ? null : stu,
-        classroomCode: room.isEmpty ? null : room,
-        activityTypeCode: (json['activityTypeCode'] ?? '').toString(),
-        activityTypeName: (json['activityTypeName'] ?? '').toString(),
-        activityDateIso: activityDate,
-        description: (json['description'] ?? '').toString(),
-        studentFirstName: first,
-        studentMiddleName: (json['studentMiddleName'] as String?)?.trim(),
-        studentLastName: last,
-        createdBy: (json['createdBy'] ?? '').toString(),
-        parameterValues: params,
-        attachments: atts,
-      );
+      final rows = <ActivityFeedRow>[];
+      final rawStudents = json['students'];
+      if (rawStudents is List<dynamic> && rawStudents.isNotEmpty) {
+        for (final s in rawStudents) {
+          if (s is! Map<String, dynamic>) continue;
+          final stu = (s['studentCode'] ?? '').toString().trim();
+          rows.add(
+            ActivityFeedRow(
+              activityCode: code.isEmpty ? null : code,
+              studentCode: stu.isEmpty ? null : stu,
+              classroomCode: room.isEmpty ? null : room,
+              activityTypeCode: activityTypeCode,
+              activityTypeName: activityTypeName,
+              activityDateIso: activityDate,
+              description: description,
+              studentFirstName: (s['firstName'] ?? '').toString(),
+              studentMiddleName: (s['middleName'] as String?)?.trim(),
+              studentLastName: (s['lastName'] ?? '').toString(),
+              createdBy: createdBy,
+              parameterValues: params,
+              attachments: atts,
+            ),
+          );
+        }
+      }
+      if (rows.isNotEmpty) return rows;
+
+      // Fallback for old feed response shape.
+      final stu = (json['studentCode'] ?? '').toString().trim();
+      return [
+        ActivityFeedRow(
+          activityCode: code.isEmpty ? null : code,
+          studentCode: stu.isEmpty ? null : stu,
+          classroomCode: room.isEmpty ? null : room,
+          activityTypeCode: activityTypeCode,
+          activityTypeName: activityTypeName,
+          activityDateIso: activityDate,
+          description: description,
+          studentFirstName: (json['studentFirstName'] ?? '').toString(),
+          studentMiddleName: (json['studentMiddleName'] as String?)?.trim(),
+          studentLastName: (json['studentLastName'] ?? '').toString(),
+          createdBy: createdBy,
+          parameterValues: params,
+          attachments: atts,
+        ),
+      ];
     } catch (_) {
-      return null;
+      return const [];
     }
   }
 

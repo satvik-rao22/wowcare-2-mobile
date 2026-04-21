@@ -507,11 +507,32 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _isFeedRequestInFlight = false;
         return;
       }
-      final scoped = _allowedClassroomCodes.isEmpty
+      var scoped = _allowedClassroomCodes.isEmpty
           ? classrooms
           : classrooms
               .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
               .toList();
+      if (scoped.isEmpty &&
+          classrooms.isNotEmpty &&
+          _allowedClassroomCodes.isNotEmpty) {
+        // If staff-scope resolution failed/stale, avoid blocking classroom fetch.
+        scoped = classrooms;
+      }
+      if (scoped.isEmpty) {
+        if (!mounted) {
+          _isFeedRequestInFlight = false;
+          return;
+        }
+        setState(() {
+          _classroomCodeByName.clear();
+          _classroomNameByCode.clear();
+          _classroomOptions = [];
+          _selectdClassroom = null;
+          _feedError = 'No classrooms found. Pull to refresh.';
+        });
+        _isFeedRequestInFlight = false;
+        return;
+      }
       _classroomCodeByName
         ..clear()
         ..addEntries(scoped.map((c) => MapEntry(c.name, c.code)));
@@ -875,7 +896,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           ),
         )
         .toList();
-    return mergeAdjacentMultiStudentFeedItems(_withClientFilters(raw));
+    return _withClientFilters(raw);
   }
 
   void _onFeedScroll() {
@@ -951,7 +972,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _activities = mergeAdjacentMultiStudentFeedItems(_activities);
         _feedHasMore = !page.last;
         _feedNextPage = page.last ? 0 : page.pageNumber + 1;
       });
@@ -1142,7 +1162,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _activities = mergeAdjacentMultiStudentFeedItems(_activities);
         _feedHasMore = !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });

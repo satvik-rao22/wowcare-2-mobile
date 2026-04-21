@@ -362,7 +362,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ),
         )
         .toList();
-    return mergeAdjacentMultiStudentFeedItems(_withClientFilters(raw));
+    return _withClientFilters(raw);
   }
 
   Future<void> _loadNextRangeFeedPage() async {
@@ -407,12 +407,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        final merged = mergeAdjacentMultiStudentFeedItems(
-          List<ActivityItem>.from(activities),
-        );
-        activities
-          ..clear()
-          ..addAll(merged);
         _feedHasMore = !page.last;
         _feedNextPage = page.last ? 0 : page.pageNumber + 1;
       });
@@ -599,12 +593,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        final combined = mergeAdjacentMultiStudentFeedItems(
-          List<ActivityItem>.from(activities),
-        );
-        activities
-          ..clear()
-          ..addAll(combined);
         _feedHasMore = !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
@@ -931,11 +919,28 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         onlyTypeClassroom: true,
       );
 
-      final scoped = _allowedClassroomCodes.isEmpty
+      var scoped = _allowedClassroomCodes.isEmpty
           ? classrooms
           : classrooms
               .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
               .toList();
+      if (scoped.isEmpty &&
+          classrooms.isNotEmpty &&
+          _allowedClassroomCodes.isNotEmpty) {
+        // If staff-scope resolution failed/stale, avoid blocking classroom fetch.
+        scoped = classrooms;
+      }
+      if (scoped.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _classroomCodeByName.clear();
+          _classroomNameByCode.clear();
+          _classroomOptions.clear();
+          _selectdClassroom = null;
+          _feedError = 'No classrooms found. Pull to refresh.';
+        });
+        return;
+      }
       _classroomCodeByName
         ..clear()
         ..addEntries(scoped.map((c) => MapEntry(c.name, c.code)));
@@ -1551,8 +1556,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           if(orientation == Orientation.landscape){
             return const SizedBox.shrink();
           } else {
-          return Column(
-            children: [
+          return CustomRefreshIndicator(
+            onRefresh: _onRefresh,
+            child: Column(
+              children: [
               Padding(
                 padding: ResponsiveSizing.contentPadding(context),
                 // filter card
@@ -2283,6 +2290,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                   ),
                 ),
               ],
+            ),
             );
           }
       },

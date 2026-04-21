@@ -37,7 +37,7 @@ abstract class ActivityRemoteDataSource {
     required String code,
   });
 
-  /// Creates a new activity via `POST /api/v1/activities`.
+  /// Creates grouped activity cards via `POST /api/v2/activities`.
   Future<String> createActivity({
     required ActivityCreateRequestModel request,
   });
@@ -73,7 +73,7 @@ abstract class ActivityRemoteDataSource {
     required String ownerCode,
   });
 
-  /// Daily classroom feed: `GET /api/v1/activities/feed/daily`.
+  /// Daily classroom feed: `GET /api/v2/activities/feed/daily`.
   Future<ActivityFeedPageModel> getDailyActivityFeed({
     required String classroomCode,
     required String date,
@@ -234,10 +234,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   Future<String> createActivity({
     required ActivityCreateRequestModel request,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
+    final endpoint = ApiPaths.url('/api/v2/activities');
 
     final response = await _client.post<dynamic>(
       endpoint,
