@@ -22,7 +22,10 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
@@ -49,8 +52,13 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
 
+  /// Bathroom description is required for every bathroom activity.
+  bool get _descriptionRequiredForPotty {
+    return true;
+  }
+
   List<Map<String, dynamic>> _selectedStudentsData = [];
-  late final List<String> _selectedStudents;
+  List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
 
   List<ActivityTypeParameterOption> _bathroomTypeOptions = [];
@@ -71,11 +79,15 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   bool _loadingBathroomOptions = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
+  /// Edit scope: indices checked = only those students' activities are PATCHed.
+  /// All unchecked = PATCH every student row (when multiple underlying codes exist).
+  final Set<int> _scopedEditStudentIndices = {};
 
   /// Parameters from activity type except bathroom/sub-type and core form fields.
   List<ActivityTypeParameter> _extraParameters = [];
   final Map<String, String?> _extraDropdownByParamCode = {};
   final Map<String, bool> _extraBoolByParamCode = {};
+  List<Map<String, dynamic>> _detailParameterRows = [];
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -108,7 +120,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.description ?? '';
+      _descriptionController.text =
+          activity.studentList.length > 1 ? '' : (activity.description ?? '');
       _selectedBathroomType = activity.bathroomType;
       _selectedSubType = activity.bathroomSubType;
       _activityTypeCode = activity.activityTypeCode;
@@ -140,15 +153,26 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
+      final item = activityItemFromActivityDetail(
+        detail,
+        viewerDisplayName: _staffName,
+      );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
+        _descriptionController.text =
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? '');
         _selectedBathroomType = item.bathroomType;
         _selectedSubType = item.bathroomSubType;
         _activityTypeCode = item.activityTypeCode;
+        _detailParameterRows = detail.parameterValues
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -364,6 +388,71 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     return out;
   }
 
+  String? _labelFromOptionCode(
+    ActivityTypeParameter p,
+    String? optionCode, {
+    String? restrictParentOptionCode,
+  }) {
+    final oc = (optionCode ?? '').trim();
+    if (oc.isEmpty) return null;
+    final parentFilter = restrictParentOptionCode?.trim();
+    for (final o in p.options) {
+      if (parentFilter != null && parentFilter.isNotEmpty) {
+        final po = (o.parentOptionCode ?? '').trim();
+        if (po.isNotEmpty && po != parentFilter) continue;
+      }
+      final thisOc = (o.optionCode ?? o.code).trim();
+      if (thisOc.isNotEmpty && thisOc == oc) {
+        final label = (o.optionLabel ?? '').trim();
+        if (label.isNotEmpty) return label;
+      }
+    }
+    return null;
+  }
+
+  void _prefillExtraFieldValuesFromDetailRows() {
+    final rows = _detailParameterRows;
+    if (rows.isEmpty || _extraParameters.isEmpty) return;
+    final bathroomOc =
+        _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    for (final p in _extraParameters) {
+      final row = rows.where((r) => (r['parameterCode'] ?? '') == p.code).toList();
+      if (row.isEmpty) continue;
+      final r = row.first;
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt == 'BOOLEAN') {
+        final vb = r['valueBoolean'];
+        if (vb is bool) {
+          _extraBoolByParamCode[p.code] = vb;
+        } else {
+          final txt = (r['valueText'] ?? '').toString().trim().toLowerCase();
+          if (txt.isNotEmpty) {
+            _extraBoolByParamCode[p.code] =
+                txt == 'true' || txt == '1' || txt == 'yes';
+          }
+        }
+        continue;
+      }
+
+      if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
+        String? label = (r['selectedOptionLabel'] ?? '').toString().trim();
+        label = label.isEmpty
+            ? (r['optionLabel'] ?? '').toString().trim()
+            : label;
+        if (label.isEmpty) {
+          label = _labelFromOptionCode(
+            p,
+            (r['selectedOptionCode'] ?? r['valueText']).toString(),
+            restrictParentOptionCode: bathroomOc,
+          );
+        }
+        if (label != null && label.isNotEmpty) {
+          _extraDropdownByParamCode[p.code] = label;
+        }
+      }
+    }
+  }
+
   Future<void> _loadBathroomParameterOptions() async {
     final code = _activityTypeCode?.trim();
     if (code == null || code.isEmpty) return;
@@ -410,6 +499,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         _allSubTypeOptions = subs;
         _loadingBathroomOptions = false;
         _updateAvailableSubTypes();
+        _prefillExtraFieldValuesFromDetailRows();
       });
     } catch (e) {
       CoreUtils.logApiError('Failed to load Bathroom type options: $e');
@@ -533,18 +623,28 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
+    if (_descriptionRequiredForPotty) {
+      if (description.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter description',
+          isWarning: true,
+        );
+        return;
+      }
+      if (description.length < 5) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Description must be at least 5 characters long',
+          isWarning: true,
+        );
+        return;
+      }
     }
-    if (description.length < 5) {
+    if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Description must be at least 5 characters long',
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -750,16 +850,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
 
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
+    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -786,18 +877,28 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       return;
     }
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
+    if (_descriptionRequiredForPotty) {
+      if (description.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter description',
+          isWarning: true,
+        );
+        return;
+      }
+      if (description.length < 5) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Description must be at least 5 characters long',
+          isWarning: true,
+        );
+        return;
+      }
     }
-    if (description.length < 5) {
+    if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Description must be at least 5 characters long',
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -900,19 +1001,38 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         ..._buildExtraParameterValueEntries(),
       ];
 
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: const [],
+      final targets = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
       );
+      String? lastMessage;
+      for (final m in targets) {
+        final code = (m['activityCode'] as String?)?.trim() ??
+            fallbackActivityCode;
+        if (code == null || code.isEmpty) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Missing activity reference for a student. Refresh the feed and try again.',
+            isError: true,
+          );
+          return;
+        }
+        lastMessage = await _updateActivityUseCase(
+          code: code,
+          staffCode: staffCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: const [],
+        );
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: lastMessage ?? 'Updated',
         isSuccess: true,
       );
       Navigator.of(context).popUntil((route) {
@@ -999,6 +1119,24 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                   );
                 },
               ),
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Divider(height: 24),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ActivityEditStudentScopeCheckboxes(
+                  studentNames: _selectedStudents,
+                  checkedIndices: _scopedEditStudentIndices,
+                  onChanged: (next) => setState(() {
+                    _scopedEditStudentIndices
+                      ..clear()
+                      ..addAll(next);
+                  }),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
@@ -1047,13 +1185,13 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                 Flexible(
                   child: _layoutAsEdit
                       ? DateWidget(
-                          isEditable: _canInteract,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: _effectiveActivity.date,
                           onDateChanged: (d) => _activityDate = d,
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           onDateChanged: (d) => _activityDate = d,
                         ),
@@ -1077,18 +1215,22 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
             ),
             SizedBox(height: responsive.verticalSpacing),
             StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? (_effectiveActivity.createdBy)
-                  : _staffName,
-              isEditable: _canInteract,
+              staffName: staffPresentLabelForActivity(
+                layoutAsEdit: _layoutAsEdit,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                loggedInDisplayName: _staffName,
+              ),
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               height: 100,
               hint: 'Enter Description',
-              isRequired: true,
+              isRequired: _descriptionRequiredForPotty,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
             SizedBox(height: responsive.verticalSpacing),
           ],

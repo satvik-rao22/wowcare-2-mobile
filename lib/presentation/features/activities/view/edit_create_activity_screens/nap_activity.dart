@@ -13,13 +13,17 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
+import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
@@ -60,6 +64,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   bool _isSubmitting = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
+  final Set<int> _scopedEditStudentIndices = {};
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
@@ -88,7 +93,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
 
-      _descriptionController.text = activity.description ?? '';
+      _descriptionController.text =
+          activity.studentList.length > 1 ? '' : (activity.description ?? '');
       _activityTypeCode = activity.activityTypeCode;
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
@@ -128,12 +134,20 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
+      final item = activityItemFromActivityDetail(
+        detail,
+        viewerDisplayName: _staffName,
+      );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
+        _descriptionController.text =
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? '');
         _activityTypeCode = item.activityTypeCode;
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
@@ -205,6 +219,84 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   String _two(int v) => v.toString().padLeft(2, '0');
 
+  /// Nap end / wake / stop style events → nap end `true`, nap start `false`.
+  /// Otherwise (start or generic "Nap") → nap start `true`, nap end `false`.
+  static bool _napEventIsEnd(String activityTypeName) {
+    final s = activityTypeName.toLowerCase().trim();
+    if (s.isEmpty) return false;
+    return s.contains('end') ||
+        s.contains('wake') ||
+        s.contains('stop') ||
+        s.contains('finished');
+  }
+
+  static String? _findBooleanParamCode(
+    ActivityTypeDetails details,
+    bool Function(String lowerName) matchName,
+  ) {
+    for (final p in details.parameters) {
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt != 'BOOLEAN' && dt != 'BOOL') continue;
+      final n = p.parameterName.toLowerCase();
+      if (!matchName(n)) continue;
+      final c = p.code.trim();
+      if (c.isNotEmpty) return c;
+    }
+    return null;
+  }
+
+  /// Sends nap start / nap end as JSON booleans on matching BOOLEAN parameters.
+  static void _appendNapStartEndBooleans(
+    ActivityTypeDetails details,
+    List<Map<String, dynamic>> parameterValues,
+    String activityLabelName,
+  ) {
+    final isEnd = _napEventIsEnd(activityLabelName);
+    final napStartFlag = !isEnd;
+    final napEndFlag = isEnd;
+
+    String? startCode = _findBooleanParamCode(
+      details,
+      (n) =>
+          n.contains('nap') &&
+          (n.contains('start') || n.contains('begin')) &&
+          !n.contains('end'),
+    );
+    startCode ??= _findBooleanParamCode(
+      details,
+      (n) => n.contains('start') && n.contains('nap'),
+    );
+
+    String? endCode = _findBooleanParamCode(
+      details,
+      (n) =>
+          n.contains('nap') &&
+          (n.contains('end') || n.contains('wake') || n.contains('stop')),
+    );
+    endCode ??= _findBooleanParamCode(
+      details,
+      (n) => n.contains('end') && n.contains('nap'),
+    );
+
+    if (startCode != null &&
+        endCode != null &&
+        startCode == endCode) {
+      return;
+    }
+    if (startCode != null && startCode.isNotEmpty) {
+      parameterValues.add({
+        'parameterCode': startCode,
+        'value': napStartFlag,
+      });
+    }
+    if (endCode != null && endCode.isNotEmpty) {
+      parameterValues.add({
+        'parameterCode': endCode,
+        'value': napEndFlag,
+      });
+    }
+  }
+
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -231,6 +323,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -355,6 +455,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
+      _appendNapStartEndBooleans(details, parameterValues, details.name);
+
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
@@ -398,16 +500,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
 
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
+    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -431,6 +524,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -515,19 +616,44 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: const [],
+      _appendNapStartEndBooleans(
+        details,
+        parameterValues,
+        _effectiveActivity.name,
       );
+
+      final targets = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
+      );
+      String? lastMessage;
+      for (final m in targets) {
+        final code = (m['activityCode'] as String?)?.trim() ??
+            fallbackActivityCode;
+        if (code == null || code.isEmpty) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Missing activity reference for a student. Refresh the feed and try again.',
+            isError: true,
+          );
+          return;
+        }
+        lastMessage = await _updateActivityUseCase(
+          code: code,
+          staffCode: staffCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: const [],
+        );
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: lastMessage ?? 'Updated',
         isSuccess: true,
       );
       Navigator.of(context).popUntil((route) {
@@ -637,13 +763,31 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                   );
                 },
               ),
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Divider(height: 24),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ActivityEditStudentScopeCheckboxes(
+                  studentNames: _selectedStudents,
+                  checkedIndices: _scopedEditStudentIndices,
+                  onChanged: (next) => setState(() {
+                    _scopedEditStudentIndices
+                      ..clear()
+                      ..addAll(next);
+                  }),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
                 Flexible(
                   child: _layoutAsEdit
                       ? DateWidget(
-                          isEditable: _canInteract,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: _effectiveActivity.date,
                           onDateChanged: (d) {
@@ -653,7 +797,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           onDateChanged: (d) {
                             setState(() {
@@ -691,10 +835,13 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             ),
             SizedBox(height: responsive.verticalSpacing),
             StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? (_effectiveActivity.createdBy)
-                  : _staffName,
-              isEditable: _canInteract,
+              staffName: staffPresentLabelForActivity(
+                layoutAsEdit: _layoutAsEdit,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                loggedInDisplayName: _staffName,
+              ),
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
@@ -703,6 +850,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
               hint: 'Enter Description',
               isRequired: true,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
             SizedBox(height: responsive.verticalSpacing),
           ],

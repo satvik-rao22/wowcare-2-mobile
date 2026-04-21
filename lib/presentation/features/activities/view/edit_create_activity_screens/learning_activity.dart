@@ -27,7 +27,10 @@ import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../widgets/activity_dropdown_widget.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
@@ -90,6 +93,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   bool _isSubmitting = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
+  final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
   List<File> _newPhotos = [];
@@ -133,8 +137,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text =
-          activity.description ?? activity.whatHappened ?? '';
+      _descriptionController.text = activity.studentList.length > 1
+          ? ''
+          : (activity.description ?? activity.whatHappened ?? '');
       _selectedActivityType = activity.activityType ?? '';
       final cats = activity.categoryType;
       _selectedCategory = (cats != null && cats.isNotEmpty) ? cats.first : null;
@@ -173,13 +178,20 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
+      final item = activityItemFromActivityDetail(
+        detail,
+        viewerDisplayName: _staffName,
+      );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
         _descriptionController.text =
-            item.description ?? item.whatHappened ?? '';
+            (widget.activityData?.studentList.length ?? 0) > 1
+                ? ''
+                : (item.description ?? item.whatHappened ?? '');
         _selectedActivityType = item.activityType ?? '';
         final cats = item.categoryType;
         _selectedCategory = (cats != null && cats.isNotEmpty)
@@ -534,6 +546,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -698,23 +718,42 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (categoryEntry != null) categoryEntry,
       ];
 
-      final message = await _createActivityUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachments,
-      );
+      String? message;
+      if (attachments.length <= 1) {
+        message = await _createActivityUseCase(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: attachments,
+        );
+      } else {
+        // Backend accepts one attachment per created activity row.
+        for (final att in attachments) {
+          message = await _createActivityUseCase(
+            activityTypeCode: activityTypeCode,
+            classroomCode: classroomCode,
+            studentCodes: studentCodes,
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+            activityDate: activityDateIso,
+            description: description,
+            parameterValues: parameterValues,
+            attachments: [att],
+          );
+        }
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: message ?? 'Activity created successfully',
         isSuccess: true,
       );
 
@@ -741,16 +780,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
 
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
+    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -796,6 +826,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
 
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -822,7 +860,11 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final studentCodes = _selectedStudentsData
+    final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
+      allStudentMaps: _selectedStudentsData,
+      checkedIndices: _scopedEditStudentIndices,
+    );
+    final studentCodes = scopeMapsForUpload
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
         .where((c) => c.isNotEmpty)
@@ -978,23 +1020,44 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (categoryEntry != null) categoryEntry,
       ];
 
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachmentsForActivityPatchRequest(mergedRows),
-      );
+      final patchAttachments =
+          attachmentsForActivityPatchRequest(mergedRows);
 
-      try {
-        await _getActivityUseCase(code: activityCode);
-      } catch (_) {}
+      final targets = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
+      );
+      String? lastMessage;
+      for (final m in targets) {
+        final code = (m['activityCode'] as String?)?.trim() ??
+            fallbackActivityCode;
+        if (code == null || code.isEmpty) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Missing activity reference for a student. Refresh the feed and try again.',
+            isError: true,
+          );
+          return;
+        }
+        lastMessage = await _updateActivityUseCase(
+          code: code,
+          staffCode: staffCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: patchAttachments,
+        );
+        try {
+          await _getActivityUseCase(code: code);
+        } catch (_) {}
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: lastMessage ?? 'Updated',
         isSuccess: true,
       );
       Navigator.of(context).popUntil((route) {
@@ -1147,19 +1210,37 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   );
                 },
               ),
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Divider(height: 24),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ActivityEditStudentScopeCheckboxes(
+                  studentNames: _selectedStudents,
+                  checkedIndices: _scopedEditStudentIndices,
+                  onChanged: (next) => setState(() {
+                    _scopedEditStudentIndices
+                      ..clear()
+                      ..addAll(next);
+                  }),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
                 Flexible(
                   child: _layoutAsEdit
                       ? DateWidget(
-                          isEditable: _canInteract,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: _effectiveActivity.date,
                           onDateChanged: (d) => _activityDate = d,
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           onDateChanged: (d) => _activityDate = d,
                         ),
@@ -1217,10 +1298,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             ),
             SizedBox(height: responsive.verticalSpacing),
             StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? (_effectiveActivity.createdBy)
-                  : _staffName,
-              isEditable: _canInteract,
+              staffName: staffPresentLabelForActivity(
+                layoutAsEdit: _layoutAsEdit,
+                activityCreatedBy:
+                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                loggedInDisplayName: _staffName,
+              ),
+              isEditable: _layoutAsEdit ? _canInteract : false,
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
@@ -1229,6 +1313,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               hint: 'Enter Description',
               isRequired: true,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)

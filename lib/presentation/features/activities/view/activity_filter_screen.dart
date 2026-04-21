@@ -223,6 +223,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             hintText: 'Select tags',
             items: _tagOptions,
             selectedItems: _selectedTags,
+            labelBottomSpacing: 4,
             onChanged: (values) {
               setState(() => _selectedTags = List<String>.from(values));
             },
@@ -233,6 +234,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
           hintText: 'Select activity',
           items: _activityTypeOptions,
           selectedItems: _selectedActivityTypes,
+          labelBottomSpacing: 4,
           onChanged: (values) {
             setState(() => _selectedActivityTypes = List<String>.from(values));
           },

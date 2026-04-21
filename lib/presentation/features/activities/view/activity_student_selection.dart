@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -8,8 +10,10 @@ import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
@@ -40,9 +44,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   bool _selectAll = false;
   List<String> _selectedTags = [];
 
+  // Staff persona scoping
+  List<String> _allowedClassroomCodes = const [];
+  String? _primaryClassroomCode;
+
   // Options loaded from backend
   List<String> _classroomOptions = [];
   final Map<String, String> _classroomCodeByName = {};
+  final Map<String, String> _classroomNameByCode = {};
 
   List<String> _tagOptions = [];
   final Map<String, String> _tagCodeByName = {};
@@ -164,6 +173,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         return;
       }
 
+      await _loadStaffClassroomScope();
+
       await Future.wait([
         _loadClassrooms(),
         _loadTags(),
@@ -197,23 +208,98 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       if (!mounted) return;
 
       setState(() {
-        _classroomOptions = classrooms.map((c) => c.name).toList();
+        final scoped = _allowedClassroomCodes.isEmpty
+            ? classrooms
+            : classrooms
+                .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+                .toList();
+
+        _classroomOptions = scoped.map((c) => c.name).toList();
         _classroomCodeByName
           ..clear()
-          ..addEntries(
-            classrooms.map(
-              (c) => MapEntry(c.name, c.code),
-            ),
-          );
+          ..addEntries(scoped.map((c) => MapEntry(c.name, c.code)));
+        _classroomNameByCode
+          ..clear()
+          ..addEntries(scoped.map((c) => MapEntry(c.code, c.name)));
 
-        _selectedClassroom ??=
-            _classroomOptions.isNotEmpty ? _classroomOptions.first : null;
+        // Default: primary classroom (if allowed), else first allowed.
+        if (_selectedClassroom == null || !_classroomOptions.contains(_selectedClassroom)) {
+          final primaryCode = (_primaryClassroomCode ?? '').trim();
+          final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+          _selectedClassroom = primaryName ?? (_classroomOptions.isNotEmpty ? _classroomOptions.first : null);
+        }
       });
     } catch (error) {
       final message = ApiErrorHandler.extractErrorMessage(error);
       CoreUtils.logApiError('Failed to load classrooms: $message');
       _showWarningMessage(message);
     }
+  }
+
+  Future<void> _loadStaffClassroomScope() async {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
+    final roles = (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+      _allowedClassroomCodes = const [];
+      _primaryClassroomCode = null;
+      return;
+    }
+
+    final staffType =
+        (await _storageService.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      _allowedClassroomCodes = const [];
+      _primaryClassroomCode = null;
+      return;
+    }
+
+    List<String> decodeCodes(String raw) {
+      if (raw.trim().isEmpty) return <String>[];
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+      return <String>[];
+    }
+
+    final cached = (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ?? '').trim();
+    var allowed = decodeCodes(cached);
+
+    try {
+      final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      if (staffCode.isNotEmpty) {
+        final repo = serviceLocator<StaffRepository>();
+        final profile = await repo.getStaffProfile(
+          staffCode: staffCode,
+          forEditStaff: true,
+        );
+        final primary = profile.primaryClassroomCode.trim();
+        final profileAllowed = profile.allowedClassroomCodes
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+
+        if (profileAllowed.isNotEmpty) {
+          allowed = profileAllowed;
+          // Keep cache warm for subsequent screens.
+          await _storageService.saveString(
+            StorageKeys.staffAllowedClassroomCodes,
+            jsonEncode(profileAllowed),
+          );
+        }
+
+        _primaryClassroomCode = primary.isNotEmpty ? primary : null;
+      }
+    } catch (_) {
+      // Non-blocking: fall back to cached allowed codes.
+    }
+
+    _allowedClassroomCodes = allowed;
   }
 
   Future<void> _loadTags() async {
@@ -393,7 +479,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                     hintText: 'Tags',
                                     items: _tagOptions,
                                     selectedItems: _selectedTags,
-                                    gapHeight: 40,
+                                    gapHeight: 6,
                                     onChanged: (selectedItems) {
                                       setState(() {
                                         _selectedTags = selectedItems;
@@ -460,7 +546,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                 onPressed: () {
                   setState(() {
                     if (_classroomOptions.isNotEmpty) {
-                      _selectedClassroom = _classroomOptions.first;
+                      final primaryCode = (_primaryClassroomCode ?? '').trim();
+                      final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+                      _selectedClassroom = primaryName ?? _classroomOptions.first;
                     }
                     _selectedStudents.clear();
                     _searchController.clear();

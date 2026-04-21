@@ -186,6 +186,13 @@ abstract class StudentRemoteDataSource {
     required List<String> tagCodes,
   });
 
+  /// `POST /api/v1/student-tags/activity-filter`
+  Future<List<String>> postStudentTagsActivityFilter({
+    required String schoolCode,
+    required String classroomCode,
+    required List<String> tagCodes,
+  });
+
   /// Creates / links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.
@@ -1029,10 +1036,66 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     return data['message']?.toString() ?? 'Student tags updated successfully';
   }
 
+  static List<String> _studentCodesFromActivityFilterBody(
+    Map<String, dynamic> body,
+  ) {
+    Map<String, dynamic> payload = body;
+    final nested = body['data'];
+    if (nested is Map<String, dynamic>) {
+      payload = nested;
+    }
+    final raw = payload['studentCodes'];
+    if (raw is! List) return const <String>[];
+    return raw
+        .map((e) => e?.toString().trim() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<String>> postStudentTagsActivityFilter({
+    required String schoolCode,
+    required String classroomCode,
+    required List<String> tagCodes,
+  }) async {
+    final normTags = tagCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    if (normTags.isEmpty) return const <String>[];
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentTagsActivityFilter,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'classroomCode': classroomCode.trim(),
+        'tagCodes': normTags,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected activity-filter API response format');
+    }
+    final body = response.data! as Map<String, dynamic>;
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Activity tag filter failed',
+      );
+    }
+    return _studentCodesFromActivityFilterBody(body);
+  }
+
   /// Fetches tags for a specific student via `GET /api/v1/student-tags/{studentCode}`.
   ///
   /// Returns the raw `data` list from the backend response, each item being
   /// a map with keys like `code`, `name`, `defaultTag`.
+  @override
   Future<List<Map<String, dynamic>>> getStudentTags({
     required String studentCode,
   }) async {

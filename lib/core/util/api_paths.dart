@@ -156,13 +156,12 @@ class ApiPaths {
   static String microserviceKeyFromPath(String path) {
     if (ApiConstants.isUat) return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
-    // Remove query parameters before splitting to ensure segments match correctly
-    final pathWithoutQuery = p.split('?').first;
-    final parts = pathWithoutQuery
-        .split('/')
-        .where((s) => s.isNotEmpty)
-        .toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+    final parts = p.split('/').where((s) => s.isNotEmpty).toList();
+    if (parts.length < 3 || parts[0] != 'api') {
+      return ApiMicroservices.user;
+    }
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
@@ -209,6 +208,7 @@ class ApiPaths {
         return ApiMicroservices.classroom;
       case 'classrooms':
       case 'activities':
+      case 'shared-activities':
       case 'activity-types':
         return ApiMicroservices.activity;
       case 'conversations':
@@ -325,6 +325,9 @@ class ApiPaths {
   static String studentSiblings(String code) =>
       '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
+  /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
+  static const String studentTagsActivityFilter =
+      '/api/v1/student-tags/activity-filter';
   static String studentDeactivate(String code) =>
       '$studentList/$code/deactivate';
   static String studentReactivate(String code) =>

@@ -202,6 +202,36 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> createSharedActivities({
+    required String activityTypeCode,
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+    required String activityDate,
+    required String description,
+    required List<Map<String, dynamic>> attachments,
+  }) async {
+    final payload = <String, dynamic>{
+      'activityTypeCode': activityTypeCode,
+      'classroomCode': classroomCode,
+      'studentCodes': studentCodes,
+      'staffCode': staffCode,
+      'schoolCode': schoolCode,
+      'organizationCode': organizationCode,
+      'activityDate': activityDate,
+      'description': description,
+      'bindingMode': 'SHARED',
+      'attachments': attachments,
+    };
+
+    final cards = await _remoteDataSource.createSharedActivities(payload: payload);
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return cards;
+  }
+
+  @override
   Future<ActivityUploadSession> createActivityUploadSessions({
     required String organizationCode,
     required String schoolCode,

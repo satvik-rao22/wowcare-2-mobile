@@ -100,12 +100,14 @@ import '../../domain/features/student/usecases/update_student_document_usecase.d
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
@@ -465,6 +467,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetTagNameCodeMapForSchoolUseCase>(
     () => GetTagNameCodeMapForSchoolUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentCodesForActivityTagFilterUseCase>(
+    () => GetStudentCodesForActivityTagFilterUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetGuardianNameCodeMapForSchoolUseCase>(
     () => GetGuardianNameCodeMapForSchoolUseCase(serviceLocator()),
   );
@@ -479,6 +484,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateSharedActivitiesUseCase>(
+    () => CreateSharedActivitiesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetActivityUseCase>(
     () => GetActivityUseCase(serviceLocator()),

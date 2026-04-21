@@ -739,6 +739,19 @@ class StudentRepositoryImpl
     return map;
   }
 
+  @override
+  Future<List<String>> getStudentCodesForActivityTagFilter({
+    required String schoolCode,
+    required String classroomCode,
+    required List<String> tagCodes,
+  }) {
+    return _remoteDataSource.postStudentTagsActivityFilter(
+      schoolCode: schoolCode,
+      classroomCode: classroomCode,
+      tagCodes: tagCodes,
+    );
+  }
+
   Future<StudentPhysicianModel> addPhysician({
     required String schoolCode,
     required String studentCode,

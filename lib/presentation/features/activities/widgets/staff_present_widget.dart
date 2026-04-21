@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
@@ -19,9 +23,11 @@ class StaffPresentWidget extends StatefulWidget {
 }
 
 class _StaffPresentWidgetState extends State<StaffPresentWidget> {
- late List<String> staffList;
- late String? selectedStaff;
+ List<String> staffList = const <String>[];
+ String? selectedStaff;
  bool clickToSign = false;
+ final List<String> _fetchedStaffNames = [];
+ bool _loadingStaffs = false;
 
 
   void _showWarningMessage(String message) {
@@ -35,17 +41,84 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   @override
   void initState(){
     super.initState();
-    // Build staff list with the logged-in staff name (if provided) at the top,
-    // followed by fallback demo names.
-    const defaultStaff = ['Staff A', 'Staff B', 'Staff C'];
-    final name = widget.staffName.trim();
-    staffList = [
-      if (name.isNotEmpty) name,
-      ...defaultStaff.where((s) => s != name),
-    ];
-
-    selectedStaff = name.isNotEmpty ? name : staffList.first;
+    _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
+    _loadStaffNames();
+  }
+
+  @override
+  void didUpdateWidget(StaffPresentWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.staffName.trim() != widget.staffName.trim()) {
+      setState(_rebuildStaffSelection);
+    }
+  }
+
+  void _rebuildStaffSelection() {
+    final name = widget.staffName.trim();
+    final unique = <String>{};
+    final ordered = <String>[];
+    void addName(String value) {
+      final v = value.trim();
+      if (v.isEmpty) return;
+      if (unique.add(v.toLowerCase())) ordered.add(v);
+    }
+    addName(name);
+    for (final n in _fetchedStaffNames) {
+      addName(n);
+    }
+    if (ordered.isEmpty) {
+      addName('Staff');
+    }
+    staffList = [
+      ...ordered,
+    ];
+    final current = (selectedStaff ?? '').trim();
+    if (current.isNotEmpty &&
+        staffList.any((s) => s.toLowerCase() == current.toLowerCase())) {
+      selectedStaff = staffList.firstWhere(
+        (s) => s.toLowerCase() == current.toLowerCase(),
+      );
+      return;
+    }
+    selectedStaff = staffList.first;
+  }
+
+  Future<void> _loadStaffNames() async {
+    if (_loadingStaffs) return;
+    _loadingStaffs = true;
+    try {
+      final storage = serviceLocator<StorageService>();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) return;
+      final useCase = serviceLocator<GetStaffPageUseCase>();
+      final page = await useCase(
+        organizationCode: org,
+        schoolCode: school,
+        page: 0,
+        size: 300,
+        status: 'ACTIVE',
+      );
+      _fetchedStaffNames
+        ..clear()
+        ..addAll(
+          page.items
+              .map((e) => e.name.trim())
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort(),
+        );
+      if (!mounted) return;
+      setState(_rebuildStaffSelection);
+    } catch (_) {
+      // Silent fallback to logged-in staff only.
+    } finally {
+      _loadingStaffs = false;
+    }
   }
 
   @override
