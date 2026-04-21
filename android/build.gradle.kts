@@ -26,6 +26,24 @@ subprojects {
         val androidExt = extensions.findByName("android") ?: return@withId
         val extensionClass = androidExt.javaClass
 
+        // Ensure all Android library modules compile against a modern SDK.
+        // Fixes AAPT errors like: `android:attr/lStar not found` when a plugin
+        // is compiled with an older compileSdk than the app.
+        run {
+            val setCompileSdk =
+                extensionClass.methods.firstOrNull { it.name == "setCompileSdk" && it.parameterTypes.size == 1 }
+            val setCompileSdkVersion =
+                extensionClass.methods.firstOrNull {
+                    it.name == "setCompileSdkVersion" && it.parameterTypes.size == 1
+                }
+            // Prefer `setCompileSdk(Int)` on AGP 8+, fallback to older API.
+            when {
+                setCompileSdk != null -> setCompileSdk.invoke(androidExt, 36)
+                setCompileSdkVersion != null -> setCompileSdkVersion.invoke(androidExt, 36)
+                else -> {}
+            }
+        }
+
         val getNamespace = extensionClass.methods.firstOrNull { it.name == "getNamespace" }
         val setNamespace = extensionClass.methods.firstOrNull {
             it.name == "setNamespace" && it.parameterTypes.size == 1
