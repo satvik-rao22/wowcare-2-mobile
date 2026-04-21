@@ -1,6 +1,8 @@
+import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../core/util/cache_manager.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
@@ -17,16 +19,30 @@ import '../models/staff_absence_record_models.dart';
 
 class AttendanceRepositoryImpl
     implements AttendanceRepository, AttendanceRepositoryWithCache {
-  AttendanceRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _storage = storageService,
-        _cacheManager = CacheManager(storageService);
+  AttendanceRepositoryImpl(
+    this._remoteDataSource,
+    StorageService storageService,
+    ApiClient apiClient,
+  ) : _storage = storageService,
+      _apiClient = apiClient,
+      _cacheManager = CacheManager(storageService);
 
   final AttendanceRemoteDataSource _remoteDataSource;
   final StorageService _storage;
+  final ApiClient _apiClient;
   final CacheManager _cacheManager;
 
   Future<List<String>> _attendanceAllowedClassroomCodes() =>
       resolveAttendanceAllowedClassroomCodes(storage: _storage);
+
+  Future<String> _effectiveSchoolTimeZone(String? override) async {
+    final o = override?.trim() ?? '';
+    if (o.isNotEmpty) return o;
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
+  }
 
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _studentAttendanceDailyCacheKey(
@@ -37,15 +53,15 @@ class AttendanceRepositoryImpl
   }) {
     // Build identifier from filters
     final parts = <String>[attendanceDate];
-    
+
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       parts.add('classrooms=${classroomCodes.join(',')}');
     }
-    
+
     if (tagCodes != null && tagCodes.isNotEmpty) {
       parts.add('tags=${tagCodes.join(',')}');
     }
-    
+
     if (search != null && search.isNotEmpty) {
       parts.add('search=${search.trim().toLowerCase()}');
     }
@@ -98,12 +114,11 @@ class AttendanceRepositoryImpl
       );
 
   // Cache key for the staff expected-attendance summary card.
-  static String _staffAttendanceSummaryCacheKey() =>
-      CacheManager.buildCacheKey(
-        feature: 'attendance',
-        resource: 'staff_summary',
-        identifier: 'default',
-      );
+  static String _staffAttendanceSummaryCacheKey() => CacheManager.buildCacheKey(
+    feature: 'attendance',
+    resource: 'staff_summary',
+    identifier: 'default',
+  );
 
   @override
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
@@ -174,7 +189,8 @@ class AttendanceRepositoryImpl
 
   // Map model to entity
   StudentAttendanceDailyPage _mapPageModelToEntity(
-      StudentAttendanceDailyPageModel model) {
+    StudentAttendanceDailyPageModel model,
+  ) {
     return StudentAttendanceDailyPage(
       items: model.items.map((m) => _mapItemModelToEntity(m)).toList(),
       page: model.page,
@@ -186,7 +202,8 @@ class AttendanceRepositoryImpl
   }
 
   StudentAttendanceDailyItem _mapItemModelToEntity(
-      StudentAttendanceDailyItemModel model) {
+    StudentAttendanceDailyItemModel model,
+  ) {
     return StudentAttendanceDailyItem(
       attendanceRecordCode: model.attendanceRecordCode,
       studentCode: model.studentCode,
@@ -612,7 +629,7 @@ class AttendanceRepositoryImpl
 
   @override
   Future<staff_absent.StaffAttendanceAbsentPage>
-      getStaffAttendanceAbsentToggleView({
+  getStaffAttendanceAbsentToggleView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -622,16 +639,17 @@ class AttendanceRepositoryImpl
     int size = 10,
   }) async {
     final allowed = await _attendanceAllowedClassroomCodes();
-    final pageModel = await _remoteDataSource.getStaffAttendanceAbsentToggleView(
-      fromAbsenceDate: fromAbsenceDate,
-      toAbsenceDate: toAbsenceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-      page: page,
-      size: size,
-      allowedClassroomCodes: allowed,
-    );
+    final pageModel = await _remoteDataSource
+        .getStaffAttendanceAbsentToggleView(
+          fromAbsenceDate: fromAbsenceDate,
+          toAbsenceDate: toAbsenceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+          page: page,
+          size: size,
+          allowedClassroomCodes: allowed,
+        );
 
     return _mapStaffAbsentPageModelToEntity(pageModel);
   }
@@ -752,7 +770,7 @@ class AttendanceRepositoryImpl
   }
 
   student_absent.StudentAttendanceAbsentFormPage
-      _mapStudentAbsentFormPageModelToEntity(
+  _mapStudentAbsentFormPageModelToEntity(
     StudentAttendanceAbsentFormPageModel model,
   ) {
     return student_absent.StudentAttendanceAbsentFormPage(
@@ -766,7 +784,7 @@ class AttendanceRepositoryImpl
   }
 
   student_absent.StudentAttendanceAbsentFormItem
-      _mapStudentAbsentFormItemModelToEntity(
+  _mapStudentAbsentFormItemModelToEntity(
     StudentAttendanceAbsentFormItemModel model,
   ) {
     return student_absent.StudentAttendanceAbsentFormItem(
@@ -793,7 +811,7 @@ class AttendanceRepositoryImpl
 
   @override
   Future<student_absent.StudentAttendanceAbsentFormPage>
-      getStudentAbsentFormList({
+  getStudentAbsentFormList({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -825,6 +843,32 @@ class AttendanceRepositoryImpl
     final allowed = await _attendanceAllowedClassroomCodes();
     await _remoteDataSource.deleteStudentAbsenceRecord(
       absenceRecordCode: absenceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
+  }
+
+  @override
+  Future<void> deleteStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStudentAttendanceRecord(
+      attendanceRecordCode: attendanceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
+  }
+
+  @override
+  Future<void> deleteStaffAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStaffAttendanceRecord(
+      attendanceRecordCode: attendanceRecordCode,
       staffCode: staffCode,
       allowedClassroomCodes: allowed,
     );
@@ -898,7 +942,7 @@ class AttendanceRepositoryImpl
 
   @override
   Future<student_absent.StudentAttendanceAbsentFormPage>
-      getStudentAttendanceAbsentToggleView({
+  getStudentAttendanceAbsentToggleView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -908,24 +952,24 @@ class AttendanceRepositoryImpl
     int size = 10,
   }) async {
     final allowed = await _attendanceAllowedClassroomCodes();
-    final pageModel =
-        await _remoteDataSource.getStudentAttendanceAbsentToggleView(
-      fromAbsenceDate: fromAbsenceDate,
-      toAbsenceDate: toAbsenceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-      page: page,
-      size: size,
-      allowedClassroomCodes: allowed,
-    );
+    final pageModel = await _remoteDataSource
+        .getStudentAttendanceAbsentToggleView(
+          fromAbsenceDate: fromAbsenceDate,
+          toAbsenceDate: toAbsenceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+          page: page,
+          size: size,
+          allowedClassroomCodes: allowed,
+        );
 
     return _mapStudentAbsentFormPageModelToEntity(pageModel);
   }
 
   @override
   Future<StudentAttendanceExpectedSummary>
-      getStudentAttendanceExpectedSummary() async {
+  getStudentAttendanceExpectedSummary() async {
     final allowed = await _attendanceAllowedClassroomCodes();
     // 1. Try cache only when not classroom-scoped (empty allowed list).
     if (allowed.isEmpty) {
@@ -944,22 +988,19 @@ class AttendanceRepositoryImpl
     }
 
     // 2. Fallback to API and cache the result.
-    final model =
-        await _remoteDataSource.getStudentAttendanceExpectedSummaryCard(
-      allowedClassroomCodes: allowed,
-    );
+    final model = await _remoteDataSource
+        .getStudentAttendanceExpectedSummaryCard(
+          allowedClassroomCodes: allowed,
+        );
 
     if (allowed.isEmpty) {
-      await _cacheManager.saveCache(
-        _studentAttendanceSummaryCacheKey(),
-        {
-          'expected': model.expected,
-          'present': model.present,
-          'absent': model.absent,
-          'signOut': model.signOut,
-          'notMarked': model.notMarked,
-        },
-      );
+      await _cacheManager.saveCache(_studentAttendanceSummaryCacheKey(), {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      });
     }
 
     return StudentAttendanceExpectedSummary(
@@ -973,7 +1014,7 @@ class AttendanceRepositoryImpl
 
   @override
   Future<StudentAttendanceExpectedSummary>
-      getStaffAttendanceExpectedSummary() async {
+  getStaffAttendanceExpectedSummary() async {
     final allowed = await _attendanceAllowedClassroomCodes();
     if (allowed.isEmpty) {
       final cached = await _cacheManager.loadCache(
@@ -991,22 +1032,18 @@ class AttendanceRepositoryImpl
     }
 
     // 2. Fallback to API and cache the result.
-    final model =
-        await _remoteDataSource.getStaffAttendanceExpectedSummaryCard(
+    final model = await _remoteDataSource.getStaffAttendanceExpectedSummaryCard(
       allowedClassroomCodes: allowed,
     );
 
     if (allowed.isEmpty) {
-      await _cacheManager.saveCache(
-        _staffAttendanceSummaryCacheKey(),
-        {
-          'expected': model.expected,
-          'present': model.present,
-          'absent': model.absent,
-          'signOut': model.signOut,
-          'notMarked': model.notMarked,
-        },
-      );
+      await _cacheManager.saveCache(_staffAttendanceSummaryCacheKey(), {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      });
     }
 
     return StudentAttendanceExpectedSummary(
@@ -1032,7 +1069,10 @@ class AttendanceRepositoryImpl
   Future<Map<String, String>> getStaffTodaySignInStatusMap(
     List<String> staffCodes,
   ) async {
-    final codes = staffCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final codes = staffCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     if (codes.isEmpty) return <String, String>{};
     final allowed = await _attendanceAllowedClassroomCodes();
     return _remoteDataSource.getStaffSignInStatus(
@@ -1055,8 +1095,10 @@ class AttendanceRepositoryImpl
   Future<Map<String, String>> getStudentTodaySignInStatusMap(
     List<String> studentCodes,
   ) async {
-    final codes =
-        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final codes = studentCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     if (codes.isEmpty) return <String, String>{};
     final allowed = await _attendanceAllowedClassroomCodes();
     return _remoteDataSource.getStudentSignInStatus(
@@ -1076,32 +1118,28 @@ class AttendanceRepositoryImpl
     String? notes,
     String? timeZone,
   }) async {
+    final tz = await _effectiveSchoolTimeZone(timeZone);
+    final recordCode = attendanceRecordCode.trim().toUpperCase();
+    final isTransferRecord = recordCode.startsWith('SCTR_');
     final payload = <String, dynamic>{
       'staffCode': staffCode,
-      // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
-      'signedInAt': signedInAt?.toUtc().toIso8601String(),
-      'signedOutAt': signedOutAt?.toUtc().toIso8601String(),
-      'signedInMethod': 'APP',
-      'signedOutMethod': 'APP',
-      // Location/geofence fields are currently not captured in the UI.
-      // Send defaults as per backend schema.
-      'signedInLocationLat': 0,
-      'signedInLocationLong': 0,
-      'signedInWithinGeofence': true,
-      'signedOutLocationLat': 0,
-      'signedOutLocationLong': 0,
-      'signedOutWithinGeofence': true,
-      'originalClassroomCode': originalClassroomCode,
-      'currentClassroomCode': currentClassroomCode,
-      'notes': notes,
-      'timeZone': 'UTC',
+      'timeZone': tz,
+      if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
+      if (signedOutAt != null)
+        'signedOutAt': signedOutAt.toUtc().toIso8601String(),
+      if (!isTransferRecord && signedInAt != null) 'SignedInMethod': 'APP',
+      if (!isTransferRecord && signedOutAt != null) 'SignedOutMethod': 'APP',
+      if (originalClassroomCode != null && originalClassroomCode.trim().isNotEmpty)
+        'originalClassroomCode': originalClassroomCode.trim(),
+      if (currentClassroomCode != null && currentClassroomCode.trim().isNotEmpty)
+        'currentClassroomCode': currentClassroomCode.trim(),
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     };
 
-    final allowed = await _attendanceAllowedClassroomCodes();
     return _remoteDataSource.updateStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
       payload: payload,
-      allowedClassroomCodes: allowed,
+      allowedClassroomCodes: const <String>[],
     );
   }
 
@@ -1120,6 +1158,7 @@ class AttendanceRepositoryImpl
     String? timeZone,
     DateTime? occurredAt,
   }) async {
+    final tz = await _effectiveSchoolTimeZone(timeZone);
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
@@ -1133,7 +1172,7 @@ class AttendanceRepositoryImpl
       'latitude': latitude,
       'longitude': longitude,
       'withinGeofence': withinGeofence,
-      'timeZone': 'UTC',
+      'timeZone': tz,
       'occurredAt': occurredAt?.toUtc().toIso8601String(),
     };
 

@@ -1,22 +1,25 @@
 import 'dart:io';
-
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:thumbnailer/thumbnailer.dart';
-import 'package:uuid/uuid.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class StaffMessagingThread extends StatefulWidget {
@@ -31,357 +34,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   //final ScrollController _scrollController = ScrollController();
   final AutoScrollController _scrollController = AutoScrollController();
   final TextEditingController _controller = TextEditingController();
-  //final Map<String, BuildContext> _messageContexts = {};
-  //final Map<String, double> _bubbleHeights = {};
-  //final Map<int, double> _headerHeights = {};
-  // final List<Message> _messages = [
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text: "Hello! I want to take day off tomorrow ?",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 13, 14, 45),
-  //     reactions: {
-  //       'natasha': '😂',
-  //       'eddie': '😂',
-  //       'john': '😂',
-  //       'manager': '👍',
-  //     },
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text: "Okay Natasha!",
-  //     isSentByMe: true,
-  //     time: DateTime(2025, 1, 13, 16, 45),
-  //     //readAt: DateTime(2025, 1, 13, 16, 45),
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text: "Great to know that! Thanks!",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 13, 16, 50),
-  //     reactions: {'manager': '🙏', 'hr': '🙏', 'john': '🙏'},
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text:
-  //         "Also, is it possible to make it half day instead? I have doctor appointment in morning",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 14, 9, 12),
-  //     deliveredAt: DateTime(2025, 1, 14, 9, 12),
-  //     reactions: {
-  //       'natasha': '👍',
-  //       'eddie': '👍',
-  //       'john': '❤️',
-  //       'manager': '🙏',
-  //       'hr': '🙏',
-  //     },
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text:
-  //         "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
-  //     isSentByMe: true,
-  //     time: DateTime(2025, 1, 14, 9, 18),
-  //     readAt: DateTime(2025, 1, 14, 9, 18),
-  //     reactions: {
-  //       'natasha': '😂',
-  //       'eddie': '😂',
-  //       'john': '😂',
-  //       'manager': '👍',
-  //       'natashi': '👍',
-  //       'eddiey': '👍',
-  //       'johny': '❤️',
-  //       'managery': '🙏',
-  //       'hr': '🙏',
-  //     },
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text: "Thank you so much! ❤️ Will do",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 14, 9, 20),
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text:
-  //         "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
-  //     isSentByMe: true,
-  //     time: DateTime(2025, 1, 14, 11, 5),
-  //     readAt: DateTime(2025, 1, 14, 11, 5),
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text: "No I didn't! Where can I find it? HR portal?",
-  //     isSentByMe: false,
-  //     time: DateTime(2025, 1, 14, 11, 8),
-  //   ),
-  //   Message(
-  //     id: const Uuid().v4(),
-  //     text:
-  //         "Yes, under Policies → Leave & Attendance → 2025 updates. It's the pinned documentBy the way, did you see the new leave policy update? They added 2 extra optional holidays this year, By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
-  //     isSentByMe: true,
-  //     time: DateTime(2026, 1, 21, 11, 11),
-  //     deliveredTo: [
-  //       RecipientStatus(
-  //         name: "Natasha White",
-  //         timestamp: DateTime(2026, 1, 21, 11, 12),
-  //       ),
-  //       RecipientStatus(
-  //         name: "Eddie Barns",
-  //         timestamp: DateTime(2026, 1, 21, 11, 13),
-  //       ),
-  //       RecipientStatus(
-  //         name: "John Doe",
-  //         timestamp: DateTime(2026, 1, 21, 11, 15),
-  //       ),
-  //       RecipientStatus(
-  //         name: "Natasha White",
-  //         timestamp: DateTime(2026, 1, 21, 11, 12),
-  //       ),
-  //       RecipientStatus(
-  //         name: "Eddie Barns",
-  //         timestamp: DateTime(2026, 1, 21, 11, 13),
-  //       ),
-  //       RecipientStatus(
-  //         name: "John Doe",
-  //         timestamp: DateTime(2026, 1, 21, 11, 15),
-  //       ),
-  //     ],
-  //     readBy: [
-  //       RecipientStatus(
-  //         name: "Natasha White",
-  //         timestamp: DateTime(2026, 1, 21, 11, 14),
-  //       ),
-  //       RecipientStatus(
-  //         name: "Eddie Barns",
-  //         timestamp: DateTime(2026, 1, 21, 11, 16),
-  //       ),
-  //       RecipientStatus(
-  //         name: "Natasha White",
-  //         timestamp: DateTime(2026, 1, 21, 11, 12),
-  //       ),
-  //       RecipientStatus(
-  //         name: "Eddie Barns",
-  //         timestamp: DateTime(2026, 1, 21, 11, 13),
-  //       ),
-  //       RecipientStatus(
-  //         name: "John Doe",
-  //         timestamp: DateTime(2026, 1, 21, 11, 15),
-  //       ),
-  //     ],
-  //   ),
-  // ];
-  final List<Message> _messages = [
-    Message(
-      id: const Uuid().v4(),
-      text: "Hello! I want to take day off tomorrow ?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 14, 45),
-      reactions: {
-        'natasha': '😂',
-        'eddie': '😂',
-        'john': '😂',
-        'manager': '👍',
-      },
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Okay Natasha!",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 13, 16, 45),
-      attachments: [
-        ChatAttachment(
-          name: 'Vacation Request.pdf',
-          type: 'document',
-          sizeBytes: 1240000,
-          mimeType: 'application/pdf',
-          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Great to know that! Thanks!",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 13, 16, 50),
-      reactions: {'manager': '🙏', 'hr': '🙏', 'john': '🙏'},
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Also, is it possible to make it half day instead? I have doctor appointment in morning",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 9, 12),
-      deliveredAt: DateTime(2025, 1, 14, 9, 12),
-      reactions: {
-        'natasha': '👍',
-        'eddie': '👍',
-        'john': '❤️',
-        'manager': '🙏',
-        'hr': '🙏',
-      },
-      attachments: [
-        ChatAttachment(
-          name: 'Doctor Appointment Letter.jpg',
-          type: 'image',
-          sizeBytes: 3200000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Medical Certificate.pdf',
-          type: 'document',
-          sizeBytes: 1450000,
-          mimeType: 'application/pdf',
-          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Sure, half day is fine. Just mark it in the attendance sheet when you come back",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 14, 9, 18),
-      readAt: DateTime(2025, 1, 14, 9, 18),
-      reactions: {
-        'natasha': '😂',
-        'eddie': '😂',
-        'john': '😂',
-        'manager': '👍',
-        'natashi': '👍',
-        'eddiey': '👍',
-        'johny': '❤️',
-        'managery': '🙏',
-        'hr': '🙏',
-      },
-      attachments: [
-        ChatAttachment(
-          name: 'Team Meeting Notes.pdf',
-          type: 'document',
-          sizeBytes: 980000,
-          mimeType: 'application/pdf',
-          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "Thank you so much! ❤️ Will do",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 9, 20),
-      attachments: [
-        ChatAttachment(
-          name: 'Thank You Card.jpg',
-          type: 'image',
-          sizeBytes: 2100000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text:
-      "By the way, did you see the new leave policy update? They added 2 extra optional holidays this year",
-      isSentByMe: true,
-      time: DateTime(2025, 1, 14, 11, 5),
-      readAt: DateTime(2025, 1, 14, 11, 5),
-      attachments: [
-        ChatAttachment(
-          name: 'New Leave Policy 2025.pdf',
-          type: 'document',
-          sizeBytes: 2800000,
-          mimeType: 'application/pdf',
-          remoteUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text: "No I didn't! Where can I find it? HR portal?",
-      isSentByMe: false,
-      time: DateTime(2025, 1, 14, 11, 8),
-      attachments: [
-        ChatAttachment(
-          name: 'HR Portal Screenshot.jpg',
-          type: 'image',
-          sizeBytes: 1800000,
-          mimeType: 'image/jpeg',
-          remoteUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&q=80',
-        ),
-        ChatAttachment(
-          name: 'Policies Folder.jpg',
-          type: 'image',
-          sizeBytes: 1450000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-      ],
-    ),
-    Message(
-      id: const Uuid().v4(),
-      text:
-      "Yes, under Policies → Leave & Attendance → 2025 updates. It's the pinned document",
-      isSentByMe: true,
-      time: DateTime(2026, 1, 21, 11, 11),
-      deliveredTo: [
-        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 12)),
-        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 13)),
-        RecipientStatus(name: "John Doe", timestamp: DateTime(2026, 1, 21, 11, 15)),
-        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 12)),
-        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 13)),
-        RecipientStatus(name: "John Doe", timestamp: DateTime(2026, 1, 21, 11, 15)),
-      ],
-      readBy: [
-        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 14)),
-        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 16)),
-        RecipientStatus(name: "Natasha White", timestamp: DateTime(2026, 1, 21, 11, 12)),
-        RecipientStatus(name: "Eddie Barns", timestamp: DateTime(2026, 1, 21, 11, 13)),
-        RecipientStatus(name: "John Doe", timestamp: DateTime(2026, 1, 21, 11, 15)),
-      ],
-      attachments: [
-        ChatAttachment(
-          name: 'Policy Update Screenshot 1.jpg',
-          type: 'image',
-          sizeBytes: 2400000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 2.jpg',
-          type: 'image',
-          sizeBytes: 2100000,
-          mimeType: 'image/jpeg',
-          remoteUrl: 'https://images.unsplash.com/photo-1554224154-22dec7ec8818?w=800&q=80',
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 3.jpg',
-          type: 'image',
-          sizeBytes: 1950000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 4.jpg',
-          type: 'image',
-          sizeBytes: 2300000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-        ChatAttachment(
-          name: 'Policy Update Screenshot 5.jpg',
-          type: 'image',
-          sizeBytes: 2050000,
-          mimeType: 'image/jpeg',
-          remoteUrl: "https://images.unsplash.com/photo-1547573854-74d2a71d0826?w=400",
-        ),
-      ],
-    ),
-  ];
+
+  List<Message> get _messages {
+    final state = context.read<CommunicationCubit>().state;
+    if (state is CommunicationLoaded) {
+      final threadId = widget.staffInfo['code'] as String;
+      return state.threads[threadId] ?? [];
+    }
+    return [];
+  }
+
   late final ReactionsController _reactionsController;
-  //final Map<String, GlobalKey> _messageKeysSent = {};
-  //final Map<String, GlobalKey> _messageKeysReceived = {};
-  //final Map<String, GlobalKey> _scrollKeys = {};
-  //final Map<String, BuildContext> _messageContexts = {};
+
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
@@ -390,6 +54,19 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   void initState() {
     super.initState();
     _reactionsController = ReactionsController(currentUserId: 'me'); // for now
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final authState = context.read<AuthCubit>().state;
+        final userCode = authState is AuthLoaded
+            ? authState.loginResponse.userCode
+            : null;
+        context.read<CommunicationCubit>().loadMessages(
+          widget.staffInfo['code'] as String,
+          currentUserId: userCode,
+        );
+      }
+    });
   }
 
   @override
@@ -399,48 +76,32 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   void _sendMessage() {
-    //if (_controller.text.trim().isEmpty) return;
     final text = _controller.text.trim();
     final hasText = text.isNotEmpty;
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
-    if(!hasText && !hasAttachments) return;
+    if (!hasText && !hasAttachments) return;
 
-    final now = DateTime.now();
-    final newMessage = Message(
-      id: const Uuid().v4(),
-      text: _controller.text.trim(),
-      isSentByMe: true,
-      time: now,
-      deliveredAt: null,
-      readAt: null,
+    final authState = context.read<AuthCubit>().state;
+    final senderName = authState is AuthLoaded
+        ? authState.loginResponse.displayName
+        : 'Me';
+
+    context.read<CommunicationCubit>().sendMessage(
+      widget.staffInfo['code'] as String,
+      text,
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
-      // For group simulation
-      // deliveredTo: {},
-      // readBy: {},
+      senderName: senderName,
     );
+
     setState(() {
-      _messages.add(newMessage);
       _controller.clear();
       _pendingAttachments.clear();
       _quotedMessage = null;
       _quotedMessageId = null;
     });
 
-    // setState(() {
-    //   _messages.add(
-    //     Message(
-    //       text: _controller.text.trim(),
-    //       isSentByMe: true,
-    //       time: DateTime.now(),
-    //       deliveredAt: null,
-    //       readAt: null
-    //     ),
-    //   );
-    // });
-
-    //_controller.clear();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.scrollToIndex(
         0,
@@ -448,50 +109,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
         duration: const Duration(milliseconds: 300),
       );
     });
-
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (idx == -1) return;
-
-
-        _messages[idx] = Message(
-          id: newMessage.id,
-          text: newMessage.text,
-          isSentByMe: true,
-          time: newMessage.time,
-          deliveredAt: DateTime.now(),
-          readAt: newMessage.readAt,
-          attachments: newMessage.attachments,
-          quotedMessageId: newMessage.quotedMessageId,
-          // deliveredTo: newMessage.deliveredTo,
-        );
-      });
-    });
-
-
-    Future.delayed(const Duration(seconds: 7), () {
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (idx == -1) return;
-
-        _messages[idx] = Message(
-          id: newMessage.id,
-          text: newMessage.text,
-          isSentByMe: true,
-          time: newMessage.time,
-          deliveredAt: _messages[idx].deliveredAt,
-          readAt: DateTime.now(),
-          attachments: newMessage.attachments,
-          quotedMessageId: newMessage.quotedMessageId,
-          // readBy: {'user123': DateTime.now()},
-        );
-        //_quotedMessageId = null;
-      });
-    });
   }
-
-
 
   int? _getReversedIndex(String messageId) {
     final index = _messages.indexWhere((m) => m.id == messageId);
@@ -502,7 +120,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   void _scrollToMessage(String messageId) {
     final index = _getReversedIndex(messageId);
     if (index == null) {
-      print("Message $messageId not found");
+      AppLogger.d("Message $messageId not found");
       return;
     }
 
@@ -615,7 +233,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
     ).then((value) {
-      if (value == null) return;
+      if (!mounted || value == null) return;
 
       switch (value) {
         case 'reply':
@@ -681,25 +299,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
               emojiTextStyle: null,
               customBackspaceIcon: null,
               customSearchIcon: null,
-              viewOrderConfig:
-              ViewOrderConfig(),
-              emojiViewConfig:
-              EmojiViewConfig(),
-              skinToneConfig: SkinToneConfig(
-                enabled: true,
+              viewOrderConfig: ViewOrderConfig(),
+              emojiViewConfig: EmojiViewConfig(),
+              skinToneConfig: SkinToneConfig(enabled: true),
+              categoryViewConfig: CategoryViewConfig(
+                recentTabBehavior: RecentTabBehavior.RECENT,
               ),
-              categoryViewConfig:
-              CategoryViewConfig(
-                recentTabBehavior:
-                RecentTabBehavior
-                    .RECENT,
-              ),
-              bottomActionBarConfig:
-              BottomActionBarConfig(
-                enabled: false,
-              ),
-              searchViewConfig:
-              SearchViewConfig(),
+              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+              searchViewConfig: SearchViewConfig(),
             ),
           ),
         );
@@ -708,30 +315,23 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   void _onReactionAdded(Message message, String emoji) {
-    final currentUserId =
-        'me'; // dummy for now
+    if (!mounted) return;
+    final currentUserId = 'me'; // dummy for now
     setState(() {
-      final index = _messages.indexWhere(
-            (m) => m.id == message.id,
-      );
+      final index = _messages.indexWhere((m) => m.id == message.id);
       if (index != -1) {
-        final currentReactions =
-        Map<String, String>.from(
+        final currentReactions = Map<String, String>.from(
           _messages[index].reactions,
         );
-        currentReactions[currentUserId] =
-            emoji;
+        currentReactions[currentUserId] = emoji;
         _messages[index] = Message(
           id: _messages[index].id,
           text: _messages[index].text,
-          isSentByMe:
-          _messages[index].isSentByMe,
+          isSentByMe: _messages[index].isSentByMe,
           time: _messages[index].time,
-          deliveredAt:
-          _messages[index].deliveredAt,
+          deliveredAt: _messages[index].deliveredAt,
           readAt: _messages[index].readAt,
-          deliveredTo:
-          _messages[index].deliveredTo,
+          deliveredTo: _messages[index].deliveredTo,
           readBy: _messages[index].readBy,
           attachments: _messages[index].attachments,
           reactions: currentReactions,
@@ -746,8 +346,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       // );
     });
   }
-
-
 
   void _showEditDialog(BuildContext context, Message message) {
     final TextEditingController editingController = TextEditingController(
@@ -848,10 +446,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
               onPressed: () {
                 final newText = editingController.text.trim();
                 if (newText.isNotEmpty && newText != message.text) {
+                  if (!mounted) return;
                   setState(() {
-                    final idx = _messages.indexWhere(
-                      (m) => m.id == message.id,
-                    );
+                    final idx = _messages.indexWhere((m) => m.id == message.id);
                     if (idx != -1) {
                       _messages[idx] = Message(
                         id: message.id,
@@ -863,7 +460,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                         deliveredTo: message.deliveredTo,
                         readBy: message.readBy,
                         attachments: message.attachments,
-                        reactions: message.reactions
+                        reactions: message.reactions,
                       );
                       CoreUtils.showTopSnackBar(
                         context: context,
@@ -892,478 +489,320 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
     );
   }
 
-  // void _addAttachmentsToMessage(List<ChatAttachment> attachments) {
-  //   if (attachments.isEmpty) return;
-  //
-  //   final currentTime = DateTime.now();
-  //   final newMessage = Message(
-  //     text: _controller.text.trim(),
-  //     isSentByMe: true,
-  //     time: currentTime,
-  //     id: const Uuid().v4(),
-  //     attachments: attachments,
-  //     deliveredAt: null,
-  //     readAt: null,
-  //     quotedMessageId: _quotedMessageId,
-  //   );
-  //
-  //   setState(() {
-  //     _messages.add(newMessage);
-  //     _controller.clear(); // clear input after sending
-  //   });
-  //
-  //   // Auto-scroll to bottom
-  //   WidgetsBinding.instance.addPostFrameCallback((_) {
-  //     _scrollController.scrollToIndex(
-  //       0,
-  //       preferPosition: AutoScrollPosition.begin,
-  //       duration: const Duration(milliseconds: 300),
-  //     );
-  //   });
-  // }
-
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: !isLandscape,
-      body: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: isLandscape
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Flexible(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF4F7FD),
-                      ),
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        reverse: true,
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message =
-                              _messages[_messages.length - 1 - index];
-                          final messageId = message.id;
-                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                          // final key = keyMap.putIfAbsent(
-                          //   messageId,
-                          //   () => GlobalKey(),
-                          // );
-                          Message? quotedMessage;
-                          if (message.quotedMessageId != null) {
-                            quotedMessage = _messages.firstWhere(
-                              (m) => m.id == message.quotedMessageId,
-                            ); // ?? null;
-                          }
-                          bool showDateHeader = false;
-                          final prevListIndex = _messages.length - 2 - index;
-
-                          if (prevListIndex >= 0) {
-                            final prevMessage = _messages[prevListIndex];
-
-                            showDateHeader =
-                                message.time.year != prevMessage.time.year ||
-                                message.time.month != prevMessage.time.month ||
-                                message.time.day != prevMessage.time.day;
-                          } else {
-                            showDateHeader = true;
-                          }
-
-                          return AutoScrollTag(
-                            key: ValueKey(messageId),
+    return BlocBuilder<CommunicationCubit, CommunicationState>(
+      builder: (context, state) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        final bool isLandscape =
+            MediaQuery.of(context).orientation == Orientation.landscape;
+        return GlobalScaffold(
+          hasBackButton: true,
+          showCustomNavigationBar: !isLandscape,
+          body: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: isLandscape
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFFF4F7FD),
+                          ),
+                          child: ListView.builder(
                             controller: _scrollController,
-                            index: index,
-                            highlightColor: Colors.green.withValues(alpha: 0.7),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (showDateHeader)
-                                  Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
-                                      child: _buildDateChip(message.time),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            reverse: true,
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final message =
+                                  _messages[_messages.length - 1 - index];
+                              final messageId = message.id;
+                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                              // final key = keyMap.putIfAbsent(
+                              //   messageId,
+                              //   () => GlobalKey(),
+                              // );
+                              Message? quotedMessage;
+                              if (message.quotedMessageId != null) {
+                                quotedMessage = _messages.firstWhere(
+                                  (m) => m.id == message.quotedMessageId,
+                                ); // ?? null;
+                              }
+                              bool showDateHeader = false;
+                              final prevListIndex =
+                                  _messages.length - 2 - index;
+
+                              if (prevListIndex >= 0) {
+                                final prevMessage = _messages[prevListIndex];
+
+                                showDateHeader =
+                                    message.time.year !=
+                                        prevMessage.time.year ||
+                                    message.time.month !=
+                                        prevMessage.time.month ||
+                                    message.time.day != prevMessage.time.day;
+                              } else {
+                                showDateHeader = true;
+                              }
+
+                              return AutoScrollTag(
+                                key: ValueKey(messageId),
+                                controller: _scrollController,
+                                index: index,
+                                highlightColor: Colors.green.withValues(
+                                  alpha: 0.7,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (showDateHeader)
+                                      Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 8.0,
+                                          ),
+                                          child: _buildDateChip(message.time),
+                                        ),
+                                      ),
+                                    if (showDateHeader)
+                                      const SizedBox(height: 10),
+                                    MessageBubble(
+                                      //key: key,
+                                      //scrollKey: scrollKey,
+                                      message: message,
+                                      quotedMessage: quotedMessage,
+                                      onLongPress:
+                                          (LongPressStartDetails details) {
+                                            _showMessageOptions(
+                                              context,
+                                              message,
+                                              details,
+                                            );
+                                          },
+                                      onScrollToQuoted: (quoteId) {
+                                        _scrollToMessage(quoteId);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.35,
+                        child: SingleChildScrollView(
+                          reverse: true, // new messages appear at bottom
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
+                              child: _buildMessageInput(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextWidget(text: 'Messaging', fontSize: 16),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0xFFF4F7FD),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  border: const Border(
+                                    bottom: BorderSide(
+                                      color: Color(0xFFE9ECEF),
+                                      width: 1,
                                     ),
                                   ),
-                                if (showDateHeader) const SizedBox(height: 10),
-                                MessageBubble(
-                                  //key: key,
-                                  //scrollKey: scrollKey,
-                                  message: message,
-                                  quotedMessage: quotedMessage,
-                                  onLongPress:
-                                      (LongPressStartDetails details) {
-                                    _showMessageOptions(
-                                      context,
-                                      message,
-                                      details,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24.0,
+                                    vertical: 16,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Stack(
+                                        children: [
+                                          DocumentImageWidget(
+                                            fileUuid:
+                                                widget.staffInfo['avatar'],
+                                            name: widget.staffInfo['name'],
+                                            size: 45,
+                                          ),
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            child: Container(
+                                              width: 12,
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    widget.staffInfo['isSigned']
+                                                    ? const Color.fromRGBO(
+                                                        0,
+                                                        177,
+                                                        21,
+                                                        1,
+                                                      )
+                                                    : Colors.transparent,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color:
+                                                      widget
+                                                          .staffInfo['isSigned']
+                                                      ? Colors.white
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: CustomTextWidget(
+                                          text: widget.staffInfo['name'],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Flexible(
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 12,
+                                  ),
+                                  reverse: true,
+                                  itemCount: _messages.length,
+                                  itemBuilder: (context, index) {
+                                    final message =
+                                        _messages[_messages.length - 1 - index];
+                                    final messageId = message.id;
+                                    //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                    // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                    // final key = keyMap.putIfAbsent(
+                                    //   messageId,
+                                    //   () => GlobalKey(),
+                                    // );
+                                    Message? quotedMessage;
+                                    if (message.quotedMessageId != null) {
+                                      quotedMessage = _messages.firstWhere(
+                                        (m) => m.id == message.quotedMessageId,
+                                      ); // ?? null;
+                                    }
+                                    bool showDateHeader = false;
+                                    final prevListIndex =
+                                        _messages.length - 2 - index;
+
+                                    if (prevListIndex >= 0) {
+                                      final prevMessage =
+                                          _messages[prevListIndex];
+
+                                      showDateHeader =
+                                          message.time.year !=
+                                              prevMessage.time.year ||
+                                          message.time.month !=
+                                              prevMessage.time.month ||
+                                          message.time.day !=
+                                              prevMessage.time.day;
+                                    } else {
+                                      showDateHeader = true;
+                                    }
+
+                                    return AutoScrollTag(
+                                      key: ValueKey(messageId),
+                                      controller: _scrollController,
+                                      index: index,
+                                      highlightColor: Colors.green.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (showDateHeader)
+                                            Center(
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 8.0,
+                                                ),
+                                                child: _buildDateChip(
+                                                  message.time,
+                                                ),
+                                              ),
+                                            ),
+                                          if (showDateHeader)
+                                            const SizedBox(height: 10),
+
+                                          MessageBubble(
+                                            //key: key,
+                                            //scrollKey: scrollKey,
+                                            message: message,
+                                            quotedMessage: quotedMessage,
+                                            onLongPress:
+                                                (
+                                                  LongPressStartDetails details,
+                                                ) {
+                                                  _showMessageOptions(
+                                                    context,
+                                                    message,
+                                                    details,
+                                                  );
+                                                },
+                                            onScrollToQuoted: (quoteId) {
+                                              _scrollToMessage(quoteId);
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     );
                                   },
-                                  onScrollToQuoted: (quoteId) {
-                                    _scrollToMessage(quoteId);
-                                  },
-                                  // onHeightMeasured: (id, height) {
-                                  //   if (_bubbleHeights[id] != height) {
-                                  //     setState(() {
-                                  //       _bubbleHeights[id] = height;
-                                  //     });
-                                  //   }
-                                  // },
-                                  //onHeightMeasured:
-                                  // onContextReady: (id, ctx) {
-                                  //   if (_messageContexts[id] != ctx) {
-                                  //     setState(() {
-                                  //       _messageContexts[id] = ctx;
-                                  //     });
-                                  //   }
-                                  // },
                                 ),
-
-                                // if (message.isSentByMe)
-                                //   MessageBubble(
-                                //     //key: key,
-                                //     //scrollKey: scrollKey,
-                                //     message: message,
-                                //     quotedMessage: quotedMessage,
-                                //     onLongPress:
-                                //         (LongPressStartDetails details) {
-                                //           _showMessageOptions(
-                                //             context,
-                                //             message,
-                                //             details,
-                                //           );
-                                //         },
-                                //     onScrollToQuoted: (quoteId) {
-                                //       _scrollToMessage(quoteId);
-                                //     },
-                                //     // onHeightMeasured: (id, height) {
-                                //     //   if (_bubbleHeights[id] != height) {
-                                //     //     setState(() {
-                                //     //       _bubbleHeights[id] = height;
-                                //     //     });
-                                //     //   }
-                                //     // },
-                                //     //onHeightMeasured:
-                                //     // onContextReady: (id, ctx) {
-                                //     //   if (_messageContexts[id] != ctx) {
-                                //     //     setState(() {
-                                //     //       _messageContexts[id] = ctx;
-                                //     //     });
-                                //     //   }
-                                //     // },
-                                //   )
-                                // else
-                                //   ChatMessageWrapper(
-                                //     messageId: message.id,
-                                //     controller: _reactionsController,
-                                //     child: MessageBubble(
-                                //       //key: key,
-                                //       //scrollKey: scrollKey,
-                                //       message: message,
-                                //       quotedMessage: quotedMessage,
-                                //       onLongPress:
-                                //           (LongPressStartDetails details) {
-                                //             _showMessageOptions(
-                                //               context,
-                                //               message,
-                                //               details,
-                                //             );
-                                //           },
-                                //       onScrollToQuoted: (quoteId) {
-                                //         _scrollToMessage(quoteId);
-                                //       },
-                                //       // onHeightMeasured: (id, height) {
-                                //       //   if (_bubbleHeights[id] != height) {
-                                //       //     setState(() {
-                                //       //       _bubbleHeights[id] = height;
-                                //       //     });
-                                //       //   }
-                                //       // },
-                                //       // onContextReady: (id, ctx) {
-                                //       //   if (_messageContexts[id] != ctx) {
-                                //       //     setState(() {
-                                //       //       _messageContexts[id] = ctx;
-                                //       //     });
-                                //       //   }
-                                //       // },
-                                //     ),
-                                //     config: ChatReactionsConfig(
-                                //       availableReactions: const [
-                                //         '👍',
-                                //         '❤️',
-                                //         '😂',
-                                //         '😮',
-                                //         '😢',
-                                //         '😠',
-                                //         '➕',
-                                //       ],
-                                //
-                                //       // availableReactions: const [
-                                //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
-                                //       // ],
-                                //       showAddReactionButton: true,
-                                //       enableHapticFeedback: true,
-                                //       enableLongPress: true,
-                                //       enableDoubleTap: false,
-                                //       maxReactionsToShow: 5,
-                                //       reactionSize: 24.0,
-                                //       stackedValue: 4.0,
-                                //
-                                //       emojiPickerBuilder: (context, onEmojiSelected) {
-                                //         print(
-                                //           'emojiPickerBuilder was invoked!',
-                                //         );
-                                //         return SizedBox(
-                                //           height: 380,
-                                //           child: EmojiPicker(
-                                //             onEmojiSelected: (category, emoji) {
-                                //               onEmojiSelected(emoji.emoji);
-                                //               print(
-                                //                 'Emoji selected: ${emoji.emoji}',
-                                //               );
-                                //             },
-                                //             config: const Config(
-                                //               //height: 380,
-                                //               checkPlatformCompatibility: true,
-                                //               emojiSet: null,
-                                //               locale: Locale('en'),
-                                //               emojiTextStyle: null,
-                                //               customBackspaceIcon: null,
-                                //               customSearchIcon: null,
-                                //               viewOrderConfig:
-                                //                   ViewOrderConfig(),
-                                //               emojiViewConfig:
-                                //                   EmojiViewConfig(),
-                                //               skinToneConfig: SkinToneConfig(
-                                //                 enabled: true,
-                                //               ),
-                                //               categoryViewConfig:
-                                //                   CategoryViewConfig(
-                                //                     recentTabBehavior:
-                                //                         RecentTabBehavior
-                                //                             .RECENT,
-                                //                   ),
-                                //               bottomActionBarConfig:
-                                //                   BottomActionBarConfig(
-                                //                     enabled: false,
-                                //                   ),
-                                //               searchViewConfig:
-                                //                   SearchViewConfig(),
-                                //             ),
-                                //           ),
-                                //         );
-                                //       },
-                                //
-                                //       menuItems: [
-                                //         MenuItem(
-                                //           label: 'Delete',
-                                //           icon: Icons.delete_outline,
-                                //           isDestructive: true,
-                                //         ),
-                                //         MenuItem(
-                                //           label: 'Copy',
-                                //           icon: Icons.copy,
-                                //           isDestructive: false,
-                                //         ),
-                                //         MenuItem(
-                                //           label: 'Reply',
-                                //           icon: Icons.reply,
-                                //           isDestructive: false,
-                                //         ),
-                                //       ],
-                                //
-                                //
-                                //       showContextMenu: true,
-                                //     ),
-                                //
-                                //
-                                //     onMenuItemTapped: (item) {
-                                //       final label = item.label.toLowerCase();
-                                //
-                                //       if (label == 'delete') {
-                                //         setState(() {
-                                //           _messages.removeWhere(
-                                //             (m) => m.id == message.id,
-                                //           );
-                                //           CoreUtils.showTopSnackBar(
-                                //             context: context,
-                                //             message:
-                                //                 'Message deleted successfully',
-                                //             isSuccess: true,
-                                //           );
-                                //         });
-                                //       } else if (label == 'reply') {
-                                //         setState(() {
-                                //           _quotedMessage = message;
-                                //           _quotedMessageId = message.id;
-                                //         });
-                                //         // ScaffoldMessenger.of(context).showSnackBar(
-                                //         //   SnackBar(content: Text('Replying to message')),
-                                //         // );
-                                //       } else if (label == 'copy') {
-                                //         Clipboard.setData(
-                                //           ClipboardData(text: message.text),
-                                //         );
-                                //         CoreUtils.showTopSnackBar(
-                                //           context: context,
-                                //           message:
-                                //               'Message copied successfully',
-                                //           isSuccess: true,
-                                //         );
-                                //       }
-                                //     },
-                                //
-                                //     onReactionAdded: (emoji) {
-                                //       // if (emoji == '+') {
-                                //       //   showModalBottomSheet(
-                                //       //     context: context,
-                                //       //     builder: (_) =>
-                                //       //         EmojiPicker(
-                                //       //           onEmojiSelected: (category, emoji) {
-                                //       //             Navigator.pop(context);
-                                //       //           },
-                                //       //           config: const Config(
-                                //       //             height: 380,
-                                //       //             checkPlatformCompatibility: true,
-                                //       //             emojiSet: null,
-                                //       //             locale: Locale('en'),
-                                //       //             emojiTextStyle: null,
-                                //       //             customBackspaceIcon: null,
-                                //       //             customSearchIcon: null,
-                                //       //             viewOrderConfig: ViewOrderConfig(),
-                                //       //             emojiViewConfig: EmojiViewConfig(),
-                                //       //             skinToneConfig: SkinToneConfig(enabled: true),
-                                //       //             categoryViewConfig: CategoryViewConfig(
-                                //       //               recentTabBehavior: RecentTabBehavior.RECENT,
-                                //       //             ),
-                                //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-                                //       //             searchViewConfig: SearchViewConfig(),
-                                //       //           ),
-                                //       //         ),
-                                //       //     // EmojiPicker(
-                                //       //     //   onEmojiSelected: (_, e) {
-                                //       //     //     Navigator.pop(context);
-                                //       //     //     // apply reaction manually
-                                //       //     //     print('Picked ${e.emoji}');
-                                //       //     //   },
-                                //       //     //   config: const Config(height: 380),
-                                //       //     // ),
-                                //       //   );
-                                //       // }
-                                //       final currentUserId =
-                                //           'me'; // dummy for now
-                                //       setState(() {
-                                //         final index = _messages.indexWhere(
-                                //           (m) => m.id == message.id,
-                                //         );
-                                //         if (index != -1) {
-                                //           final currentReactions =
-                                //               Map<String, String>.from(
-                                //                 _messages[index].reactions,
-                                //               );
-                                //           currentReactions[currentUserId] =
-                                //               emoji;
-                                //           _messages[index] = Message(
-                                //             id: _messages[index].id,
-                                //             text: _messages[index].text,
-                                //             isSentByMe:
-                                //                 _messages[index].isSentByMe,
-                                //             time: _messages[index].time,
-                                //             deliveredAt:
-                                //                 _messages[index].deliveredAt,
-                                //             readAt: _messages[index].readAt,
-                                //             deliveredTo:
-                                //                 _messages[index].deliveredTo,
-                                //             readBy: _messages[index].readBy,
-                                //             attachments: _messages[index].attachments,
-                                //             reactions: currentReactions,
-                                //           );
-                                //         }
-                                //         // ScaffoldMessenger.of(
-                                //         //   context,
-                                //         // ).showSnackBar(
-                                //         //   SnackBar(
-                                //         //     content: Text('Reacted with $emoji'),
-                                //         //   ),
-                                //         // );
-                                //       });
-                                //     },
-                                //
-                                //     onReactionRemoved: (emoji) {
-                                //       final currentUserId =
-                                //           'me'; // dummy for now
-                                //       setState(() {
-                                //         // message.reactions.remove(emoji);
-                                //         final index = _messages.indexWhere(
-                                //           (m) => m.id == message.id,
-                                //         );
-                                //         if (index != -1) {
-                                //           final currentReactions =
-                                //               Map<String, String>.from(
-                                //                 _messages[index].reactions,
-                                //               );
-                                //           if (currentReactions[currentUserId] ==
-                                //               emoji) {
-                                //             currentReactions.remove(
-                                //               currentUserId,
-                                //             );
-                                //           }
-                                //           _messages[index] = Message(
-                                //             id: _messages[index].id,
-                                //             text: _messages[index].text,
-                                //             isSentByMe:
-                                //                 _messages[index].isSentByMe,
-                                //             time: _messages[index].time,
-                                //             deliveredAt:
-                                //                 _messages[index].deliveredAt,
-                                //             readAt: _messages[index].readAt,
-                                //             deliveredTo:
-                                //                 _messages[index].deliveredTo,
-                                //             readBy: _messages[index].readBy,
-                                //             attachments: _messages[index].attachments,
-                                //             reactions: currentReactions,
-                                //           );
-                                //         }
-                                //         // ScaffoldMessenger.of(
-                                //         //   context,
-                                //         // ).showSnackBar(
-                                //         //   SnackBar(
-                                //         //     content: Text('Removed $emoji'),
-                                //         //   ),
-                                //         // );
-                                //       });
-                                //     },
-                                //
-                                //     alignment: message.isSentByMe
-                                //         ? Alignment.centerRight
-                                //         : Alignment.centerLeft,
-                                //   ),
-                              ],
-                            ),
-                          );
-                        },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.35,
-                    child: SingleChildScrollView(
-                      reverse: true, // new messages appear at bottom
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: Container(
+                      const SizedBox(height: 10),
+                      Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.white,
@@ -1376,560 +815,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                           child: _buildMessageInput(),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-
-                  // SizedBox(
-                  //   width: MediaQuery.of(context).size.width * 0.35,
-                  //   child: Container(
-                  //     decoration: BoxDecoration(
-                  //       borderRadius: BorderRadius.circular(12),
-                  //       color: Colors.white,
-                  //     ),
-                  //     child: Padding(
-                  //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                  //       child: _buildMessageInput(),
-                  //     ),
-                  //   ),// 35% is usually good balance
-                  // )
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextWidget(text: 'Messaging', fontSize: 16),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF4F7FD),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              border: const Border(
-                                bottom: BorderSide(
-                                  color: Color(0xFFE9ECEF),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                                vertical: 16,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Stack(
-                                    children: [
-                                      DocumentImageWidget(
-                                        fileUuid: widget.staffInfo['avatar'],
-                                        name: widget.staffInfo['name'],
-                                        size: 45,
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: widget.staffInfo['isSigned']
-                                                ? const Color.fromRGBO(
-                                                    0,
-                                                    177,
-                                                    21,
-                                                    1,
-                                                  )
-                                                : Colors.transparent,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color:
-                                                  widget.staffInfo['isSigned']
-                                                  ? Colors.white
-                                                  : Colors.transparent,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: CustomTextWidget(
-                                      text: widget.staffInfo['name'],
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Flexible(
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 12,
-                              ),
-                              reverse: true,
-                              itemCount: _messages.length,
-                              itemBuilder: (context, index) {
-                                final message =
-                                    _messages[_messages.length - 1 - index];
-                                final messageId = message.id;
-                                //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                // final key = keyMap.putIfAbsent(
-                                //   messageId,
-                                //   () => GlobalKey(),
-                                // );
-                                Message? quotedMessage;
-                                if (message.quotedMessageId != null) {
-                                  quotedMessage = _messages.firstWhere(
-                                    (m) => m.id == message.quotedMessageId,
-                                  ); // ?? null;
-                                }
-                                bool showDateHeader = false;
-                                final prevListIndex =
-                                    _messages.length - 2 - index;
-
-                                if (prevListIndex >= 0) {
-                                  final prevMessage = _messages[prevListIndex];
-
-                                  showDateHeader =
-                                      message.time.year !=
-                                          prevMessage.time.year ||
-                                      message.time.month !=
-                                          prevMessage.time.month ||
-                                      message.time.day != prevMessage.time.day;
-                                } else {
-                                  showDateHeader = true;
-                                }
-
-                                return AutoScrollTag(
-                                  key: ValueKey(messageId),
-                                  controller: _scrollController,
-                                  index: index,
-                                  highlightColor: Colors.green.withValues(
-                                    alpha: 0.7,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (showDateHeader)
-                                        Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 8.0,
-                                            ),
-                                            child: _buildDateChip(message.time),
-                                          ),
-                                        ),
-                                      if (showDateHeader)
-                                        const SizedBox(height: 10),
-
-                                      MessageBubble(
-                                        //key: key,
-                                        //scrollKey: scrollKey,
-                                        message: message,
-                                        quotedMessage: quotedMessage,
-                                        onLongPress:
-                                            (LongPressStartDetails details) {
-                                          _showMessageOptions(
-                                            context,
-                                            message,
-                                            details,
-                                          );
-                                        },
-                                        onScrollToQuoted: (quoteId) {
-                                          _scrollToMessage(quoteId);
-                                        },
-                                        // onHeightMeasured: (id, height) {
-                                        //   if (_bubbleHeights[id] != height) {
-                                        //     setState(() {
-                                        //       _bubbleHeights[id] = height;
-                                        //     });
-                                        //   }
-                                        // },
-                                        //onHeightMeasured:
-                                        // onContextReady: (id, ctx) {
-                                        //   if (_messageContexts[id] != ctx) {
-                                        //     setState(() {
-                                        //       _messageContexts[id] = ctx;
-                                        //     });
-                                        //   }
-                                        // },
-                                      ),
-
-                                      // if (message.isSentByMe)
-                                      //   MessageBubble(
-                                      //     //key: key,
-                                      //     //scrollKey: scrollKey,
-                                      //     message: message,
-                                      //     quotedMessage: quotedMessage,
-                                      //     onLongPress:
-                                      //         (LongPressStartDetails details) {
-                                      //           _showMessageOptions(
-                                      //             context,
-                                      //             message,
-                                      //             details,
-                                      //           );
-                                      //         },
-                                      //     onScrollToQuoted: (quoteId) {
-                                      //       _scrollToMessage(quoteId);
-                                      //     },
-                                      //     // onHeightMeasured: (id, height) {
-                                      //     //   if (_bubbleHeights[id] != height) {
-                                      //     //     setState(() {
-                                      //     //       _bubbleHeights[id] = height;
-                                      //     //     });
-                                      //     //   }
-                                      //     // },
-                                      //     //onHeightMeasured:
-                                      //     // onContextReady: (id, ctx) {
-                                      //     //   if (_messageContexts[id] != ctx) {
-                                      //     //     setState(() {
-                                      //     //       _messageContexts[id] = ctx;
-                                      //     //     });
-                                      //     //   }
-                                      //     // },
-                                      //   )
-                                      // else
-                                      //   ChatMessageWrapper(
-                                      //     messageId: message.id,
-                                      //     controller: _reactionsController,
-                                      //     child: MessageBubble(
-                                      //       //key: key,
-                                      //       //scrollKey: scrollKey,
-                                      //       message: message,
-                                      //       quotedMessage: quotedMessage,
-                                      //       onLongPress:
-                                      //           (
-                                      //             LongPressStartDetails details,
-                                      //           ) {
-                                      //             _showMessageOptions(
-                                      //               context,
-                                      //               message,
-                                      //               details,
-                                      //             );
-                                      //           },
-                                      //       onScrollToQuoted: (quoteId) {
-                                      //         _scrollToMessage(quoteId);
-                                      //       },
-                                      //       // onHeightMeasured: (id, height) {
-                                      //       //   if (_bubbleHeights[id] != height) {
-                                      //       //     setState(() {
-                                      //       //       _bubbleHeights[id] = height;
-                                      //       //     });
-                                      //       //   }
-                                      //       // },
-                                      //       // onContextReady: (id, ctx) {
-                                      //       //   if (_messageContexts[id] != ctx) {
-                                      //       //     setState(() {
-                                      //       //       _messageContexts[id] = ctx;
-                                      //       //     });
-                                      //       //   }
-                                      //       // },
-                                      //     ),
-                                      //     config: ChatReactionsConfig(
-                                      //       availableReactions: const [
-                                      //         '👍',
-                                      //         '❤️',
-                                      //         '😂',
-                                      //         '😮',
-                                      //         '😢',
-                                      //         '😠',
-                                      //         '➕',
-                                      //       ],
-                                      //
-                                      //       // availableReactions: const [
-                                      //       //   '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '+'
-                                      //       // ],
-                                      //       showAddReactionButton: true,
-                                      //       enableHapticFeedback: true,
-                                      //       enableLongPress: true,
-                                      //       enableDoubleTap: false,
-                                      //       maxReactionsToShow: 5,
-                                      //       reactionSize: 24.0,
-                                      //       stackedValue: 4.0,
-                                      //
-                                      //       emojiPickerBuilder: (context, onEmojiSelected) {
-                                      //         print(
-                                      //           'emojiPickerBuilder was invoked!',
-                                      //         );
-                                      //         return SizedBox(
-                                      //           height: 380,
-                                      //           child: EmojiPicker(
-                                      //             onEmojiSelected:
-                                      //                 (category, emoji) {
-                                      //                   onEmojiSelected(
-                                      //                     emoji.emoji,
-                                      //                   );
-                                      //                   print(
-                                      //                     'Emoji selected: ${emoji.emoji}',
-                                      //                   );
-                                      //                 },
-                                      //             config: const Config(
-                                      //               //height: 380,
-                                      //               checkPlatformCompatibility:
-                                      //                   true,
-                                      //               emojiSet: null,
-                                      //               locale: Locale('en'),
-                                      //               emojiTextStyle: null,
-                                      //               customBackspaceIcon: null,
-                                      //               customSearchIcon: null,
-                                      //               viewOrderConfig:
-                                      //                   ViewOrderConfig(),
-                                      //               emojiViewConfig:
-                                      //                   EmojiViewConfig(),
-                                      //               skinToneConfig:
-                                      //                   SkinToneConfig(
-                                      //                     enabled: true,
-                                      //                   ),
-                                      //               categoryViewConfig:
-                                      //                   CategoryViewConfig(
-                                      //                     recentTabBehavior:
-                                      //                         RecentTabBehavior
-                                      //                             .RECENT,
-                                      //                   ),
-                                      //               bottomActionBarConfig:
-                                      //                   BottomActionBarConfig(
-                                      //                     enabled: false,
-                                      //                   ),
-                                      //               searchViewConfig:
-                                      //                   SearchViewConfig(),
-                                      //             ),
-                                      //           ),
-                                      //         );
-                                      //       },
-                                      //
-                                      //       menuItems: [
-                                      //         MenuItem(
-                                      //           label: 'Delete',
-                                      //           icon: Icons.delete_outline,
-                                      //           isDestructive: true,
-                                      //         ),
-                                      //         MenuItem(
-                                      //           label: 'Copy',
-                                      //           icon: Icons.copy,
-                                      //           isDestructive: false,
-                                      //         ),
-                                      //         MenuItem(
-                                      //           label: 'Reply',
-                                      //           icon: Icons.reply,
-                                      //           isDestructive: false,
-                                      //         ),
-                                      //       ],
-                                      //
-                                      //       showContextMenu: true,
-                                      //     ),
-                                      //
-                                      //     onMenuItemTapped: (item) {
-                                      //       final label = item.label
-                                      //           .toLowerCase();
-                                      //
-                                      //       if (label == 'delete') {
-                                      //         setState(() {
-                                      //           _messages.removeWhere(
-                                      //             (m) => m.id == message.id,
-                                      //           );
-                                      //           CoreUtils.showTopSnackBar(
-                                      //             context: context,
-                                      //             message:
-                                      //                 'Message deleted successfully',
-                                      //             isSuccess: true,
-                                      //           );
-                                      //         });
-                                      //       } else if (label == 'reply') {
-                                      //         setState(() {
-                                      //           _quotedMessage = message;
-                                      //           _quotedMessageId = message.id;
-                                      //         });
-                                      //         // ScaffoldMessenger.of(context).showSnackBar(
-                                      //         //   SnackBar(content: Text('Replying to message')),
-                                      //         // );
-                                      //       } else if (label == 'copy') {
-                                      //         Clipboard.setData(
-                                      //           ClipboardData(
-                                      //             text: message.text,
-                                      //           ),
-                                      //         );
-                                      //         CoreUtils.showTopSnackBar(
-                                      //           context: context,
-                                      //           message:
-                                      //               'Message copied successfully',
-                                      //           isSuccess: true,
-                                      //         );
-                                      //       }
-                                      //     },
-                                      //
-                                      //     onReactionAdded: (emoji) {
-                                      //       // if (emoji == '+') {
-                                      //       //   showModalBottomSheet(
-                                      //       //     context: context,
-                                      //       //     builder: (_) =>
-                                      //       //         EmojiPicker(
-                                      //       //           onEmojiSelected: (category, emoji) {
-                                      //       //             Navigator.pop(context);
-                                      //       //           },
-                                      //       //           config: const Config(
-                                      //       //             height: 380,
-                                      //       //             checkPlatformCompatibility: true,
-                                      //       //             emojiSet: null,
-                                      //       //             locale: Locale('en'),
-                                      //       //             emojiTextStyle: null,
-                                      //       //             customBackspaceIcon: null,
-                                      //       //             customSearchIcon: null,
-                                      //       //             viewOrderConfig: ViewOrderConfig(),
-                                      //       //             emojiViewConfig: EmojiViewConfig(),
-                                      //       //             skinToneConfig: SkinToneConfig(enabled: true),
-                                      //       //             categoryViewConfig: CategoryViewConfig(
-                                      //       //               recentTabBehavior: RecentTabBehavior.RECENT,
-                                      //       //             ),
-                                      //       //             bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-                                      //       //             searchViewConfig: SearchViewConfig(),
-                                      //       //           ),
-                                      //       //         ),
-                                      //       //     // EmojiPicker(
-                                      //       //     //   onEmojiSelected: (_, e) {
-                                      //       //     //     Navigator.pop(context);
-                                      //       //     //     // apply reaction manually
-                                      //       //     //     print('Picked ${e.emoji}');
-                                      //       //     //   },
-                                      //       //     //   config: const Config(height: 380),
-                                      //       //     // ),
-                                      //       //   );
-                                      //       // }
-                                      //       final currentUserId =
-                                      //           'me'; // dummy for now
-                                      //       setState(() {
-                                      //         final index = _messages
-                                      //             .indexWhere(
-                                      //               (m) => m.id == message.id,
-                                      //             );
-                                      //         if (index != -1) {
-                                      //           final currentReactions =
-                                      //               Map<String, String>.from(
-                                      //                 _messages[index]
-                                      //                     .reactions,
-                                      //               );
-                                      //           currentReactions[currentUserId] =
-                                      //               emoji;
-                                      //           _messages[index] = Message(
-                                      //             id: _messages[index].id,
-                                      //             text: _messages[index].text,
-                                      //             isSentByMe: _messages[index]
-                                      //                 .isSentByMe,
-                                      //             time: _messages[index].time,
-                                      //             deliveredAt: _messages[index]
-                                      //                 .deliveredAt,
-                                      //             readAt:
-                                      //                 _messages[index].readAt,
-                                      //             deliveredTo: _messages[index]
-                                      //                 .deliveredTo,
-                                      //             readBy:
-                                      //                 _messages[index].readBy,
-                                      //             reactions: currentReactions,
-                                      //           );
-                                      //         }
-                                      //         // ScaffoldMessenger.of(
-                                      //         //   context,
-                                      //         // ).showSnackBar(
-                                      //         //   SnackBar(
-                                      //         //     content: Text('Reacted with $emoji'),
-                                      //         //   ),
-                                      //         // );
-                                      //       });
-                                      //     },
-                                      //
-                                      //     onReactionRemoved: (emoji) {
-                                      //       final currentUserId =
-                                      //           'me'; // dummy for now
-                                      //       setState(() {
-                                      //         // message.reactions.remove(emoji);
-                                      //         final index = _messages
-                                      //             .indexWhere(
-                                      //               (m) => m.id == message.id,
-                                      //             );
-                                      //         if (index != -1) {
-                                      //           final currentReactions =
-                                      //               Map<String, String>.from(
-                                      //                 _messages[index]
-                                      //                     .reactions,
-                                      //               );
-                                      //           if (currentReactions[currentUserId] ==
-                                      //               emoji) {
-                                      //             currentReactions.remove(
-                                      //               currentUserId,
-                                      //             );
-                                      //           }
-                                      //           _messages[index] = Message(
-                                      //             id: _messages[index].id,
-                                      //             text: _messages[index].text,
-                                      //             isSentByMe: _messages[index]
-                                      //                 .isSentByMe,
-                                      //             time: _messages[index].time,
-                                      //             deliveredAt: _messages[index]
-                                      //                 .deliveredAt,
-                                      //             readAt:
-                                      //                 _messages[index].readAt,
-                                      //             deliveredTo: _messages[index]
-                                      //                 .deliveredTo,
-                                      //             readBy:
-                                      //                 _messages[index].readBy,
-                                      //             reactions: currentReactions,
-                                      //           );
-                                      //         }
-                                      //         // ScaffoldMessenger.of(
-                                      //         //   context,
-                                      //         // ).showSnackBar(
-                                      //         //   SnackBar(
-                                      //         //     content: Text('Removed $emoji'),
-                                      //         //   ),
-                                      //         // );
-                                      //       });
-                                      //     },
-                                      //
-                                      //     alignment: message.isSentByMe
-                                      //         ? Alignment.centerRight
-                                      //         : Alignment.centerLeft,
-                                      //   ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 16,
-                      ),
-                      child: _buildMessageInput(),
-                    ),
-                  ),
-                ],
-              ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1988,7 +878,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _pendingAttachments.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 8),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final att = _pendingAttachments[index];
 
@@ -2013,9 +904,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType: att.mimeType ?? 'application/octet-stream',
+                                mimeType:
+                                    att.mimeType ?? 'application/octet-stream',
                                 dataResolver: () async {
-                                  return await File(att.localPath!).readAsBytes();
+                                  return await File(
+                                    att.localPath!,
+                                  ).readAsBytes();
                                 },
                                 widgetSize: 80,
                                 decoration: WidgetDecoration(
@@ -2029,7 +923,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                   color: Colors.grey[200],
                                   child: Center(
                                     child: Icon(
-                                      att.isImage ? Icons.image : Icons.picture_as_pdf,
+                                      att.isImage
+                                          ? Icons.image
+                                          : Icons.picture_as_pdf,
                                       size: 40,
                                       color: AppColors.primaryColor,
                                     ),
@@ -2037,7 +933,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                 ),
                               ),
                             ),
-                        
+
                             Positioned(
                               top: -2.5,
                               right: -2.5,
@@ -2056,19 +952,25 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                       BorderSide(color: Colors.white, width: 2),
                                     ),
                                   ),
-                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
-                        
-                        
+
                             if (!att.isImage)
                               Positioned(
                                 bottom: 4,
                                 left: 4,
                                 right: 4,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withOpacity(0.6),
                                     borderRadius: BorderRadius.circular(4),
@@ -2131,18 +1033,26 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                 borderSide: BorderSide.none,
                               ),
                             ),
-                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  '$currentLength / $maxLength',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: currentLength >= maxLength! ? Colors.red : Colors.grey,
-                                  ),
-                                ),
-                              );
-                            },
+                            buildCounter:
+                                (
+                                  context, {
+                                  required currentLength,
+                                  required isFocused,
+                                  maxLength,
+                                }) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '$currentLength / $maxLength',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: currentLength >= maxLength!
+                                            ? Colors.red
+                                            : Colors.grey,
+                                      ),
+                                    ),
+                                  );
+                                },
                           ),
                         ),
 

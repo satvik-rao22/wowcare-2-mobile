@@ -27,6 +27,7 @@ class CustomStatBarCard extends StatelessWidget {
     this.titleFontSize,
     this.footer,
     this.selectedFilterValue,
+    this.normalizeBarByItemSum = false,
     super.key,
   });
 
@@ -40,13 +41,16 @@ class CustomStatBarCard extends StatelessWidget {
   final double? titleFontSize;
   final Widget? footer;
   final String? selectedFilterValue;
+  final bool normalizeBarByItemSum;
 
   @override
   Widget build(BuildContext context) {
-    int total = int.tryParse(number) ?? 0;
     final barItems = progressItems ?? items;
     double sumValues = barItems.fold(0, (sum, item) => sum + item.value);
-    bool hasValidTotal = total > 0;
+    final int parsedTotal = int.tryParse(number) ?? 0;
+    final double effectiveTotal =
+        normalizeBarByItemSum ? sumValues : parsedTotal.toDouble();
+    bool hasValidTotal = effectiveTotal > 0;
     final legendRows = <List<ProgressItemHelper>>[];
     for (var i = 0; i < items.length; i += 2) {
       legendRows.add(items.sublist(i, i + 2 > items.length ? items.length : i + 2));
@@ -294,19 +298,22 @@ class CustomStatBarCard extends StatelessWidget {
                                     .where((item) => item.value > 0)
                                     .map((item) {
                                   final computed =
-                                      ((item.value / total) * 1000).round();
+                                      ((item.value / effectiveTotal) * 1000)
+                                          .round();
                                   final flex = computed <= 0 ? 1 : computed;
                                   return Expanded(
                                     flex: flex,
                                     child: Container(color: item.color),
                                   );
                                 }),
-                                if (sumValues < total)
+                                if (!normalizeBarByItemSum &&
+                                    sumValues < effectiveTotal)
                                   Expanded(
                                     flex: (() {
-                                      final remaining = total - sumValues;
+                                      final remaining = effectiveTotal - sumValues;
                                       final computed =
-                                          ((remaining / total) * 1000).round();
+                                          ((remaining / effectiveTotal) * 1000)
+                                              .round();
                                       return computed <= 0 ? 1 : computed;
                                     })(),
                                     child: Container(color: Colors.grey[300]),

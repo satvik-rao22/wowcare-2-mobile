@@ -43,7 +43,7 @@ class IncidentActivityScreen extends StatefulWidget {
     this.activityData,
     this.readOnly = false,
   });
-  final List<Map<String,dynamic>>? selectedStudents;
+  final List<Map<String, dynamic>>? selectedStudents;
   final bool isEdit;
   final ActivityItem? activityData;
   final bool readOnly;
@@ -92,8 +92,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final UpdateActivityUseCase _updateActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
 
   ActivityTypeParameter? _findFirstAidParameter(
     List<ActivityTypeParameter> parameters,
@@ -224,8 +223,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-      _remainingExistingPhotoUrls =
-          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+        _detailAttachmentRows,
+      );
       if (_remainingExistingPhotoUrls.isEmpty &&
           activity.photoUrl != null &&
           activity.photoUrl!.trim().isNotEmpty) {
@@ -274,8 +274,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        _remainingExistingPhotoUrls =
-            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+          _detailAttachmentRows,
+        );
         if (_remainingExistingPhotoUrls.isEmpty &&
             item.photoUrl != null &&
             item.photoUrl!.trim().isNotEmpty) {
@@ -299,10 +300,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -312,8 +313,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -324,13 +324,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? incidentSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -345,7 +347,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         });
       }
     } catch (e) {
-      CoreUtils.logApiError('Failed to load activity settings for Incident: $e');
+      CoreUtils.logApiError(
+        'Failed to load activity settings for Incident: $e',
+      );
     }
   }
 
@@ -423,10 +427,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -514,8 +520,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -552,7 +559,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           ? null
           : _firstAidParameterEntry(firstAidParam, _firstAidGiven);
 
-      final sameWhatAndNotes = whatParamCode != null &&
+      final sameWhatAndNotes =
+          whatParamCode != null &&
           notesParamCode != null &&
           whatParamCode.trim() == notesParamCode.trim();
 
@@ -733,10 +741,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -847,8 +857,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final patchAttachments =
           attachmentsForActivityPatchRequest(mergedRows);
 
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -885,7 +896,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           ? null
           : _firstAidParameterEntry(firstAidParam, _firstAidGiven);
 
-      final sameWhatAndNotes = whatParamCode != null &&
+      final sameWhatAndNotes =
+          whatParamCode != null &&
           notesParamCode != null &&
           whatParamCode.trim() == notesParamCode.trim();
 
@@ -990,11 +1002,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes = studentCodes
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    final normalizedStudentCodes =
+        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          ..sort();
     final uploadContextKey = [
       organizationCode.trim(),
       schoolCode.trim(),
@@ -1014,15 +1024,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (missingPhotos.isNotEmpty) {
       setState(() => _isUploadingMedia = true);
       try {
-        final uploadSession =
-            await _imageUploadService.createActivityUploadSession(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          classroomCode: classroomCode,
-          activityTypeCode: activityTypeCode,
-          bindingMode: 'PER_STUDENT',
-          studentCodes: studentCodes,
-        );
+        final uploadSession = await _imageUploadService
+            .createActivityUploadSession(
+              organizationCode: organizationCode,
+              schoolCode: schoolCode,
+              classroomCode: classroomCode,
+              activityTypeCode: activityTypeCode,
+              bindingMode: 'PER_STUDENT',
+              studentCodes: studentCodes,
+            );
 
         final sessionAssetCodes = <String>[];
         for (final photo in missingPhotos) {
@@ -1103,10 +1113,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
     final organizationCode = _organizationCode;
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     final studentCodes = _selectedStudentsData
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
@@ -1151,9 +1163,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
-      _selectedStudentsData.removeWhere(
-        (m) => (m['name'] as String?) == name,
-      );
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       // If no students left, go back to previous screen
       if (_selectedStudents.isEmpty) {
@@ -1161,6 +1171,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       }
     });
   }
+
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -1178,7 +1189,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10,),
+            const SizedBox(height: 10),
             if (_layoutAsEdit)
               Align(
                 alignment: Alignment.centerLeft,
@@ -1292,7 +1303,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 ),
               ],
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               label: 'What happened?',
@@ -1301,19 +1312,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start ,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'First Aid Administered',
-                  style:
-                  TextStyle(
+                  style: TextStyle(
                     color: AppColors.primaryColor.withValues(alpha: 0.6),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: responsive.isTablet ? 10.0 : 8.0,),
+                SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
                 IgnorePointer(
                   ignoring: !_canInteract,
                   child: Row(
@@ -1345,13 +1355,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           color: Color(0xff573353),
                         ),
                       ),
-
                     ],
                   ),
                 ),
               ],
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             StaffPresentWidget(
               staffName: staffPresentLabelForActivity(
                 layoutAsEdit: _layoutAsEdit,
@@ -1370,7 +1379,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 });
               },
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _addNotesController,
               hint: 'Enter note',
@@ -1379,7 +1388,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
               IgnorePointer(
                 ignoring: !_canInteract,
@@ -1415,25 +1424,27 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               const SizedBox(height: 8),
               _buildUploadStatus(),
             ],
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
           ],
         ),
       ),
       bottomBar: widget.readOnly
           ? const SafeArea(child: SizedBox.shrink())
           : SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: CustomButtonLayout(
-            confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-            onPressedConfirm: _onSaveOrAddPressed,
-            showCancelButton: false,
-            isForm: false,
-            isLoading:
-                _isSubmitting || _isUploadingMedia || _loadingActivityDetail,
-          ),
-        ),
-      ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: CustomButtonLayout(
+                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                  onPressedConfirm: _onSaveOrAddPressed,
+                  showCancelButton: false,
+                  isForm: false,
+                  isLoading:
+                      _isSubmitting ||
+                      _isUploadingMedia ||
+                      _loadingActivityDetail,
+                ),
+              ),
+            ),
     );
   }
 
@@ -1466,9 +1477,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (uploadsSynced && createSatisfied) {
       final parts = <String>[];
       if (_newPhotos.isNotEmpty) {
-        parts.add(
-          '${_uploadedPhotoCount}/${_newPhotos.length} photo(s)',
-        );
+        parts.add('${_uploadedPhotoCount}/${_newPhotos.length} photo(s)');
       }
       final label = parts.isEmpty ? 'Ready' : parts.join(', ');
       return Row(

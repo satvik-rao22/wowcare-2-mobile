@@ -65,6 +65,15 @@ class StudentAttendanceTime extends Equatable {
     return '$h:$m:$s';
   }
 
+  /// 12-hour clock with AM/PM (e.g. `2:05:03 PM`).
+  String get formatted12h {
+    final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final mm = minute.toString().padLeft(2, '0');
+    final ss = second.toString().padLeft(2, '0');
+    return '$h12:$mm:$ss $period';
+  }
+
   @override
   List<Object?> get props => [hour, minute, second, nano];
 }

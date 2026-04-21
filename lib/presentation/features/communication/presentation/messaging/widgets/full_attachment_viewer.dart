@@ -1,25 +1,17 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-
-import '../../../../../../app/theme/colors.dart';
+import '../../../../../../domain/features/communication/entities/message.dart';
 
 class FullAttachmentViewer extends StatelessWidget {
   final List<ChatAttachment> attachments;
 
-  const FullAttachmentViewer({
-    super.key,
-    required this.attachments,
-  });
+  const FullAttachmentViewer({super.key, required this.attachments});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const CustomTextWidget(text: 'Attachments'),
-      ),
+      appBar: AppBar(title: const CustomTextWidget(text: 'Attachments')),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: attachments.length,
@@ -31,50 +23,61 @@ class FullAttachmentViewer extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 16),
             child: Card(
               elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               clipBehavior: Clip.antiAlias,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   if (att.isImage && source != null)
                     AspectRatio(
                       aspectRatio: 4 / 3,
                       child: att.remoteUrl != null
                           ? Image.network(
-                        att.remoteUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                          ),
-                        ),
-                      )
+                              att.remoteUrl!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: Colors.grey[300],
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.broken_image,
+                                        size: 60,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                            )
                           : Image.file(
-                        File(source),
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Colors.white,
-                          child: const Center(
-                            child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                          ),
-                        ),
-                      ),
+                              File(source),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: Colors.white,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.broken_image,
+                                        size: 60,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                            ),
                     )
                   else if (source != null)
-
                     Container(
                       height: 160,
                       color: Colors.white,
@@ -102,10 +105,13 @@ class FullAttachmentViewer extends StatelessWidget {
                       height: 160,
                       color: Colors.white,
                       child: const Center(
-                        child: Icon(Icons.broken_image, size: 80, color: Colors.grey),
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 80,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
-
 
                   Padding(
                     padding: const EdgeInsets.all(16),

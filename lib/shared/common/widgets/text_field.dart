@@ -14,12 +14,16 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final FocusNode? focusNode;
   final FocusNode? nextFocusNode;
+
   /// Optional callback for value changes.
   final ValueChanged<String>? onChanged;
+
   /// When true, uses primary gradient for entered text (like sign-in / forgot password).
   final bool usePrimaryGradientText;
+
   /// Optional base font size for the input text.
   final double? textFontSize;
+
   /// Optional font weight for the input text.
   final FontWeight? textFontWeight;
 
@@ -52,15 +56,15 @@ class CustomTextField extends StatelessWidget {
       readOnly: readOnly,
       obscureText: isPassword,
       validator: validator,
-      onFieldSubmitted: nextFocusNode != null ? (_) => nextFocusNode!.requestFocus() : null,
+      onFieldSubmitted: nextFocusNode != null
+          ? (_) => nextFocusNode!.requestFocus()
+          : null,
       onChanged: (value) {
         if (onChanged != null) {
           onChanged!(value);
         }
       },
-      style: usePrimaryGradientText
-          ? _buildGradientTextStyle()
-          : null,
+      style: usePrimaryGradientText ? _buildGradientTextStyle() : null,
       decoration: InputDecoration(
         hintText: hintText,
         prefixIcon: prefixIcon,

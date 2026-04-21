@@ -74,6 +74,7 @@ class StaffAttendanceSummary extends StatelessWidget {
         CustomStatBarCard(
           title: 'Expected\nStaff',
           number: expected.toString(),
+          normalizeBarByItemSum: true,
           items: [
             ProgressItemHelper(
               label: 'Signed-In ($present)',

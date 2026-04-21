@@ -74,7 +74,11 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       final apiClient = serviceLocator<ApiClient>();
       final storageService = serviceLocator<StorageService>();
       final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
-      final repo = AttendanceRepositoryImpl(remote, storageService);
+      final repo = AttendanceRepositoryImpl(
+        remote,
+        storageService,
+        apiClient,
+      );
       _cubit = StudentAttendanceCustomCubit(
         getStudentAttendanceCustomUseCase:
             GetStudentAttendanceCustomUseCase(repo),

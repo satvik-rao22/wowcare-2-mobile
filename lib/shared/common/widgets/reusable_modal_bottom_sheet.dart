@@ -3,15 +3,11 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:schoolerp/core/res/colors.dart';
-import 'package:schoolerp/core/util/typedefs.dart';
 
-enum FieldType {
-  text,
-  dropdown,
-  datePicker,
-  fileUpload,
-}
+import '../../../app/theme/colors.dart';
+import '../../../presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
+
+enum FieldType { text, dropdown, datePicker, fileUpload }
 
 class DynamicFormField {
   final String label;
@@ -102,9 +98,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
   File? selectedFile;
   final OutlineInputBorder border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(5),
-    borderSide: const BorderSide(
-      color: Colors.grey,
-    ),
+    borderSide: const BorderSide(color: Colors.grey),
   );
 
   @override
@@ -248,8 +242,9 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                   borderSide: const BorderSide(color: Colors.blue),
                 ),
                 suffixIcon: const Icon(Icons.calendar_today),
-                label:
-                    _createLabel(field), // Only using label, removed labelText
+                label: _createLabel(
+                  field,
+                ), // Only using label, removed labelText
               ),
               validator: (value) => _defaultValidator(value, field),
             ),
@@ -295,10 +290,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   '${field.label} is required',
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
               ),
           ],
@@ -331,10 +323,12 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              ...widget.fields.map((field) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: _buildFormField(field),
-                  )),
+              ...widget.fields.map(
+                (field) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: _buildFormField(field),
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -354,10 +348,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                   ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
-                        widget.onSubmit({
-                          ...formValues,
-                          'File': selectedFile,
-                        });
+                        widget.onSubmit({...formValues, 'File': selectedFile});
                         Navigator.of(context).pop();
                       }
                     },
@@ -1139,4 +1130,3 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //     );
 //   }
 // }
-

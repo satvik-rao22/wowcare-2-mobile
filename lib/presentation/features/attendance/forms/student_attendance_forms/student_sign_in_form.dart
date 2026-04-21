@@ -22,6 +22,8 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -83,6 +85,9 @@ class StudentSignInForm extends StatefulWidget {
 class _StudentSignInFormState extends State<StudentSignInForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+
+  /// School IANA id from API; when set, date/time defaults and [occurredAt] use this zone.
+  String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
@@ -94,18 +99,29 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   @override
   void initState() {
     super.initState();
-    setCurrentDateTime();
     currentStudents = List.from(widget.students);
     _loadPersonaFlags();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _runUnexpectedSignInGate();
+      _bootstrapSchoolZone();
     });
   }
 
-  String _attendanceDateYyyyMmDd(DateTime d) {
-    final utc = d.toUtc();
-    return '${utc.year.toString().padLeft(4, '0')}-${utc.month.toString().padLeft(2, '0')}-${utc.day.toString().padLeft(2, '0')}';
+  Future<void> _bootstrapSchoolZone() async {
+    final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _schoolIana = z;
+    });
+    setCurrentDateTime();
+    await _runUnexpectedSignInGate();
   }
+
+  /// Selected calendar day as yyyy-MM-dd (naive components — intended school business date).
+  String _naiveCalendarYyyyMmDd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   bool _hasUnexpectedAmongSelected() {
     for (final s in currentStudents) {
@@ -142,7 +158,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       _unexpectedGateLoading = true;
     });
 
-    final dateStr = _attendanceDateYyyyMmDd(selectedDate);
+    final dateStr = _naiveCalendarYyyyMmDd(selectedDate);
     try {
       final useCase = serviceLocator<GetStudentSignInFormListUseCase>();
       final page = await useCase(
@@ -221,8 +237,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   Future<bool> _resolveIsStaffAdminPersona() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
       if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
         return true;
       }
@@ -242,6 +259,15 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   void setCurrentDateTime() {
+    final iana = _schoolIana;
+    if (iana != null && iana.isNotEmpty) {
+      final (d, t) = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+      setState(() {
+        selectedDate = d;
+        selectedTime = t;
+      });
+      return;
+    }
     final dateTime = DateTime.now();
     setState(() {
       selectedDate = dateTime;
@@ -272,8 +298,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   ) {
     final trimmed = absenceDateRaw.trim();
     if (trimmed.isEmpty) return false;
-    if (trimmed.length >= 10 &&
-        trimmed.substring(0, 10) == targetYyyyMmDd) {
+    if (trimmed.length >= 10 && trimmed.substring(0, 10) == targetYyyyMmDd) {
       return true;
     }
     try {
@@ -327,9 +352,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (matches.isEmpty) continue;
 
       final withCode = matches
-          .where(
-            (it) => (it.absenceRecordCode ?? '').trim().isNotEmpty,
-          )
+          .where((it) => (it.absenceRecordCode ?? '').trim().isNotEmpty)
           .toList();
       if (withCode.isEmpty) {
         throw Exception(
@@ -362,7 +385,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     try {
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (rolesJson.isNotEmpty) {
         final decoded = jsonDecode(rolesJson);
         if (decoded is List) {
@@ -380,8 +404,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       }
 
       final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final contextRaw = jsonEncode(loginContext ?? const <String, dynamic>{})
-          .toUpperCase();
+      final contextRaw = jsonEncode(
+        loginContext ?? const <String, dynamic>{},
+      ).toUpperCase();
       if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
         return true;
       }
@@ -397,8 +422,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (currentStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No students selected to sign in'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -415,26 +439,41 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
-    // Determine effective date/time based on persona (admins can backdate, others locked to now)
-    final now = DateTime.now();
-    final isAdmin = _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-    final DateTime effectiveDate = isAdmin ? selectedDate : now;
-    final TimeOfDay effectiveTime =
-        isAdmin ? selectedTime : TimeOfDay.fromDateTime(now);
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
 
-    final occurredAt = DateTime(
-      effectiveDate.year,
-      effectiveDate.month,
-      effectiveDate.day,
-      effectiveTime.hour,
-      effectiveTime.minute,
-    ).toUtc();
-    final attendanceDate = _attendanceDateYyyyMmDd(occurredAt);
+    // Admins pick school-local date/time; everyone else uses "now" in the school's zone.
+    final isAdmin = _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    final nowUtc = DateTime.now().toUtc();
+
+    final DateTime occurredAt = isAdmin
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: selectedDate.year,
+            month: selectedDate.month,
+            day: selectedDate.day,
+            hour: selectedTime.hour,
+            minute: selectedTime.minute,
+          )
+        : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+
+    final attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+      occurredAt,
+      schoolTimeZone,
+    );
 
     if (isParent) {
-      final selectedDay = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
-      final today = DateTime(now.year, now.month, now.day);
-      if (selectedDay.isAfter(today)) {
+      final selectedDay = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
+      final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
+        schoolTimeZone,
+      );
+      if (selectedDay.isAfter(schoolToday)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
@@ -447,7 +486,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       }
     } else if (isAdmin) {
       // Admin cannot sign in for a future date/time
-      if (occurredAt.isAfter(now.toUtc())) {
+      if (occurredAt.isAfter(nowUtc)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
@@ -467,8 +506,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (studentCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -478,7 +516,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     final classroomCodeByStudentCode = <String, String>{
       for (final s in currentStudents)
-        if (s.studentCode.trim().isNotEmpty && s.classroomCode.trim().isNotEmpty)
+        if (s.studentCode.trim().isNotEmpty &&
+            s.classroomCode.trim().isNotEmpty)
           s.studentCode.trim(): s.classroomCode.trim(),
     };
     final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
@@ -492,7 +531,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       'longitude': 0,
       'withinGeofence': true,
       'isGeofence': true,
-      'timeZone': 'UTC',
+      'timeZone': schoolTimeZone,
     };
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
@@ -536,7 +575,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         'staffCode': staffCode,
         'classroomCode': defaultClassroomCode,
         'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toIso8601String(),
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
       });
     }
 
@@ -589,11 +628,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
@@ -634,8 +673,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -696,11 +734,25 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            // Prevent future dates even if picked
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final pickedDay = DateTime(date.year, date.month, date.day);
-                            selectedDate = pickedDay.isAfter(today) ? today : date;
+                            // Prevent future dates (school calendar), not device calendar.
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final pickedDay = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
+                            selectedDate = pickedDay.isAfter(today)
+                                ? today
+                                : date;
                           });
                           _runUnexpectedSignInGate();
                         },
@@ -736,7 +788,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
-        onPressedConfirm: (_isSubmitting ||
+        onPressedConfirm:
+            (_isSubmitting ||
                 _unexpectedGateLoading ||
                 (_hasUnexpectedAmongSelected() &&
                     !_unexpectedSignInAcknowledged))
@@ -745,7 +798,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       ),
     );
   }
-
 }
 
 // Simplified RemoveStudentTile widget for UI-only implementation
@@ -762,14 +814,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -799,7 +846,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

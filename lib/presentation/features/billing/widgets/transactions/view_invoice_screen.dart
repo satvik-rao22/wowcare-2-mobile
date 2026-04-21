@@ -43,6 +43,8 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     // Simulate API delay
     await Future.delayed(const Duration(milliseconds: 500));
 
+    if (!mounted) return;
+
     // Load dummy data
     setState(() {
       _addressEntity = {

@@ -112,8 +112,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   late final UpdateActivityUseCase _updateActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
 
   @override
   void initState() {
@@ -143,14 +142,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           : (activity.description ?? activity.whatHappened ?? '');
       _selectedActivityType = activity.activityType ?? '';
       final cats = activity.categoryType;
-      _selectedCategory =
-          (cats != null && cats.isNotEmpty) ? cats.first : null;
+      _selectedCategory = (cats != null && cats.isNotEmpty) ? cats.first : null;
       _activityTypeCode = activity.activityTypeCode;
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-      _remainingExistingPhotoUrls =
-          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+        _detailAttachmentRows,
+      );
       if (_remainingExistingPhotoUrls.isEmpty &&
           activity.photoUrl != null &&
           activity.photoUrl!.trim().isNotEmpty) {
@@ -195,14 +194,16 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 : (item.description ?? item.whatHappened ?? '');
         _selectedActivityType = item.activityType ?? '';
         final cats = item.categoryType;
-        _selectedCategory =
-            (cats != null && cats.isNotEmpty) ? cats.first : null;
+        _selectedCategory = (cats != null && cats.isNotEmpty)
+            ? cats.first
+            : null;
         _activityTypeCode = item.activityTypeCode;
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        _remainingExistingPhotoUrls =
-            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+          _detailAttachmentRows,
+        );
         if (_remainingExistingPhotoUrls.isEmpty &&
             item.photoUrl != null &&
             item.photoUrl!.trim().isNotEmpty) {
@@ -226,10 +227,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -239,8 +240,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -251,13 +251,15 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? learningSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -272,7 +274,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         });
       }
     } catch (e) {
-      CoreUtils.logApiError('Failed to load activity settings for Learning: $e');
+      CoreUtils.logApiError(
+        'Failed to load activity settings for Learning: $e',
+      );
     }
   }
 
@@ -285,9 +289,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (param == null || label.trim().isEmpty) return null;
     final v = label.trim();
     final dt = (param.dataType ?? '').toUpperCase();
-    final isDropdownType = dt == 'DROPDOWN' ||
-        dt == 'SELECT' ||
-        dt == 'MULTISELECT';
+    final isDropdownType =
+        dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT';
 
     if (isDropdownType) {
       for (final o in param.options) {
@@ -295,18 +298,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (ol.isNotEmpty && ol.toLowerCase() == v.toLowerCase()) {
           final oc = (o.optionCode ?? o.code).trim();
           if (oc.isNotEmpty) {
-            return {
-              'parameterCode': param.code,
-              'selectedOptionCode': oc,
-            };
+            return {'parameterCode': param.code, 'selectedOptionCode': oc};
           }
         }
       }
     }
-    return {
-      'parameterCode': param.code,
-      'value': v,
-    };
+    return {'parameterCode': param.code, 'value': v};
   }
 
   ActivityTypeParameter? _findActivityNameParameter(
@@ -345,11 +342,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes = studentCodes
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    final normalizedStudentCodes =
+        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          ..sort();
     final uploadContextKey = [
       organizationCode.trim(),
       schoolCode.trim(),
@@ -369,15 +364,15 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (missing.isNotEmpty) {
       setState(() => _isUploadingMedia = true);
       try {
-        final uploadSession =
-            await _imageUploadService.createActivityUploadSession(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          classroomCode: classroomCode,
-          activityTypeCode: activityTypeCode,
-          bindingMode: 'PER_STUDENT',
-          studentCodes: studentCodes,
-        );
+        final uploadSession = await _imageUploadService
+            .createActivityUploadSession(
+              organizationCode: organizationCode,
+              schoolCode: schoolCode,
+              classroomCode: classroomCode,
+              activityTypeCode: activityTypeCode,
+              bindingMode: 'PER_STUDENT',
+              studentCodes: studentCodes,
+            );
 
         final sessionAssetCodes = <String>[];
         for (final photo in missing) {
@@ -440,8 +435,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   ) {
     setState(() {
       _newPhotos = photos;
-      _remainingExistingPhotoUrls =
-          List<String>.from(remainingExistingPhotoUrls);
+      _remainingExistingPhotoUrls = List<String>.from(
+        remainingExistingPhotoUrls,
+      );
       _uploadedAssetCodeByPath.removeWhere(
         (path, _) => !_newPhotos.any((f) => f.path == path),
       );
@@ -455,10 +451,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
     final organizationCode = _organizationCode;
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     final studentCodes = _selectedStudentsData
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
@@ -513,7 +511,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    if (_selectedActivityType == null || _selectedActivityType!.trim().isEmpty) {
+    if (_selectedActivityType == null ||
+        _selectedActivityType!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select an Activity Name',
@@ -565,10 +564,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -646,8 +647,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -789,7 +791,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    if (_selectedActivityType == null || _selectedActivityType!.trim().isEmpty) {
+    if (_selectedActivityType == null ||
+        _selectedActivityType!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select an Activity Name',
@@ -841,10 +844,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -944,8 +949,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1084,9 +1090,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
-      _selectedStudentsData.removeWhere(
-        (m) => (m['name'] as String?) == name,
-      );
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -1324,9 +1328,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
                       : (_effectiveActivity.photoUrl != null &&
-                              _effectiveActivity.photoUrl!.trim().isNotEmpty
-                          ? [_effectiveActivity.photoUrl!.trim()]
-                          : const []),
+                                _effectiveActivity.photoUrl!.trim().isNotEmpty
+                            ? [_effectiveActivity.photoUrl!.trim()]
+                            : const []),
                   label: 'Upload Photos',
                   onMediaChanged: _onMediaChanged,
                 ),
@@ -1359,7 +1363,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   onPressedConfirm: _onPressedBottom,
                   showCancelButton: false,
                   isForm: false,
-                  isLoading: _isSubmitting ||
+                  isLoading:
+                      _isSubmitting ||
                       _isUploadingMedia ||
                       _loadingActivityDetail,
                 ),

@@ -22,6 +22,10 @@ class StorageKeys {
   static const String schoolCode = 'schoolCode';
   static const String selectedSchoolName = 'selectedSchoolName';
 
+  /// Cached IANA timezone from `GET /api/v1/schools/{code}/timezone` (invalidated when school changes).
+  static const String schoolTimeZone = 'schoolTimeZone';
+  static const String schoolTimeZoneSchoolCode = 'schoolTimeZoneSchoolCode';
+
   /// Optional cached staffCode for the logged-in user (when they have a staff profile).
   static const String staffCode = 'staffCode';
   /// Cached staffType from staff profile API (e.g. ORGANIZATION_ADMIN → shown as role).

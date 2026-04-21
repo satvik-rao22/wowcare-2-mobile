@@ -32,6 +32,7 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// [classroom] must be the backend classroom **code**, not the display name.
   Future<Student> createStudent({
     required String schoolCode,
     required String firstName,

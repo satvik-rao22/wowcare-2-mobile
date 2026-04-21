@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -15,6 +17,8 @@ import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
@@ -24,11 +28,7 @@ import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffSignInForm extends StatefulWidget {
-  const StaffSignInForm({
-    super.key,
-    this.staff,
-    this.staffList,
-  });
+  const StaffSignInForm({super.key, this.staff, this.staffList});
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
@@ -42,6 +42,7 @@ class StaffSignInForm extends StatefulWidget {
 class _StaffSignInFormState extends State<StaffSignInForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+  String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona; // Admin can change time to past, but not future.
@@ -59,22 +60,51 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       _selectedStaff = <StaffEntity>[widget.staff!];
     } else {
       _selectedStaff = <StaffEntity>[
-        StaffEntity(
-          id: 1,
-          name: 'Staff Member',
-          primaryRoomId: 1,
-        ),
+        StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1),
       ];
     }
-    _loadPersonaFlags();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _runUnexpectedSignInGate();
+      _initializeSchoolAndPersona();
     });
   }
 
-  String _attendanceDateYyyyMmDd(DateTime d) {
-    final utc = d.toUtc();
-    return '${utc.year.toString().padLeft(4, '0')}-${utc.month.toString().padLeft(2, '0')}-${utc.day.toString().padLeft(2, '0')}';
+  String _naiveCalendarYyyyMmDd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _initializeSchoolAndPersona() async {
+    final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _schoolIana = z;
+    });
+    _setCurrentDateTimeFromSchool();
+
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+    });
+    await _runUnexpectedSignInGate();
+  }
+
+  void _setCurrentDateTimeFromSchool() {
+    final iana = _schoolIana;
+    if (iana != null && iana.isNotEmpty) {
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+      setState(() {
+        selectedDate = dt.$1;
+        selectedTime = dt.$2;
+      });
+      return;
+    }
+    final now = DateTime.now();
+    setState(() {
+      selectedDate = now;
+      selectedTime = TimeOfDay.fromDateTime(now);
+    });
   }
 
   bool _hasUnexpectedAmongSelected() {
@@ -112,7 +142,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       _unexpectedGateLoading = true;
     });
 
-    final dateStr = _attendanceDateYyyyMmDd(selectedDate);
+    final dateStr = _naiveCalendarYyyyMmDd(selectedDate);
     try {
       final map = await _fetchIsExpectedTodayFromSignInFormList(
         attendanceDate: dateStr,
@@ -162,28 +192,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
   }
 
-  Future<void> _loadPersonaFlags() async {
-    final isAdmin = await _resolveIsStaffAdminPersona();
-    if (!mounted) return;
-    setState(() {
-      _isStaffAdminPersona = isAdmin;
-      // Teachers cannot modify date/time: lock to "now".
-      if (!_isStaffAdminPersona!) {
-        selectedDate = DateTime.now();
-        selectedTime = TimeOfDay.now();
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _runUnexpectedSignInGate();
-    });
-  }
-
   Future<bool> _resolveIsStaffAdminPersona() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '')
-            .trim()
-            .toUpperCase();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
 
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       return true;
@@ -199,8 +212,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
             .toString()
             .toUpperCase();
-        if (roleCode == 'SCHOOL_ADMIN' ||
-            roleCode == 'ORGANIZATION_ADMIN') {
+        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
           return true;
         }
       }
@@ -210,8 +222,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     return false;
   }
 
-  Future<String> _resolveStaffCode() =>
-      resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   /// Loads `staffCode -> isExpectedToday` from the sign-in form list GET API
   /// for the given calendar date (same contract as the list shown in selection UI).
@@ -230,10 +241,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     };
   }
 
-  bool _isExpectedTodayForStaffCode(
-    String code,
-    Map<String, bool> fromApi,
-  ) {
+  bool _isExpectedTodayForStaffCode(String code, Map<String, bool> fromApi) {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return true;
     final apiValue = fromApi[trimmed];
@@ -267,8 +275,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     if (_selectedStaff.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No staff selected to sign in'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -293,8 +300,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -314,8 +320,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     if (targetStaffCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -330,20 +335,24 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     final isStaffAdmin =
         _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-    final now = DateTime.now();
-    final nowUtc = now.toUtc();
+
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    final nowUtc = DateTime.now().toUtc();
 
     // Teachers:
     // - can only sign in for themselves
     // - cannot modify date/time (defaults to current)
-    final DateTime effectiveDate;
-    final TimeOfDay effectiveTime;
+    late final DateTime occurredAt;
+    late final String attendanceDate;
+
     if (!isStaffAdmin) {
       if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
-          snackBar: 
-          const SnackBar(
+          snackBar: const SnackBar(
             content: Text('Teachers can only sign in for themselves.'),
             backgroundColor: AppColors.warningColor,
           ),
@@ -355,28 +364,31 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         }
         return;
       }
-      effectiveDate = now;
-      effectiveTime = TimeOfDay.fromDateTime(now);
+      occurredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+      attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+        occurredAt,
+        schoolTimeZone,
+      );
     } else {
-      effectiveDate = selectedDate;
-      effectiveTime = selectedTime;
+      occurredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+        schoolTimeZone,
+        year: selectedDate.year,
+        month: selectedDate.month,
+        day: selectedDate.day,
+        hour: selectedTime.hour,
+        minute: selectedTime.minute,
+      );
+      attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+        occurredAt,
+        schoolTimeZone,
+      );
     }
-
-    final occurredAt = DateTime(
-      effectiveDate.year,
-      effectiveDate.month,
-      effectiveDate.day,
-      effectiveTime.hour,
-      effectiveTime.minute,
-    ).toUtc();
-    final attendanceDate = _attendanceDateYyyyMmDd(occurredAt);
 
     // Admin cannot sign in for future date/time.
     if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('You cannot sign in for future date/time.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -391,8 +403,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     Map<String, bool> expectedFromApi = <String, bool>{};
     try {
-      expectedFromApi =
-          await _fetchIsExpectedTodayFromSignInFormList(
+      expectedFromApi = await _fetchIsExpectedTodayFromSignInFormList(
         attendanceDate: attendanceDate,
       );
     } catch (_) {
@@ -413,10 +424,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
-        'timeZone': 'UTC',
-        'occurredAt': occurredAt.toIso8601String(),
-        'isExpectedToday':
-            _isExpectedTodayForStaffCode(staffCode, expectedFromApi),
+        'timeZone': schoolTimeZone,
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
+        'isExpectedToday': _isExpectedTodayForStaffCode(
+          staffCode,
+          expectedFromApi,
+        ),
       };
     } else {
       // Admin sign-in: supports signing in other staff in a bulk-like request.
@@ -445,8 +458,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'latitude': 0,
         'longitude': 0,
         'withinGeofence': true,
-        'timeZone': 'UTC',
-        'occurredAt': occurredAt.toIso8601String(),
+        'timeZone': schoolTimeZone,
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
       };
     }
 
@@ -456,10 +469,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         body,
         serviceLocator<StorageService>(),
       );
-      final response = await client.post<dynamic>(
-        endpoint,
-        data: body,
-      );
+      final response = await client.post<dynamic>(endpoint, data: body);
 
       final data = response.data;
       bool success = false;
@@ -476,11 +486,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
@@ -501,8 +511,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -514,6 +523,15 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         });
       }
     }
+  }
+
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   @override
@@ -536,8 +554,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    _buildStaffCard(_selectedStaff[index]),
+                itemBuilder: (context, index) => _buildStaffCard(
+                  _selectedStaff[index],
+                  canRemove: _selectedStaff.length > 1,
+                ),
               ),
             const SizedBox(height: 20),
             Row(
@@ -557,9 +577,21 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked = DateTime(date.year, date.month, date.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final picked = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
                             selectedDate = picked.isAfter(today) ? today : date;
                           });
                           _runUnexpectedSignInGate();
@@ -597,7 +629,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       ),
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-In',
-        onPressedConfirm: (_isSubmitting ||
+        onPressedConfirm:
+            (_isSubmitting ||
                 _unexpectedGateLoading ||
                 (_hasUnexpectedAmongSelected() &&
                     !_unexpectedSignInAcknowledged))
@@ -608,16 +641,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     );
   }
 
-  Widget _buildStaffCard(StaffEntity staff) {
+  Widget _buildStaffCard(
+    StaffEntity staff, {
+    required bool canRemove,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -644,6 +675,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: () => _removeStaff(staff),
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );

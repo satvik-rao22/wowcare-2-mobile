@@ -6,7 +6,6 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -17,7 +16,8 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 class StaffEditAttendanceForm extends StatefulWidget {
   const StaffEditAttendanceForm({
@@ -36,13 +36,36 @@ class StaffEditAttendanceForm extends StatefulWidget {
 class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   TimeOfDay? _signInTime;
   TimeOfDay? _signOutTime;
+  TimeOfDay? _initialSignInTime;
+  TimeOfDay? _initialSignOutTime;
+  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _signInTime = _parseTimeOrNull(widget.staffAttendance.signInTime);
-    _signOutTime = _parseTimeOrNull(widget.staffAttendance.signOutTime);
+    _bootstrapInitialTimes();
+  }
+
+  Future<void> _bootstrapInitialTimes() async {
+    final schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _schoolIana = schoolIana;
+      _signInTime = _parseTimeOrNull(widget.staffAttendance.signInTime);
+      _signOutTime = _parseTimeOrNull(widget.staffAttendance.signOutTime);
+      _initialSignInTime = _signInTime;
+      _initialSignOutTime = _signOutTime;
+    });
+  }
+
+  bool _sameTime(TimeOfDay? a, TimeOfDay? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.hour == b.hour && a.minute == b.minute;
   }
 
   TimeOfDay? _parseTimeOrNull(String? timeString) {
@@ -59,8 +82,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     try {
       final iso = DateTime.tryParse(raw);
       if (iso != null) {
-        final local = iso.toLocal();
-        return TimeOfDay(hour: local.hour, minute: local.minute);
+        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(iso, _schoolIana);
       }
     } catch (_) {}
 
@@ -105,7 +127,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   Future<void> _submitAsync() async {
-    final attendanceCode = _normalizeAttendanceRecordCodeForMutation(
+    final attendanceCode = _normalizeAttendanceRecordCode(
       widget.staffAttendance.attendanceRecordCode,
     );
     if (attendanceCode == null || attendanceCode.isEmpty) {
@@ -134,83 +156,73 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       _isSubmitting = true;
     });
 
-    final staffCode = await resolveStaffCodeForLoggedInUser();
-    if (!mounted) return;
+    final date = widget.attendanceDate;
+    final staffCode = widget.staffAttendance.id.trim();
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
+          content: Text('Unable to update: missing staff code.'),
           backgroundColor: AppColors.errorColor,
         ),
       );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      setState(() {
+        _isSubmitting = false;
+      });
       return;
     }
 
-    final date = widget.attendanceDate;
-    final signedInAt = DateTime.utc(
-      date.year,
-      date.month,
-      date.day,
-      _signInTime!.hour,
-      _signInTime!.minute,
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
     );
-    final signedOutAt = _signOutTime == null
-        ? null
-        : DateTime.utc(
-            date.year,
-            date.month,
-            date.day,
-            _signOutTime!.hour,
-            _signOutTime!.minute,
-          );
+
+    final signedInChanged = !_sameTime(_signInTime, _initialSignInTime);
+    final signedOutChanged = !_sameTime(_signOutTime, _initialSignOutTime);
+
+    final signedInAt = signedInChanged
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: date.year,
+            month: date.month,
+            day: date.day,
+            hour: _signInTime!.hour,
+            minute: _signInTime!.minute,
+          )
+        : null;
+    final signedOutAt = signedOutChanged && _signOutTime != null
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: date.year,
+            month: date.month,
+            day: date.day,
+            hour: _signOutTime!.hour,
+            minute: _signOutTime!.minute,
+          )
+        : null;
 
     final payload = <String, dynamic>{
       'staffCode': staffCode,
-      'signedInAt': signedInAt.toUtc().toIso8601String(),
-      'signedOutAt': signedOutAt?.toUtc().toIso8601String(),
-      'signedInMethod': 'APP',
-      'signedOutMethod': 'APP',
-      'signedInLocationLat': 0,
-      'signedInLocationLong': 0,
-      'signedInWithinGeofence': true,
-      'signedOutLocationLat': 0,
-      'signedOutLocationLong': 0,
-      'signedOutWithinGeofence': true,
-      'notes': null,
-      'timeZone': 'UTC',
+      if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
+      if (signedOutAt != null)
+        'signedOutAt': signedOutAt.toUtc().toIso8601String(),
+      if (signedInAt != null) 'SignedInMethod': 'APP',
+      if (signedOutAt != null) 'SignedOutMethod': 'APP',
+      'timeZone': schoolTimeZone,
     };
 
     try {
-      final client = serviceLocator<ApiClient>().client;
-      final endpoint = ApiPaths.urlWithBase(
-        '/api/v1/staff-attendance-records/$attendanceCode',
-        ApiConstants.attendanceBaseUrl,
+      final apiClient = serviceLocator<ApiClient>();
+      await _patchStaffAttendanceRecord(
+        apiClient: apiClient,
+        attendanceCode: attendanceCode,
+        body: payload,
       );
-
-      final body = Map<String, dynamic>.from(payload);
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.patch<Map<String, dynamic>>(
-        endpoint,
-        data: body,
-      );
-
-      final message =
-          (response.data?['message'] ?? 'Attendance updated successfully')
-              .toString();
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: SnackBar(
-          content: Text(message),
+        snackBar: const SnackBar(
+          content: Text('Attendance updated successfully'),
           backgroundColor: AppColors.successColor,
         ),
       );
@@ -233,13 +245,26 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     }
   }
 
-  String? _normalizeAttendanceRecordCodeForMutation(String? rawCode) {
+  String? _normalizeAttendanceRecordCode(String? rawCode) {
     if (rawCode == null) return null;
     final trimmed = rawCode.trim();
     if (trimmed.isEmpty) return null;
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
+    return trimmed;
+  }
+
+  Future<void> _patchStaffAttendanceRecord({
+    required ApiClient apiClient,
+    required String attendanceCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceDailyRecordByRowCode(attendanceCode),
+      ApiConstants.attendanceBaseUrl,
+    );
+    await apiClient.client.patch<Map<String, dynamic>>(
+      endpoint,
+      data: body,
+    );
   }
 
   @override

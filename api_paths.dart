@@ -256,10 +256,8 @@ class ApiPaths {
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';
   static const String schoolUsersStaff = '/api/v1/school-users/staff';
-  static const String schoolUsersDeactivate =
-      '/api/v1/school-users/deactivate';
-  static const String schoolUsersActivate =
-      '/api/v1/school-users/activate';
+  static const String schoolUsersDeactivate = '/api/v1/school-users/deactivate';
+  static const String schoolUsersActivate = '/api/v1/school-users/activate';
 
   // —— Organization admins (user host) ——
   static const String organizationAdminsDeactivate =
@@ -276,8 +274,7 @@ class ApiPaths {
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
-  static const String studentRegularSchedules =
-      '/api/v1/regular-schedules';
+  static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
   static String studentSiblings(String code) => '$studentList/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
@@ -291,8 +288,9 @@ class ApiPaths {
   static String studentImmunization(String code) =>
       '$studentList/$code/immunization';
   static String studentImmunizationRecord(
-          String studentCode, String recordCode) =>
-      '$studentList/$studentCode/immunization/$recordCode';
+    String studentCode,
+    String recordCode,
+  ) => '$studentList/$studentCode/immunization/$recordCode';
   static String studentPhysicalExams(String code) =>
       '$studentList/$code/physical-exam';
   static String studentPhysicalExam(String studentCode, String examCode) =>

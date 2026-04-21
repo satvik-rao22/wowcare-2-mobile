@@ -18,6 +18,8 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -77,6 +79,7 @@ class StudentSignOutForm extends StatefulWidget {
 class _StudentSignOutFormState extends State<StudentSignOutForm> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
+  String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
@@ -104,18 +107,30 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   Future<void> _loadPersonaFlags() async {
     try {
+      String? iana;
+      try {
+        iana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+          storage: serviceLocator<StorageService>(),
+          apiClient: serviceLocator<ApiClient>(),
+        );
+      } catch (_) {}
+
       final storage = serviceLocator<StorageService>();
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
+      bool isAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
       if (!isAdmin) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
           for (final r in roles) {
-            final roleCode =
-                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+                .toString()
+                .toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN') {
               isAdmin = true;
               break;
             }
@@ -124,8 +139,13 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       }
       if (!mounted) return;
       setState(() {
+        _schoolIana = iana;
         _isStaffAdminPersona = isAdmin;
-        if (!isAdmin) {
+        if (iana != null && iana.isNotEmpty) {
+          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+          selectedDate = dt.$1;
+          selectedTime = dt.$2;
+        } else {
           final now = DateTime.now();
           selectedDate = now;
           selectedTime = TimeOfDay.fromDateTime(now);
@@ -139,7 +159,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     try {
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (rolesJson.isNotEmpty) {
         final decoded = jsonDecode(rolesJson);
         if (decoded is List) {
@@ -157,8 +178,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       }
 
       final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final contextRaw = jsonEncode(loginContext ?? const <String, dynamic>{})
-          .toUpperCase();
+      final contextRaw = jsonEncode(
+        loginContext ?? const <String, dynamic>{},
+      ).toUpperCase();
       if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
         return true;
       }
@@ -174,8 +196,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     if (currentStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No students selected to sign out'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -196,27 +217,40 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       ApiConstants.attendanceBaseUrl,
     );
 
-    final now = DateTime.now();
-    final isAdmin = _isStaffAdminPersona ?? false;
-    final DateTime effectiveDate = isAdmin ? selectedDate : now;
-    final TimeOfDay effectiveTime =
-        isAdmin ? selectedTime : TimeOfDay.fromDateTime(now);
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
 
-    final occurredAt = DateTime(
-      effectiveDate.year,
-      effectiveDate.month,
-      effectiveDate.day,
-      effectiveTime.hour,
-      effectiveTime.minute,
-    ).toUtc();
-    final attendanceDate =
-        '${occurredAt.year.toString().padLeft(4, '0')}-${occurredAt.month.toString().padLeft(2, '0')}-${occurredAt.day.toString().padLeft(2, '0')}';
+    final isAdmin = _isStaffAdminPersona ?? false;
+    final nowUtc = DateTime.now().toUtc();
+
+    final DateTime occurredAt = isAdmin
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: selectedDate.year,
+            month: selectedDate.month,
+            day: selectedDate.day,
+            hour: selectedTime.hour,
+            minute: selectedTime.minute,
+          )
+        : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+
+    final attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+      occurredAt,
+      schoolTimeZone,
+    );
 
     if (isParent) {
-      final selectedDay =
-          DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day);
-      final today = DateTime(now.year, now.month, now.day);
-      if (selectedDay.isAfter(today)) {
+      final selectedDay = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
+      final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
+        schoolTimeZone,
+      );
+      if (selectedDay.isAfter(schoolToday)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
@@ -228,7 +262,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         return;
       }
     } else if (isAdmin) {
-      if (occurredAt.isAfter(now.toUtc())) {
+      if (occurredAt.isAfter(nowUtc)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
@@ -248,8 +282,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     if (studentCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -259,7 +292,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     final classroomCodeByStudentCode = <String, String>{
       for (final s in currentStudents)
-        if (s.studentCode.trim().isNotEmpty && s.classroomCode.trim().isNotEmpty)
+        if (s.studentCode.trim().isNotEmpty &&
+            s.classroomCode.trim().isNotEmpty)
           s.studentCode.trim(): s.classroomCode.trim(),
     };
     final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
@@ -273,7 +307,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       'longitude': 0,
       'withinGeofence': true,
       'isGeofence': true,
-      'timeZone': 'UTC',
+      'timeZone': schoolTimeZone,
     };
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
@@ -317,7 +351,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         'staffCode': staffCode,
         'classroomCode': defaultClassroomCode,
         'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toIso8601String(),
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
       });
     }
 
@@ -355,11 +389,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
@@ -400,8 +434,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -440,9 +473,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
               itemCount: currentStudents.length,
               itemBuilder: (context, index) => RemoveStudentTile(
                 student: currentStudents[index],
-                onRemove: () => _removeStudent(
-                  currentStudents[index],
-                ),
+                onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
             const SizedBox(height: 20),
@@ -463,10 +494,24 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final pickedDay = DateTime(date.year, date.month, date.day);
-                            selectedDate = pickedDay.isAfter(today) ? today : date;
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final pickedDay = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
+                            selectedDate = pickedDay.isAfter(today)
+                                ? today
+                                : date;
                           });
                         },
                       ),
@@ -522,14 +567,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -569,7 +609,7 @@ class RemoveStudentTile extends StatelessWidget {
               height: 18,
               width: 18,
             ),
-          )
+          ),
         ],
       ),
     );

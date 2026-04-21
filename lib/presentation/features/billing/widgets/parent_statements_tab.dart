@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import '../../../../core/util/safe_state_mixin.dart';
+
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -23,7 +25,8 @@ class ParentStatementsTab extends StatefulWidget {
   State<ParentStatementsTab> createState() => _ParentStatementsTabState();
 }
 
-class _ParentStatementsTabState extends State<ParentStatementsTab> {
+class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStateMixin {
+
   late DateTime? _customStartDate;
   late DateTime? _customEndDate;
   bool _isStatementsLoading = false;

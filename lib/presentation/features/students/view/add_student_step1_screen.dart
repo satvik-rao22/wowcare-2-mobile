@@ -62,7 +62,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   static const int _nameMaxLength = 50;
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static const int _duplicateQueryPageSize = 25;
-  static const int _duplicateQueryMaxPages = 10; // safety cap (25 * 10 = 250 scanned)
+  static const int _duplicateQueryMaxPages =
+      10; // safety cap (25 * 10 = 250 scanned)
   static const int _maxParentsPerStudent = 4;
 
   String? _selectedStatus;
@@ -206,8 +207,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final selDay =
-            DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+        final selDay = DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+        );
         if (_isUpcoming && selDay.isBefore(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
@@ -232,7 +236,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _onNext() async {
     _trimAllInputs();
-    
+
     if (_firstNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -258,7 +262,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       );
       return;
     }
-    
+
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -323,11 +327,25 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       lastName: _lastNameController.text.trim(),
     );
 
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final selectedClassroom = classrooms.where((c) => c.name == _selectedClassroom);
+    final selectedClassroomCode =
+        selectedClassroom.isNotEmpty ? selectedClassroom.first.code : '';
+    if (selectedClassroomCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Selected classroom is invalid. Please select again.',
+        isError: true,
+      );
+      return;
+    }
+
     final step1Data = {
       'status': _selectedStatus,
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
       'classroom': _selectedClassroom,
+      'classroomCode': selectedClassroomCode,
       'birthdate': _selectedBirthdate,
       'schoolStartDate': _selectedSchoolStartDate,
       'profilePhoto': _profilePhoto,
@@ -410,17 +428,23 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         builder: (ctx) {
           return DuplicateStudentBottomSheet(
             enteredName: enteredName,
-            matches: matches.map((m) => m.fullName.isNotEmpty ? m.fullName : enteredName).toList(),
+            matches: matches
+                .map((m) => m.fullName.isNotEmpty ? m.fullName : enteredName)
+                .toList(),
             onTapMatch: (matchName) {
               final match = matches.firstWhere(
-                (m) => (m.fullName.isNotEmpty ? m.fullName : enteredName) == matchName,
+                (m) =>
+                    (m.fullName.isNotEmpty ? m.fullName : enteredName) ==
+                    matchName,
                 orElse: () => matches.first,
               );
               Navigator.of(ctx).pop(false);
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => StudentProfileScreen(
-                    name: match.fullName.isNotEmpty ? match.fullName : enteredName,
+                    name: match.fullName.isNotEmpty
+                        ? match.fullName
+                        : enteredName,
                     classroom: match.classroom,
                     tags: match.tags,
                     schedule: match.schedule,
@@ -506,7 +530,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     }
   }
 
-  void _handleStep2Result(Map<String, dynamic> step1Data, List<dynamic> parents) async {
+  void _handleStep2Result(
+    Map<String, dynamic> step1Data,
+    List<dynamic> parents,
+  ) async {
     if (parents.length < _maxParentsPerStudent) {
       final addAnother = await showModalBottomSheet<bool>(
         context: context,
@@ -533,7 +560,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           ),
         ).then((nextParentResult) {
           if (nextParentResult != null) {
-            final updatedParents = List<dynamic>.from(parents)..add(nextParentResult);
+            final updatedParents = List<dynamic>.from(parents)
+              ..add(nextParentResult);
             _handleStep2Result(step1Data, updatedParents);
           }
         });
@@ -567,10 +595,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       } else if (step3Result is Map) {
         scheduleData = Map<String, Map<String, TimeOfDay>>.from(
           step3Result.map(
-            (k, v) => MapEntry(
-              k.toString(),
-              Map<String, TimeOfDay>.from(v as Map),
-            ),
+            (k, v) =>
+                MapEntry(k.toString(), Map<String, TimeOfDay>.from(v as Map)),
           ),
         );
       }
@@ -593,22 +619,22 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
       final rawStatus = (step1Data['status'] as String?) ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroom = (step1Data['classroom'] as String?) ?? '';
+      final classroomCode = (step1Data['classroomCode'] as String?)?.trim() ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
-      final DateTime? schoolStartDate = step1Data['schoolStartDate'] as DateTime?;
-      final siblingCodesToLink = (step1Data['siblingCodesToLink'] as List<dynamic>?)
+      final DateTime? schoolStartDate =
+          step1Data['schoolStartDate'] as DateTime?;
+      final siblingCodesToLink =
+          (step1Data['siblingCodesToLink'] as List<dynamic>?)
               ?.map((e) => e.toString().trim())
               .where((e) => e.isNotEmpty)
               .toList() ??
           <String>[];
 
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       final organizationCode =
           await storage.getString(StorageKeys.organizationCode) ?? '';
-      final userCode =
-          await storage.getString(StorageKeys.userCode) ?? '';
+      final userCode = await storage.getString(StorageKeys.userCode) ?? '';
 
       final repo = serviceLocator<StudentRepository>();
 
@@ -617,7 +643,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         firstName: firstName,
         lastName: lastName,
         status: status,
-        classroom: classroom,
+        classroom: classroomCode,
         dob: birthdate,
         schoolStartDate: schoolStartDate,
         profilePhotoUrl: null,
@@ -640,115 +666,113 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       } else {
         for (final parent in parents) {
-        if (parent is! Map) continue;
-        final map = Map<String, dynamic>.from(parent);
-        final bool selectFromExisting =
-            map['selectFromExisting'] as bool? ?? false;
-        if (selectFromExisting) {
-          final selectedExistingParents =
-              (map['selectedExistingParents'] as List<dynamic>? ?? const <dynamic>[])
-                  .map((e) => e.toString().trim())
-                  .where((e) => e.isNotEmpty)
-                  .toList();
-          if (selectedExistingParents.isEmpty) {
+          if (parent is! Map) continue;
+          final map = Map<String, dynamic>.from(parent);
+          final bool selectFromExisting =
+              map['selectFromExisting'] as bool? ?? false;
+          if (selectFromExisting) {
+            final selectedExistingParents =
+                (map['selectedExistingParents'] as List<dynamic>? ??
+                        const <dynamic>[])
+                    .map((e) => e.toString().trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+            if (selectedExistingParents.isEmpty) {
+              continue;
+            }
+            try {
+              final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
+                schoolCode: schoolCode,
+              );
+
+              final relationLabel = (map['relation'] as String?)?.trim() ?? '';
+              final relationOther =
+                  (map['relationOther'] as String?)?.trim() ?? '';
+              final relationEnum = relationLabel.isEmpty
+                  ? null
+                  : relationLabel.toUpperCase().replaceAll(' ', '_');
+              final relationDescription =
+                  relationLabel == 'Other' && relationOther.isNotEmpty
+                  ? relationOther
+                  : null;
+
+              for (final selectedName in selectedExistingParents) {
+                final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
+                if (guardianCode.isEmpty) continue;
+                await repo.linkExistingGuardian(
+                  guardianCode: guardianCode,
+                  studentCode: student.code,
+                  relation: relationEnum,
+                  relationDescription: relationDescription,
+                );
+              }
+            } catch (e) {
+              final message = ApiErrorHandler.extractErrorMessage(e);
+              if (mounted) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Failed to link existing parent: $message',
+                  isError: true,
+                );
+              }
+            }
             continue;
           }
+
+          final parentFirst = (map['firstName'] as String?)?.trim() ?? '';
+          final parentLast = (map['lastName'] as String?)?.trim() ?? '';
+          final parentEmail =
+              (map['email'] as String?)?.trim().toLowerCase() ?? '';
+          final parentPhoneRaw = (map['phoneNumber'] as String?)?.trim() ?? '';
+          final parentPhoneDigits = parentPhoneRaw.replaceAll(
+            RegExp(r'\D'),
+            '',
+          );
+
+          if (parentFirst.isEmpty ||
+              parentLast.isEmpty ||
+              parentEmail.isEmpty ||
+              parentPhoneDigits.isEmpty) {
+            continue;
+          }
+
+          final relationLabel = (map['relation'] as String?)?.trim() ?? '';
+          final relationOther = (map['relationOther'] as String?)?.trim() ?? '';
+          final relationToStudent =
+              (relationLabel == 'Other' && relationOther.isNotEmpty
+                      ? relationOther
+                      : relationLabel)
+                  .toUpperCase();
+
+          final bool primaryContact =
+              map['isEmergencyContact'] as bool? ?? true;
+          final bool legalCustody = map['isChildCustody'] as bool? ?? true;
+
           try {
-            final nameCodeMap =
-                await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
-
-            final relationLabel =
-                (map['relation'] as String?)?.trim() ?? '';
-            final relationOther =
-                (map['relationOther'] as String?)?.trim() ?? '';
-            final relationEnum = relationLabel.isEmpty
-                ? null
-                : relationLabel.toUpperCase().replaceAll(' ', '_');
-            final relationDescription =
-                relationLabel == 'Other' && relationOther.isNotEmpty
-                    ? relationOther
-                    : null;
-
-            for (final selectedName in selectedExistingParents) {
-              final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
-              if (guardianCode.isEmpty) continue;
-              await repo.linkExistingGuardian(
-                guardianCode: guardianCode,
-                studentCode: student.code,
-                relation: relationEnum,
-                relationDescription: relationDescription,
-              );
-            }
+            await repo.createGuardianUser(
+              schoolCode: schoolCode,
+              studentCode: student.code,
+              firstName: parentFirst,
+              lastName: parentLast,
+              email: parentEmail,
+              mobile: parentPhoneDigits,
+              relationToStudent: relationToStudent,
+              primaryContact: primaryContact,
+              legalCustody: legalCustody,
+              profilePhotoUrl: null,
+              userCode: userCode.isEmpty ? null : userCode,
+              organizationCode: organizationCode.trim(),
+            );
           } catch (e) {
             final message = ApiErrorHandler.extractErrorMessage(e);
             if (mounted) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Failed to link existing parent: $message',
+                message: 'Failed to add guardian: $message',
                 isError: true,
               );
             }
           }
-          continue;
-        }
-
-        final parentFirst =
-            (map['firstName'] as String?)?.trim() ?? '';
-        final parentLast =
-            (map['lastName'] as String?)?.trim() ?? '';
-        final parentEmail =
-            (map['email'] as String?)?.trim().toLowerCase() ?? '';
-        final parentPhoneRaw =
-            (map['phoneNumber'] as String?)?.trim() ?? '';
-        final parentPhoneDigits =
-            parentPhoneRaw.replaceAll(RegExp(r'\D'), '');
-
-        if (parentFirst.isEmpty ||
-            parentLast.isEmpty ||
-            parentEmail.isEmpty ||
-            parentPhoneDigits.isEmpty) {
-          continue;
-        }
-
-        final relationLabel =
-            (map['relation'] as String?)?.trim() ?? '';
-        final relationOther =
-            (map['relationOther'] as String?)?.trim() ?? '';
-        final relationToStudent = (relationLabel == 'Other' && relationOther.isNotEmpty
-                ? relationOther
-                : relationLabel)
-            .toUpperCase();
-
-        final bool primaryContact =
-            map['isEmergencyContact'] as bool? ?? true;
-        final bool legalCustody =
-            map['isChildCustody'] as bool? ?? true;
-
-        try {
-          await repo.createGuardianUser(
-            schoolCode: schoolCode,
-            studentCode: student.code,
-            firstName: parentFirst,
-            lastName: parentLast,
-            email: parentEmail,
-            mobile: parentPhoneDigits,
-            relationToStudent: relationToStudent,
-            primaryContact: primaryContact,
-            legalCustody: legalCustody,
-            profilePhotoUrl: null,
-            userCode: userCode.isEmpty ? null : userCode,
-            organizationCode: organizationCode.trim(),
-          );
-        } catch (e) {
-          final message = ApiErrorHandler.extractErrorMessage(e);
-          if (mounted) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Failed to add guardian: $message',
-              isError: true,
-            );
-          }
-        }
         }
       }
 
@@ -867,8 +891,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
-        final classroomNames =
-            classroomState.classrooms.map((c) => c.name).toList();
+        final classroomNames = classroomState.classrooms
+            .map((c) => c.name)
+            .toList();
 
         return GestureDetector(
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -894,7 +919,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                     const SizedBox(height: 16),
                     Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing),
+                        horizontal: responsive.horizontalSpacing,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -913,14 +939,15 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       child: Container(
                         width: responsive.containerWidth,
                         margin: EdgeInsets.symmetric(
-                            horizontal: responsive.horizontalSpacing),
+                          horizontal: responsive.horizontalSpacing,
+                        ),
                         padding: EdgeInsets.all(
-                            responsive.isTablet ? 32.0 : 16.0),
+                          responsive.isTablet ? 32.0 : 16.0,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.all(
-                            Radius.circular(
-                                responsive.isTablet ? 40.0 : 24.0),
+                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -950,8 +977,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                       color: const Color(0xff573353),
                                     ),
                                     showAsterisk: true,
-                                    labelBottomSpacing:
-                                        responsive.isTablet ? 8.0 : 6.0,
+                                    labelBottomSpacing: responsive.isTablet
+                                        ? 8.0
+                                        : 6.0,
                                     onSelect: (val) {
                                       setState(() {
                                         _selectedStatus = val;
@@ -975,8 +1003,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                       color: const Color(0xff573353),
                                     ),
                                     showAsterisk: true,
-                                    labelBottomSpacing:
-                                        responsive.isTablet ? 8.0 : 6.0,
+                                    labelBottomSpacing: responsive.isTablet
+                                        ? 8.0
+                                        : 6.0,
                                     onSelect: (val) {
                                       setState(() {
                                         _selectedClassroom = val;
@@ -1033,10 +1062,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                   ),
                 ],
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
               child: CustomButtonLayout(
@@ -1110,7 +1137,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -1120,7 +1150,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -1174,10 +1206,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             child: _profilePhoto != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _profilePhoto!,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1236,7 +1265,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -1249,7 +1281,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -1321,7 +1355,10 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     String text = newValue.text;
 
     // Remove trailing spaces
-    text = text.replaceFirst(RegExp(r"\s+"), ' '); // collapse multiple spaces inside
+    text = text.replaceFirst(
+      RegExp(r"\s+"),
+      ' ',
+    ); // collapse multiple spaces inside
     text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
     text = text.replaceAll(RegExp(r"\s+\z"), '');
 
@@ -1357,4 +1394,3 @@ class TrimFormatter extends TextInputFormatter {
     );
   }
 }
-

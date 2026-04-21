@@ -74,6 +74,7 @@ class StudentAttendanceSummary extends StatelessWidget {
         CustomStatBarCard(
           title: 'Expected\nStudents',
           number: expected.toString(),
+          normalizeBarByItemSum: true,
           items: [
             ProgressItemHelper(
               label: 'Signed-In ($present)',

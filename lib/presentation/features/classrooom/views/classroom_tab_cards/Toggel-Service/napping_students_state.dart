@@ -1,19 +1,19 @@
-part of 'napping_students_cubit.dart';
+// part of 'napping_students_cubit.dart';
 
-abstract class NappingStudentsState {}
+// abstract class NappingStudentsState {}
 
-class NappingStudentsInitial extends NappingStudentsState {}
+// class NappingStudentsInitial extends NappingStudentsState {}
 
-class NappingStudentsLoading extends NappingStudentsState {}
+// class NappingStudentsLoading extends NappingStudentsState {}
 
-class NappingStudentsLoaded extends NappingStudentsState {
-  final List<StudentEntity> nappingStudents;
+// class NappingStudentsLoaded extends NappingStudentsState {
+//   final List<StudentEntity> nappingStudents;
 
-  NappingStudentsLoaded(this.nappingStudents);
-}
+//   NappingStudentsLoaded(this.nappingStudents);
+// }
 
-class NappingStudentsError extends NappingStudentsState {
-  final String message;
+// class NappingStudentsError extends NappingStudentsState {
+//   final String message;
 
-  NappingStudentsError(this.message);
-}
+//   NappingStudentsError(this.message);
+// }

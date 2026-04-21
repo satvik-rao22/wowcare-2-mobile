@@ -26,9 +26,6 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_a
     hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -36,6 +33,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
@@ -47,6 +45,8 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_screen.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -127,6 +127,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
       final repo = AttendanceRepositoryImpl(
         remote,
         serviceLocator(),
+        serviceLocator<ApiClient>(),
       );
 
       _cubit = StudentAttendanceDailyCubit(
@@ -149,6 +150,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
               return AttendanceRepositoryImpl(
                 remote,
                 serviceLocator(),
+                serviceLocator<ApiClient>(),
               );
             })();
 
@@ -438,11 +440,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     switch (normalized) {
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signOutAtFilter = 'NULL';
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'IGNORE';
+        _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
         _showAbsentOnly = false;
         break;
@@ -547,7 +549,7 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
         ? item.absenceDate
         : DateTime.now().toIso8601String();
 
-    final absentTime = item.markedAbsentTime?.formattedHms ?? '';
+    final absentTime = item.markedAbsentTime?.formatted12h ?? '';
 
     return StudentAbsentCardData(
       id: item.studentCode,
@@ -735,15 +737,14 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     }
   }
 
-  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
-    final trimmed = rawCode.trim();
-    if (trimmed.isEmpty) return trimmed;
-    // Daily view can return a composite code like:
-    // SATR_xxx~A_IN~A_OUT
-    // Delete endpoint expects the base attendance record identifier.
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
+  /// Student daily edit/delete APIs expect rowCode from daily list item `code`.
+  String? _resolveStudentDeleteAttendanceRecordCode({
+    required StudentAttendanceCardData card,
+    required List<StudentAttendanceDailyItem> allItems,
+  }) {
+    final fromCard = card.attendanceRecordCode?.trim();
+    if (fromCard == null || fromCard.isEmpty) return null;
+    return fromCard;
   }
 
   @override
@@ -849,6 +850,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                         state.isRefreshing ||
                         state.isSummaryLoading,
                     onLegendTap: (status) {
+                      final normalizedStatus = status.trim().toUpperCase();
+                      if (normalizedStatus == 'ACTIVE' ||
+                          normalizedStatus == 'UPCOMING') {
+                        _openStudentListWithIncomingFilter(normalizedStatus);
+                        return;
+                      }
                       final normalized = status == 'Present' ? 'Signed-In' : status;
                       final currentLegend =
                           _statusLegendFilter == 'Present' ? 'Signed-In' : _statusLegendFilter;
@@ -1047,10 +1054,12 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
                                     try {
                                       final normalizedAttendanceCode =
-                                          _normalizeAttendanceRecordCodeForMutation(
-                                        student.attendanceRecordCode!,
+                                          _resolveStudentDeleteAttendanceRecordCode(
+                                        card: student,
+                                        allItems: state.items,
                                       );
-                                      if (normalizedAttendanceCode.isEmpty) {
+                                      if (normalizedAttendanceCode == null ||
+                                          normalizedAttendanceCode.isEmpty) {
                                         CoreUtils.showTopSnackBarFromSnackBar(
                                           context: context,
                                           snackBar:
@@ -1085,25 +1094,11 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
                                         return;
                                       }
 
-                                      final apiClient =
-                                          serviceLocator<ApiClient>().client;
-                                      final endpoint = ApiPaths.urlWithBase(
-                                        '/api/v1/student-attendance-records/$normalizedAttendanceCode',
-                                        ApiConstants.attendanceBaseUrl,
-                                      );
-
-                                      final allowedClassroomCodes =
-                                          await resolveAttendanceAllowedClassroomCodes(
-                                        storage: storageService,
-                                      );
-                                      await apiClient.delete<dynamic>(
-                                        endpoint,
-                                        queryParameters: <String, dynamic>{
-                                          'staffCode': staffCode,
-                                          'allowedClassroomCodes':
-                                              allowedClassroomCodes,
-                                        },
-                                        options: attendanceListQueryOptions,
+                                      await serviceLocator<AttendanceRepository>()
+                                          .deleteStudentAttendanceRecord(
+                                        attendanceRecordCode:
+                                            normalizedAttendanceCode,
+                                        staffCode: staffCode,
                                       );
 
                                       CoreUtils.showTopSnackBarFromSnackBar(
@@ -1223,6 +1218,8 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
 
   Widget _buildFilterCard(ResponsiveHelper responsive) {
     final hasActiveFilters = _statusLegendFilter != null ||
+        _signInAtFilter != null ||
+        _signOutAtFilter != null ||
         _studentFilters != null ||
         _selectedClassroomNames.isNotEmpty ||
         _selectedTagNames.isNotEmpty ||
@@ -1458,6 +1455,28 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
     
     // Reload attendance data with new filters
     _loadAttendanceData(reset: true);
+  }
+
+  void _openStudentListWithIncomingFilter(String status) {
+    final normalized = status.trim().toUpperCase();
+    if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StudentCubit>(
+              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(),
+            ),
+          ],
+          child: StudentScreen(incomingStatusFilter: normalized),
+        ),
+      ),
+    );
   }
 
 }

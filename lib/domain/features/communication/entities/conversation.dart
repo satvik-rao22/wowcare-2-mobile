@@ -1,0 +1,114 @@
+import 'package:equatable/equatable.dart';
+
+class Conversation extends Equatable {
+  final int id;
+  final String code;
+  final String title;
+  final String type;
+  final String organizationCode;
+  final String schoolCode;
+  final String status;
+  final String description;
+  final String avatarUrl;
+  final DateTime createdAt;
+  final String createdBy;
+  final DateTime updatedAt;
+  final String updatedBy;
+  final DateTime? lastMessageAt;
+  final String? lastMessageBy;
+  final int participantCount;
+  final int unreadCount;
+  final String lastMessagePreview;
+  final List<ConversationParticipant> participants;
+
+  const Conversation({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.type,
+    required this.organizationCode,
+    required this.schoolCode,
+    required this.status,
+    required this.description,
+    required this.avatarUrl,
+    required this.createdAt,
+    required this.createdBy,
+    required this.updatedAt,
+    required this.updatedBy,
+    this.lastMessageAt,
+    this.lastMessageBy,
+    required this.participantCount,
+    required this.unreadCount,
+    required this.lastMessagePreview,
+    required this.participants,
+  });
+
+  @override
+  List<Object?> get props => [
+        id,
+        code,
+        title,
+        type,
+        organizationCode,
+        schoolCode,
+        status,
+        description,
+        avatarUrl,
+        createdAt,
+        createdBy,
+        updatedAt,
+        updatedBy,
+        lastMessageAt,
+        lastMessageBy,
+        participantCount,
+        unreadCount,
+        lastMessagePreview,
+        participants,
+      ];
+}
+
+class ConversationParticipant extends Equatable {
+  final int id;
+  final int conversationId;
+  final String userCode;
+  final String userName;
+  final String role;
+  final DateTime joinedAt;
+  final DateTime? leftAt;
+  final DateTime? lastReadAt;
+  final bool muted;
+  final bool notificationsEnabled;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const ConversationParticipant({
+    required this.id,
+    required this.conversationId,
+    required this.userCode,
+    required this.userName,
+    required this.role,
+    required this.joinedAt,
+    this.leftAt,
+    this.lastReadAt,
+    required this.muted,
+    required this.notificationsEnabled,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  @override
+  List<Object?> get props => [
+        id,
+        conversationId,
+        userCode,
+        userName,
+        role,
+        joinedAt,
+        leftAt,
+        lastReadAt,
+        muted,
+        notificationsEnabled,
+        createdAt,
+        updatedAt,
+      ];
+}

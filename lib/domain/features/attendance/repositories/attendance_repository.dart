@@ -19,7 +19,7 @@ abstract class AttendanceRepository {
 
   /// Expected attendance summary for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummary>
-      getStudentAttendanceExpectedSummary();
+  getStudentAttendanceExpectedSummary();
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
     required String fromAttendanceDate,
@@ -83,6 +83,22 @@ abstract class AttendanceRepository {
     required String staffCode,
   });
 
+  /// Removes a student attendance record (sign-in / sign-out / transfer day row).
+  ///
+  /// Backend: `DELETE /api/v1/student-attendance-records/{attendanceRecordCode}`.
+  Future<void> deleteStudentAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  });
+
+  /// Removes a staff attendance record (sign-in / sign-out / transfer day row).
+  ///
+  /// Backend: `DELETE /api/v1/staff-attendance-records/{attendanceRecordCode}`.
+  Future<void> deleteStaffAttendanceRecord({
+    required String attendanceRecordCode,
+    required String staffCode,
+  });
+
   /// Creates student absence records (Mark Absent).
   Future<String> markStudentsAbsent({
     required String staffCode,
@@ -135,8 +151,7 @@ abstract class AttendanceRepository {
   });
 
   /// Staff expected attendance summary for the daily "Expected Staff" card.
-  Future<StudentAttendanceExpectedSummary>
-      getStaffAttendanceExpectedSummary();
+  Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary();
 
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({
     required String fromAttendanceDate,

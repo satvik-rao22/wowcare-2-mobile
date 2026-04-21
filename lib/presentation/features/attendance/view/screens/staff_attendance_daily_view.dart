@@ -21,13 +21,10 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
@@ -41,6 +38,8 @@ import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -276,11 +275,11 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     switch (normalized) {
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signOutAtFilter = 'NULL';
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'IGNORE';
+        _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
         _showAbsentOnly = false;
         break;
@@ -441,6 +440,30 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     _loadAttendanceData(context, reset: true);
   }
 
+  void _openStaffListWithIncomingFilter(String status) {
+    final normalized = status.trim().toUpperCase();
+    if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>(
+              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  onlyTypeClassroom: false,
+                ),
+            ),
+          ],
+          child: StaffScreen(incomingStatusFilter: normalized),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
@@ -530,6 +553,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                                   state.isSummaryLoading) &&
                               !_showAbsentOnly,
                           onLegendTap: (status) {
+                            final normalized = status.trim().toUpperCase();
+                            if (normalized == 'ACTIVE' ||
+                                normalized == 'UPCOMING') {
+                              _openStaffListWithIncomingFilter(normalized);
+                              return;
+                            }
                             setState(() {
                               final normalized =
                                   status == 'Present' ? 'Signed-In' : status;
@@ -552,6 +581,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                         _buildFilterCard(
                           responsive,
                           hasActiveFilters: _hasActiveFilters() ||
+                              _signInAtFilter != null ||
+                              _signOutAtFilter != null ||
                               _statusLegendFilter != null ||
                               _searchController.text.trim().isNotEmpty,
                         ),
@@ -802,6 +833,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           item.designation.isNotEmpty ? item.designation.first : null;
       final String? formattedDesignation = _formatDesignation(rawDesignation);
 
+      final String effectiveClassroomCode =
+          (item.isTransfer == true &&
+                  (item.toClassroomCode ?? '').trim().isNotEmpty)
+              ? item.toClassroomCode!.trim()
+              : item.classroomCode.trim();
+
       _staffMembers.add(
         StaffAttendanceCardData(
           attendanceRecordCode: item.attendanceRecordCode,
@@ -811,15 +848,16 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           designationName: formattedDesignation,
           roomName: _classroomDisplay(
             // Transfer rows may populate `toClassroom*` instead of `classroom*`.
-            classroomCode: (item.isTransfer == true &&
-                    (item.toClassroomCode ?? '').trim().isNotEmpty)
-                ? item.toClassroomCode!
+            classroomCode: effectiveClassroomCode.isNotEmpty
+                ? effectiveClassroomCode
                 : item.classroomCode,
             classroomName: (item.isTransfer == true &&
                     (item.toClassroomName ?? '').trim().isNotEmpty)
                 ? item.toClassroomName!
                 : item.classroomName,
           ),
+          classroomCode:
+              effectiveClassroomCode.isNotEmpty ? effectiveClassroomCode : null,
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,
           signInTime: effectiveSignIn ?? item.formattedSignInTime,
@@ -923,10 +961,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
                     try {
                       final normalizedAttendanceCode =
-                          _normalizeAttendanceRecordCodeForMutation(
-                        staff.attendanceRecordCode!,
+                          _resolveStaffDeleteAttendanceRecordCode(
+                        card: staff,
+                        allItems: state.items,
                       );
-                      if (normalizedAttendanceCode.isEmpty) {
+                      if (normalizedAttendanceCode == null ||
+                          normalizedAttendanceCode.isEmpty) {
                         CoreUtils.showTopSnackBarFromSnackBar(
                           context: context,
                           snackBar: const SnackBar(
@@ -958,23 +998,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                         return;
                       }
 
-                      final apiClient = serviceLocator<ApiClient>().client;
-                      final endpoint = ApiPaths.urlWithBase(
-                        '/api/v1/staff-attendance-records/$normalizedAttendanceCode',
-                        ApiConstants.attendanceBaseUrl,
-                      );
-
-                      final allowedClassroomCodes =
-                          await resolveAttendanceAllowedClassroomCodes(
-                        storage: storageService,
-                      );
-                      await apiClient.delete<dynamic>(
-                        endpoint,
-                        queryParameters: <String, dynamic>{
-                          'staffCode': staffCode,
-                          'allowedClassroomCodes': allowedClassroomCodes,
-                        },
-                        options: attendanceListQueryOptions,
+                      await serviceLocator<AttendanceRepository>()
+                          .deleteStaffAttendanceRecord(
+                        attendanceRecordCode: normalizedAttendanceCode,
+                        staffCode: staffCode,
                       );
 
                       if (!context.mounted) return;
@@ -1078,12 +1105,14 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     }
   }
 
-  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
-    final trimmed = rawCode.trim();
-    if (trimmed.isEmpty) return trimmed;
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
+  /// Staff daily edit/delete APIs expect rowCode from daily list item `code`.
+  String? _resolveStaffDeleteAttendanceRecordCode({
+    required StaffAttendanceCardData card,
+    required List<StaffAttendanceDailyItem> allItems,
+  }) {
+    final fromCard = card.attendanceRecordCode?.trim();
+    if (fromCard == null || fromCard.isEmpty) return null;
+    return fromCard;
   }
 
   Widget _buildAbsentStaffList(
@@ -1123,7 +1152,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         final it = entry.value;
         final roomName = _staffAbsentToggleClassroomDisplay(it);
         final absenceDate = it.absenceDate;
-        final absentTime = it.markedAbsentTime?.formattedHms ?? '';
+        final absentTime = it.markedAbsentTime?.formatted12h ?? '';
         final staff = StaffAbsentCardData(
           id: it.staffCode,
           staffCode: it.staffCode,
