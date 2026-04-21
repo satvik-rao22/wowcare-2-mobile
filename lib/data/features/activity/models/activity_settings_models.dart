@@ -109,8 +109,8 @@ class ActivitySettingsListModel {
   }
 }
 
-/// Request body model for creating a new activity via
-/// `POST /api/v1/activities`.
+/// Request body model for creating grouped activities via
+/// `POST /api/v2/activities`.
 class ActivityCreateRequestModel {
   ActivityCreateRequestModel({
     required this.activityTypeCode,
@@ -121,6 +121,9 @@ class ActivityCreateRequestModel {
     required this.organizationCode,
     required this.activityDate,
     required this.description,
+    this.napStart,
+    this.napEnd,
+    this.bindingMode = 'SHARED',
     this.parameterValues = const [],
     this.attachments = const [],
   });
@@ -133,6 +136,9 @@ class ActivityCreateRequestModel {
   final String organizationCode;
   final String activityDate;
   final String description;
+  final bool? napStart;
+  final bool? napEnd;
+  final String bindingMode;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
 
@@ -146,6 +152,9 @@ class ActivityCreateRequestModel {
       'organizationCode': organizationCode,
       'activityDate': activityDate,
       'description': description,
+      if (napStart != null) 'napStart': napStart,
+      if (napEnd != null) 'napEnd': napEnd,
+      'bindingMode': bindingMode,
       // Backend expects keys to be present (even if empty arrays).
       'parameterValues': parameterValues,
       'attachments': attachments,

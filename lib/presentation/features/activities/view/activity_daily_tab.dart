@@ -507,11 +507,32 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _isFeedRequestInFlight = false;
         return;
       }
-      final scoped = _allowedClassroomCodes.isEmpty
+      var scoped = _allowedClassroomCodes.isEmpty
           ? classrooms
           : classrooms
               .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
               .toList();
+      if (scoped.isEmpty &&
+          classrooms.isNotEmpty &&
+          _allowedClassroomCodes.isNotEmpty) {
+        // If staff-scope resolution failed/stale, avoid blocking classroom fetch.
+        scoped = classrooms;
+      }
+      if (scoped.isEmpty) {
+        if (!mounted) {
+          _isFeedRequestInFlight = false;
+          return;
+        }
+        setState(() {
+          _classroomCodeByName.clear();
+          _classroomNameByCode.clear();
+          _classroomOptions = [];
+          _selectdClassroom = null;
+          _feedError = 'No classrooms found. Pull to refresh.';
+        });
+        _isFeedRequestInFlight = false;
+        return;
+      }
       _classroomCodeByName
         ..clear()
         ..addEntries(scoped.map((c) => MapEntry(c.name, c.code)));
@@ -875,7 +896,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           ),
         )
         .toList();
-    return mergeAdjacentMultiStudentFeedItems(_withClientFilters(raw));
+    return _withClientFilters(raw);
   }
 
   void _onFeedScroll() {
@@ -951,7 +972,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _activities = mergeAdjacentMultiStudentFeedItems(_activities);
         _feedHasMore = !page.last;
         _feedNextPage = page.last ? 0 : page.pageNumber + 1;
       });
@@ -1142,7 +1162,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _activities = mergeAdjacentMultiStudentFeedItems(_activities);
         _feedHasMore = !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
@@ -4711,8 +4730,15 @@ ActivityItem activityItemFromFeedRow(
       name == 'Bathroom' ? pickBathroomDiaperSizeFromParams() : null;
 
   final desc = row.description.trim();
+  final studentNamesFromApi = row.students
+      .map((s) => (s['name'] ?? '').trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
   final studentName =
       row.studentDisplayName.isEmpty ? 'Student' : row.studentDisplayName;
+  final studentListForItem = studentNamesFromApi.isNotEmpty
+      ? studentNamesFromApi
+      : [studentName];
   final staffFromParams = pickStaffPresentFromParameters();
   final by = resolveActivityCreatedByForUi(
     rawCreatedBy: row.createdBy,
@@ -4743,7 +4769,7 @@ ActivityItem activityItemFromFeedRow(
     description: desc.isEmpty ? null : desc,
     photoUrl: photoUrl,
     videoUrl: videoUrl,
-    studentList: [studentName],
+    studentList: studentListForItem,
     createdBy: by,
     activityType: learningActivityName,
     categoryType: learningCategory != null && learningCategory.isNotEmpty
@@ -4780,12 +4806,24 @@ ActivityItem activityItemFromFeedRow(
         : row.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-    studentActivityRefs: [
-      {
-        'name': studentName,
-        if (sc.isNotEmpty) 'studentCode': sc,
-        if (ac.isNotEmpty) 'activityCode': ac,
-      },
-    ],
+    studentActivityRefs: row.students.isNotEmpty
+        ? row.students
+            .map(
+              (s) => <String, String>{
+                'name': (s['name'] ?? '').trim(),
+                if ((s['studentCode'] ?? '').trim().isNotEmpty)
+                  'studentCode': s['studentCode']!.trim(),
+                if (ac.isNotEmpty) 'activityCode': ac,
+              },
+            )
+            .where((m) => (m['name'] ?? '').isNotEmpty)
+            .toList()
+        : [
+            {
+              'name': studentName,
+              if (sc.isNotEmpty) 'studentCode': sc,
+              if (ac.isNotEmpty) 'activityCode': ac,
+            },
+          ],
   );
 }

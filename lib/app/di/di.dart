@@ -115,6 +115,7 @@ import '../../domain/features/activity/usecases/create_activity_upload_sessions_
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
+import '../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
@@ -152,6 +153,7 @@ import '../../data/features/communication/datasources/communication_remote_data_
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
+import '../../shared/services/image_upload/image_upload_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -186,6 +188,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
         AuthInterceptor(serviceLocator<StorageService>()),
       ],
     ),
+  );
+  serviceLocator.registerLazySingleton<ImageUploadService>(
+    () => ImageUploadService(serviceLocator<ApiClient>()),
   );
 
   // Auth Data Sources
@@ -508,6 +513,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetRangeActivityFeedUseCase>(
     () => GetRangeActivityFeedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNapStartStudentsUseCase>(
+    () => GetNapStartStudentsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentClassroomListUseCase>(
     () => GetStudentClassroomListUseCase(serviceLocator()),

@@ -120,8 +120,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text =
-          activity.studentList.length > 1 ? '' : (activity.description ?? '');
+      _descriptionController.text = activity.description ?? '';
       _selectedBathroomType = activity.bathroomType;
       _selectedSubType = activity.bathroomSubType;
       _activityTypeCode = activity.activityTypeCode;
@@ -163,10 +162,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
-        _descriptionController.text =
-            (widget.activityData?.studentList.length ?? 0) > 1
-                ? ''
-                : (item.description ?? '');
+        _descriptionController.text = item.description ?? '';
         _selectedBathroomType = item.bathroomType;
         _selectedSubType = item.bathroomSubType;
         _activityTypeCode = item.activityTypeCode;
@@ -1021,6 +1017,18 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         }
         lastMessage = await _updateActivityUseCase(
           code: code,
+          studentCodes: _selectedStudentsData
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
+          applyToStudentCodes: targets
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
           staffCode: staffCode,
           activityDate: activityDateIso,
           description: description,

@@ -7,6 +7,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
+import '../../../../app/theme/media_res.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/core_utils.dart';
@@ -17,6 +18,7 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
@@ -61,6 +63,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
+  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   String? _schoolCode;
 
   // Students from /api/v1/student-classroom for current filters
@@ -68,6 +71,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   bool _isLoadingFilters = false;
   bool _isLoadingStudents = false;
   String? _studentsError;
+  Set<String> _nappingStudentCodes = <String>{};
 
   List<StudentClassroomItem> get _filteredStudents {
     final query = _searchController.text.trim().toLowerCase();
@@ -148,6 +152,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
     _getStudentClassroomListUseCase =
         serviceLocator<GetStudentClassroomListUseCase>();
+    _getNapStartStudentsUseCase =
+        serviceLocator<GetNapStartStudentsUseCase>();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initFiltersAndLoad();
@@ -352,11 +358,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         attendanceStatus: 'SIGNED_IN',
         refresh: refresh,
       );
+      final napStartCodes = await _getNapStartStudentsUseCase(
+        classroomCode: classroomCode,
+      );
 
       if (!mounted) return;
 
       setState(() {
         _studentsForCurrentFilters = students;
+        _nappingStudentCodes = napStartCodes.map((e) => e.trim()).toSet();
         _isLoadingStudents = false;
         _studentsError = null;
       });
@@ -604,8 +614,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                         (context, index) {
                           final student = _filteredStudents[index];
                           final String name = student.fullName;
-                          final bool isNapping = student.nap;
                           final String studentCode = student.studentCode;
+                          final bool isNapping =
+                              _nappingStudentCodes.contains(studentCode);
 
                           final bool isSelected = _selectedStudents.any(
                             (s) => s['studentCode'] == studentCode,
@@ -613,6 +624,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
                           return _ActivityStudentListItem(
                             name: name,
+                            isNapping: isNapping,
                             isSelected: isSelected,
                             onSelectionChanged: (selected) {
                               ScaffoldMessenger.of(context)
@@ -754,11 +766,13 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
 class _ActivityStudentListItem extends StatelessWidget {
   final String name;
+  final bool isNapping;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
 
   const _ActivityStudentListItem({
     required this.name,
+    required this.isNapping,
     required this.isSelected,
     required this.onSelectionChanged,
   });
@@ -795,6 +809,15 @@ class _ActivityStudentListItem extends StatelessWidget {
                 size: 32,
                 fontSize: 14,
               ),
+              if (isNapping) ...[
+                const SizedBox(width: 4),
+                Image.asset(
+                  MediaRes.sleepStatusIcon,
+                  width: 14,
+                  height: 14,
+                  fit: BoxFit.contain,
+                ),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: EllipsisTooltipText(
