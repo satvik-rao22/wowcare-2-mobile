@@ -158,6 +158,9 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
 
     final date = widget.attendanceDate;
     final staffCode = widget.staffAttendance.id.trim();
+    final normalizedCode = attendanceCode.trim().toUpperCase();
+    final isTransferRecord =
+        normalizedCode.startsWith('STTR_') || normalizedCode.startsWith('SCTR_');
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -206,8 +209,8 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
       if (signedOutAt != null)
         'signedOutAt': signedOutAt.toUtc().toIso8601String(),
-      if (signedInAt != null) 'SignedInMethod': 'APP',
-      if (signedOutAt != null) 'SignedOutMethod': 'APP',
+      if (!isTransferRecord && signedInAt != null) 'SignedInMethod': 'APP',
+      if (!isTransferRecord && signedOutAt != null) 'SignedOutMethod': 'APP',
       'timeZone': schoolTimeZone,
     };
 
