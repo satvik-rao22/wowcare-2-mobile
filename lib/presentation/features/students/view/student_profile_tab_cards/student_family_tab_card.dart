@@ -49,12 +49,13 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   bool _isMutating = false;
 
   String _extractGuardianClockPin(Map<String, dynamic> guardian) {
-    final raw = (guardian['clockPin'] ??
-            guardian['clockInPin'] ??
-            guardian['clockinPin'] ??
-            '')
-        .toString()
-        .trim();
+    final raw =
+        (guardian['clockPin'] ??
+                guardian['clockInPin'] ??
+                guardian['clockinPin'] ??
+                '')
+            .toString()
+            .trim();
     return raw.isEmpty ? '—' : raw;
   }
 
@@ -71,8 +72,8 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (direct.isNotEmpty) return direct;
 
     final storage = serviceLocator<StorageService>();
-    final fromStorage =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final fromStorage = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (fromStorage.isNotEmpty) return fromStorage;
 
     // Final fallback (should never hit because StorageService also defaults).
@@ -85,7 +86,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     _guardiansFuture = _loadGuardians();
   }
 
-  Future<List<Map<String, dynamic>>> _loadGuardians({bool forceRefresh = false}) async {
+  Future<List<Map<String, dynamic>>> _loadGuardians({
+    bool forceRefresh = false,
+  }) async {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const <Map<String, dynamic>>[];
@@ -104,6 +107,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     );
     return models.map((e) => e.toJson()).toList(growable: false);
   }
+
   Future<void> _onAddParent() async {
     final studentCode = widget.studentCode ?? '';
     final schoolCode = await _resolveSchoolCode();
@@ -177,7 +181,8 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     final normalizedRelation = rawRelation.isEmpty
         ? null
         : '${rawRelation[0].toUpperCase()}${rawRelation.substring(1).toLowerCase()}';
-    final isKnownRelation = normalizedRelation != null &&
+    final isKnownRelation =
+        normalizedRelation != null &&
         relationOptions.contains(normalizedRelation);
 
     final result = await Navigator.of(context).push<bool>(
@@ -193,9 +198,11 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
           initialEmail: (guardian['email'] ?? '').toString(),
           initialPhoneNumber: (guardian['mobile'] ?? '').toString(),
           initialRelation: isKnownRelation ? normalizedRelation : 'Other',
-          initialRelationOther:
-              isKnownRelation ? null : (rawRelation.isEmpty ? null : rawRelation),
-          initialIsEmergencyContact: (guardian['primaryContact'] as bool?) ?? true,
+          initialRelationOther: isKnownRelation
+              ? null
+              : (rawRelation.isEmpty ? null : rawRelation),
+          initialIsEmergencyContact:
+              (guardian['primaryContact'] as bool?) ?? true,
           initialIsChildCustody: (guardian['legalCustody'] as bool?) ?? true,
         ),
       ),
@@ -335,10 +342,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
+                      child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
                     );
                   }
 
@@ -373,18 +377,19 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           name:
                               '${data[i]['firstName'] ?? ''} ${data[i]['lastName'] ?? ''}'
                                   .trim(),
-                          relation:
-                              (data[i]['relationToStudent'] ?? '').toString(),
+                          relation: (data[i]['relationToStudent'] ?? '')
+                              .toString(),
                           email: (data[i]['email'] ?? '').toString(),
-                          phone: _formatPhoneNumber((data[i]['mobile'] ?? '').toString()),
+                          phone: _formatPhoneNumber(
+                            (data[i]['mobile'] ?? '').toString(),
+                          ),
                           pin: _extractGuardianClockPin(data[i]),
                           isLoading: _isMutating,
                           showActionButtons: canStudentWrite,
                           onEdit: () => _onEditParent(data[i]),
                           onDelete: () => _onDeleteParent(data[i]),
                         ),
-                        if (i != data.length - 1)
-                          const SizedBox(height: 12),
+                        if (i != data.length - 1) const SizedBox(height: 12),
                       ],
                     ],
                   );
@@ -439,19 +444,13 @@ class _FamilyCard extends StatelessWidget {
           children: [
             Container(
               height: 60,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24 : 16,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: name,
-                    size: 45,
-                  ),
+                  DocumentImageWidget(fileUuid: '', name: name, size: 45),
                   SizedBox(width: isTablet ? 16 : 9),
                   Flexible(
                     child: Text(
@@ -491,9 +490,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         relation,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -512,9 +509,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         email,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -533,9 +528,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         phone,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),
@@ -554,9 +547,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                       Text(
                         pin,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                        ),
+                        style: AppTextStyles.value.copyWith(fontSize: 15),
                       ),
                     ],
                   ),

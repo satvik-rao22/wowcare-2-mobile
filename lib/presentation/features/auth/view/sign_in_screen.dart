@@ -36,17 +36,17 @@ class _SignInScreenState extends State<SignInScreen>
 
   late final AnimationController _bottomMenuHeightAnimationController =
       AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 300),
-  );
+        vsync: this,
+        duration: const Duration(milliseconds: 300),
+      );
 
   late final Animation<double> _bottomMenuHeightUpAnimation =
       Tween<double>(begin: 0.0, end: 1.0).animate(
-    CurvedAnimation(
-      parent: _bottomMenuHeightAnimationController,
-      curve: Curves.easeInOut,
-    ),
-  );
+        CurvedAnimation(
+          parent: _bottomMenuHeightAnimationController,
+          curve: Curves.easeInOut,
+        ),
+      );
 
   @override
   void initState() {
@@ -63,7 +63,7 @@ class _SignInScreenState extends State<SignInScreen>
     final storage = serviceLocator<StorageService>();
     final rememberMeValue =
         await storage.getBool(StorageKeys.rememberMe) ?? false;
-    
+
     if (mounted) {
       setState(() {
         emailController.text = credentials['username'] ?? '';
@@ -75,7 +75,7 @@ class _SignInScreenState extends State<SignInScreen>
 
   Future<void> _saveCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
-    
+
     await localDataSource.saveCredentials(
       emailController.text.trim(),
       passwordController.text.trim(),
@@ -87,7 +87,7 @@ class _SignInScreenState extends State<SignInScreen>
     // Get orgCode from storage (saved when schoolCode was null)
     final storage = serviceLocator<StorageService>();
     final orgCode = await storage.getString(StorageKeys.organizationCode);
-    
+
     if (orgCode != null && orgCode.isNotEmpty) {
       Navigator.pushReplacement(
         context,
@@ -102,9 +102,7 @@ class _SignInScreenState extends State<SignInScreen>
       // Fallback: go to org selection if orgCode not found
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const OrganizationSelectionScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const OrganizationSelectionScreen()),
       );
     }
   }
@@ -208,7 +206,8 @@ class _SignInScreenState extends State<SignInScreen>
       child: Container(
         width: MediaQuery.of(context).size.width,
         margin: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top +
+          top:
+              MediaQuery.of(context).padding.top +
               MediaQuery.of(context).size.height * 0.01,
         ),
         height: MediaQuery.of(context).size.height * 0.4,
@@ -219,13 +218,14 @@ class _SignInScreenState extends State<SignInScreen>
 
   Widget _buildBottomMenu(BuildContext context, AuthState state) {
     final isLoading = state is AuthLoading;
-    
+
     return Align(
       alignment: Alignment.bottomCenter,
       child: AnimatedBuilder(
         animation: _bottomMenuHeightAnimationController,
         builder: (context, child) {
-          final height = MediaQuery.of(context).size.height *
+          final height =
+              MediaQuery.of(context).size.height *
               0.5 *
               _bottomMenuHeightUpAnimation.value;
           return Container(
@@ -239,19 +239,13 @@ class _SignInScreenState extends State<SignInScreen>
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: ListView(
                 shrinkWrap: true,
                 children: [
                   const Text(
                     '  Login with email',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 20),
                   SignInForm(
@@ -260,9 +254,7 @@ class _SignInScreenState extends State<SignInScreen>
                     formKey: formKey,
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 20,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
@@ -292,14 +284,9 @@ class _SignInScreenState extends State<SignInScreen>
                   ),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (
-                      Widget child,
-                      Animation<double> animation,
-                    ) =>
-                        ScaleTransition(
-                      scale: animation,
-                      child: child,
-                    ),
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) =>
+                            ScaleTransition(scale: animation, child: child),
                     child: isLoading
                         ? Center(
                             key: const ValueKey('loading'),

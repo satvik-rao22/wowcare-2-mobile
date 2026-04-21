@@ -40,16 +40,16 @@ class StaffMarkAbsentRequestModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        staffCodes,
-        absenceFromDate,
-        absenceToDate,
-        absenceReason,
-        absenceType,
-        absenceNotes,
-        markAbsentMethod,
-        isExpectedTodayByStaffCode,
-      ];
+    staffCode,
+    staffCodes,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
+    absenceNotes,
+    markAbsentMethod,
+    isExpectedTodayByStaffCode,
+  ];
 }
 
 class StaffAbsenceRecordModel extends Equatable {
@@ -94,17 +94,17 @@ class StaffAbsenceRecordModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        staffCode,
-        absenceDate,
-        absenceFromDate,
-        absenceToDate,
-        absenceReason,
-        absenceType,
-        absenceNote,
-        markAbsentMethod,
-        isExpectedToday,
-      ];
+    code,
+    staffCode,
+    absenceDate,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
+    absenceNote,
+    markAbsentMethod,
+    isExpectedToday,
+  ];
 }
 
 class StaffMarkAbsentResponseModel extends Equatable {
@@ -121,19 +121,17 @@ class StaffMarkAbsentResponseModel extends Equatable {
     final data = json['data'];
     final records = (data is List)
         ? data
-            .whereType<Map>()
-            .map((e) => StaffAbsenceRecordModel.fromJson(
+              .whereType<Map>()
+              .map(
+                (e) => StaffAbsenceRecordModel.fromJson(
                   Map<String, dynamic>.from(e),
-                ))
-            .toList()
+                ),
+              )
+              .toList()
         : <StaffAbsenceRecordModel>[];
-    return StaffMarkAbsentResponseModel(
-      message: message,
-      records: records,
-    );
+    return StaffMarkAbsentResponseModel(message: message, records: records);
   }
 
   @override
   List<Object?> get props => [message, records];
 }
-

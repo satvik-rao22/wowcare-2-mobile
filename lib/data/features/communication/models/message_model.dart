@@ -1,0 +1,129 @@
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+
+class MessageModel extends Message {
+  final String code;
+  final String? conversationCode;
+  final String senderUserCode;
+
+  const MessageModel({
+    required super.id,
+    required super.text,
+    required super.isSentByMe,
+    required super.time,
+    required this.code,
+    this.conversationCode,
+    required this.senderUserCode,
+    super.deliveredAt,
+    super.readAt,
+    super.deliveredTo,
+    super.readBy,
+    super.reactions,
+    super.quotedMessageId,
+    super.attachments,
+    super.senderName,
+    super.receivers,
+  });
+
+  factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
+    final senderCode = json['senderUserCode'] as String? ?? '';
+    return MessageModel(
+      id: (json['id'] ?? '').toString(),
+      code: json['code'] as String? ?? '',
+      conversationCode: json['conversationCode'] as String?,
+      senderUserCode: senderCode,
+      text: json['content'] as String? ?? '',
+      isSentByMe: currentUserId != null && senderCode == currentUserId,
+      time: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
+      deliveredAt: json['status'] == 'DELIVERED' || json['status'] == 'READ'
+          ? DateTime.now()
+          : null,
+      readAt: json['status'] == 'READ' ? DateTime.now() : null,
+      deliveredTo: const [], // API doesn't seem to provide these in a list yet
+      readBy: const [],
+      reactions: const {}, // API snippet doesn't show reactions
+      quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
+          ? null
+          : json['replyToMessageId'].toString(),
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      senderName: json['senderName'] as String?,
+      receivers: const [],
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'code': code,
+      'conversationCode': conversationCode,
+      'senderUserCode': senderUserCode,
+      'content': text,
+      'time': time.toIso8601String(),
+      'replyToMessageId': quotedMessageId,
+      'attachments': attachments.map((e) => (e as ChatAttachmentModel).toJson()).toList(),
+      'senderName': senderName,
+    };
+  }
+}
+
+class RecipientStatusModel extends RecipientStatus {
+  const RecipientStatusModel({
+    required super.name,
+    super.userId,
+    super.timestamp,
+  });
+
+  factory RecipientStatusModel.fromJson(Map<String, dynamic> json) {
+    return RecipientStatusModel(
+      name: json['name'] as String,
+      userId: json['user_id'] as String?,
+      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'user_id': userId,
+      'timestamp': timestamp?.toIso8601String(),
+    };
+  }
+}
+
+class ChatAttachmentModel extends ChatAttachment {
+  const ChatAttachmentModel({
+    required super.name,
+    required super.type,
+    required super.sizeBytes,
+    required super.mimeType,
+    required super.remoteUrl,
+    super.localPath,
+  });
+
+  factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) {
+    return ChatAttachmentModel(
+      name: json['name'] as String,
+      type: json['type'] as String,
+      sizeBytes: json['size_bytes'] as int,
+      mimeType: json['mime_type'] as String,
+      remoteUrl: json['remote_url'] as String,
+      localPath: json['local_path'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'type': type,
+      'size_bytes': sizeBytes,
+      'mime_type': mimeType,
+      'remote_url': remoteUrl,
+      'local_path': localPath,
+    };
+  }
+}

@@ -10,6 +10,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_today_si
 class DocumentImageWidget extends StatefulWidget {
   final String fileUuid;
   final String? name;
+
   /// Optional staff code for attendance status dot.
   final String? staffCode;
 
@@ -32,6 +33,7 @@ class DocumentImageWidget extends StatefulWidget {
   final Color? statusColor; // optional small status dot color
   /// Tooltip when showing [statusColor] without API-driven attendance label.
   final String? statusTooltip;
+
   /// If true, the API-driven attendance dot is shown only when status == ABSENT.
   /// (E.g. sign-in selection screens want to highlight absences only.)
   final bool showOnlyAbsentAttendanceDot;
@@ -71,7 +73,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   void initState() {
     super.initState();
     _avatarColor = _pickStableProfileAvatarColor(
-      widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid,
+      widget.name?.trim().isNotEmpty == true
+          ? widget.name!.trim()
+          : widget.fileUuid,
     );
     _loadAttendanceStatusIfNeeded();
   }
@@ -79,9 +83,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   @override
   void didUpdateWidget(DocumentImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.name != widget.name || oldWidget.fileUuid != widget.fileUuid) {
+    if (oldWidget.name != widget.name ||
+        oldWidget.fileUuid != widget.fileUuid) {
       _avatarColor = _pickStableProfileAvatarColor(
-        widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid,
+        widget.name?.trim().isNotEmpty == true
+            ? widget.name!.trim()
+            : widget.fileUuid,
       );
     }
 
@@ -104,7 +111,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return;
     }
 
-    final enrollment = widget.studentEnrollmentStatus?.trim().toUpperCase() ?? '';
+    final enrollment =
+        widget.studentEnrollmentStatus?.trim().toUpperCase() ?? '';
     if (enrollment == 'UPCOMING') {
       if (!mounted) return;
       setState(() {
@@ -280,7 +288,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   Widget _buildInitialsAvatar() {
     return CircleAvatar(
-      backgroundColor: _avatarColor ?? _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid),
+      backgroundColor:
+          _avatarColor ??
+          _pickStableProfileAvatarColor(
+            widget.name?.trim().isNotEmpty == true
+                ? widget.name!.trim()
+                : widget.fileUuid,
+          ),
       radius: widget.size / 2,
       child: Text(
         StringUtils.getInitials(widget.name!),
@@ -294,7 +308,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Widget _buildPlaceholder() {
-    final placeholder = widget.errorWidget ??
+    final placeholder =
+        widget.errorWidget ??
         (widget.placeholderAsset != null
             ? Image.asset(
                 widget.placeholderAsset!,
@@ -314,7 +329,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return _buildImageContainer(child: placeholder);
     } else {
       return CircleAvatar(
-        backgroundColor: _avatarColor ?? _pickStableProfileAvatarColor(widget.name?.trim().isNotEmpty == true ? widget.name!.trim() : widget.fileUuid),
+        backgroundColor:
+            _avatarColor ??
+            _pickStableProfileAvatarColor(
+              widget.name?.trim().isNotEmpty == true
+                  ? widget.name!.trim()
+                  : widget.fileUuid,
+            ),
         radius: widget.size / 2,
         child: Text(
           StringUtils.getInitials(widget.name!),

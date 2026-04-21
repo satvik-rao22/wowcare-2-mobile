@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/common/widgets/custom_confirm_button.dart';
+import 'custom_confirm_button.dart';
 
 class ReusablePasswordActionButtons extends StatelessWidget {
   @override
@@ -15,10 +15,11 @@ class ReusablePasswordActionButtons extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-                child: CustomConfirmButton(
-              label: 'Save Password',
-              onPressed: () {},
-            )),
+              child: CustomConfirmButton(
+                label: 'Save Password',
+                onPressed: () {},
+              ),
+            ),
           ],
         ),
       ),

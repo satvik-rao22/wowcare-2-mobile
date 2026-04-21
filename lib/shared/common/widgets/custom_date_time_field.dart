@@ -27,11 +27,13 @@ class CustomDateTimeField extends StatefulWidget {
     this.onRangeSelected,
     this.fetchInitialTime = true, // New property to control fetch behavior
     this.isDisabled = false,
+    this.isRequired = false, // ✅ ADD THIS
     super.key,
   });
 
   final String? label;
   final bool hasLabel;
+  final bool isRequired;
   final bool isTime;
   final bool isRangePicker;
   final ValueChanged<DateTime>? onDateSelected;
@@ -114,7 +116,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     }
   }
 
-// Modified to return Future so we can await it
+  // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
     DateTime dateTime = DateTime.now();
@@ -206,15 +208,28 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.hasLabel && widget.label != null)
-          Text(
-            widget.label!,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.5),
-              fontSize: calHelper.headerFontSize * 0.7,
-              fontWeight: FontWeight.w400,
+          RichText(
+            text: TextSpan(
+              text: widget.label!,
+              style: TextStyle(
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+                fontSize: calHelper.headerFontSize * 0.7,
+                fontWeight: FontWeight.w400,
+              ),
+              children: [
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
-        if (widget.hasLabel && widget.label != null) SizedBox(height: calHelper.calendarPadding * 0.75),
+        if (widget.hasLabel && widget.label != null)
+          SizedBox(height: calHelper.calendarPadding * 0.75),
         GestureDetector(
           onTap: () async {
             if (widget.isDisabled == true) {
@@ -234,9 +249,12 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
               setState(() {
                 if (widget.isRangePicker) {
                   // Handle range selection
-                  if (result['startDate'] != null && result['startDate'] is DateTime) {
+                  if (result['startDate'] != null &&
+                      result['startDate'] is DateTime) {
                     selectedDate = result['startDate'];
-                    rangeEndDate = result['endDate'] is DateTime ? result['endDate'] : null;
+                    rangeEndDate = result['endDate'] is DateTime
+                        ? result['endDate']
+                        : null;
                     widget.onRangeSelected?.call(selectedDate!, rangeEndDate);
                   }
                 } else if (widget.isTime) {
@@ -262,7 +280,9 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
           },
           child: Container(
             constraints: BoxConstraints(minHeight: calHelper.dayCellSize * 1.2),
-            padding: EdgeInsets.symmetric(horizontal: calHelper.calendarPadding),
+            padding: EdgeInsets.symmetric(
+              horizontal: calHelper.calendarPadding,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               color: widget.isDisabled == true
@@ -278,8 +298,8 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                         (widget.isTime
                             ? 'Select Time'
                             : widget.isRangePicker
-                                ? 'Select Date Range'
-                                : 'Select Date'),
+                            ? 'Select Date Range'
+                            : 'Select Date'),
                     style: TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: calHelper.dayFontSize,

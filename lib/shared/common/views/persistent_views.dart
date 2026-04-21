@@ -1,9 +1,10 @@
-﻿import 'package:wowcare/core/common/app/providers/tab_navigator.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app/providers/tab_navigator.dart';
+
 class PersistentViews extends StatefulWidget {
-  const PersistentViews({super.key,this.body});
+  const PersistentViews({super.key, this.body});
 
   final Widget? body;
 
@@ -11,16 +12,14 @@ class PersistentViews extends StatefulWidget {
   State<PersistentViews> createState() => _PersistentViewsState();
 }
 
-class _PersistentViewsState extends State<PersistentViews> with AutomaticKeepAliveClientMixin {
-
+class _PersistentViewsState extends State<PersistentViews>
+    with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return  widget.body ?? context.watch<TabNavigator>().currentPage.child;
+    return widget.body ?? context.watch<TabNavigator>().currentPage.child;
   }
-  
+
   @override
   bool get wantKeepAlive => true;
-
-  
 }

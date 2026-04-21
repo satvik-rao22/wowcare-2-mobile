@@ -14,14 +14,14 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 
-
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
 
   static final GlobalKey<_CustomNavigationBarState> navBarKey =
       GlobalKey<_CustomNavigationBarState>();
 
-  static double get navBarHeight => navBarKey.currentState?._navBarHeight ?? 0.0;
+  static double get navBarHeight =>
+      navBarKey.currentState?._navBarHeight ?? 0.0;
 
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
@@ -54,10 +54,10 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
   void _updateIndexFromRoute() {
     if (!mounted) return;
-    
+
     final roleProvider = Provider.of<RoleProvider>(context, listen: false);
     final isParent = roleProvider.isParent;
-    
+
     if (isParent) {
       if (_currentRoute == DashboardScreen.routeName) {
         _index = 0;
@@ -94,7 +94,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     setState(() {
       _index = index;
     });
-    
+
     if (isParent) {
       // Parent navigation items: Dashboard, Attendance, Activities,
       // Communication, Billing.
@@ -113,14 +113,16 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             context,
             MaterialPageRoute<void>(
               settings: const RouteSettings(name: MessagingScreen.routeName),
-              builder: (_) => const MessagingScreen(
-                userPersona: UserPersona.parent,
-              ),
+              builder: (_) =>
+                  const MessagingScreen(userPersona: UserPersona.parent),
             ),
           );
           break;
         case 4:
-          Navigator.pushReplacementNamed(context, ParentBillingScreen.routeName);
+          Navigator.pushReplacementNamed(
+            context,
+            ParentBillingScreen.routeName,
+          );
           break;
       }
     } else {
@@ -147,9 +149,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             context,
             MaterialPageRoute<void>(
               settings: const RouteSettings(name: MessagingScreen.routeName),
-              builder: (_) => const MessagingScreen(
-                userPersona: UserPersona.admin,
-              ),
+              builder: (_) =>
+                  const MessagingScreen(userPersona: UserPersona.admin),
             ),
           );
           break;
@@ -188,10 +189,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                   icon,
                   height: 24,
                   colorFilter: isActive
-                      ? const ColorFilter.mode(
-                          Colors.white,
-                          BlendMode.dstIn,
-                        )
+                      ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
                       : null,
                 ),
                 const SizedBox(height: 4),
@@ -231,8 +229,9 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     final showClassrooms = roleProvider.canAccessAny([
       AppAccessModules.classroom,
     ]);
-    final showActivities =
-        roleProvider.canReadModule(AppAccessModules.dailyActivity);
+    final showActivities = roleProvider.canReadModule(
+      AppAccessModules.dailyActivity,
+    );
     final showCommunication = isParent
         ? roleProvider.canAccessAny([
             AppAccessModules.parentMessaging,
@@ -281,39 +280,39 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                     ),
                     showParentAttendance
                         ? _buildNavItem(
-                      icon: MediaRes.attendanceIcon,
-                      label: 'Attendance',
-                      index: 1,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.attendanceIcon,
+                            label: 'Attendance',
+                            index: 1,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                     showActivities
                         ? _buildNavItem(
-                      icon: MediaRes.activitesIcon,
-                      label: 'Activities',
-                      index: 2,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.activitesIcon,
+                            label: 'Activities',
+                            index: 2,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                     showCommunication
                         ? _buildNavItem(
-                      icon: MediaRes.communicationIcon,
-                      label: 'Communication',
-                      index: 3,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.communicationIcon,
+                            label: 'Communication',
+                            index: 3,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                     showBilling
                         ? _buildNavItem(
-                      icon: MediaRes.billing_drawer_icon,
-                      label: 'Billing',
-                      index: 4,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.billing_drawer_icon,
+                            label: 'Billing',
+                            index: 4,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                   ]
                 : [
@@ -327,39 +326,39 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                     ),
                     showStaffAdminAttendance
                         ? _buildNavItem(
-                      icon: MediaRes.attendanceIcon,
-                      label: 'Attendance',
-                      index: 1,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.attendanceIcon,
+                            label: 'Attendance',
+                            index: 1,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                     showClassrooms
                         ? _buildNavItem(
-                      icon: MediaRes.classroomIcon,
-                      label: 'Classrooms',
-                      index: 2,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.classroomIcon,
+                            label: 'Classrooms',
+                            index: 2,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                     showActivities
                         ? _buildNavItem(
-                      icon: MediaRes.activitesIcon,
-                      label: 'Activities',
-                      index: 3,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.activitesIcon,
+                            label: 'Activities',
+                            index: 3,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                     showCommunication
                         ? _buildNavItem(
-                      icon: MediaRes.communicationIcon,
-                      label: 'Messages',
-                      index: 4,
-                      context: context,
-                      isParent: isParent,
-                    )
+                            icon: MediaRes.communicationIcon,
+                            label: 'Messages',
+                            index: 4,
+                            context: context,
+                            isParent: isParent,
+                          )
                         : _hiddenNavSlot(),
                   ],
           ),

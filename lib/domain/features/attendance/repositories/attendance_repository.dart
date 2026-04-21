@@ -19,7 +19,7 @@ abstract class AttendanceRepository {
 
   /// Expected attendance summary for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummary>
-      getStudentAttendanceExpectedSummary();
+  getStudentAttendanceExpectedSummary();
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
     required String fromAttendanceDate,
@@ -151,8 +151,7 @@ abstract class AttendanceRepository {
   });
 
   /// Staff expected attendance summary for the daily "Expected Staff" card.
-  Future<StudentAttendanceExpectedSummary>
-      getStaffAttendanceExpectedSummary();
+  Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary();
 
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({
     required String fromAttendanceDate,

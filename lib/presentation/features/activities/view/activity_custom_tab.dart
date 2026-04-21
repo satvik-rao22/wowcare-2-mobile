@@ -63,6 +63,7 @@ class ActivityCustomTab extends StatefulWidget {
   final bool fromStudentProfile;
   final String? studentName;
   final bool isNotParent;
+
   /// Edit / delete; false when [DAILY_ACTIVITY] has `write: false`.
   final bool allowActivityWrite;
 
@@ -122,9 +123,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetClassroomActivitySettingsUseCase
-      _getClassroomActivitySettingsUseCase;
+  _getClassroomActivitySettingsUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetTagNameCodeMapForSchoolUseCase
+  _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
@@ -184,10 +186,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         MealActivityScreen(activityData: activity, isEdit: true),
     'Incident': (activity) =>
         IncidentActivityScreen(activityData: activity, isEdit: true),
-    'Photo': (activity) =>
-        PhotoVideoActivityScreen(activityData: activity, isEdit: true, isPhoto: true,),
-    'Video': (activity) =>
-        PhotoVideoActivityScreen(activityData: activity, isEdit: true, isPhoto: false,),
+    'Photo': (activity) => PhotoVideoActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      isPhoto: true,
+    ),
+    'Video': (activity) => PhotoVideoActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      isPhoto: false,
+    ),
     'Medication': (activity) =>
         MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
@@ -199,68 +207,62 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   };
 
   static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap Start': (activity) => NapActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
-    'Nap End': (activity) => NapActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+    'Nap Start': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true, readOnly: true),
+    'Nap End': (activity) =>
+        NapActivityScreen(activityData: activity, isEdit: true, readOnly: true),
     'Bathroom': (activity) => BathroomActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Bottle': (activity) => BottleActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Meal': (activity) => MealActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Incident': (activity) => IncidentActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Photo': (activity) => PhotoVideoActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-          isPhoto: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+      isPhoto: true,
+    ),
     'Video': (activity) => PhotoVideoActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-          isPhoto: false,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+      isPhoto: false,
+    ),
     'Medication': (activity) => MedicationActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Notes': (activity) => NotesActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Outdoor': (activity) => OutdoorActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Learning': (activity) => LearningActivityScreen(
-          activityData: activity,
-          isEdit: true,
-          readOnly: true,
-        ),
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
   };
 
   static final Map<String, dynamic> activityIcons = {
@@ -281,7 +283,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   @override
   void initState() {
     super.initState();
-    _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
+    _getRangeActivityFeedUseCase =
+        serviceLocator<GetRangeActivityFeedUseCase>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getClassroomActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
@@ -302,8 +305,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       await _bootstrapRangeFeed();
     });
     _feedScrollController.addListener(_onFeedScroll);
-    _feedInvalidationSub =
-        ActivityFeedInvalidation.onInvalidated.listen((_) {
+    _feedInvalidationSub = ActivityFeedInvalidation.onInvalidated.listen((_) {
       if (mounted) {
         _loadRangeFeed(refresh: true);
       }
@@ -338,8 +340,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<ActivityItem> _itemsFromRangeFeedPage(ActivityFeedPage page) {
-    final raw =
-        page.content.map((row) => activityItemFromFeedRow(row)).toList();
+    final raw = page.content
+        .map((row) => activityItemFromFeedRow(row))
+        .toList();
     return _withClientFilters(raw);
   }
 
@@ -401,8 +404,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _loadingMoreFeed = false;
       if (mounted) {
         setState(() {});
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _maybeLoadNextRangeFeedPage(),
+        );
       }
     }
   }
@@ -499,8 +503,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = false;
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeLoadNextRangeFeedPage(),
+      );
     } catch (e) {
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -585,8 +590,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _loadingMoreFeed = false;
       if (mounted) {
         setState(() {});
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _maybeLoadNextRangeFeedPage(),
+        );
       }
     }
   }
@@ -636,8 +642,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (!mounted || result == null) return;
     setState(() {
       _filterTags = List<String>.from(result['Tags'] ?? const []);
-      _filterActivityTypes =
-          List<String>.from(result['Activity Type'] ?? const []);
+      _filterActivityTypes = List<String>.from(
+        result['Activity Type'] ?? const [],
+      );
     });
     await _loadRangeFeed(refresh: true);
   }
@@ -713,8 +720,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           .map(_activityTypeCodeForLabel)
           .whereType<String>()
           .toSet();
-      final names =
-          _filterActivityTypes.map((e) => e.trim().toLowerCase()).toSet();
+      final names = _filterActivityTypes
+          .map((e) => e.trim().toLowerCase())
+          .toSet();
       list = list.where((a) {
         final c = a.activityTypeCode?.trim();
         if (c != null && c.isNotEmpty && codes.contains(c)) return true;
@@ -723,9 +731,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     }
     if (_filterTags.isNotEmpty && _studentCodesForTagFilter.isNotEmpty) {
       list = list
-          .where((a) =>
-              a.studentCode != null &&
-              _studentCodesForTagFilter.contains(a.studentCode))
+          .where(
+            (a) =>
+                a.studentCode != null &&
+                _studentCodesForTagFilter.contains(a.studentCode),
+          )
           .toList();
     }
     return list;
@@ -771,7 +781,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   Future<void> _bootstrapRangeFeed() async {
-    _schoolCode = (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    _schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
 
     if ((_schoolCode ?? '').isEmpty) {
       if (!mounted) return;
@@ -799,11 +810,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (cached != null && cached['classrooms'] is List) {
         final list = (cached['classrooms'] as List)
             .whereType<Map>()
-            .map((e) => <String, String>{
-                  'name': (e['name'] ?? '').toString(),
-                  'code': (e['code'] ?? '').toString(),
-                })
-            .where((e) => (e['name'] ?? '').isNotEmpty && (e['code'] ?? '').isNotEmpty)
+            .map(
+              (e) => <String, String>{
+                'name': (e['name'] ?? '').toString(),
+                'code': (e['code'] ?? '').toString(),
+              },
+            )
+            .where(
+              (e) =>
+                  (e['name'] ?? '').isNotEmpty && (e['code'] ?? '').isNotEmpty,
+            )
             .toList();
         if (list.isNotEmpty && mounted) {
           _classroomCodeByName
@@ -830,7 +846,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         ..clear()
         ..addAll(classrooms.map((c) => c.name));
       if (_classroomOptions.isNotEmpty &&
-          (_selectdClassroom == null || !_classroomOptions.contains(_selectdClassroom))) {
+          (_selectdClassroom == null ||
+              !_classroomOptions.contains(_selectdClassroom))) {
         _selectdClassroom = _classroomOptions.first;
       }
       await _cacheManager.saveCache(classroomCacheKey, {
@@ -839,10 +856,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             .toList(),
       });
 
-      await Future.wait<void>([
-        _loadRangeFeed(),
-        _loadTagFilterOptions(),
-      ]);
+      await Future.wait<void>([_loadRangeFeed(), _loadTagFilterOptions()]);
     } catch (e) {
       if (!mounted) return;
       final msg = ApiErrorHandler.extractErrorMessage(e);
@@ -900,7 +914,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       // Parent UX: use the child currently selected in the global dropdown.
       final globalSelectedCode =
-          (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+          (context.read<ParentChildProvider>().selectedChild?.code ?? '')
+              .trim();
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
             _parentStudentClassroomByCode[globalSelectedCode];
@@ -909,8 +924,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..add(globalSelectedCode);
         _parentStudentClassroomByCode..clear();
         if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
-          _parentStudentClassroomByCode[globalSelectedCode] =
-              selectedClassroom.trim();
+          _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
+              .trim();
         }
         _lastGlobalSelectedStudentCode = globalSelectedCode;
       }
@@ -1038,10 +1053,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
           validFor: StorageKeys.activityFeedCacheDuration,
         );
-        final rev =
-            await ActivityFeedInvalidation.currentRevision(_storageService);
-        final cachedPage =
-            ActivityFeedPageCacheCodec.decode(cached, currentRevision: rev);
+        final rev = await ActivityFeedInvalidation.currentRevision(
+          _storageService,
+        );
+        final cachedPage = ActivityFeedPageCacheCodec.decode(
+          cached,
+          currentRevision: rev,
+        );
         if (cachedPage != null && mounted) {
           final items = _itemsFromRangeFeedPage(cachedPage);
           setState(() {
@@ -1050,16 +1068,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               ..addAll(items);
             _feedError = null;
             _feedHasMore = !cachedPage.last;
-            _feedNextPage =
-                cachedPage.last ? 0 : cachedPage.pageNumber + 1;
+            _feedNextPage = cachedPage.last ? 0 : cachedPage.pageNumber + 1;
             _loadingMoreFeed = false;
           });
           _lastFeedRequestKey = requestKey;
           _isFeedRequestInFlight = false;
           _lastFeedCompletedAt = DateTime.now();
           _lastFeedCompletedWithError = false;
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _maybeLoadNextRangeFeedPage(),
+          );
           return;
         }
       } catch (_) {}
@@ -1086,8 +1104,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         return;
       }
       try {
-        final rev =
-            await ActivityFeedInvalidation.currentRevision(_storageService);
+        final rev = await ActivityFeedInvalidation.currentRevision(
+          _storageService,
+        );
         await _cacheManager.saveCache(
           ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
           ActivityFeedPageCacheCodec.wrapPage(page, rev),
@@ -1105,8 +1124,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = false;
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _maybeLoadNextRangeFeedPage());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeLoadNextRangeFeedPage(),
+      );
 
       try {
         final school = _schoolCode;
@@ -1125,27 +1145,36 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             );
             if (!refresh) {
               try {
-                final cachedStudents =
-                    await _cacheManager.loadCache(studentsCacheKey);
+                final cachedStudents = await _cacheManager.loadCache(
+                  studentsCacheKey,
+                );
                 if (cachedStudents != null &&
                     cachedStudents['students'] is List) {
                   final cachedList = (cachedStudents['students'] as List)
                       .whereType<Map>()
-                      .map((e) => <String, String>{
-                            'name': (e['name'] ?? '').toString(),
-                            'code': (e['code'] ?? '').toString(),
-                          })
-                      .where((e) =>
-                          (e['name'] ?? '').isNotEmpty &&
-                          (e['code'] ?? '').isNotEmpty)
+                      .map(
+                        (e) => <String, String>{
+                          'name': (e['name'] ?? '').toString(),
+                          'code': (e['code'] ?? '').toString(),
+                        },
+                      )
+                      .where(
+                        (e) =>
+                            (e['name'] ?? '').isNotEmpty &&
+                            (e['code'] ?? '').isNotEmpty,
+                      )
                       .toList();
                   if (cachedList.isNotEmpty) {
                     _studentCodeByName
                       ..clear()
-                      ..addEntries(cachedList.map(
-                          (s) => MapEntry(s['name'] ?? '', s['code'] ?? '')));
-                    classroomStudents[classroomName] =
-                        cachedList.map((s) => s['name'] ?? '').toList();
+                      ..addEntries(
+                        cachedList.map(
+                          (s) => MapEntry(s['name'] ?? '', s['code'] ?? ''),
+                        ),
+                      );
+                    classroomStudents[classroomName] = cachedList
+                        .map((s) => s['name'] ?? '')
+                        .toList();
                     _updateAvailableStudents();
                   }
                 }
@@ -1161,9 +1190,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             _studentCodeByName
               ..clear()
               ..addEntries(
-                  students.map((s) => MapEntry(s.fullName, s.studentCode)));
-            classroomStudents[classroomName] =
-                students.map((s) => s.fullName).toList();
+                students.map((s) => MapEntry(s.fullName, s.studentCode)),
+              );
+            classroomStudents[classroomName] = students
+                .map((s) => s.fullName)
+                .toList();
             _updateAvailableStudents();
             await _cacheManager.saveCache(studentsCacheKey, {
               'students': students
@@ -1179,17 +1210,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           );
           if (!refresh) {
             try {
-              final cachedSettings =
-                  await _cacheManager.loadCache(settingsCacheKey);
-              if (cachedSettings != null && cachedSettings['settings'] is List) {
+              final cachedSettings = await _cacheManager.loadCache(
+                settingsCacheKey,
+              );
+              if (cachedSettings != null &&
+                  cachedSettings['settings'] is List) {
                 final list = (cachedSettings['settings'] as List)
                     .whereType<Map>()
                     .map(
                       (e) => ActivitySetting(
-                        activityTypeCode:
-                            (e['activityTypeCode'] ?? '').toString(),
-                        activityTypeName:
-                            (e['activityTypeName'] ?? '').toString(),
+                        activityTypeCode: (e['activityTypeCode'] ?? '')
+                            .toString(),
+                        activityTypeName: (e['activityTypeName'] ?? '')
+                            .toString(),
                         description: (e['description'] ?? '').toString(),
                         category: (e['category'] ?? '').toString(),
                         icon: (e['icon'] ?? '').toString(),
@@ -1207,9 +1240,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                         displayOrder: (e['displayOrder'] as int?) ?? 0,
                       ),
                     )
-                    .where((e) =>
-                        e.activityTypeCode.isNotEmpty &&
-                        e.activityTypeName.isNotEmpty)
+                    .where(
+                      (e) =>
+                          e.activityTypeCode.isNotEmpty &&
+                          e.activityTypeName.isNotEmpty,
+                    )
                     .toList();
                 if (list.isNotEmpty) {
                   _classroomActivitySettings = list;
@@ -1221,29 +1256,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           try {
             _classroomActivitySettings =
                 await _getClassroomActivitySettingsUseCase(
-              classroomCode: classroomCode,
-              refresh: refresh,
-            );
+                  classroomCode: classroomCode,
+                  refresh: refresh,
+                );
             await _cacheManager.saveCache(settingsCacheKey, {
               'settings': _classroomActivitySettings
-                  .map((s) => {
-                        'activityTypeCode': s.activityTypeCode,
-                        'activityTypeName': s.activityTypeName,
-                        'description': s.description,
-                        'category': s.category,
-                        'icon': s.icon,
-                        'color': s.color,
-                        'isSystem': s.isSystem,
-                        'isMultiStudent': s.isMultiStudent,
-                        'requiresStaff': s.requiresStaff,
-                        'requiresPhoto': s.requiresPhoto,
-                        'requiresVideo': s.requiresVideo,
-                        'allowsAttachments': s.allowsAttachments,
-                        'maxAttachments': s.maxAttachments,
-                        'isEnabled': s.isEnabled,
-                        'isFavorite': s.isFavorite,
-                        'displayOrder': s.displayOrder,
-                      })
+                  .map(
+                    (s) => {
+                      'activityTypeCode': s.activityTypeCode,
+                      'activityTypeName': s.activityTypeName,
+                      'description': s.description,
+                      'category': s.category,
+                      'icon': s.icon,
+                      'color': s.color,
+                      'isSystem': s.isSystem,
+                      'isMultiStudent': s.isMultiStudent,
+                      'requiresStaff': s.requiresStaff,
+                      'requiresPhoto': s.requiresPhoto,
+                      'requiresVideo': s.requiresVideo,
+                      'allowsAttachments': s.allowsAttachments,
+                      'maxAttachments': s.maxAttachments,
+                      'isEnabled': s.isEnabled,
+                      'isFavorite': s.isFavorite,
+                      'displayOrder': s.displayOrder,
+                    },
+                  )
                   .toList(),
             });
           } catch (_) {
@@ -1309,13 +1346,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       });
     }
     return OrientationBuilder(
-        builder: (context, orientation){
-          if(orientation == Orientation.landscape){
-            return CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              controller: _feedScrollController,
-              slivers: [
-                SliverToBoxAdapter(child:  Padding(
+      builder: (context, orientation) {
+        if (orientation == Orientation.landscape) {
+          return CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            controller: _feedScrollController,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
                   padding: ResponsiveSizing.contentPadding(context),
                   // filter card
                   child: Container(
@@ -1327,130 +1365,132 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                     ),
                     child: widget.fromStudentProfile
                         ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: 40,
-                          child: AbsorbPointer(
-                            child: _buildCustomDropdown(
-                              'Select Student',
-                              widget.studentName != null
-                                  ? [widget.studentName!]
-                                  : <String>[],
-                              widget.studentName,
-                                  (v) => setState(() {
-                                _selectedStudent = v;
-                              }),
-                              height: 40,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 40,
-                          child: _datePickerFilter(
-                            selectedStartDate: _selectedStartDate,
-                            selectedEndDate: _selectedEndDate,
-                            // onDateRangeSelected: (date) {
-                            //   List<String>? dates = date?.split('-\n');
-                            //   setState(() {
-                            //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                            //     _selectedEndDate = dates?[1].trim() as DateTime;
-                            //
-                            //   });
-                            // },
-                          ),
-                        ),
-                      ],
-                    )
-                        : isNotParent
-                        ? Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCustomDropdown(
-                                'Select Classroom',
-                                _classroomOptions,
-                                _selectdClassroom,
-                                    (v) {
-                                  setState(() {
-                                    _selectdClassroom = v;
-                                    _updateAvailableStudents();
-                                  });
-                                  _loadRangeFeed(refresh: true);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              // child: _buildCustomDropdown(
-                              //   'Select Student',
-                              //   _allStudents,
-                              //   _selectedStudent,
-                              //       (v) => setState(() {
-                              //     _selectedStudent = v;
-                              //   }),
-                              // ),
-                              child: _buildCustomDropdown(
-                                _selectdClassroom == null
-                                    ? 'Select Classroom First'
-                                    : 'Select Student',
-                                _availableStudents,
-                                _selectedStudent,
-                                    (value) {
-                                  if (_selectdClassroom != null) {
-                                    setState(() {
-                                      _selectedStudent = value;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(100),
-                                onTap: _openActivityFilter,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(
-                                    MediaRes.filterIcon,
-                                    height: 20,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                height: 40,
+                                child: AbsorbPointer(
+                                  child: _buildCustomDropdown(
+                                    'Select Student',
+                                    widget.studentName != null
+                                        ? [widget.studentName!]
+                                        : <String>[],
+                                    widget.studentName,
+                                    (v) => setState(() {
+                                      _selectedStudent = v;
+                                    }),
+                                    height: 40,
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 40,
+                                child: _datePickerFilter(
+                                  selectedStartDate: _selectedStartDate,
+                                  selectedEndDate: _selectedEndDate,
+                                  // onDateRangeSelected: (date) {
+                                  //   List<String>? dates = date?.split('-\n');
+                                  //   setState(() {
+                                  //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                                  //     _selectedEndDate = dates?[1].trim() as DateTime;
+                                  //
+                                  //   });
+                                  // },
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
-                                  _selectdClassroom = _classroomOptions[0];
-                                  _selectedStudent = null;
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                });
-                                _loadRangeFeed(refresh: true);
-                              },
-                              label: 'Clear All',
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
+                            ],
+                          )
+                        : isNotParent
+                        ? Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCustomDropdown(
+                                      'Select Classroom',
+                                      _classroomOptions,
+                                      _selectdClassroom,
+                                      (v) {
+                                        setState(() {
+                                          _selectdClassroom = v;
+                                          _updateAvailableStudents();
+                                        });
+                                        _loadRangeFeed(refresh: true);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    // child: _buildCustomDropdown(
+                                    //   'Select Student',
+                                    //   _allStudents,
+                                    //   _selectedStudent,
+                                    //       (v) => setState(() {
+                                    //     _selectedStudent = v;
+                                    //   }),
+                                    // ),
+                                    child: _buildCustomDropdown(
+                                      _selectdClassroom == null
+                                          ? 'Select Classroom First'
+                                          : 'Select Student',
+                                      _availableStudents,
+                                      _selectedStudent,
+                                      (value) {
+                                        if (_selectdClassroom != null) {
+                                          setState(() {
+                                            _selectedStudent = value;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(100),
+                                      onTap: _openActivityFilter,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: SvgPicture.asset(
+                                          MediaRes.filterIcon,
+                                          height: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: _datePickerFilter(
+                                      selectedStartDate: _selectedStartDate,
+                                      selectedEndDate: _selectedEndDate,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  CustomClearAllChip(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectdClassroom =
+                                            _classroomOptions[0];
+                                        _selectedStudent = null;
+                                        _filterActivityTypes.clear();
+                                        _filterTags.clear();
+                                      });
+                                      _loadRangeFeed(refresh: true);
+                                    },
+                                    label: 'Clear All',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
                         : SizedBox(
                             height: 40,
                             child: _datePickerFilter(
@@ -1459,74 +1499,800 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             ),
                           ),
                   ),
-                ),),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: _parentHome ? 0 : 12),
                 ),
-                if (_loadingParentContext && activities.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 48,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        alignment: Alignment.center,
-                        child: const PrimaryCircularLoader(
-                          size: 40,
-                          strokeWidth: 3.5,
+              ),
+              SliverToBoxAdapter(child: SizedBox(height: _parentHome ? 0 : 12)),
+              if (_loadingParentContext && activities.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      alignment: Alignment.center,
+                      child: const PrimaryCircularLoader(
+                        size: 40,
+                        strokeWidth: 3.5,
+                      ),
+                    ),
+                  ),
+                ),
+              if (!_loadingParentContext && activities.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: AppText.title(
+                          _feedError ?? 'No Activities found',
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ),
                   ),
-                if (!_loadingParentContext && activities.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        child: Center(
-                          child: AppText.title(
-                            _feedError ?? 'No Activities found',
-                            textAlign: TextAlign.center,
+                ),
+              if (activities.isNotEmpty)
+                SliverPadding(
+                  padding: ResponsiveSizing.activityFeedListPadding(context),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      if (index == activities.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: PrimaryCircularLoader(
+                              size: 28,
+                              strokeWidth: 3,
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if(activities.isNotEmpty)
-                  SliverPadding(
-                    padding: ResponsiveSizing.activityFeedListPadding(context),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                              (context, index){
-                            if (index == activities.length) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Center(
-                                  child: PrimaryCircularLoader(
-                                    size: 28,
-                                    strokeWidth: 3,
+                        );
+                      }
+                      final activity = activities[index];
+                      final students = activity.studentList;
+                      final Color activityColor =
+                          _colorPalette[index % _colorPalette.length];
+
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      //color: activity.color,
+                                      color: activityColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 4,
+                                    height: 2,
+                                    //color: activity.color,
+                                    color: activityColor,
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                width: 100,
+                                height: 4,
+                                //color: activity.color,
+                                color: activityColor,
+                              ),
+                              Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  //color: activity.color,
+                                  color: activityColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              SizedBox(
+                                height: 20,
+                                child: AppText.small(
+                                  activity.time,
+                                  style: AppTextStyles.small.copyWith(
+                                    color: AppColors.primaryColor,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              );
-                            }
+                              ),
+                            ],
+                          ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(width: 7),
+                              Container(
+                                width: 4,
+                                height: 220,
+                                //color: activity.color,
+                                color: activityColor,
+                              ),
+
+                              const SizedBox(width: 16),
+
+                              // Activity Card
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 16,
+                                    right: 0,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 15),
+                                      InkWell(
+                                        onTap: () async {
+                                          final destinationBuilder =
+                                              activityRoutes[activity.name];
+                                          if (destinationBuilder != null) {
+                                            final nextScreen =
+                                                destinationBuilder(activity);
+                                            await Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => nextScreen,
+                                              ),
+                                            );
+                                            if (mounted) {
+                                              await _loadRangeFeed(
+                                                refresh: true,
+                                              );
+                                            }
+                                          }
+                                        },
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                            minHeight: 180,
+                                          ),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: activityColor.withOpacity(
+                                              0.15,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: activityColor.withOpacity(
+                                                0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: SizedBox(
+                                                  width: 140,
+                                                  height: 120,
+                                                  child:
+                                                      activity.photoUrl !=
+                                                              null ||
+                                                          activity.videoUrl !=
+                                                              null
+                                                      ? ActivityMediaPreview(
+                                                          activity: activity,
+                                                          activityColor:
+                                                              activityColor,
+                                                        )
+                                                      // ? Image.network(
+                                                      //     activity.photoUrl!,
+                                                      //     fit: BoxFit.cover,
+                                                      //     loadingBuilder:
+                                                      //         (
+                                                      //           context,
+                                                      //           child,
+                                                      //           loadingProgress,
+                                                      //         ) {
+                                                      //           if (loadingProgress ==
+                                                      //               null)
+                                                      //             return child;
+                                                      //           return Container(
+                                                      //             color: Colors
+                                                      //                 .transparent,
+                                                      //             child: const Center(
+                                                      //               child: CircularProgressIndicator(
+                                                      //                 strokeWidth:
+                                                      //                     2,
+                                                      //               ),
+                                                      //             ),
+                                                      //           );
+                                                      //         },
+                                                      //     errorBuilder:
+                                                      //         (
+                                                      //           context,
+                                                      //           error,
+                                                      //           stackTrace,
+                                                      //         ) {
+                                                      //           return Container(
+                                                      //             width: 122,
+                                                      //             height: 76,
+                                                      //             color: activity
+                                                      //                 .color
+                                                      //                 .withOpacity(
+                                                      //                   0.25,
+                                                      //                 ),
+                                                      //             child: Center(
+                                                      //               child: Image.asset(
+                                                      //                 activityIcons[activity
+                                                      //                     .name],
+                                                      //                 //'assets/icons/activity-nap-icon.png',
+                                                      //                 fit: BoxFit
+                                                      //                     .fill,
+                                                      //               ),
+                                                      //             ),
+                                                      //           );
+                                                      //         },
+                                                      //   )
+                                                      : Container(
+                                                          width: 122,
+                                                          height: 76,
+                                                          color: Colors.white,
+                                                          // color: activityColor
+                                                          //     .withOpacity(0.25),
+                                                          child: Center(
+                                                            child: Image.asset(
+                                                              activityIcons[activity
+                                                                  .name],
+                                                              //'assets/icons/activity-nap-icon.png',
+                                                              fit: BoxFit.fill,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Align(
+                                                            alignment: Alignment
+                                                                .centerLeft,
+                                                            child: Container(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                    vertical: 6,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                color: activityColor
+                                                                    .withOpacity(
+                                                                      0.5,
+                                                                    ),
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      4,
+                                                                    ),
+                                                              ),
+                                                              child: Text(
+                                                                activity.name,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: const TextStyle(
+                                                                  color: AppColors
+                                                                      .primaryColor,
+                                                                  fontSize: 12,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (isNotParent)
+                                                          PopupMenuButton<
+                                                            String
+                                                          >(
+                                                            icon: const Icon(
+                                                              Icons.more_horiz,
+                                                              size: 20,
+                                                            ),
+                                                            onSelected: null,
+                                                            itemBuilder: (context) => [
+                                                              PopupMenuItem<
+                                                                String
+                                                              >(
+                                                                value: 'view',
+                                                                child: PopupItem(
+                                                                  title: 'View',
+                                                                  icon: Icon(
+                                                                    Icons
+                                                                        .visibility_outlined,
+                                                                    color: AppColors
+                                                                        .themeColor,
+                                                                  ),
+                                                                ),
+                                                                onTap: () async {
+                                                                  final destinationBuilder =
+                                                                      activityRoutes[activity
+                                                                          .name];
+                                                                  if (destinationBuilder !=
+                                                                      null) {
+                                                                    final nextScreen =
+                                                                        destinationBuilder(
+                                                                          activity,
+                                                                        );
+                                                                    await Navigator.of(
+                                                                      context,
+                                                                    ).push(
+                                                                      MaterialPageRoute(
+                                                                        builder:
+                                                                            (
+                                                                              _,
+                                                                            ) =>
+                                                                                nextScreen,
+                                                                      ),
+                                                                    );
+                                                                    if (mounted) {
+                                                                      await _loadRangeFeed(
+                                                                        refresh:
+                                                                            true,
+                                                                      );
+                                                                    }
+                                                                  }
+                                                                },
+                                                              ),
+                                                              if (widget
+                                                                  .allowActivityWrite) ...[
+                                                                PopupMenuItem<
+                                                                  String
+                                                                >(
+                                                                  value: 'edit',
+                                                                  child: PopupItem(
+                                                                    title:
+                                                                        'Edit',
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .edit,
+                                                                      color: AppColors
+                                                                          .themeColor,
+                                                                    ),
+                                                                  ),
+                                                                  onTap: () async {
+                                                                    final destinationBuilder =
+                                                                        editActivityRoutes[activity
+                                                                            .name];
+                                                                    if (destinationBuilder !=
+                                                                        null) {
+                                                                      final nextScreen =
+                                                                          destinationBuilder(
+                                                                            activity,
+                                                                          );
+                                                                      await Navigator.of(
+                                                                        context,
+                                                                      ).push(
+                                                                        MaterialPageRoute(
+                                                                          builder: (_) =>
+                                                                              nextScreen,
+                                                                        ),
+                                                                      );
+                                                                      if (mounted) {
+                                                                        await _loadRangeFeed(
+                                                                          refresh:
+                                                                              true,
+                                                                        );
+                                                                      }
+                                                                    }
+                                                                  },
+                                                                ),
+                                                                PopupMenuItem<
+                                                                  String
+                                                                >(
+                                                                  value:
+                                                                      'delete',
+                                                                  child: PopupItem(
+                                                                    title:
+                                                                        'Delete',
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .delete,
+                                                                      color: AppColors
+                                                                          .themeColor,
+                                                                    ),
+                                                                  ),
+                                                                  onTap: () {
+                                                                    showModalBottomSheet(
+                                                                      context:
+                                                                          context,
+                                                                      isScrollControlled:
+                                                                          true,
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .transparent,
+                                                                      builder: (ctx) {
+                                                                        return DeleteConfirmationBottomSheet(
+                                                                          name:
+                                                                              activity.name,
+                                                                          type:
+                                                                              'Activity',
+                                                                          onDelete: () => _deleteActivityFromSheet(
+                                                                            ctx,
+                                                                            activity,
+                                                                          ),
+                                                                          onCancel: () {
+                                                                            Navigator.of(
+                                                                              ctx,
+                                                                            ).pop();
+                                                                          },
+                                                                        );
+                                                                      },
+                                                                    );
+                                                                  },
+                                                                ),
+                                                              ],
+                                                            ],
+                                                          ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+
+                                                    SizedBox(
+                                                      height: 32,
+                                                      child: Stack(
+                                                        children: [
+                                                          for (
+                                                            int i = 0;
+                                                            i < students.length &&
+                                                                i < 4;
+                                                            i++
+                                                          )
+                                                            Positioned(
+                                                              left: i * 20,
+                                                              child: DocumentImageWidget(
+                                                                fileUuid: '',
+                                                                name:
+                                                                    students[i],
+                                                                size: 28,
+                                                                fontSize: 10,
+                                                              ),
+                                                            ),
+
+                                                          // Extra count tooltip
+                                                          if (students.length >
+                                                              4)
+                                                            Positioned(
+                                                              left:
+                                                                  4 *
+                                                                  20, // after 4 avatars
+                                                              child: Tooltip(
+                                                                message:
+                                                                    students
+                                                                        .skip(4)
+                                                                        .join(
+                                                                          ', ',
+                                                                        ),
+                                                                child: DocumentImageWidget(
+                                                                  fileUuid: '',
+                                                                  name:
+                                                                      '+${students.length - 4}',
+                                                                  size: 28,
+                                                                  fontSize: 10,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+
+                                                    Text(
+                                                      activityFeedCardBodyLine(
+                                                        activity,
+                                                      ),
+                                                      style: AppTextStyles.body
+                                                          .copyWith(
+                                                            color: AppColors
+                                                                .primaryColor,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            height: 1.0,
+                                                          ),
+                                                      strutStyle: StrutStyle(
+                                                        fontFamily:
+                                                            Fonts.manrope,
+                                                        fontSize: 14,
+                                                        height: 1.0,
+                                                        leading: 0,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        forceStrutHeight: true,
+                                                      ),
+                                                      textHeightBehavior:
+                                                          const TextHeightBehavior(
+                                                            applyHeightToFirstAscent:
+                                                                false,
+                                                            applyHeightToLastDescent:
+                                                                false,
+                                                          ),
+                                                      maxLines:
+                                                          activityFeedCardBodyMaxLines(
+                                                            activity,
+                                                          ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    AppText.small(
+                                                      'Created By - ${activity.createdBy}',
+                                                      style: AppTextStyles.small
+                                                          .copyWith(
+                                                            color: AppColors
+                                                                .primaryColor,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }, childCount: activities.length + (_loadingMoreFeed ? 1 : 0)),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+            ],
+          );
+          // ignore: dead_code
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                Padding(
+                  padding: ResponsiveSizing.contentPadding(context),
+                  // filter card
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.dividerColor),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                    ),
+                    child: widget.fromStudentProfile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                height: 40,
+                                child: AbsorbPointer(
+                                  child: _buildCustomDropdown(
+                                    'Select Student',
+                                    widget.studentName != null
+                                        ? [widget.studentName!]
+                                        : <String>[],
+                                    widget.studentName,
+                                    (v) => setState(() {
+                                      _selectedStudent = v;
+                                    }),
+                                    height: 40,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 40,
+                                child: _datePickerFilter(
+                                  selectedStartDate: _selectedStartDate,
+                                  selectedEndDate: _selectedEndDate,
+                                  // onDateRangeSelected: (date) {
+                                  //   List<String>? dates = date?.split('-\n');
+                                  //   setState(() {
+                                  //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                                  //     _selectedEndDate = dates?[1].trim() as DateTime;
+                                  //
+                                  //   });
+                                  // },
+                                ),
+                              ),
+                            ],
+                          )
+                        : isNotParent
+                        ? Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCustomDropdown(
+                                      'Select Classroom',
+                                      _classroomOptions,
+                                      _selectdClassroom,
+                                      (v) {
+                                        setState(() {
+                                          _selectdClassroom = v;
+                                          _updateAvailableStudents();
+                                        });
+                                        _loadRangeFeed(refresh: true);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    // child: _buildCustomDropdown(
+                                    //   'Select Student',
+                                    //   _allStudents,
+                                    //   _selectedStudent,
+                                    //       (v) => setState(() {
+                                    //     _selectedStudent = v;
+                                    //   }),
+                                    // ),
+                                    child: _buildCustomDropdown(
+                                      _selectdClassroom == null
+                                          ? 'Select Classroom First'
+                                          : 'Select Student',
+                                      _availableStudents,
+                                      _selectedStudent,
+                                      (value) {
+                                        if (_selectdClassroom != null) {
+                                          setState(() {
+                                            _selectedStudent = value;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(100),
+                                      onTap: _openActivityFilter,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: SvgPicture.asset(
+                                          MediaRes.filterIcon,
+                                          height: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: _datePickerFilter(
+                                      selectedStartDate: _selectedStartDate,
+                                      selectedEndDate: _selectedEndDate,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  CustomClearAllChip(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectdClassroom =
+                                            _classroomOptions[0];
+                                        _selectedStudent = null;
+                                        _filterActivityTypes.clear();
+                                        _filterTags.clear();
+                                      });
+                                      _loadRangeFeed(refresh: true);
+                                    },
+                                    label: 'Clear All',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : SizedBox(
+                            height: 40,
+                            child: _datePickerFilter(
+                              selectedStartDate: _selectedStartDate,
+                              selectedEndDate: _selectedEndDate,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                if (_loadingParentContext && activities.isEmpty)
+                  Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      alignment: Alignment.center,
+                      child: const PrimaryCircularLoader(
+                        size: 40,
+                        strokeWidth: 3.5,
+                      ),
+                    ),
+                  ),
+
+                if (!_loadingParentContext && activities.length == 0)
+                  Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: AppText.title(
+                          _feedError ?? 'No Activities found',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (activities.length != 0)
+                  Padding(
+                    padding: ResponsiveSizing.activityFeedListPadding(context),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: EdgeInsets.zero,
+                          itemCount: activities.length,
+                          itemBuilder: (context, index) {
                             final activity = activities[index];
                             final students = activity.studentList;
                             final Color activityColor =
-                            _colorPalette[index % _colorPalette.length];
+                                _colorPalette[index % _colorPalette.length];
 
                             return Column(
                               children: [
@@ -1538,7 +2304,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                           width: 18,
                                           height: 18,
                                           decoration: BoxDecoration(
-                                            //color: activity.color,
                                             color: activityColor,
                                             shape: BoxShape.circle,
                                           ),
@@ -1546,7 +2311,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                         Container(
                                           width: 4,
                                           height: 2,
-                                          //color: activity.color,
                                           color: activityColor,
                                         ),
                                       ],
@@ -1554,14 +2318,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                     Container(
                                       width: 100,
                                       height: 4,
-                                      //color: activity.color,
                                       color: activityColor,
                                     ),
                                     Container(
                                       width: 18,
                                       height: 18,
                                       decoration: BoxDecoration(
-                                        //color: activity.color,
                                         color: activityColor,
                                         shape: BoxShape.circle,
                                       ),
@@ -1586,7 +2348,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                     Container(
                                       width: 4,
                                       height: 220,
-                                      //color: activity.color,
                                       color: activityColor,
                                     ),
 
@@ -1602,1401 +2363,47 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                         child: Column(
                                           children: [
                                             const SizedBox(height: 15),
-                                            InkWell(
-                                              onTap: () async {
-                                                final destinationBuilder =
-                                                activityRoutes[activity
-                                                    .name];
-                                                if (destinationBuilder !=
-                                                    null) {
-                                                  final nextScreen =
-                                                  destinationBuilder(
-                                                    activity,
-                                                  );
-                                                  await Navigator.of(
-                                                    context,
-                                                  ).push(
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                      nextScreen,
-                                                    ),
-                                                  );
-                                                  if (mounted) {
-                                                    await _loadRangeFeed(refresh: true);
-                                                  }
-                                                }
-                                              },
-                                              child: Container(
-                                                constraints: const BoxConstraints(
-                                                  minHeight: 180,
-                                                ),
-                                                margin: const EdgeInsets.only(
-                                                  bottom: 10,
-                                                ),
-                                                padding: const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: activityColor.withOpacity(
-                                                    0.15,
-                                                  ),
-                                                  borderRadius: BorderRadius.circular(
-                                                    16,
-                                                  ),
-                                                  border: Border.all(
-                                                    color: activityColor.withOpacity(
-                                                      0.4,
-                                                    ),
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    ClipRRect(
-                                                      borderRadius:
-                                                      BorderRadius.circular(12),
-                                                      child: SizedBox(
-                                                        width: 140,
-                                                        height: 120,
-                                                        child:
-                                                        activity.photoUrl != null ||
-                                                            activity.videoUrl !=
-                                                                null
-                                                            ? ActivityMediaPreview(
-                                                          activity: activity,
-                                                          activityColor:
-                                                          activityColor,
-                                                        )
-                                                        // ? Image.network(
-                                                        //     activity.photoUrl!,
-                                                        //     fit: BoxFit.cover,
-                                                        //     loadingBuilder:
-                                                        //         (
-                                                        //           context,
-                                                        //           child,
-                                                        //           loadingProgress,
-                                                        //         ) {
-                                                        //           if (loadingProgress ==
-                                                        //               null)
-                                                        //             return child;
-                                                        //           return Container(
-                                                        //             color: Colors
-                                                        //                 .transparent,
-                                                        //             child: const Center(
-                                                        //               child: CircularProgressIndicator(
-                                                        //                 strokeWidth:
-                                                        //                     2,
-                                                        //               ),
-                                                        //             ),
-                                                        //           );
-                                                        //         },
-                                                        //     errorBuilder:
-                                                        //         (
-                                                        //           context,
-                                                        //           error,
-                                                        //           stackTrace,
-                                                        //         ) {
-                                                        //           return Container(
-                                                        //             width: 122,
-                                                        //             height: 76,
-                                                        //             color: activity
-                                                        //                 .color
-                                                        //                 .withOpacity(
-                                                        //                   0.25,
-                                                        //                 ),
-                                                        //             child: Center(
-                                                        //               child: Image.asset(
-                                                        //                 activityIcons[activity
-                                                        //                     .name],
-                                                        //                 //'assets/icons/activity-nap-icon.png',
-                                                        //                 fit: BoxFit
-                                                        //                     .fill,
-                                                        //               ),
-                                                        //             ),
-                                                        //           );
-                                                        //         },
-                                                        //   )
-                                                            : Container(
-                                                          width: 122,
-                                                          height: 76,
-                                                          color: Colors.white,
-                                                          // color: activityColor
-                                                          //     .withOpacity(0.25),
-                                                          child: Center(
-                                                            child: Image.asset(
-                                                              activityIcons[activity
-                                                                  .name],
-                                                              //'assets/icons/activity-nap-icon.png',
-                                                              fit: BoxFit.fill,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                        CrossAxisAlignment.start,
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment.start,
-                                                        children: [
-                                                          Row(
-                                                            mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .spaceBetween,
-                                                            children: [
-                                                              Expanded(
-                                                                child: Align(
-                                                                  alignment:
-                                                                      Alignment.centerLeft,
-                                                                  child: Container(
-                                                                    padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      horizontal: 12,
-                                                                      vertical: 6,
-                                                                    ),
-                                                                    decoration: BoxDecoration(
-                                                                      color:
-                                                                          activityColor
-                                                                              .withOpacity(
-                                                                                0.5,
-                                                                              ),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                        4,
-                                                                      ),
-                                                                    ),
-                                                                    child: Text(
-                                                                      activity.name,
-                                                                      maxLines: 1,
-                                                                      overflow:
-                                                                          TextOverflow.ellipsis,
-                                                                      style:
-                                                                      const TextStyle(
-                                                                        color: AppColors
-                                                                            .primaryColor,
-                                                                        fontSize: 12,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              if (isNotParent)
-                                                                PopupMenuButton<String>(
-                                                                  icon: const Icon(
-                                                                    Icons.more_horiz,
-                                                                    size: 20,
-                                                                  ),
-                                                                  onSelected: null,
-                                                                  itemBuilder: (context) => [
-                                                                  PopupMenuItem<String>(
-                                                                    value: 'view',
-                                                                    child: PopupItem(
-                                                                      title: 'View',
-                                                                      icon: Icon(
-                                                                        Icons
-                                                                            .visibility_outlined,
-                                                                        color: AppColors
-                                                                            .themeColor,
-                                                                      ),
-                                                                    ),
-                                                                    onTap: () async {
-                                                                      final destinationBuilder =
-                                                                      activityRoutes[activity
-                                                                          .name];
-                                                                      if (destinationBuilder !=
-                                                                          null) {
-                                                                        final nextScreen =
-                                                                        destinationBuilder(
-                                                                          activity,
-                                                                        );
-                                                                        await Navigator.of(
-                                                                          context,
-                                                                        ).push(
-                                                                          MaterialPageRoute(
-                                                                            builder: (_) =>
-                                                                            nextScreen,
-                                                                          ),
-                                                                        );
-                                                                        if (mounted) {
-                                                                          await _loadRangeFeed(refresh: true);
-                                                                        }
-                                                                      }
-                                                                    },
-                                                                  ),
-                                                                  if (widget.allowActivityWrite) ...[
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'edit',
-                                                                      child: PopupItem(
-                                                                        title: 'Edit',
-                                                                        icon: Icon(
-                                                                          Icons.edit,
-                                                                          color: AppColors
-                                                                              .themeColor,
-                                                                        ),
-                                                                      ),
-                                                                      onTap: () async {
-                                                                        final destinationBuilder =
-                                                                        editActivityRoutes[activity
-                                                                            .name];
-                                                                        if (destinationBuilder !=
-                                                                            null) {
-                                                                          final nextScreen =
-                                                                          destinationBuilder(
-                                                                            activity,
-                                                                          );
-                                                                          await Navigator.of(
-                                                                            context,
-                                                                          ).push(
-                                                                            MaterialPageRoute(
-                                                                              builder: (_) =>
-                                                                              nextScreen,
-                                                                            ),
-                                                                          );
-                                                                          if (mounted) {
-                                                                            await _loadRangeFeed(refresh: true);
-                                                                          }
-                                                                        }
-                                                                      },
-                                                                    ),
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'delete',
-                                                                      child: PopupItem(
-                                                                        title: 'Delete',
-                                                                        icon: Icon(
-                                                                          Icons.delete,
-                                                                          color: AppColors
-                                                                              .themeColor,
-                                                                        ),
-                                                                      ),
-                                                                      onTap: () {
-                                                                        showModalBottomSheet(
-                                                                          context: context,
-                                                                          isScrollControlled: true,
-                                                                          backgroundColor: Colors.transparent,
-                                                                          builder: (ctx) {
-                                                                            return DeleteConfirmationBottomSheet(
-                                                                              name: activity.name,
-                                                                              type: 'Activity',
-                                                                              onDelete: () =>
-                                                                                  _deleteActivityFromSheet(ctx, activity),
-                                                                              onCancel: () {
-                                                                                Navigator.of(ctx).pop();
-                                                                              },
-                                                                            );
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    ),
-                                                                  ],
-                                                                  ],
-                                                                ),
-                                                            ],
-                                                          ),
-                                                          const SizedBox(height: 10),
-
-                                                          SizedBox(
-                                                            height: 32,
-                                                            child: Stack(
-                                                              children: [
-                                                                for (
-                                                                int i = 0;
-                                                                i < students.length &&
-                                                                    i < 4;
-                                                                i++
-                                                                )
-                                                                  Positioned(
-                                                                    left: i * 20,
-                                                                    child:
-                                                                    DocumentImageWidget(
-                                                                      fileUuid: '',
-                                                                      name:
-                                                                      students[i],
-                                                                      size: 28,
-                                                                      fontSize: 10,
-                                                                    ),
-                                                                  ),
-
-                                                                // Extra count tooltip
-                                                                if (students.length > 4)
-                                                                  Positioned(
-                                                                    left:
-                                                                    4 *
-                                                                        20, // after 4 avatars
-                                                                    child: Tooltip(
-                                                                      message: students
-                                                                          .skip(4)
-                                                                          .join(', '),
-                                                                      child: DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        '+${students.length - 4}',
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(height: 10),
-
-                                                          Text(
-                                                            activityFeedCardBodyLine(activity),
-                                                            style: AppTextStyles.body.copyWith(
-                                                              color: AppColors.primaryColor,
-                                                              fontWeight: FontWeight.w600,
-                                                              height: 1.0,
-                                                            ),
-                                                            strutStyle: StrutStyle(
-                                                              fontFamily: Fonts.manrope,
-                                                              fontSize: 14,
-                                                              height: 1.0,
-                                                              leading: 0,
-                                                              fontWeight: FontWeight.w600,
-                                                              forceStrutHeight: true,
-                                                            ),
-                                                            textHeightBehavior:
-                                                                const TextHeightBehavior(
-                                                              applyHeightToFirstAscent: false,
-                                                              applyHeightToLastDescent: false,
-                                                            ),
-                                                            maxLines:
-                                                                activityFeedCardBodyMaxLines(
-                                                                    activity),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                          const SizedBox(height: 10),
-                                                          AppText.small(
-                                                            'Created By - ${activity.createdBy}',
-                                                            style: AppTextStyles.small.copyWith(
-                                                              color: AppColors.primaryColor,
-                                                              fontWeight: FontWeight.w500,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          },
-                          childCount: activities.length +
-                              (_loadingMoreFeed ? 1 : 0),
-                      ),
-                    ),
-                  ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10))
-              ],
-            );
-            // ignore: dead_code
-            return SingleChildScrollView(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
-                    // filter card
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.dividerColor),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.white,
-                      ),
-                      child: widget.fromStudentProfile
-                          ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: 40,
-                            child: AbsorbPointer(
-                              child: _buildCustomDropdown(
-                                'Select Student',
-                                widget.studentName != null
-                                  ? [widget.studentName!]
-                                  : <String>[],
-                                widget.studentName,
-                                    (v) => setState(() {
-                                  _selectedStudent = v;
-                                }),
-                                height: 40,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 40,
-                            child: _datePickerFilter(
-                              selectedStartDate: _selectedStartDate,
-                              selectedEndDate: _selectedEndDate,
-                              // onDateRangeSelected: (date) {
-                              //   List<String>? dates = date?.split('-\n');
-                              //   setState(() {
-                              //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                              //     _selectedEndDate = dates?[1].trim() as DateTime;
-                              //
-                              //   });
-                              // },
-                            ),
-                          ),
-                        ],
-                      )
-                          : isNotParent
-                          ? Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildCustomDropdown(
-                                  'Select Classroom',
-                                  _classroomOptions,
-                                  _selectdClassroom,
-                                      (v) {
-                                    setState(() {
-                                      _selectdClassroom = v;
-                                      _updateAvailableStudents();
-                                    });
-                                    _loadRangeFeed(refresh: true);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                // child: _buildCustomDropdown(
-                                //   'Select Student',
-                                //   _allStudents,
-                                //   _selectedStudent,
-                                //       (v) => setState(() {
-                                //     _selectedStudent = v;
-                                //   }),
-                                // ),
-                                child: _buildCustomDropdown(
-                                  _selectdClassroom == null
-                                      ? 'Select Classroom First'
-                                      : 'Select Student',
-                                  _availableStudents,
-                                  _selectedStudent,
-                                      (value) {
-                                    if (_selectdClassroom != null) {
-                                      setState(() {
-                                        _selectedStudent = value;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(100),
-                                  onTap: _openActivityFilter,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: SvgPicture.asset(
-                                      MediaRes.filterIcon,
-                                      height: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: _datePickerFilter(
-                                  selectedStartDate: _selectedStartDate,
-                                  selectedEndDate: _selectedEndDate,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              CustomClearAllChip(
-                                onTap: () {
-                                  setState(() {
-                                    _selectdClassroom = _classroomOptions[0];
-                                    _selectedStudent = null;
-                                    _filterActivityTypes.clear();
-                                    _filterTags.clear();
-                                  });
-                                  _loadRangeFeed(refresh: true);
-                                },
-                                label: 'Clear All',
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                          : SizedBox(
-                              height: 40,
-                              child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
-                              ),
-                            ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  if (_loadingParentContext && activities.isEmpty)
-                    Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 48,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        alignment: Alignment.center,
-                        child: const PrimaryCircularLoader(
-                          size: 40,
-                          strokeWidth: 3.5,
-                        ),
-                      ),
-                    ),
-
-                  if (!_loadingParentContext && activities.length == 0)
-                    Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        child: Center(
-                          child: AppText.title(
-                            _feedError ?? 'No Activities found',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  if (activities.length != 0)
-                    Padding(
-                      padding: ResponsiveSizing.activityFeedListPadding(context),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: EdgeInsets.zero,
-                            itemCount: activities.length,
-                            itemBuilder: (context, index) {
-                              final activity = activities[index];
-                              final students = activity.studentList;
-                              final Color activityColor = _colorPalette[index % _colorPalette.length];
-
-                              return Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Container(
-                                            width: 18,
-                                            height: 18,
-                                            decoration: BoxDecoration(
-                                              color: activityColor,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          Container(
-                                            width: 4,
-                                            height: 2,
-                                            color: activityColor,
-                                          ),
-                                        ],
-                                      ),
-                                      Container(
-                                        width: 100,
-                                        height: 4,
-                                        color: activityColor,
-                                      ),
-                                      Container(
-                                        width: 18,
-                                        height: 18,
-                                        decoration: BoxDecoration(
-                                          color: activityColor,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 20),
-                                      SizedBox(
-                                        height: 20,
-                                        child: AppText.small(
-                                          activity.time,
-                                          style: AppTextStyles.small.copyWith(
-                                            color: AppColors.primaryColor,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(width: 7),
-                                      Container(
-                                        width: 4,
-                                        height: 220,
-                                        color: activityColor,
-                                      ),
-
-                                      const SizedBox(width: 16),
-
-                                      // Activity Card
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            left: 16,
-                                            right: 0,
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              const SizedBox(height: 15),
-                                              Container(
-                                            constraints: const BoxConstraints(
-                                              minHeight: 180,
-                                            ),
-                                              margin: const EdgeInsets.only(
-                                              bottom: 10,
-                                            ),
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: activityColor.withOpacity(
-                                                0.15,
-                                              ),
-                                              borderRadius: BorderRadius.circular(
-                                                16,
-                                              ),
-                                              border: Border.all(
-                                                color: activityColor.withOpacity(
-                                                  0.4,
-                                                ),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                ClipRRect(
-                                                  borderRadius:
-                                                  BorderRadius.circular(12),
-                                                  child: SizedBox(
-                                                    width: 140,
-                                                    height: 120,
-                                                    child:
-                                                    activity.photoUrl != null || activity.videoUrl != null
-                                                        ? ActivityMediaPreview(activity: activity, activityColor: activityColor,)
-                                                    // ? Image.network(
-                                                    //     activity.photoUrl!,
-                                                    //     fit: BoxFit.cover,
-                                                    //     loadingBuilder:
-                                                    //         (
-                                                    //           context,
-                                                    //           child,
-                                                    //           loadingProgress,
-                                                    //         ) {
-                                                    //           if (loadingProgress ==
-                                                    //               null)
-                                                    //             return child;
-                                                    //           return Container(
-                                                    //             color: Colors
-                                                    //                 .transparent,
-                                                    //             child: const Center(
-                                                    //               child: CircularProgressIndicator(
-                                                    //                 strokeWidth:
-                                                    //                     2,
-                                                    //               ),
-                                                    //             ),
-                                                    //           );
-                                                    //         },
-                                                    //     errorBuilder:
-                                                    //         (
-                                                    //           context,
-                                                    //           error,
-                                                    //           stackTrace,
-                                                    //         ) {
-                                                    //           return Container(
-                                                    //             width: 122,
-                                                    //             height: 76,
-                                                    //             color: activityColor
-                                                    //                 .withOpacity(
-                                                    //                   0.25,
-                                                    //                 ),
-                                                    //             child: Center(
-                                                    //               child: Image.asset(
-                                                    //                 activityIcons[activity
-                                                    //                     .name],
-                                                    //                 //'assets/icons/activity-nap-icon.png',
-                                                    //                 fit: BoxFit
-                                                    //                     .fill,
-                                                    //               ),
-                                                    //             ),
-                                                    //           );
-                                                    //         },
-                                                    //   )
-                                                        : Container(
-                                                      width: 122,
-                                                      height: 76,
-                                                      color: Colors.white,
-                                                      // color: activityColor
-                                                      //     .withOpacity(0.25),
-                                                      child: Center(
-                                                        child: Image.asset(
-                                                          activityIcons[activity
-                                                              .name],
-                                                          //'assets/icons/activity-nap-icon.png',
-                                                          fit: BoxFit.fill,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      Row(
-                                                        mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                        children: [
-                                                          Expanded(
-                                                            child: Align(
-                                                              alignment:
-                                                                  Alignment.centerLeft,
-                                                              child: Container(
-                                                                padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 12,
-                                                                  vertical: 6,
-                                                                ),
-                                                                decoration: BoxDecoration(
-                                                                  color: activityColor,
-                                                                  borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    20,
-                                                                  ),
-                                                                ),
-                                                                child: Text(
-                                                                  activity.name,
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow.ellipsis,
-                                                                  style:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                    fontSize: 11,
-                                                                    fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          if (isNotParent)
-                                                            PopupMenuButton<String>(
-                                                              icon: const Icon(
-                                                                Icons.more_horiz,
-                                                                size: 20,
-                                                              ),
-                                                              onSelected: null,
-                                                              itemBuilder: (context) => [
-                                                              PopupMenuItem<String>(
-                                                                value: 'view',
-                                                                child: PopupItem(
-                                                                  title: 'View',
-                                                                  icon: Icon(
-                                                                    Icons
-                                                                        .visibility_outlined,
-                                                                    color: AppColors
-                                                                        .themeColor,
-                                                                  ),
-                                                                ),
-                                                                onTap: () async {
-                                                                  final destinationBuilder =
-                                                                  activityRoutes[activity
-                                                                      .name];
-                                                                  if (destinationBuilder !=
-                                                                      null) {
-                                                                    final nextScreen =
-                                                                    destinationBuilder(
-                                                                      activity,
-                                                                    );
-                                                                    await Navigator.of(
-                                                                      context,
-                                                                    ).push(
-                                                                      MaterialPageRoute(
-                                                                        builder: (_) =>
-                                                                        nextScreen,
-                                                                      ),
-                                                                    );
-                                                                    if (mounted) {
-                                                                      await _loadRangeFeed(refresh: true);
-                                                                    }
-                                                                  }
-                                                                },
-                                                              ),
-                                                              if (widget.allowActivityWrite) ...[
-                                                                PopupMenuItem<String>(
-                                                                  value: 'edit',
-                                                                  child: PopupItem(
-                                                                    title: 'Edit',
-                                                                    icon: Icon(
-                                                                      Icons.edit,
-                                                                      color: AppColors
-                                                                          .themeColor,
-                                                                    ),
-                                                                  ),
-                                                                  onTap: () async {
-                                                                    final destinationBuilder =
-                                                                    editActivityRoutes[activity
-                                                                        .name];
-                                                                    if (destinationBuilder !=
-                                                                        null) {
-                                                                      final nextScreen =
-                                                                      destinationBuilder(
-                                                                        activity,
-                                                                      );
-                                                                      await Navigator.of(
-                                                                        context,
-                                                                      ).push(
-                                                                        MaterialPageRoute(
-                                                                          builder: (_) =>
-                                                                          nextScreen,
-                                                                        ),
-                                                                      );
-                                                                      if (mounted) {
-                                                                        await _loadRangeFeed(refresh: true);
-                                                                      }
-                                                                    }
-                                                                  },
-                                                                ),
-                                                                PopupMenuItem<String>(
-                                                                  value: 'delete',
-                                                                  child: PopupItem(
-                                                                    title: 'Delete',
-                                                                    icon: Icon(
-                                                                      Icons.delete,
-                                                                      color: AppColors
-                                                                          .themeColor,
-                                                                    ),
-                                                                  ),
-                                                                  onTap: () {
-                                                                    showModalBottomSheet(
-                                                                      context: context,
-                                                                      isScrollControlled: true,
-                                                                      backgroundColor: Colors.transparent,
-                                                                      builder: (ctx) {
-                                                                        return DeleteConfirmationBottomSheet(
-                                                                          name: activity.name,
-                                                                          type: 'Activity',
-                                                                          onDelete: () =>
-                                                                              _deleteActivityFromSheet(ctx, activity),
-                                                                          onCancel: () {
-                                                                            Navigator.of(ctx).pop();
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    );
-                                                                  },
-                                                                ),
-                                                              ],
-                                                              ],
-                                                            ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 10),
-
-                                                      SizedBox(
-                                                        height: 32,
-                                                        child: Stack(
-                                                          children: [
-                                                            for (
-                                                            int i = 0;
-                                                            i < students.length &&
-                                                                i < 4;
-                                                            i++
-                                                            )
-                                                              Positioned(
-                                                                left: i * 20,
-                                                                child:
-                                                                DocumentImageWidget(
-                                                                  fileUuid: '',
-                                                                  name:
-                                                                  students[i],
-                                                                  size: 28,
-                                                                  fontSize: 10,
-                                                                ),
-                                                              ),
-
-                                                            // Extra count tooltip
-                                                            if (students.length > 4)
-                                                              Positioned(
-                                                                left:
-                                                                4 *
-                                                                    20, // after 4 avatars
-                                                                child: Tooltip(
-                                                                  message: students
-                                                                      .skip(4)
-                                                                      .join(', '),
-                                                                  child: DocumentImageWidget(
-                                                                    fileUuid: '',
-                                                                    name:
-                                                                    '+${students.length - 4}',
-                                                                    size: 28,
-                                                                    fontSize: 10,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 10),
-
-                                                      Text(
-                                                        activityFeedCardBodyLine(activity),
-                                                        style: AppTextStyles.body.copyWith(
-                                                          color: AppColors.primaryColor,
-                                                          fontWeight: FontWeight.w600,
-                                                          height: 1.0,
-                                                        ),
-                                                        strutStyle: StrutStyle(
-                                                          fontFamily: Fonts.manrope,
-                                                          fontSize: 14,
-                                                          height: 1.0,
-                                                          leading: 0,
-                                                          fontWeight: FontWeight.w600,
-                                                          forceStrutHeight: true,
-                                                        ),
-                                                        textHeightBehavior:
-                                                            const TextHeightBehavior(
-                                                          applyHeightToFirstAscent: false,
-                                                          applyHeightToLastDescent: false,
-                                                        ),
-                                                        maxLines:
-                                                            activityFeedCardBodyMaxLines(
-                                                                activity),
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      const SizedBox(height: 10),
-                                                      AppText.small(
-                                                        'Created By - ${activity.createdBy}',
-                                                        style: AppTextStyles.small.copyWith(
-                                                          color: AppColors.primaryColor,
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            );
-          } else {
-            return Column(
-              children: [
-                Padding(
-                  padding: ResponsiveSizing.contentPadding(context),
-                  // filter card
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.dividerColor),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: widget.fromStudentProfile
-                        ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: 40,
-                          child: AbsorbPointer(
-                            child: _buildCustomDropdown(
-                              'Select Student',
-                              widget.studentName != null
-                                  ? [widget.studentName!]
-                                  : <String>[],
-                              widget.studentName,
-                                  (v) => setState(() {
-                                _selectedStudent = v;
-                              }),
-                              height: 40,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 40,
-                          child: _datePickerFilter(
-                            selectedStartDate: _selectedStartDate,
-                            selectedEndDate: _selectedEndDate,
-                            // onDateRangeSelected: (date) {
-                            //   List<String>? dates = date?.split('-\n');
-                            //   setState(() {
-                            //     _selectedStartDate = dates?[0].trim() as DateTime?;
-                            //     _selectedEndDate = dates?[1].trim() as DateTime;
-                            //
-                            //   });
-                            // },
-                          ),
-                        ),
-                      ],
-                    )
-                        : isNotParent
-                        ? Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildCustomDropdown(
-                                'Select Classroom',
-                                _classroomOptions,
-                                _selectdClassroom,
-                                    (v) {
-                                  setState(() {
-                                    _selectdClassroom = v;
-                                    _updateAvailableStudents();
-                                  });
-                                  _loadRangeFeed(refresh: true);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              // child: _buildCustomDropdown(
-                              //   'Select Student',
-                              //   _allStudents,
-                              //   _selectedStudent,
-                              //       (v) => setState(() {
-                              //     _selectedStudent = v;
-                              //   }),
-                              // ),
-                              child: _buildCustomDropdown(
-                                _selectdClassroom == null
-                                    ? 'Select Classroom First'
-                                    : 'Select Student',
-                                _availableStudents,
-                                _selectedStudent,
-                                    (value) {
-                                  if (_selectdClassroom != null) {
-                                    setState(() {
-                                      _selectedStudent = value;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(100),
-                                onTap: _openActivityFilter,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(
-                                    MediaRes.filterIcon,
-                                    height: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            CustomClearAllChip(
-                              onTap: () {
-                                setState(() {
-                                  _selectdClassroom = _classroomOptions[0];
-                                  _selectedStudent = null;
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                });
-                                _loadRangeFeed(refresh: true);
-                              },
-                              label: 'Clear All',
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                        : SizedBox(
-                            height: 40,
-                            child: _datePickerFilter(
-                              selectedStartDate: _selectedStartDate,
-                              selectedEndDate: _selectedEndDate,
-                            ),
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                if (_loadingParentContext && activities.isEmpty)
-                  Expanded(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 48,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        alignment: Alignment.center,
-                        child: const PrimaryCircularLoader(
-                          size: 40,
-                          strokeWidth: 3.5,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (!_loadingParentContext && activities.length == 0)
-                  Expanded(
-                    child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.dividerColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                        ),
-                        child: Center(
-                          child: Text(
-                            _feedError ?? 'No Activities found',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontFamily: 'Manrope',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (activities.length != 0)
-                  Expanded(
-                    child: Padding(
-                      padding: ResponsiveSizing.activityFeedListPadding(context),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: ListView.builder(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              controller: _feedScrollController,
-                              padding: EdgeInsets.zero,
-                              itemCount: activities.length +
-                                  (_loadingMoreFeed ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == activities.length) {
-                                  return const Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(vertical: 24),
-                                    child: Center(
-                                      child: PrimaryCircularLoader(
-                                        size: 28,
-                                        strokeWidth: 3,
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final activity = activities[index];
-                                final students = activity.studentList;
-                                final Color activityColor = _colorPalette[index % _colorPalette.length];
-
-                                return Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Column(
-                                          children: [
                                             Container(
-                                              width: 18,
-                                              height: 18,
+                                              constraints: const BoxConstraints(
+                                                minHeight: 180,
+                                              ),
+                                              margin: const EdgeInsets.only(
+                                                bottom: 10,
+                                              ),
+                                              padding: const EdgeInsets.all(12),
                                               decoration: BoxDecoration(
-                                                color: activityColor,
-                                                shape: BoxShape.circle,
+                                                color: activityColor
+                                                    .withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                border: Border.all(
+                                                  color: activityColor
+                                                      .withOpacity(0.4),
+                                                ),
                                               ),
-                                            ),
-                                            Container(
-                                              width: 4,
-                                              height: 2,
-                                              color: activityColor,
-                                            ),
-                                          ],
-                                        ),
-                                        Container(
-                                          width: 100,
-                                          height: 4,
-                                          color: activityColor,
-                                        ),
-                                        Container(
-                                          width: 18,
-                                          height: 18,
-                                          decoration: BoxDecoration(
-                                            color: activityColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        SizedBox(
-                                          height: 20,
-                                          child: Text(
-                                            activity.time,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: AppColors.primaryColor,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(width: 7),
-                                        Container(
-                                          width: 4,
-                                          height: 220,
-                                          color: activityColor,
-                                        ),
-
-                                        const SizedBox(width: 16),
-
-                                        // Activity Card
-                                        Expanded(
-                                          child: InkWell(
-                                            onTap: () async {
-                                              final destinationBuilder =
-                                              activityRoutes[activity
-                                                  .name];
-                                              if (destinationBuilder !=
-                                                  null) {
-                                                final nextScreen =
-                                                destinationBuilder(
-                                                  activity,
-                                                );
-                                                await Navigator.of(
-                                                  context,
-                                                ).push(
-                                                  MaterialPageRoute(
-                                                    builder: (_) =>
-                                                    nextScreen,
-                                                  ),
-                                                );
-                                                if (mounted) {
-                                                  await _loadRangeFeed(refresh: true);
-                                                }
-                                              }
-                                            },
-                                            child: Column(
-                                              children: [
-                                                const SizedBox(height: 15),
-                                                Container(
-                                                  constraints: const BoxConstraints(
-                                                    minHeight: 180,
-                                                  ),
-                                              margin: const EdgeInsets.only(
-                                              bottom: 10,
-                                            ),
-                                                  padding: const EdgeInsets.all(12),
-                                                  decoration: BoxDecoration(
-                                                    color: activityColor.withOpacity(
-                                                      0.15,
-                                                    ),
-                                                    borderRadius: BorderRadius.circular(
-                                                      16,
-                                                    ),
-                                                    border: Border.all(
-                                                      color: activityColor.withOpacity(
-                                                        0.4,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment.start,
-                                                    children: [
-                                                      ClipRRect(
-                                                        borderRadius:
-                                                        BorderRadius.circular(12),
-                                                        child: SizedBox(
-                                                          width: 140,
-                                                          height: 120,
-                                                          child:
-                                                          activity.photoUrl != null || activity.videoUrl != null
-                                                              ? ActivityMediaPreview(activity: activity, activityColor: activityColor,)
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    child: SizedBox(
+                                                      width: 140,
+                                                      height: 120,
+                                                      child:
+                                                          activity.photoUrl !=
+                                                                  null ||
+                                                              activity.videoUrl !=
+                                                                  null
+                                                          ? ActivityMediaPreview(
+                                                              activity:
+                                                                  activity,
+                                                              activityColor:
+                                                                  activityColor,
+                                                            )
                                                           // ? Image.network(
                                                           //     activity.photoUrl!,
                                                           //     fit: BoxFit.cover,
@@ -3045,292 +2452,1129 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                           //           );
                                                           //         },
                                                           //   )
-                                                              : Container(
-                                                            width: 122,
-                                                            height: 76,
-                                                            color: Colors.white,
-                                                            // color: activityColor
-                                                            //     .withOpacity(0.25),
-                                                            child: Center(
-                                                              child: Image.asset(
-                                                                activityIcons[activity
-                                                                    .name],
-                                                                //'assets/icons/activity-nap-icon.png',
-                                                                fit: BoxFit.fill,
+                                                          : Container(
+                                                              width: 122,
+                                                              height: 76,
+                                                              color:
+                                                                  Colors.white,
+                                                              // color: activityColor
+                                                              //     .withOpacity(0.25),
+                                                              child: Center(
+                                                                child: Image.asset(
+                                                                  activityIcons[activity
+                                                                      .name],
+                                                                  //'assets/icons/activity-nap-icon.png',
+                                                                  fit: BoxFit
+                                                                      .fill,
+                                                                ),
                                                               ),
                                                             ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 12),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Row(
                                                           mainAxisAlignment:
-                                                              MainAxisAlignment.start,
-                                                          children: [
-                                                            Row(
-                                                              mainAxisAlignment:
                                                               MainAxisAlignment
                                                                   .spaceBetween,
-                                                              children: [
-                                                                Container(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Align(
+                                                                alignment: Alignment
+                                                                    .centerLeft,
+                                                                child: Container(
                                                                   padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    horizontal: 12,
-                                                                    vertical: 6,
-                                                                  ),
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            12,
+                                                                        vertical:
+                                                                            6,
+                                                                      ),
                                                                   decoration: BoxDecoration(
                                                                     color:
-                                                                        activityColor
-                                                                            .withOpacity(
-                                                                              0.5,
-                                                                            ),
+                                                                        activityColor,
                                                                     borderRadius:
                                                                         BorderRadius.circular(
-                                                                      4,
-                                                                    ),
+                                                                          20,
+                                                                        ),
                                                                   ),
                                                                   child: Text(
-                                                                    activity.name,
-                                                                    style:
-                                                                    const TextStyle(
-                                                                      color: AppColors
-                                                                          .primaryColor,
+                                                                    activity
+                                                                        .name,
+                                                                    maxLines: 1,
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                    style: const TextStyle(
+                                                                      color: Colors
+                                                                          .white,
                                                                       fontSize:
-                                                                          12,
+                                                                          11,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (isNotParent)
-                                                                  PopupMenuButton<String>(
-                                                                    icon: const Icon(
-                                                                      Icons.more_horiz,
-                                                                      size: 20,
+                                                              ),
+                                                            ),
+                                                            if (isNotParent)
+                                                              PopupMenuButton<
+                                                                String
+                                                              >(
+                                                                icon: const Icon(
+                                                                  Icons
+                                                                      .more_horiz,
+                                                                  size: 20,
+                                                                ),
+                                                                onSelected:
+                                                                    null,
+                                                                itemBuilder: (context) => [
+                                                                  PopupMenuItem<
+                                                                    String
+                                                                  >(
+                                                                    value:
+                                                                        'view',
+                                                                    child: PopupItem(
+                                                                      title:
+                                                                          'View',
+                                                                      icon: Icon(
+                                                                        Icons
+                                                                            .visibility_outlined,
+                                                                        color: AppColors
+                                                                            .themeColor,
+                                                                      ),
                                                                     ),
-                                                                    onSelected: null,
-                                                                    itemBuilder: (context) => [
-                                                                    PopupMenuItem<String>(
-                                                                      value: 'view',
+                                                                    onTap: () async {
+                                                                      final destinationBuilder =
+                                                                          activityRoutes[activity
+                                                                              .name];
+                                                                      if (destinationBuilder !=
+                                                                          null) {
+                                                                        final nextScreen =
+                                                                            destinationBuilder(
+                                                                              activity,
+                                                                            );
+                                                                        await Navigator.of(
+                                                                          context,
+                                                                        ).push(
+                                                                          MaterialPageRoute(
+                                                                            builder: (_) =>
+                                                                                nextScreen,
+                                                                          ),
+                                                                        );
+                                                                        if (mounted) {
+                                                                          await _loadRangeFeed(
+                                                                            refresh:
+                                                                                true,
+                                                                          );
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                  ),
+                                                                  if (widget
+                                                                      .allowActivityWrite) ...[
+                                                                    PopupMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          'edit',
                                                                       child: PopupItem(
-                                                                        title: 'View',
+                                                                        title:
+                                                                            'Edit',
                                                                         icon: Icon(
                                                                           Icons
-                                                                              .visibility_outlined,
-                                                                          color: AppColors
-                                                                              .themeColor,
+                                                                              .edit,
+                                                                          color:
+                                                                              AppColors.themeColor,
                                                                         ),
                                                                       ),
                                                                       onTap: () async {
                                                                         final destinationBuilder =
-                                                                        activityRoutes[activity
-                                                                            .name];
+                                                                            editActivityRoutes[activity.name];
                                                                         if (destinationBuilder !=
                                                                             null) {
-                                                                          final nextScreen =
-                                                                          destinationBuilder(
+                                                                          final nextScreen = destinationBuilder(
                                                                             activity,
                                                                           );
                                                                           await Navigator.of(
                                                                             context,
                                                                           ).push(
                                                                             MaterialPageRoute(
-                                                                              builder: (_) =>
-                                                                              nextScreen,
+                                                                              builder:
+                                                                                  (
+                                                                                    _,
+                                                                                  ) => nextScreen,
                                                                             ),
                                                                           );
                                                                           if (mounted) {
-                                                                            await _loadRangeFeed(refresh: true);
+                                                                            await _loadRangeFeed(
+                                                                              refresh: true,
+                                                                            );
                                                                           }
                                                                         }
                                                                       },
                                                                     ),
-                                                                    if (widget.allowActivityWrite) ...[
-                                                                      PopupMenuItem<String>(
-                                                                        value: 'edit',
+                                                                    PopupMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          'delete',
+                                                                      child: PopupItem(
+                                                                        title:
+                                                                            'Delete',
+                                                                        icon: Icon(
+                                                                          Icons
+                                                                              .delete,
+                                                                          color:
+                                                                              AppColors.themeColor,
+                                                                        ),
+                                                                      ),
+                                                                      onTap: () {
+                                                                        showModalBottomSheet(
+                                                                          context:
+                                                                              context,
+                                                                          isScrollControlled:
+                                                                              true,
+                                                                          backgroundColor:
+                                                                              Colors.transparent,
+                                                                          builder: (ctx) {
+                                                                            return DeleteConfirmationBottomSheet(
+                                                                              name: activity.name,
+                                                                              type: 'Activity',
+                                                                              onDelete: () => _deleteActivityFromSheet(
+                                                                                ctx,
+                                                                                activity,
+                                                                              ),
+                                                                              onCancel: () {
+                                                                                Navigator.of(
+                                                                                  ctx,
+                                                                                ).pop();
+                                                                              },
+                                                                            );
+                                                                          },
+                                                                        );
+                                                                      },
+                                                                    ),
+                                                                  ],
+                                                                ],
+                                                              ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+
+                                                        SizedBox(
+                                                          height: 32,
+                                                          child: Stack(
+                                                            children: [
+                                                              for (
+                                                                int i = 0;
+                                                                i <
+                                                                        students
+                                                                            .length &&
+                                                                    i < 4;
+                                                                i++
+                                                              )
+                                                                Positioned(
+                                                                  left: i * 20,
+                                                                  child: DocumentImageWidget(
+                                                                    fileUuid:
+                                                                        '',
+                                                                    name:
+                                                                        students[i],
+                                                                    size: 28,
+                                                                    fontSize:
+                                                                        10,
+                                                                  ),
+                                                                ),
+
+                                                              // Extra count tooltip
+                                                              if (students
+                                                                      .length >
+                                                                  4)
+                                                                Positioned(
+                                                                  left:
+                                                                      4 *
+                                                                      20, // after 4 avatars
+                                                                  child: Tooltip(
+                                                                    message: students
+                                                                        .skip(4)
+                                                                        .join(
+                                                                          ', ',
+                                                                        ),
+                                                                    child: DocumentImageWidget(
+                                                                      fileUuid:
+                                                                          '',
+                                                                      name:
+                                                                          '+${students.length - 4}',
+                                                                      size: 28,
+                                                                      fontSize:
+                                                                          10,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+
+                                                        Text(
+                                                          activityFeedCardBodyLine(
+                                                            activity,
+                                                          ),
+                                                          style: AppTextStyles
+                                                              .body
+                                                              .copyWith(
+                                                                color: AppColors
+                                                                    .primaryColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                height: 1.0,
+                                                              ),
+                                                          strutStyle: StrutStyle(
+                                                            fontFamily:
+                                                                Fonts.manrope,
+                                                            fontSize: 14,
+                                                            height: 1.0,
+                                                            leading: 0,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            forceStrutHeight:
+                                                                true,
+                                                          ),
+                                                          textHeightBehavior:
+                                                              const TextHeightBehavior(
+                                                                applyHeightToFirstAscent:
+                                                                    false,
+                                                                applyHeightToLastDescent:
+                                                                    false,
+                                                              ),
+                                                          maxLines:
+                                                              activityFeedCardBodyMaxLines(
+                                                                activity,
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+                                                        AppText.small(
+                                                          'Created By - ${activity.createdBy}',
+                                                          style: AppTextStyles
+                                                              .small
+                                                              .copyWith(
+                                                                color: AppColors
+                                                                    .primaryColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        } else {
+          return Column(
+            children: [
+              Padding(
+                padding: ResponsiveSizing.contentPadding(context),
+                // filter card
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.dividerColor),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                  ),
+                  child: widget.fromStudentProfile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: 40,
+                              child: AbsorbPointer(
+                                child: _buildCustomDropdown(
+                                  'Select Student',
+                                  widget.studentName != null
+                                      ? [widget.studentName!]
+                                      : <String>[],
+                                  widget.studentName,
+                                  (v) => setState(() {
+                                    _selectedStudent = v;
+                                  }),
+                                  height: 40,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 40,
+                              child: _datePickerFilter(
+                                selectedStartDate: _selectedStartDate,
+                                selectedEndDate: _selectedEndDate,
+                                // onDateRangeSelected: (date) {
+                                //   List<String>? dates = date?.split('-\n');
+                                //   setState(() {
+                                //     _selectedStartDate = dates?[0].trim() as DateTime?;
+                                //     _selectedEndDate = dates?[1].trim() as DateTime;
+                                //
+                                //   });
+                                // },
+                              ),
+                            ),
+                          ],
+                        )
+                      : isNotParent
+                      ? Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildCustomDropdown(
+                                    'Select Classroom',
+                                    _classroomOptions,
+                                    _selectdClassroom,
+                                    (v) {
+                                      setState(() {
+                                        _selectdClassroom = v;
+                                        _updateAvailableStudents();
+                                      });
+                                      _loadRangeFeed(refresh: true);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  // child: _buildCustomDropdown(
+                                  //   'Select Student',
+                                  //   _allStudents,
+                                  //   _selectedStudent,
+                                  //       (v) => setState(() {
+                                  //     _selectedStudent = v;
+                                  //   }),
+                                  // ),
+                                  child: _buildCustomDropdown(
+                                    _selectdClassroom == null
+                                        ? 'Select Classroom First'
+                                        : 'Select Student',
+                                    _availableStudents,
+                                    _selectedStudent,
+                                    (value) {
+                                      if (_selectdClassroom != null) {
+                                        setState(() {
+                                          _selectedStudent = value;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(100),
+                                    onTap: _openActivityFilter,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        height: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: _datePickerFilter(
+                                    selectedStartDate: _selectedStartDate,
+                                    selectedEndDate: _selectedEndDate,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                CustomClearAllChip(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectdClassroom = _classroomOptions[0];
+                                      _selectedStudent = null;
+                                      _filterActivityTypes.clear();
+                                      _filterTags.clear();
+                                    });
+                                    _loadRangeFeed(refresh: true);
+                                  },
+                                  label: 'Clear All',
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : SizedBox(
+                          height: 40,
+                          child: _datePickerFilter(
+                            selectedStartDate: _selectedStartDate,
+                            selectedEndDate: _selectedEndDate,
+                          ),
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              if (_loadingParentContext && activities.isEmpty)
+                Expanded(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 48,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      alignment: Alignment.center,
+                      child: const PrimaryCircularLoader(
+                        size: 40,
+                        strokeWidth: 3.5,
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (!_loadingParentContext && activities.length == 0)
+                Expanded(
+                  child: Padding(
+                    padding: ResponsiveSizing.contentPadding(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.dividerColor),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: Text(
+                          _feedError ?? 'No Activities found',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontFamily: 'Manrope',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (activities.length != 0)
+                Expanded(
+                  child: Padding(
+                    padding: ResponsiveSizing.activityFeedListPadding(context),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            controller: _feedScrollController,
+                            padding: EdgeInsets.zero,
+                            itemCount:
+                                activities.length + (_loadingMoreFeed ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == activities.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child: PrimaryCircularLoader(
+                                      size: 28,
+                                      strokeWidth: 3,
+                                    ),
+                                  ),
+                                );
+                              }
+                              final activity = activities[index];
+                              final students = activity.studentList;
+                              final Color activityColor =
+                                  _colorPalette[index % _colorPalette.length];
+
+                              return Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Column(
+                                        children: [
+                                          Container(
+                                            width: 18,
+                                            height: 18,
+                                            decoration: BoxDecoration(
+                                              color: activityColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 4,
+                                            height: 2,
+                                            color: activityColor,
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        width: 100,
+                                        height: 4,
+                                        color: activityColor,
+                                      ),
+                                      Container(
+                                        width: 18,
+                                        height: 18,
+                                        decoration: BoxDecoration(
+                                          color: activityColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      SizedBox(
+                                        height: 20,
+                                        child: Text(
+                                          activity.time,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: AppColors.primaryColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(width: 7),
+                                      Container(
+                                        width: 4,
+                                        height: 220,
+                                        color: activityColor,
+                                      ),
+
+                                      const SizedBox(width: 16),
+
+                                      // Activity Card
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () async {
+                                            final destinationBuilder =
+                                                activityRoutes[activity.name];
+                                            if (destinationBuilder != null) {
+                                              final nextScreen =
+                                                  destinationBuilder(activity);
+                                              await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => nextScreen,
+                                                ),
+                                              );
+                                              if (mounted) {
+                                                await _loadRangeFeed(
+                                                  refresh: true,
+                                                );
+                                              }
+                                            }
+                                          },
+                                          child: Column(
+                                            children: [
+                                              const SizedBox(height: 15),
+                                              Container(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minHeight: 180,
+                                                    ),
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 10,
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: activityColor
+                                                      .withOpacity(0.15),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: activityColor
+                                                        .withOpacity(0.4),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      child: SizedBox(
+                                                        width: 140,
+                                                        height: 120,
+                                                        child:
+                                                            activity.photoUrl !=
+                                                                    null ||
+                                                                activity.videoUrl !=
+                                                                    null
+                                                            ? ActivityMediaPreview(
+                                                                activity:
+                                                                    activity,
+                                                                activityColor:
+                                                                    activityColor,
+                                                              )
+                                                            // ? Image.network(
+                                                            //     activity.photoUrl!,
+                                                            //     fit: BoxFit.cover,
+                                                            //     loadingBuilder:
+                                                            //         (
+                                                            //           context,
+                                                            //           child,
+                                                            //           loadingProgress,
+                                                            //         ) {
+                                                            //           if (loadingProgress ==
+                                                            //               null)
+                                                            //             return child;
+                                                            //           return Container(
+                                                            //             color: Colors
+                                                            //                 .transparent,
+                                                            //             child: const Center(
+                                                            //               child: CircularProgressIndicator(
+                                                            //                 strokeWidth:
+                                                            //                     2,
+                                                            //               ),
+                                                            //             ),
+                                                            //           );
+                                                            //         },
+                                                            //     errorBuilder:
+                                                            //         (
+                                                            //           context,
+                                                            //           error,
+                                                            //           stackTrace,
+                                                            //         ) {
+                                                            //           return Container(
+                                                            //             width: 122,
+                                                            //             height: 76,
+                                                            //             color: activityColor
+                                                            //                 .withOpacity(
+                                                            //                   0.25,
+                                                            //                 ),
+                                                            //             child: Center(
+                                                            //               child: Image.asset(
+                                                            //                 activityIcons[activity
+                                                            //                     .name],
+                                                            //                 //'assets/icons/activity-nap-icon.png',
+                                                            //                 fit: BoxFit
+                                                            //                     .fill,
+                                                            //               ),
+                                                            //             ),
+                                                            //           );
+                                                            //         },
+                                                            //   )
+                                                            : Container(
+                                                                width: 122,
+                                                                height: 76,
+                                                                color: Colors
+                                                                    .white,
+                                                                // color: activityColor
+                                                                //     .withOpacity(0.25),
+                                                                child: Center(
+                                                                  child: Image.asset(
+                                                                    activityIcons[activity
+                                                                        .name],
+                                                                    //'assets/icons/activity-nap-icon.png',
+                                                                    fit: BoxFit
+                                                                        .fill,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                      vertical:
+                                                                          6,
+                                                                    ),
+                                                                decoration: BoxDecoration(
+                                                                  color: activityColor
+                                                                      .withOpacity(
+                                                                        0.5,
+                                                                      ),
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        4,
+                                                                      ),
+                                                                ),
+                                                                child: Text(
+                                                                  activity.name,
+                                                                  style: const TextStyle(
+                                                                    color: AppColors
+                                                                        .primaryColor,
+                                                                    fontSize:
+                                                                        12,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              if (isNotParent)
+                                                                PopupMenuButton<
+                                                                  String
+                                                                >(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .more_horiz,
+                                                                    size: 20,
+                                                                  ),
+                                                                  onSelected:
+                                                                      null,
+                                                                  itemBuilder: (context) => [
+                                                                    PopupMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          'view',
+                                                                      child: PopupItem(
+                                                                        title:
+                                                                            'View',
+                                                                        icon: Icon(
+                                                                          Icons
+                                                                              .visibility_outlined,
+                                                                          color:
+                                                                              AppColors.themeColor,
+                                                                        ),
+                                                                      ),
+                                                                      onTap: () async {
+                                                                        final destinationBuilder =
+                                                                            activityRoutes[activity.name];
+                                                                        if (destinationBuilder !=
+                                                                            null) {
+                                                                          final nextScreen = destinationBuilder(
+                                                                            activity,
+                                                                          );
+                                                                          await Navigator.of(
+                                                                            context,
+                                                                          ).push(
+                                                                            MaterialPageRoute(
+                                                                              builder:
+                                                                                  (
+                                                                                    _,
+                                                                                  ) => nextScreen,
+                                                                            ),
+                                                                          );
+                                                                          if (mounted) {
+                                                                            await _loadRangeFeed(
+                                                                              refresh: true,
+                                                                            );
+                                                                          }
+                                                                        }
+                                                                      },
+                                                                    ),
+                                                                    if (widget
+                                                                        .allowActivityWrite) ...[
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'edit',
                                                                         child: PopupItem(
-                                                                          title: 'Edit',
+                                                                          title:
+                                                                              'Edit',
                                                                           icon: Icon(
                                                                             Icons.edit,
-                                                                            color: AppColors
-                                                                                .themeColor,
+                                                                            color:
+                                                                                AppColors.themeColor,
                                                                           ),
                                                                         ),
                                                                         onTap: () async {
                                                                           final destinationBuilder =
-                                                                          editActivityRoutes[activity
-                                                                              .name];
+                                                                              editActivityRoutes[activity.name];
                                                                           if (destinationBuilder !=
                                                                               null) {
-                                                                            final nextScreen =
-                                                                            destinationBuilder(
+                                                                            final nextScreen = destinationBuilder(
                                                                               activity,
                                                                             );
                                                                             await Navigator.of(
                                                                               context,
                                                                             ).push(
                                                                               MaterialPageRoute(
-                                                                                builder: (_) =>
-                                                                                nextScreen,
+                                                                                builder:
+                                                                                    (
+                                                                                      _,
+                                                                                    ) => nextScreen,
                                                                               ),
                                                                             );
                                                                             if (mounted) {
-                                                                              await _loadRangeFeed(refresh: true);
+                                                                              await _loadRangeFeed(
+                                                                                refresh: true,
+                                                                              );
                                                                             }
                                                                           }
                                                                         },
                                                                       ),
-                                                                      PopupMenuItem<String>(
-                                                                        value: 'delete',
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'delete',
                                                                         child: PopupItem(
-                                                                          title: 'Delete',
+                                                                          title:
+                                                                              'Delete',
                                                                           icon: Icon(
                                                                             Icons.delete,
-                                                                            color: AppColors
-                                                                                .themeColor,
+                                                                            color:
+                                                                                AppColors.themeColor,
                                                                           ),
                                                                         ),
                                                                         onTap: () {
                                                                           showModalBottomSheet(
-                                                                            context: context,
-                                                                            isScrollControlled: true,
-                                                                            backgroundColor: Colors.transparent,
-                                                                            builder: (ctx) {
-                                                                              return DeleteConfirmationBottomSheet(
-                                                                                name: activity.name,
-                                                                                type: 'Activity',
-                                                                                onDelete: () =>
-                                                                                    _deleteActivityFromSheet(ctx, activity),
-                                                                                onCancel: () {
-                                                                                  Navigator.of(ctx).pop();
+                                                                            context:
+                                                                                context,
+                                                                            isScrollControlled:
+                                                                                true,
+                                                                            backgroundColor:
+                                                                                Colors.transparent,
+                                                                            builder:
+                                                                                (
+                                                                                  ctx,
+                                                                                ) {
+                                                                                  return DeleteConfirmationBottomSheet(
+                                                                                    name: activity.name,
+                                                                                    type: 'Activity',
+                                                                                    onDelete: () => _deleteActivityFromSheet(
+                                                                                      ctx,
+                                                                                      activity,
+                                                                                    ),
+                                                                                    onCancel: () {
+                                                                                      Navigator.of(
+                                                                                        ctx,
+                                                                                      ).pop();
+                                                                                    },
+                                                                                  );
                                                                                 },
-                                                                              );
-                                                                            },
                                                                           );
                                                                         },
                                                                       ),
                                                                     ],
-                                                                    ],
+                                                                  ],
+                                                                ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+
+                                                          SizedBox(
+                                                            height: 32,
+                                                            child: Stack(
+                                                              children: [
+                                                                for (
+                                                                  int i = 0;
+                                                                  i <
+                                                                          students
+                                                                              .length &&
+                                                                      i < 4;
+                                                                  i++
+                                                                )
+                                                                  Positioned(
+                                                                    left:
+                                                                        i * 20,
+                                                                    child: DocumentImageWidget(
+                                                                      fileUuid:
+                                                                          '',
+                                                                      name:
+                                                                          students[i],
+                                                                      size: 28,
+                                                                      fontSize:
+                                                                          10,
+                                                                    ),
+                                                                  ),
+
+                                                                // Extra count tooltip
+                                                                if (students
+                                                                        .length >
+                                                                    4)
+                                                                  Positioned(
+                                                                    left:
+                                                                        4 *
+                                                                        20, // after 4 avatars
+                                                                    child: Tooltip(
+                                                                      message: students
+                                                                          .skip(
+                                                                            4,
+                                                                          )
+                                                                          .join(
+                                                                            ', ',
+                                                                          ),
+                                                                      child: DocumentImageWidget(
+                                                                        fileUuid:
+                                                                            '',
+                                                                        name:
+                                                                            '+${students.length - 4}',
+                                                                        size:
+                                                                            28,
+                                                                        fontSize:
+                                                                            10,
+                                                                      ),
+                                                                    ),
                                                                   ),
                                                               ],
                                                             ),
-                                                            const SizedBox(height: 10),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
 
-                                                            SizedBox(
-                                                              height: 32,
-                                                              child: Stack(
-                                                                children: [
-                                                                  for (
-                                                                  int i = 0;
-                                                                  i < students.length &&
-                                                                      i < 4;
-                                                                  i++
-                                                                  )
-                                                                    Positioned(
-                                                                      left: i * 20,
-                                                                      child:
-                                                                      DocumentImageWidget(
-                                                                        fileUuid: '',
-                                                                        name:
-                                                                        students[i],
-                                                                        size: 28,
-                                                                        fontSize: 10,
-                                                                      ),
-                                                                    ),
-
-                                                                  // Extra count tooltip
-                                                                  if (students.length > 4)
-                                                                    Positioned(
-                                                                      left:
-                                                                      4 *
-                                                                          20, // after 4 avatars
-                                                                      child: Tooltip(
-                                                                        message: students
-                                                                            .skip(4)
-                                                                            .join(', '),
-                                                                        child: DocumentImageWidget(
-                                                                          fileUuid: '',
-                                                                          name:
-                                                                          '+${students.length - 4}',
-                                                                          size: 28,
-                                                                          fontSize: 10,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                ],
-                                                              ),
+                                                          Text(
+                                                            activityFeedCardBodyLine(
+                                                              activity,
                                                             ),
-                                                            const SizedBox(height: 10),
-
-                                                            Text(
-                                                              activityFeedCardBodyLine(activity),
-                                                              style: AppTextStyles.body.copyWith(
-                                                                color: AppColors.primaryColor,
-                                                                fontWeight: FontWeight.w600,
-                                                                height: 1.0,
-                                                              ),
-                                                              strutStyle: StrutStyle(
-                                                                fontFamily: Fonts.manrope,
-                                                                fontSize: 14,
-                                                                height: 1.0,
-                                                                leading: 0,
-                                                                fontWeight: FontWeight.w600,
-                                                                forceStrutHeight: true,
-                                                              ),
-                                                              textHeightBehavior:
-                                                                  const TextHeightBehavior(
-                                                                applyHeightToFirstAscent: false,
-                                                                applyHeightToLastDescent: false,
-                                                              ),
-                                                              maxLines:
-                                                                  activityFeedCardBodyMaxLines(
-                                                                      activity),
-                                                              overflow: TextOverflow.ellipsis,
+                                                            style: AppTextStyles
+                                                                .body
+                                                                .copyWith(
+                                                                  color: AppColors
+                                                                      .primaryColor,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  height: 1.0,
+                                                                ),
+                                                            strutStyle: StrutStyle(
+                                                              fontFamily:
+                                                                  Fonts.manrope,
+                                                              fontSize: 14,
+                                                              height: 1.0,
+                                                              leading: 0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              forceStrutHeight:
+                                                                  true,
                                                             ),
-                                                            const SizedBox(height: 10),
-                                                            Text(
-                                                              'Created By - ${activity.createdBy}',
+                                                            textHeightBehavior:
+                                                                const TextHeightBehavior(
+                                                                  applyHeightToFirstAscent:
+                                                                      false,
+                                                                  applyHeightToLastDescent:
+                                                                      false,
+                                                                ),
+                                                            maxLines:
+                                                                activityFeedCardBodyMaxLines(
+                                                                  activity,
+                                                                ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+                                                          Text(
+                                                            'Created By - ${activity.createdBy}',
 
-                                                              style: TextStyle(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontSize: 12,
-                                                                fontWeight:
-                                                                FontWeight.w500,
-                                                              ),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                              TextOverflow.ellipsis,
+                                                            style: TextStyle(
+                                                              color: AppColors
+                                                                  .primaryColor,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
                                                             ),
-                                                          ],
-                                                        ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ],
                                                       ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-              ],
-            );
-          }
+                ),
+            ],
+          );
         }
+      },
     );
   }
-
 
   // @override
   // Widget build(BuildContext context) {
