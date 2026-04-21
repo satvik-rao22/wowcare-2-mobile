@@ -36,7 +36,7 @@ class ApiConstants {
   static const String sairamTunnelId = 'wnmrl4rn';
 
   /// Active LOCAL tunnel set.
-  static const String _localTunnelId = sairamTunnelId;
+  static const String _localTunnelId = preshtiaTunnelId;
 
   /// User MS (LOCAL devtunnel) or UAT base host.
   static String get baseUrl => isUat
@@ -51,12 +51,12 @@ class ApiConstants {
   /// Classroom MS (LOCAL devtunnel) or UAT base host.
   static String get classroomBaseUrl => isUat
       ? ApiConstantsUat.classroomBaseUrl
-      : 'https://$_localTunnelId-8087.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8082.inc1.devtunnels.ms';
 
   /// Staff MS (LOCAL devtunnel) or UAT base host.
   static String get staffBaseUrl => isUat
       ? ApiConstantsUat.staffBaseUrl
-      : 'https://$_localTunnelId-8088.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8083.inc1.devtunnels.ms';
 
   /// School / organization MS (LOCAL devtunnel) or UAT base host.
   static String get schoolMs => isUat

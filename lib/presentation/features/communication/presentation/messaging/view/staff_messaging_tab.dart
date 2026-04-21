@@ -306,9 +306,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                 final query = _searchController.text.trim().toLowerCase();
                 final staffState = context.read<StaffCubit>().state;
                 final studentState = context.read<StudentCubit>().state;
-                
+
                 final staffCodes = staffState.items.map((s) => s.code).toSet();
-                final studentCodes = studentState.items.map((s) => s.code).toSet();
+                final studentCodes = studentState.items
+                    .map((s) => s.code)
+                    .toSet();
 
                 conversationsToDisplay = communicationState
                     .getConversations(_conversationType)
@@ -323,15 +325,18 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       if (_showUnread && conv.unreadCount == 0) return false;
 
                       // Filter by Staff vs Student/Parent
-                      final otherParticipants = conv.participants.where((p) => p.userCode != conv.createdBy);
+                      final otherParticipants = conv.participants.where(
+                        (p) => p.userCode != conv.createdBy,
+                      );
                       bool isStaffConv = false;
                       bool isStudentConv = false;
-                      
+
                       for (final p in conv.participants) {
                         if (staffCodes.contains(p.userCode)) isStaffConv = true;
-                        if (studentCodes.contains(p.userCode)) isStudentConv = true;
+                        if (studentCodes.contains(p.userCode))
+                          isStudentConv = true;
                       }
-                      
+
                       // If we can't determine by codes, fallback to title or other logic
                       if (!isStaffConv && !isStudentConv) {
                         // This might be a new conversation not yet in our cached staff/student lists
@@ -339,7 +344,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       }
 
                       if (widget.isStaffMessaging) {
-                        return isStaffConv || (!isStudentConv); // Default to staff if ambiguous
+                        return isStaffConv ||
+                            (!isStudentConv); // Default to staff if ambiguous
                       } else {
                         return isStudentConv;
                       }

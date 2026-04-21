@@ -89,6 +89,8 @@ class _MessagingTabState extends State<MessagingTab>
               children: [
                 Flexible(
                   child: TabBar(
+                    // lenght of tabs
+                    // isScrollable: true, // <-- makes tabs scrollable
                     controller: _tabController,
                     dividerHeight: 0,
                     indicator: BoxDecoration(

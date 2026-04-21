@@ -5,8 +5,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import '../../../app/theme/media_res.dart';
-import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_dropdown.dart';
 import '../widgets/multi_selection_widget.dart';
 
@@ -16,7 +14,13 @@ class FilterScreen extends StatefulWidget {
   final void Function(Map<String, List<String>> appliedFilters) onApply;
   final bool showLoading;
 
-  const FilterScreen({super.key, this.title = 'Filter', required this.sections, required this.onApply, this.showLoading = false});
+  const FilterScreen({
+    super.key,
+    this.title = 'Filter',
+    required this.sections,
+    required this.onApply,
+    this.showLoading = false,
+  });
 
   @override
   State<FilterScreen> createState() => _FilterScreenState();
@@ -28,12 +32,14 @@ class _FilterScreenState extends State<FilterScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedValues = widget.sections.map((section) => List<String>.from(section.initialSelected)).toList();
+    _selectedValues = widget.sections
+        .map((section) => List<String>.from(section.initialSelected))
+        .toList();
   }
 
-  void _applyFilters(){
+  void _applyFilters() {
     final Map<String, List<String>> result = {};
-    for (int i = 0; i < widget.sections.length; i++){
+    for (int i = 0; i < widget.sections.length; i++) {
       result[widget.sections[i].label] = List.from(_selectedValues[i]);
     }
     widget.onApply(result);
@@ -131,33 +137,36 @@ class _FilterScreenState extends State<FilterScreen> {
 
   Widget _buildShimmer() {
     return GridView.builder(
-        padding: EdgeInsets.zero,
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        itemCount: widget.sections.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.6),
-        itemBuilder: (context, index) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.sections[index].label,
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      itemCount: widget.sections.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.6,
+      ),
+      itemBuilder: (context, index) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.sections[index].label,
+              style: TextStyle(
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
               ),
-              const SizedBox(height: 8,),
-              const ShimmerLoader(height: 40,)
-            ],
-          );
-        }
+            ),
+            const SizedBox(height: 8),
+            const ShimmerLoader(height: 40),
+          ],
+        );
+      },
     );
   }
-
 }
-
 
 class FilerSection {
   final String label;
@@ -174,6 +183,6 @@ class FilerSection {
     this.initialSelected = const [],
     this.isMultiSelectDropDown = true,
     this.colorfulChips = false,
-    this.isSingleSelect = false
+    this.isSingleSelect = false,
   });
 }
