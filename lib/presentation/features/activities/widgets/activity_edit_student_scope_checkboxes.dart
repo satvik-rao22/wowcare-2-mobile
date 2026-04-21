@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../shared/common/widgets/custom_checkbox.dart';
 
 /// Resolves which student rows to PATCH when saving an edit.
 ///
@@ -40,6 +41,16 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
   final Set<int> checkedIndices;
   final ValueChanged<Set<int>> onChanged;
 
+  void _toggleIndex(int index, bool isChecked) {
+    final next = Set<int>.from(checkedIndices);
+    if (isChecked) {
+      next.add(index);
+    } else {
+      next.remove(index);
+    }
+    onChanged(next);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -56,26 +67,30 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
         const SizedBox(height: 8),
         ...List.generate(studentNames.length, (i) {
           final n = studentNames[i].trim().isEmpty ? 'Student' : studentNames[i];
-          return CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: checkedIndices.contains(i),
-            onChanged: (v) {
-              final next = Set<int>.from(checkedIndices);
-              if (v == true) {
-                next.add(i);
-              } else {
-                next.remove(i);
-              }
-              onChanged(next);
-            },
-            title: Text(
-              n,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Color(0xff573353),
+          final isChecked = checkedIndices.contains(i);
+          return InkWell(
+            onTap: () => _toggleIndex(i, !isChecked),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  CustomCheckbox(
+                    value: isChecked,
+                    scale: 1.0,
+                    onChanged: (v) => _toggleIndex(i, v ?? false),
+                  ),
+                  Expanded(
+                    child: Text(
+                      n,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Color(0xff573353),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );

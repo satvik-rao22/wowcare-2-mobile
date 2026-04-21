@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:async';
 
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
@@ -42,6 +43,11 @@ abstract class ActivityRemoteDataSource {
     required ActivityCreateRequestModel request,
   });
 
+  /// `GET /api/v1/activities/{classroomCode}/nap-start-students`
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  });
+
   /// Creates shared activity cards via `POST /api/v2/activities`.
   ///
   /// Returns `data` list (each entry is a shared card payload).
@@ -50,7 +56,7 @@ abstract class ActivityRemoteDataSource {
   });
 
   /// Creates upload sessions for activity attachments.
-  /// `POST /api/v1/activities/upload-sessions`
+  /// `POST /api/v2/activities/upload-sessions`
   Future<ActivityUploadSessionModel> createActivityUploadSessions({
     required String organizationCode,
     required String schoolCode,
@@ -99,6 +105,15 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   ActivityRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  bool _isAssetNotReadyConflict(Object error) {
+    if (error is! DioException) return false;
+    if (error.response?.statusCode != 409) return false;
+    final data = error.response?.data;
+    if (data is! Map<String, dynamic>) return false;
+    final message = (data['message'] ?? '').toString().toLowerCase();
+    return message.contains('must reach ready before linking');
+  }
 
   @override
   Future<Map<String, dynamic>> getActivityByCode({required String code}) async {
@@ -235,11 +250,21 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required ActivityCreateRequestModel request,
   }) async {
     final endpoint = ApiPaths.url('/api/v2/activities');
-
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: request.toJson(),
-    );
+    late Response<dynamic> response;
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        response = await _client.post<dynamic>(
+          endpoint,
+          data: request.toJson(),
+        );
+        break;
+      } catch (e) {
+        if (!_isAssetNotReadyConflict(e) || attempt >= 4) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
+      }
+    }
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -255,15 +280,46 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   }
 
   @override
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.activityNapStartStudents(classroomCode),
+      ApiConstants.activityBaseUrl,
+    );
+    final response = await _client.get<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected nap-start-students API response format');
+    }
+    final data = body['data'];
+    if (data is! List) return const [];
+    return data
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> createSharedActivities({
     required Map<String, dynamic> payload,
   }) async {
     final endpoint = ApiPaths.url('/api/v2/activities');
-
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: payload,
-    );
+    late Response<dynamic> response;
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        response = await _client.post<dynamic>(
+          endpoint,
+          data: payload,
+        );
+        break;
+      } catch (e) {
+        if (!_isAssetNotReadyConflict(e) || attempt >= 4) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
+      }
+    }
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected create shared-activities API response format');

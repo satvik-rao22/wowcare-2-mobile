@@ -121,6 +121,8 @@ class ActivityCreateRequestModel {
     required this.organizationCode,
     required this.activityDate,
     required this.description,
+    this.napStart,
+    this.napEnd,
     this.bindingMode = 'SHARED',
     this.parameterValues = const [],
     this.attachments = const [],
@@ -134,6 +136,8 @@ class ActivityCreateRequestModel {
   final String organizationCode;
   final String activityDate;
   final String description;
+  final bool? napStart;
+  final bool? napEnd;
   final String bindingMode;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
@@ -148,6 +152,8 @@ class ActivityCreateRequestModel {
       'organizationCode': organizationCode,
       'activityDate': activityDate,
       'description': description,
+      if (napStart != null) 'napStart': napStart,
+      if (napEnd != null) 'napEnd': napEnd,
       'bindingMode': bindingMode,
       // Backend expects keys to be present (even if empty arrays).
       'parameterValues': parameterValues,

@@ -94,6 +94,19 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
 
+  List<Map<String, dynamic>> _scopedStudentsForCreate() {
+    if (_selectedStudentsData.length <= 1 || _scopedEditStudentIndices.isEmpty) {
+      return List<Map<String, dynamic>>.from(_selectedStudentsData);
+    }
+    final out = <Map<String, dynamic>>[];
+    for (final i in _scopedEditStudentIndices) {
+      if (i >= 0 && i < _selectedStudentsData.length) {
+        out.add(_selectedStudentsData[i]);
+      }
+    }
+    return out;
+  }
+
   ActivityTypeParameter? _findFirstAidParameter(
     List<ActivityTypeParameter> parameters,
   ) {
@@ -443,7 +456,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final studentCodes = _selectedStudentsData
+    final scopedStudents = _scopedStudentsForCreate();
+    final studentCodes = scopedStudents
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
         .where((c) => c.isNotEmpty)
@@ -588,47 +602,27 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
-            additionalNotes.isNotEmpty &&
             !sameWhatAndNotes)
           {'parameterCode': notesParamCode, 'value': additionalNotes},
       ];
 
-      String? message;
-      if (attachments.length <= 1) {
-        message = await _createActivityUseCase(
-          activityTypeCode: activityTypeCode,
-          classroomCode: classroomCode,
-          studentCodes: studentCodes,
-          staffCode: staffCode,
-          schoolCode: schoolCode,
-          organizationCode: organizationCode,
-          activityDate: activityDateIso,
-          description: whatHappened,
-          parameterValues: parameterValues,
-          attachments: attachments,
-        );
-      } else {
-        // Backend accepts one attachment per created activity row.
-        for (final att in attachments) {
-          message = await _createActivityUseCase(
-            activityTypeCode: activityTypeCode,
-            classroomCode: classroomCode,
-            studentCodes: studentCodes,
-            staffCode: staffCode,
-            schoolCode: schoolCode,
-            organizationCode: organizationCode,
-            activityDate: activityDateIso,
-            description: whatHappened,
-            parameterValues: parameterValues,
-            attachments: [att],
-          );
-        }
-      }
+      final message = await _createActivityUseCase(
+        activityTypeCode: activityTypeCode,
+        classroomCode: classroomCode,
+        studentCodes: studentCodes,
+        staffCode: staffCode,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        activityDate: activityDateIso,
+        description: whatHappened,
+        parameterValues: parameterValues,
+        attachments: attachments,
+      );
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message ?? 'Activity created successfully',
+        message: message,
         isSuccess: true,
       );
 
@@ -925,7 +919,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
-            additionalNotes.isNotEmpty &&
             !sameWhatAndNotes)
           {'parameterCode': notesParamCode, 'value': additionalNotes},
       ];
@@ -1016,7 +1009,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final ownerCode = studentCodes.first;
+    final isShared = studentCodes.length > 1;
+    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
+    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+    final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
     final missingPhotos = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
@@ -1030,7 +1026,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               schoolCode: schoolCode,
               classroomCode: classroomCode,
               activityTypeCode: activityTypeCode,
-              bindingMode: 'PER_STUDENT',
+              bindingMode: bindingMode,
               studentCodes: studentCodes,
             );
 
@@ -1047,7 +1043,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
             mediaType: 'IMAGE',
-            ownerType: 'STUDENT',
+            ownerType: ownerType,
             ownerCode: ownerCode,
           );
           await _imageUploadService.uploadFileToPresignedUrl(
@@ -1077,11 +1073,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
       if (assetCode != null && assetCode.isNotEmpty) {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': 'PER_STUDENT',
-        });
+        if (isShared) {
+          attachments.add({'assetCode': assetCode});
+        } else {
+          attachments.add({
+            'assetCode': assetCode,
+            'studentCode': ownerCode,
+            'bindingMode': bindingMode,
+          });
+        }
       }
     }
     return attachments;
@@ -1251,7 +1251,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+            if (!widget.readOnly && _selectedStudents.length > 1) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Divider(height: 24),
@@ -1370,7 +1370,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                     : '',
                 loggedInDisplayName: _staffName,
               ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+              isEditable: _canInteract,
               isAlreadySigned: _layoutAsEdit,
               incidentActivity: true,
               onSigned: (value) {

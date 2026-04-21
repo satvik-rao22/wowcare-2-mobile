@@ -16,6 +16,8 @@ class CreateActivityUseCase {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? napStart,
+    bool? napEnd,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
@@ -29,6 +31,8 @@ class CreateActivityUseCase {
         organizationCode: organizationCode,
         activityDate: activityDate,
         description: description,
+        napStart: napStart,
+        napEnd: napEnd,
         parameterValues: parameterValues,
         attachments: attachments,
       );

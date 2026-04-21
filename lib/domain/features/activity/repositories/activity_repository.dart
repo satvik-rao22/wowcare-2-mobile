@@ -18,6 +18,12 @@ abstract class ActivityRepository {
     required String code,
   });
 
+  /// Returns currently napping student codes for a classroom via
+  /// `GET /api/v1/activities/{classroomCode}/nap-start-students`.
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  });
+
   /// `GET /api/v1/activities/feed/daily`
   Future<ActivityFeedPage> getDailyActivityFeed({
     required String classroomCode,
@@ -65,6 +71,8 @@ abstract class ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? napStart,
+    bool? napEnd,
     List<Map<String, dynamic>> parameterValues,
     List<Map<String, dynamic>> attachments,
   });
@@ -84,7 +92,7 @@ abstract class ActivityRepository {
     required List<Map<String, dynamic>> attachments,
   });
 
-  /// Creates upload sessions via `POST /api/v1/activities/upload-sessions`.
+  /// Creates upload sessions via `POST /api/v2/activities/upload-sessions`.
   Future<ActivityUploadSession> createActivityUploadSessions({
     required String organizationCode,
     required String schoolCode,

@@ -7,6 +7,7 @@ class MediaRes {
   static const _baseVectors = 'assets/vectors';
   static const napIcon = "";
   static const String sleepIcon = 'assets/icons/sleep.svg';
+  static const String sleepStatusIcon = 'assets/images/icons/sleep.png';
   static const _baseBackgroundImage = 'assets/bgImages';
 
   // static const loginLottie = '$_baseLottie/login_lottie.json';

@@ -18,6 +18,7 @@ import '../../../../../domain/features/activity/usecases/create_activity_usecase
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../utils/activity_description_limits.dart';
@@ -68,6 +69,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
+  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
@@ -83,6 +85,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
+    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
@@ -249,11 +252,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   static void _appendNapStartEndBooleans(
     ActivityTypeDetails details,
     List<Map<String, dynamic>> parameterValues,
-    String activityLabelName,
+    bool isNapEnd,
   ) {
-    final isEnd = _napEventIsEnd(activityLabelName);
-    final napStartFlag = !isEnd;
-    final napEndFlag = isEnd;
+    final napStartFlag = !isNapEnd;
+    final napEndFlag = isNapEnd;
 
     String? startCode = _findBooleanParamCode(
       details,
@@ -295,6 +297,31 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         'value': napEndFlag,
       });
     }
+  }
+
+  Future<bool?> _resolveNapEndFromCurrentStatus({
+    required String classroomCode,
+    required List<String> studentCodes,
+  }) async {
+    final nappingCodes = await _getNapStartStudentsUseCase(
+      classroomCode: classroomCode,
+    );
+    final nappingSet = nappingCodes.map((e) => e.trim()).toSet();
+    final selectedSet = studentCodes.map((e) => e.trim()).toSet();
+    final nappingSelectedCount =
+        selectedSet.where((code) => nappingSet.contains(code)).length;
+
+    if (nappingSelectedCount > 0 && nappingSelectedCount < selectedSet.length) {
+      if (!mounted) return null;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Selected students have mixed nap states. Select students with same nap state.',
+        isWarning: true,
+      );
+      return null;
+    }
+    return nappingSelectedCount == selectedSet.length;
   }
 
   Future<void> _submitCreateActivity() async {
@@ -455,7 +482,12 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      _appendNapStartEndBooleans(details, parameterValues, details.name);
+      final isNapEnd = await _resolveNapEndFromCurrentStatus(
+        classroomCode: classroomCode,
+        studentCodes: studentCodes,
+      );
+      if (isNapEnd == null) return;
+      _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
 
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
@@ -466,6 +498,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
+        napStart: !isNapEnd,
+        napEnd: isNapEnd,
         parameterValues: parameterValues,
         attachments: const [],
       );
@@ -619,7 +653,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       _appendNapStartEndBooleans(
         details,
         parameterValues,
-        _effectiveActivity.name,
+        _napEventIsEnd(_effectiveActivity.name),
       );
 
       final targets = studentMapsForScopedActivityUpdate(
