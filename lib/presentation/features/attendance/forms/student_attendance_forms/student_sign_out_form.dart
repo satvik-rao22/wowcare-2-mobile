@@ -137,16 +137,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       setState(() {
         _schoolIana = iana;
         _isStaffAdminPersona = isAdmin;
-        if (!isAdmin) {
-          if (iana != null && iana.isNotEmpty) {
-            final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-            selectedDate = dt.$1;
-            selectedTime = dt.$2;
-          } else {
-            final now = DateTime.now();
-            selectedDate = now;
-            selectedTime = TimeOfDay.fromDateTime(now);
-          }
+        if (iana != null && iana.isNotEmpty) {
+          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+          selectedDate = dt.$1;
+          selectedTime = dt.$2;
+        } else {
+          final now = DateTime.now();
+          selectedDate = now;
+          selectedTime = TimeOfDay.fromDateTime(now);
         }
       });
     } catch (_) {}

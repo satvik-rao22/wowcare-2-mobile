@@ -15,17 +15,15 @@ String? _codeFromNestedObject(dynamic v) {
 /// Resolves the identifier that student attendance mutation APIs expect
 /// (`PATCH`/`DELETE` `/api/v1/student-attendance-records/{code}`).
 ///
-/// Daily view rows may expose a row [`code`] as `SCTR_*` (transfer segment) while
-/// those endpoints require the owning **student attendance record** code. The API
-/// may send that as [`studentAttendanceRecordCode`], [`parentAttendanceRecordCode`],
-/// nested objects, or a non-`SCTR` [`attendanceRecordCode`].
+/// Contract: use the daily list entry `code` as mutation id whenever present.
 String? resolveStudentAttendanceRecordCodeForMutations(
   Map<String, dynamic> json,
 ) {
   String? s(dynamic v) => _trimmedString(v);
 
-  bool isTransferSegmentCode(String? c) =>
-      c != null && c.toUpperCase().startsWith('SCTR_');
+  final code = s(json['code']);
+  // Daily mutation APIs expect rowCode from daily view list entry.
+  if (code != null) return code;
 
   final studentAttendanceRecord = s(json['studentAttendanceRecordCode']) ??
       s(json['student_attendance_record_code']) ??
@@ -41,9 +39,7 @@ String? resolveStudentAttendanceRecordCodeForMutations(
   final attendanceRecord = s(json['attendanceRecordCode']) ??
       s(json['attendance_record_code']) ??
       _codeFromNestedObject(json['attendanceRecord']);
-  if (attendanceRecord != null && !isTransferSegmentCode(attendanceRecord)) {
-    return attendanceRecord;
-  }
+  if (attendanceRecord != null) return attendanceRecord;
 
   final parent = s(json['parentAttendanceRecordCode']) ??
       s(json['parent_attendance_record_code']) ??
@@ -57,23 +53,13 @@ String? resolveStudentAttendanceRecordCodeForMutations(
     return parent;
   }
 
-  final code = s(json['code']);
-  if (code != null && !isTransferSegmentCode(code)) {
-    return code;
-  }
-
-  if (attendanceRecord != null) {
-    return attendanceRecord;
-  }
-
-  return code;
+  return null;
 }
 
 /// Resolves the identifier that staff attendance mutation APIs expect
 /// (`PATCH`/`DELETE` `/api/v1/staff-attendance-records/{code}`).
 ///
-/// Daily view rows may expose transfer-segment ids like `SFTR_*`; those are not
-/// valid delete/update identifiers for the parent attendance record.
+/// Contract: use the daily list entry `code` as mutation id whenever present.
 String? _staffCodeFromNestedObject(dynamic v) {
   if (v is! Map) return null;
   final m = Map<String, dynamic>.from(v);
@@ -87,8 +73,9 @@ String? resolveStaffAttendanceRecordCodeForMutations(
 ) {
   String? s(dynamic v) => _trimmedString(v);
 
-  bool isTransferSegmentCode(String? c) =>
-      c != null && c.toUpperCase().startsWith('SFTR_');
+  final code = s(json['code']);
+  // Daily mutation APIs expect rowCode from daily view list entry.
+  if (code != null) return code;
 
   final staffAttendanceRecord = s(json['staffAttendanceRecordCode']) ??
       s(json['staff_attendance_record_code']) ??
@@ -104,9 +91,7 @@ String? resolveStaffAttendanceRecordCodeForMutations(
   final attendanceRecord = s(json['attendanceRecordCode']) ??
       s(json['attendance_record_code']) ??
       _staffCodeFromNestedObject(json['attendanceRecord']);
-  if (attendanceRecord != null && !isTransferSegmentCode(attendanceRecord)) {
-    return attendanceRecord;
-  }
+  if (attendanceRecord != null) return attendanceRecord;
 
   final parent = s(json['parentAttendanceRecordCode']) ??
       s(json['parent_attendance_record_code']) ??
@@ -120,14 +105,5 @@ String? resolveStaffAttendanceRecordCodeForMutations(
     return parent;
   }
 
-  final code = s(json['code']);
-  if (code != null && !isTransferSegmentCode(code)) {
-    return code;
-  }
-
-  if (attendanceRecord != null) {
-    return attendanceRecord;
-  }
-
-  return code;
+  return null;
 }

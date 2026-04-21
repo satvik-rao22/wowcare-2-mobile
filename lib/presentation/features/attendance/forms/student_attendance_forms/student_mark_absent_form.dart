@@ -8,7 +8,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -74,6 +77,7 @@ class StudentMarkAbsentForm extends StatefulWidget {
 class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
+  String? _schoolIana;
   final TextEditingController _reasonController = TextEditingController();
   Map<String, TextEditingController> notesControllers = {};
   List<StudentEntity> currentStudents = [];
@@ -96,6 +100,14 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
 
   Future<void> _loadPersonaFlags() async {
     try {
+      String? schoolIana;
+      try {
+        schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+          storage: serviceLocator<StorageService>(),
+          apiClient: serviceLocator<ApiClient>(),
+        );
+      } catch (_) {}
+
       final storage = serviceLocator<StorageService>();
       final staffType =
           (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
@@ -116,12 +128,15 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       }
       if (!mounted) return;
       setState(() {
+        _schoolIana = schoolIana;
         _isStaffAdminPersona = isAdmin;
-        if (!isAdmin) {
+        if (schoolIana != null && schoolIana.isNotEmpty) {
+          startDate = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana);
+        } else {
           final now = DateTime.now();
           startDate = DateTime(now.year, now.month, now.day);
-          endDate = startDate;
         }
+        endDate = startDate;
       });
     } catch (_) {}
   }
@@ -335,8 +350,13 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            // Use the user's selected calendar date (no clamping).
-                            startDate = DateTime(date.year, date.month, date.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            startDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }
@@ -362,8 +382,13 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            // Use the user's selected calendar date (no clamping).
-                            endDate = DateTime(date.year, date.month, date.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
+                            final picked = DateTime(date.year, date.month, date.day);
+                            endDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
                             }

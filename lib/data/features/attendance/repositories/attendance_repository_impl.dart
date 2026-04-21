@@ -1119,32 +1119,27 @@ class AttendanceRepositoryImpl
     String? timeZone,
   }) async {
     final tz = await _effectiveSchoolTimeZone(timeZone);
+    final recordCode = attendanceRecordCode.trim().toUpperCase();
+    final isTransferRecord = recordCode.startsWith('SCTR_');
     final payload = <String, dynamic>{
       'staffCode': staffCode,
-      // Backend expects ISO8601 with timezone (e.g., "2026-03-04T16:31:09.002Z")
-      'signedInAt': signedInAt?.toUtc().toIso8601String(),
-      'signedOutAt': signedOutAt?.toUtc().toIso8601String(),
-      'signedInMethod': 'APP',
-      'signedOutMethod': 'APP',
-      // Location/geofence fields are currently not captured in the UI.
-      // Send defaults as per backend schema.
-      'signedInLocationLat': 0,
-      'signedInLocationLong': 0,
-      'signedInWithinGeofence': true,
-      'signedOutLocationLat': 0,
-      'signedOutLocationLong': 0,
-      'signedOutWithinGeofence': true,
-      'originalClassroomCode': originalClassroomCode,
-      'currentClassroomCode': currentClassroomCode,
-      'notes': notes,
       'timeZone': tz,
+      if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
+      if (signedOutAt != null)
+        'signedOutAt': signedOutAt.toUtc().toIso8601String(),
+      if (!isTransferRecord && signedInAt != null) 'SignedInMethod': 'APP',
+      if (!isTransferRecord && signedOutAt != null) 'SignedOutMethod': 'APP',
+      if (originalClassroomCode != null && originalClassroomCode.trim().isNotEmpty)
+        'originalClassroomCode': originalClassroomCode.trim(),
+      if (currentClassroomCode != null && currentClassroomCode.trim().isNotEmpty)
+        'currentClassroomCode': currentClassroomCode.trim(),
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     };
 
-    final allowed = await _attendanceAllowedClassroomCodes();
     return _remoteDataSource.updateStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
       payload: payload,
-      allowedClassroomCodes: allowed,
+      allowedClassroomCodes: const <String>[],
     );
   }
 

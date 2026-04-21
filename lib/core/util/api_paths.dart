@@ -386,6 +386,11 @@ class ApiPaths {
   static String studentAttendanceRecordByCode(String recordCode) =>
       '/api/v1/student-attendance-records/$recordCode';
 
+  /// Daily-row mutation endpoint for student attendance.
+  /// Backend expects the row `code` from daily-view list APIs.
+  static String studentAttendanceDailyRecordByRowCode(String rowCode) =>
+      '/api/v1/student-attendance-records/daily/$rowCode';
+
   static const String studentAbsenceRecordsMarkAbsent =
       '/api/v1/student-absence-records/mark-absent';
 
@@ -426,6 +431,8 @@ class ApiPaths {
       '/api/v1/staff-attendance/view/absent/toggle';
   static const String staffAttendanceCustomView = '/api/v1/staff-attendance/view/custom';
   static const String staffAttendanceRecords = '/api/v1/staff-attendance-records';
+  static String staffAttendanceDailyRecordByRowCode(String rowCode) =>
+      '/api/v1/staff-attendance-records/daily/$rowCode';
   static const String staffAttendanceRecordsSignIn =
       '/api/v1/staff-attendance-records/sign-in';
   static const String staffAttendanceRecordsSignInSelf =

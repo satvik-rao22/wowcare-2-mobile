@@ -13,6 +13,7 @@ import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -85,6 +86,7 @@ class StudentTransferForm extends StatefulWidget {
 class _StudentTransferFormState extends State<StudentTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  String? _schoolIana;
   bool? _isStaffAdminPersona;
   String? selectedClassroom;
   String currentClassroom = '';
@@ -110,6 +112,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   Future<void> _loadPersonaFlags() async {
     try {
+      String? schoolIana;
+      try {
+        schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+          storage: serviceLocator<StorageService>(),
+          apiClient: serviceLocator<ApiClient>(),
+        );
+      } catch (_) {}
+
       final storage = serviceLocator<StorageService>();
       final staffType =
           (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
@@ -130,8 +140,13 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       }
       if (!mounted) return;
       setState(() {
+        _schoolIana = schoolIana;
         _isStaffAdminPersona = isAdmin;
-        if (!isAdmin) {
+        if (schoolIana != null && schoolIana.isNotEmpty) {
+          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolIana);
+          _selectedTransferDate = dt.$1;
+          _selectedTransferTime = dt.$2;
+        } else {
           _selectedTransferDate = DateTime.now();
           _selectedTransferTime = TimeOfDay.now();
         }
@@ -151,6 +166,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
     return classroomNameToCode.entries
         .where((entry) => entry.key.trim().isNotEmpty)
+        .where((entry) => isSelectableClassroomName(entry.key))
         .where((entry) => !currentRoomNames.contains(entry.key))
         .map((entry) => entry.key)
         .toList(growable: false);
@@ -172,7 +188,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
       final apiMap = <String, String>{
         for (final classroom in classrooms)
-          if (classroom.name.trim().isNotEmpty && classroom.code.trim().isNotEmpty)
+          if (classroom.name.trim().isNotEmpty &&
+              classroom.code.trim().isNotEmpty &&
+              isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
 
@@ -475,8 +493,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+                                : DateTime(DateTime.now().year, DateTime.now().month,
+                                    DateTime.now().day);
                             final pickedDay =
                                 DateTime(date.year, date.month, date.day);
                             _selectedTransferDate =
