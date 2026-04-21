@@ -10,12 +10,16 @@ import '../models/activity_type_details_model.dart';
 import '../models/activity_upload_session_models.dart';
 
 abstract class ActivityRemoteDataSource {
-  /// `GET /api/v1/activities/code/{code}` — returns inner `data` map.
-  Future<Map<String, dynamic>> getActivityByCode({required String code});
+  /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.
+  Future<Map<String, dynamic>> getActivityByCode({
+    required String cardGroupCode,
+  });
 
-  /// `PATCH /api/v1/activities/{code}`
+  /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
-    required String code,
+    required String cardGroupCode,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -115,18 +119,42 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     return message.contains('must reach ready before linking');
   }
 
+  List<String> _normalizedCodes(Iterable<String> codes) {
+    final out = <String>[];
+    for (final c in codes) {
+      final v = c.trim();
+      if (v.isEmpty || out.contains(v)) continue;
+      out.add(v);
+    }
+    return out;
+  }
+
+  List<Map<String, dynamic>> _normalizedPatchAttachments(
+    List<Map<String, dynamic>> attachments,
+  ) {
+    final out = <Map<String, dynamic>>[];
+    for (final row in attachments) {
+      final assetCode = (row['assetCode'] ?? '').toString().trim();
+      if (assetCode.isEmpty) continue;
+      final studentCode = (row['studentCode'] ?? '').toString().trim();
+      final bindingMode = (row['bindingMode'] ?? '').toString().trim();
+      out.add({
+        'assetCode': assetCode,
+        if (studentCode.isNotEmpty) 'studentCode': studentCode,
+        if (bindingMode.isNotEmpty) 'bindingMode': bindingMode,
+      });
+    }
+    return out;
+  }
+
   @override
-  Future<Map<String, dynamic>> getActivityByCode({required String code}) async {
-    final base = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
-    // Match [getActivityTypeDetails]: append code as a path segment without
-    // [Uri.encodeComponent]. Encoding broke some gateways; activity codes are
-    // typically `ACT_…` / UUID-safe. Encode only if the code contains `/`.
-    final raw = code.trim();
+  Future<Map<String, dynamic>> getActivityByCode({
+    required String cardGroupCode,
+  }) async {
+    final base = ApiPaths.url('/api/v2/activities');
+    final raw = cardGroupCode.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
-    final endpoint = '$base/code/$segment';
+    final endpoint = '$base/$segment';
     final response = await _client.get<dynamic>(endpoint);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -141,26 +169,39 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   @override
   Future<String> updateActivity({
-    required String code,
+    required String cardGroupCode,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
     required List<Map<String, dynamic>> parameterValues,
     required List<Map<String, dynamic>> attachments,
   }) async {
-    final base = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
-    final raw = code.trim();
+    final base = ApiPaths.url('/api/v2/activities');
+    final raw = cardGroupCode.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
     final endpoint = '$base/$segment';
+    final normalizedStudentCodes = _normalizedCodes(studentCodes);
+    final normalizedApplyToCodes = _normalizedCodes(applyToStudentCodes);
+    final effectiveStudentCodes = normalizedApplyToCodes.isNotEmpty
+        ? normalizedApplyToCodes
+        : normalizedStudentCodes;
+    final normalizedAttachments = _normalizedPatchAttachments(attachments);
+    final attachmentBindingMode = normalizedAttachments
+        .map((a) => (a['bindingMode'] ?? '').toString().trim())
+        .firstWhere((v) => v.isNotEmpty, orElse: () => '');
+
     final payload = <String, dynamic>{
+      if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
+      if (normalizedApplyToCodes.isNotEmpty)
+        'applyToStudentCodes': normalizedApplyToCodes,
       'staffCode': staffCode,
       'activityDate': activityDate,
       'description': description,
       'parameterValues': parameterValues,
-      'attachments': attachments,
+      if (attachmentBindingMode.isNotEmpty) 'bindingMode': attachmentBindingMode,
+      'attachments': normalizedAttachments,
     };
     final response = await _client.patch<dynamic>(endpoint, data: payload);
     final body = response.data;

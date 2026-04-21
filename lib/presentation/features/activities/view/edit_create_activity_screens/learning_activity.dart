@@ -137,9 +137,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.studentList.length > 1
-          ? ''
-          : (activity.description ?? activity.whatHappened ?? '');
+      _descriptionController.text =
+          activity.description ?? activity.whatHappened ?? '';
       _selectedActivityType = activity.activityType ?? '';
       final cats = activity.categoryType;
       _selectedCategory = (cats != null && cats.isNotEmpty) ? cats.first : null;
@@ -189,9 +188,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text =
-            (widget.activityData?.studentList.length ?? 0) > 1
-                ? ''
-                : (item.description ?? item.whatHappened ?? '');
+            item.description ?? item.whatHappened ?? '';
         _selectedActivityType = item.activityType ?? '';
         final cats = item.categoryType;
         _selectedCategory = (cats != null && cats.isNotEmpty)
@@ -1031,6 +1028,18 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         }
         lastMessage = await _updateActivityUseCase(
           code: code,
+          studentCodes: _selectedStudentsData
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
+          applyToStudentCodes: targets
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
           staffCode: staffCode,
           activityDate: activityDateIso,
           description: description,

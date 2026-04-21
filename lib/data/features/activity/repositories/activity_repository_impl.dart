@@ -145,13 +145,17 @@ class ActivityRepositoryImpl implements ActivityRepository {
 
   @override
   Future<ActivityDetail> getActivity({required String code}) async {
-    final data = await _remoteDataSource.getActivityByCode(code: code);
+    final data = await _remoteDataSource.getActivityByCode(
+      cardGroupCode: code,
+    );
     return ActivityDetail.fromApiData(data);
   }
 
   @override
   Future<String> updateActivity({
     required String code,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -159,7 +163,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     final message = await _remoteDataSource.updateActivity(
-      code: code,
+      cardGroupCode: code,
+      studentCodes: studentCodes,
+      applyToStudentCodes: applyToStudentCodes,
       staffCode: staffCode,
       activityDate: activityDate,
       description: description,

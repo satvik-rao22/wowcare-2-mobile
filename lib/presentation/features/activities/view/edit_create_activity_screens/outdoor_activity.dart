@@ -117,9 +117,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.studentList.length > 1
-          ? ''
-          : (activity.whatHappened ?? activity.description ?? '');
+      _descriptionController.text =
+          activity.whatHappened ?? activity.description ?? '';
       _activityTypeCode = activity.activityTypeCode;
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -165,9 +164,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text =
-            (widget.activityData?.studentList.length ?? 0) > 1
-                ? ''
-                : (item.whatHappened ?? item.description ?? '');
+            item.whatHappened ?? item.description ?? '';
         _activityTypeCode = item.activityTypeCode;
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
@@ -918,6 +915,18 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         }
         lastMessage = await _updateActivityUseCase(
           code: code,
+          studentCodes: _selectedStudentsData
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
+          applyToStudentCodes: targets
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
           staffCode: staffCode,
           activityDate: activityDateIso,
           description: description,

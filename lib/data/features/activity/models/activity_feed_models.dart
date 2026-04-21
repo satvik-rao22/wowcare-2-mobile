@@ -80,7 +80,11 @@ class ActivityFeedPageModel {
         return const [];
       }
 
-      final code = (json['code'] ?? json['activityCode'] ?? '')
+      final code = (json['cardGroupCode'] ??
+              json['code'] ??
+              json['batchGroupCode'] ??
+              json['activityCode'] ??
+              '')
           .toString()
           .trim();
       final room = (json['classroomCode'] ?? '').toString().trim();

@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart
 
 /// JSON-serializable snapshot of [ActivityFeedPage] for [CacheManager].
 class ActivityFeedPageCacheCodec {
-  static const int _version = 1;
+  static const int _version = 2;
 
   static String cacheIdentifier(String requestKey) {
     return base64Url.encode(utf8.encode(requestKey)).replaceAll('=', '');
@@ -107,6 +107,14 @@ class ActivityFeedPageCacheCodec {
     return s.isEmpty ? null : s;
   }
 
+  static String? _normalizeCardGroupCode(dynamic v) {
+    final s = _optionalNonEmptyString(v);
+    if (s == null) return null;
+    // Guard old cached rows where batch group (ABG_*) was stored as activityCode.
+    if (s.toUpperCase().startsWith('ABG_')) return null;
+    return s;
+  }
+
   static ActivityFeedRow? _decodeRow(Map<String, dynamic> j) {
     try {
       final activityDate = (j['activityDateIso'] ?? '').toString();
@@ -115,7 +123,7 @@ class ActivityFeedPageCacheCodec {
       final at = j['attachments'];
       final rawStudents = j['students'];
       return ActivityFeedRow(
-        activityCode: _optionalNonEmptyString(j['activityCode']),
+        activityCode: _normalizeCardGroupCode(j['activityCode']),
         studentCode: _optionalNonEmptyString(j['studentCode']),
         classroomCode: _optionalNonEmptyString(j['classroomCode']),
         activityTypeCode: (j['activityTypeCode'] ?? '').toString(),

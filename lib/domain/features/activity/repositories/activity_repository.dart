@@ -48,9 +48,11 @@ abstract class ActivityRepository {
   /// `GET /api/v1/activities/code/{code}`
   Future<ActivityDetail> getActivity({required String code});
 
-  /// `PATCH /api/v1/activities/{code}`
+  /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
     required String code,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
