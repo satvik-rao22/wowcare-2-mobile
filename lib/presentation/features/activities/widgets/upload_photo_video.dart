@@ -975,6 +975,7 @@ class MediaUploader extends StatefulWidget {
     this.label = 'Upload Photos & Video',
     this.isPictureBox = true,
     this.photoSizeLimit,
+    this.readOnly = false,
   });
 
   final List<File>? initialPhotos;
@@ -999,6 +1000,7 @@ class MediaUploader extends StatefulWidget {
   final String label;
   final bool isPictureBox;
   final int? photoSizeLimit;
+  final bool readOnly;
 
   @override
   State<MediaUploader> createState() => _MediaUploaderState();
@@ -1443,6 +1445,17 @@ class _MediaUploaderState extends State<MediaUploader> {
         errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
       ),
       onRemove: () => _removeExistingPhoto(url),
+      onTap: () => _showImageFullscreen(
+        Image.network(
+          url,
+          fit: BoxFit.contain,
+          loadingBuilder: (_, child, progress) =>
+              progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white)),
+          errorBuilder: (_, __, ___) =>
+              const Center(child: Icon(Icons.broken_image, color: Colors.white70, size: 60)),
+        ),
+      ),
+      canRemove: !widget.readOnly,
     );
   }
 
@@ -1450,35 +1463,82 @@ class _MediaUploaderState extends State<MediaUploader> {
     return _previewItem(
       child: Image.file(file, fit: BoxFit.cover),
       onRemove: () => _removeNewPhoto(index),
+      onTap: () => _showImageFullscreen(
+        Image.file(
+          file,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) =>
+              const Center(child: Icon(Icons.broken_image, color: Colors.white70, size: 60)),
+        ),
+      ),
+      canRemove: !widget.readOnly,
     );
   }
 
-  Widget _previewItem({required Widget child, required VoidCallback onRemove}) {
+  void _showImageFullscreen(Widget imageWidget) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(0),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Center(child: imageWidget),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _previewItem({
+    required Widget child,
+    required VoidCallback onRemove,
+    VoidCallback? onTap,
+    bool canRemove = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 120,
-              height: 120,
-              color: Colors.grey[300],
-              child: child,
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: onRemove,
+          GestureDetector(
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close, color: Colors.white, size: 16),
+                width: 120,
+                height: 120,
+                color: Colors.grey[300],
+                child: child,
               ),
             ),
           ),
+          if (canRemove)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: onRemove,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1505,11 +1565,12 @@ class _MediaUploaderState extends State<MediaUploader> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final showUploadControl = !(widget.readOnly && _hasMedia);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.isPictureBox)
+        if (widget.isPictureBox && showUploadControl)
           GestureDetector(
             onTap: _showPickerDialog,
             child: Container(
@@ -1531,7 +1592,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               ),
             ),
           )
-        else
+        else if (showUploadControl)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1565,7 +1626,7 @@ class _MediaUploaderState extends State<MediaUploader> {
           ),
 
 
-        if (widget.isRequired && !_hasMedia)
+        if (widget.isRequired && !_hasMedia && !widget.readOnly)
           const Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text('Please upload at least one media *', style: TextStyle(color: Colors.red, fontSize: 13)),

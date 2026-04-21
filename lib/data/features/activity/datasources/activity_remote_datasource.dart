@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:async';
 
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
@@ -9,12 +10,16 @@ import '../models/activity_type_details_model.dart';
 import '../models/activity_upload_session_models.dart';
 
 abstract class ActivityRemoteDataSource {
-  /// `GET /api/v1/activities/code/{code}` — returns inner `data` map.
-  Future<Map<String, dynamic>> getActivityByCode({required String code});
+  /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.
+  Future<Map<String, dynamic>> getActivityByCode({
+    required String cardGroupCode,
+  });
 
-  /// `PATCH /api/v1/activities/{code}`
+  /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
-    required String code,
+    required String cardGroupCode,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -22,7 +27,7 @@ abstract class ActivityRemoteDataSource {
     required List<Map<String, dynamic>> attachments,
   });
 
-  /// `DELETE /api/v1/activities/{code}` (soft delete).
+  /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
   /// Fetches activity settings for a classroom via
@@ -37,9 +42,14 @@ abstract class ActivityRemoteDataSource {
     required String code,
   });
 
-  /// Creates a new activity via `POST /api/v1/activities`.
+  /// Creates grouped activity cards via `POST /api/v2/activities`.
   Future<String> createActivity({
     required ActivityCreateRequestModel request,
+  });
+
+  /// `GET /api/v1/activities/{classroomCode}/nap-start-students`
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
   });
 
   /// Creates shared activity cards via `POST /api/v2/activities`.
@@ -50,7 +60,7 @@ abstract class ActivityRemoteDataSource {
   });
 
   /// Creates upload sessions for activity attachments.
-  /// `POST /api/v1/activities/upload-sessions`
+  /// `POST /api/v2/activities/upload-sessions`
   Future<ActivityUploadSessionModel> createActivityUploadSessions({
     required String organizationCode,
     required String schoolCode,
@@ -73,7 +83,7 @@ abstract class ActivityRemoteDataSource {
     required String ownerCode,
   });
 
-  /// Daily classroom feed: `GET /api/v1/activities/feed/daily`.
+  /// Daily classroom feed: `GET /api/v2/activities/feed/daily`.
   Future<ActivityFeedPageModel> getDailyActivityFeed({
     required String classroomCode,
     required String date,
@@ -100,18 +110,56 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   final Dio _client;
 
+  bool _isAssetNotReadyConflict(Object error) {
+    if (error is! DioException) return false;
+    if (error.response?.statusCode != 409) return false;
+    final data = error.response?.data;
+    if (data is! Map<String, dynamic>) return false;
+    final message = (data['message'] ?? '').toString().toLowerCase();
+    return message.contains('must reach ready before linking');
+  }
+
+  List<String> _normalizedCodes(Iterable<String> codes) {
+    final out = <String>[];
+    for (final c in codes) {
+      final v = c.trim();
+      if (v.isEmpty || out.contains(v)) continue;
+      out.add(v);
+    }
+    return out;
+  }
+
+  List<Map<String, dynamic>> _normalizedPatchAttachments(
+    List<Map<String, dynamic>> attachments,
+  ) {
+    final out = <Map<String, dynamic>>[];
+    for (final row in attachments) {
+      final assetCode = (row['assetCode'] ?? '').toString().trim();
+      if (assetCode.isEmpty) continue;
+      final studentCode = (row['studentCode'] ?? '').toString().trim();
+      final bindingMode = (row['bindingMode'] ?? '').toString().trim();
+      final isShared = bindingMode.toUpperCase() == 'SHARED';
+      out.add({
+        'assetCode': assetCode,
+        // For SHARED attachments backend expects no studentCode.
+        if (studentCode.isNotEmpty &&
+            !isShared &&
+            studentCode.toUpperCase().startsWith('STD_'))
+          'studentCode': studentCode,
+        if (bindingMode.isNotEmpty) 'bindingMode': bindingMode,
+      });
+    }
+    return out;
+  }
+
   @override
-  Future<Map<String, dynamic>> getActivityByCode({required String code}) async {
-    final base = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
-    // Match [getActivityTypeDetails]: append code as a path segment without
-    // [Uri.encodeComponent]. Encoding broke some gateways; activity codes are
-    // typically `ACT_…` / UUID-safe. Encode only if the code contains `/`.
-    final raw = code.trim();
+  Future<Map<String, dynamic>> getActivityByCode({
+    required String cardGroupCode,
+  }) async {
+    final base = ApiPaths.url('/api/v2/activities');
+    final raw = cardGroupCode.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
-    final endpoint = '$base/code/$segment';
+    final endpoint = '$base/$segment';
     final response = await _client.get<dynamic>(endpoint);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -126,26 +174,42 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   @override
   Future<String> updateActivity({
-    required String code,
+    required String cardGroupCode,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
     required List<Map<String, dynamic>> parameterValues,
     required List<Map<String, dynamic>> attachments,
   }) async {
-    final base = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
-    final raw = code.trim();
+    final base = ApiPaths.url('/api/v2/activities');
+    final raw = cardGroupCode.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
     final endpoint = '$base/$segment';
+    final normalizedStudentCodes = _normalizedCodes(studentCodes);
+    final normalizedApplyToCodes = _normalizedCodes(applyToStudentCodes);
+    final effectiveStudentCodes = normalizedApplyToCodes.isNotEmpty
+        ? normalizedApplyToCodes
+        : normalizedStudentCodes;
+    final normalizedAttachments = _normalizedPatchAttachments(attachments);
+    final attachmentBindingMode = normalizedAttachments
+        .map((a) => (a['bindingMode'] ?? '').toString().trim())
+        .firstWhere((v) => v.isNotEmpty, orElse: () => '');
+    final effectiveBindingMode = effectiveStudentCodes.length <= 1
+        ? 'PER_STUDENT'
+        : (attachmentBindingMode.isNotEmpty ? attachmentBindingMode : 'SHARED');
+
     final payload = <String, dynamic>{
+      if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
+      if (normalizedApplyToCodes.isNotEmpty)
+        'applyToStudentCodes': normalizedApplyToCodes,
       'staffCode': staffCode,
       'activityDate': activityDate,
       'description': description,
       'parameterValues': parameterValues,
-      'attachments': attachments,
+      'bindingMode': effectiveBindingMode,
+      'attachments': normalizedAttachments,
     };
     final response = await _client.patch<dynamic>(endpoint, data: payload);
     final body = response.data;
@@ -161,10 +225,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   @override
   Future<String> deleteActivity({required String code}) async {
-    final base = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
+    final base = ApiPaths.url('/api/v2/activities');
     final raw = code.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
     final endpoint = '$base/$segment';
@@ -234,15 +295,22 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   Future<String> createActivity({
     required ActivityCreateRequestModel request,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.activities,
-      ApiConstants.activityBaseUrl,
-    );
-
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: request.toJson(),
-    );
+    final endpoint = ApiPaths.url('/api/v2/activities');
+    late Response<dynamic> response;
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        response = await _client.post<dynamic>(
+          endpoint,
+          data: request.toJson(),
+        );
+        break;
+      } catch (e) {
+        if (!_isAssetNotReadyConflict(e) || attempt >= 4) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
+      }
+    }
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -258,15 +326,46 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   }
 
   @override
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.activityNapStartStudents(classroomCode),
+      ApiConstants.activityBaseUrl,
+    );
+    final response = await _client.get<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected nap-start-students API response format');
+    }
+    final data = body['data'];
+    if (data is! List) return const [];
+    return data
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> createSharedActivities({
     required Map<String, dynamic> payload,
   }) async {
     final endpoint = ApiPaths.url('/api/v2/activities');
-
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: payload,
-    );
+    late Response<dynamic> response;
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        response = await _client.post<dynamic>(
+          endpoint,
+          data: payload,
+        );
+        break;
+      } catch (e) {
+        if (!_isAssetNotReadyConflict(e) || attempt >= 4) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
+      }
+    }
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected create shared-activities API response format');

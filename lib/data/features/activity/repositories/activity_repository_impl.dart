@@ -137,14 +137,25 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  }) {
+    return _remoteDataSource.getNapStartStudents(classroomCode: classroomCode);
+  }
+
+  @override
   Future<ActivityDetail> getActivity({required String code}) async {
-    final data = await _remoteDataSource.getActivityByCode(code: code);
+    final data = await _remoteDataSource.getActivityByCode(
+      cardGroupCode: code,
+    );
     return ActivityDetail.fromApiData(data);
   }
 
   @override
   Future<String> updateActivity({
     required String code,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -152,7 +163,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     final message = await _remoteDataSource.updateActivity(
-      code: code,
+      cardGroupCode: code,
+      studentCodes: studentCodes,
+      applyToStudentCodes: applyToStudentCodes,
       staffCode: staffCode,
       activityDate: activityDate,
       description: description,
@@ -180,6 +193,8 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? napStart,
+    bool? napEnd,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
@@ -192,6 +207,10 @@ class ActivityRepositoryImpl implements ActivityRepository {
       organizationCode: organizationCode,
       activityDate: activityDate,
       description: description,
+      napStart: napStart,
+      napEnd: napEnd,
+      // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
+      bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       parameterValues: parameterValues,
       attachments: attachments,
     );

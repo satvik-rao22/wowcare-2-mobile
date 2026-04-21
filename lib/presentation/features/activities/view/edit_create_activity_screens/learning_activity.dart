@@ -137,9 +137,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _liveActivity = activity;
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.studentList.length > 1
-          ? ''
-          : (activity.description ?? activity.whatHappened ?? '');
+      _descriptionController.text =
+          activity.description ?? activity.whatHappened ?? '';
       _selectedActivityType = activity.activityType ?? '';
       final cats = activity.categoryType;
       _selectedCategory = (cats != null && cats.isNotEmpty) ? cats.first : null;
@@ -189,9 +188,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text =
-            (widget.activityData?.studentList.length ?? 0) > 1
-                ? ''
-                : (item.description ?? item.whatHappened ?? '');
+            item.description ?? item.whatHappened ?? '';
         _selectedActivityType = item.activityType ?? '';
         final cats = item.categoryType;
         _selectedCategory = (cats != null && cats.isNotEmpty)
@@ -356,7 +353,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final ownerCode = studentCodes.first;
+    final isShared = studentCodes.length > 1;
+    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
+    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+    final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
     final missing = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
@@ -370,7 +370,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               schoolCode: schoolCode,
               classroomCode: classroomCode,
               activityTypeCode: activityTypeCode,
-              bindingMode: 'PER_STUDENT',
+              bindingMode: bindingMode,
               studentCodes: studentCodes,
             );
 
@@ -387,7 +387,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
             mediaType: 'IMAGE',
-            ownerType: 'STUDENT',
+            ownerType: ownerType,
             ownerCode: ownerCode,
           );
           await _imageUploadService.uploadFileToPresignedUrl(
@@ -417,11 +417,15 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
       if (assetCode != null && assetCode.isNotEmpty) {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': 'PER_STUDENT',
-        });
+        if (isShared) {
+          attachments.add({'assetCode': assetCode});
+        } else {
+          attachments.add({
+            'assetCode': assetCode,
+            'studentCode': ownerCode,
+            'bindingMode': bindingMode,
+          });
+        }
       }
     }
     return attachments;
@@ -718,42 +722,23 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (categoryEntry != null) categoryEntry,
       ];
 
-      String? message;
-      if (attachments.length <= 1) {
-        message = await _createActivityUseCase(
-          activityTypeCode: activityTypeCode,
-          classroomCode: classroomCode,
-          studentCodes: studentCodes,
-          staffCode: staffCode,
-          schoolCode: schoolCode,
-          organizationCode: organizationCode,
-          activityDate: activityDateIso,
-          description: description,
-          parameterValues: parameterValues,
-          attachments: attachments,
-        );
-      } else {
-        // Backend accepts one attachment per created activity row.
-        for (final att in attachments) {
-          message = await _createActivityUseCase(
-            activityTypeCode: activityTypeCode,
-            classroomCode: classroomCode,
-            studentCodes: studentCodes,
-            staffCode: staffCode,
-            schoolCode: schoolCode,
-            organizationCode: organizationCode,
-            activityDate: activityDateIso,
-            description: description,
-            parameterValues: parameterValues,
-            attachments: [att],
-          );
-        }
-      }
+      final message = await _createActivityUseCase(
+        activityTypeCode: activityTypeCode,
+        classroomCode: classroomCode,
+        studentCodes: studentCodes,
+        staffCode: staffCode,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        activityDate: activityDateIso,
+        description: description,
+        parameterValues: parameterValues,
+        attachments: attachments,
+      );
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message ?? 'Activity created successfully',
+        message: message,
         isSuccess: true,
       );
 
@@ -1043,6 +1028,18 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         }
         lastMessage = await _updateActivityUseCase(
           code: code,
+          studentCodes: _selectedStudentsData
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
+          applyToStudentCodes: targets
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
           staffCode: staffCode,
           activityDate: activityDateIso,
           description: description,
@@ -1323,6 +1320,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   isRequired: false,
                   allowVideo: false,
                   allowPhoto: true,
+                  readOnly: widget.readOnly,
                   isPictureBox: false,
                   limit: 10,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
@@ -1340,6 +1338,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 isRequired: false,
                 allowVideo: false,
                 allowPhoto: true,
+                readOnly: widget.readOnly,
                 isPictureBox: false,
                 limit: 10,
                 label: 'Upload Photos',

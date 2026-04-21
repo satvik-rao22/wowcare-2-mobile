@@ -475,10 +475,12 @@ class ApiPaths {
 
   // —— Activity host ——
   static const String activities = '/api/v1/activities';
+  static String activityNapStartStudents(String classroomCode) =>
+      '/api/v1/activities/${classroomCode.trim()}/nap-start-students';
   static const String activitiesUploadSessions =
-      '/api/v1/activities/upload-sessions';
-  static const String activitiesFeedDaily = '/api/v1/activities/feed/daily';
-  static const String activitiesFeedRange = '/api/v1/activities/feed/range';
+      '/api/v2/activities/upload-sessions';
+  static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
+  static const String activitiesFeedRange = '/api/v2/activities/feed/range';
   static const String activityTypesRoot = '/api/v1/activity-types';
 
   // —— Document host (base path returned by upload-session response) ——

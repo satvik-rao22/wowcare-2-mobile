@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart
 
 /// JSON-serializable snapshot of [ActivityFeedPage] for [CacheManager].
 class ActivityFeedPageCacheCodec {
-  static const int _version = 1;
+  static const int _version = 2;
 
   static String cacheIdentifier(String requestKey) {
     return base64Url.encode(utf8.encode(requestKey)).replaceAll('=', '');
@@ -91,6 +91,9 @@ class ActivityFeedPageCacheCodec {
       'studentFirstName': r.studentFirstName,
       'studentMiddleName': r.studentMiddleName,
       'studentLastName': r.studentLastName,
+      'students': r.students
+          .map((e) => Map<String, String>.from(e))
+          .toList(),
       'createdBy': r.createdBy,
       'parameterValues':
           r.parameterValues.map((e) => Map<String, dynamic>.from(e)).toList(),
@@ -104,14 +107,23 @@ class ActivityFeedPageCacheCodec {
     return s.isEmpty ? null : s;
   }
 
+  static String? _normalizeCardGroupCode(dynamic v) {
+    final s = _optionalNonEmptyString(v);
+    if (s == null) return null;
+    // Guard old cached rows where batch group (ABG_*) was stored as activityCode.
+    if (s.toUpperCase().startsWith('ABG_')) return null;
+    return s;
+  }
+
   static ActivityFeedRow? _decodeRow(Map<String, dynamic> j) {
     try {
       final activityDate = (j['activityDateIso'] ?? '').toString();
       if (activityDate.isEmpty) return null;
       final pv = j['parameterValues'];
       final at = j['attachments'];
+      final rawStudents = j['students'];
       return ActivityFeedRow(
-        activityCode: _optionalNonEmptyString(j['activityCode']),
+        activityCode: _normalizeCardGroupCode(j['activityCode']),
         studentCode: _optionalNonEmptyString(j['studentCode']),
         classroomCode: _optionalNonEmptyString(j['classroomCode']),
         activityTypeCode: (j['activityTypeCode'] ?? '').toString(),
@@ -121,6 +133,21 @@ class ActivityFeedPageCacheCodec {
         studentFirstName: (j['studentFirstName'] ?? '').toString(),
         studentMiddleName: (j['studentMiddleName'] as String?)?.trim(),
         studentLastName: (j['studentLastName'] ?? '').toString(),
+        students: rawStudents is List
+            ? rawStudents
+                .whereType<Map>()
+                .map(
+                  (e) => Map<String, String>.from(
+                    e.map(
+                      (key, value) => MapEntry(
+                        key.toString(),
+                        value?.toString() ?? '',
+                      ),
+                    ),
+                  ),
+                )
+                .toList()
+            : const [],
         createdBy: (j['createdBy'] ?? '').toString(),
         parameterValues: pv is List
             ? pv

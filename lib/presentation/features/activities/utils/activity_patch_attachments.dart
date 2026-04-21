@@ -146,15 +146,26 @@ List<Map<String, dynamic>> mergeAttachmentRowsForEditPatch({
     if (newAsset.isEmpty) continue;
 
     copy['assetCode'] = newAsset;
-    final prevStudent =
-        (copy['studentCode'] ?? copy['ownerCode'] ?? '').toString().trim();
     final nuStudent = (nu['studentCode'] ?? '').toString().trim();
-    if (prevStudent.isEmpty && nuStudent.isNotEmpty) {
+    final nuOwnerCode = (nu['ownerCode'] ?? '').toString().trim();
+    final nuBinding = (nu['bindingMode'] ?? '').toString().trim();
+
+    // When a removed slot is replaced by a newly uploaded asset, use the
+    // new asset ownership/binding metadata and do not carry stale values from
+    // the previous row (e.g. SHARED classroom rows replaced with PER_STUDENT).
+    if (nuStudent.isNotEmpty) {
       copy['studentCode'] = nuStudent;
+    } else {
+      copy.remove('studentCode');
     }
-    final bm = (copy['bindingMode'] ?? nu['bindingMode'] ?? 'PER_STUDENT')
-        .toString();
-    copy['bindingMode'] = bm.isNotEmpty ? bm : 'PER_STUDENT';
+    if (nuOwnerCode.isNotEmpty) {
+      copy['ownerCode'] = nuOwnerCode;
+    } else if (nuStudent.isNotEmpty) {
+      copy['ownerCode'] = nuStudent;
+    } else {
+      copy.remove('ownerCode');
+    }
+    copy['bindingMode'] = nuBinding.isNotEmpty ? nuBinding : 'PER_STUDENT';
     result.add(copy);
   }
 
