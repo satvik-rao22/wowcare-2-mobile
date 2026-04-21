@@ -5,6 +5,7 @@
 import FlutterMacOS
 import Foundation
 
+import clipboard
 import cloud_firestore
 import connectivity_plus
 import device_info_plus
@@ -28,6 +29,7 @@ import wakelock_plus
 import webview_flutter_wkwebview
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
+  ClipboardPlugin.register(with: registry.registrar(forPlugin: "ClipboardPlugin"))
   FLTFirebaseFirestorePlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseFirestorePlugin"))
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
   DeviceInfoPlusMacosPlugin.register(with: registry.registrar(forPlugin: "DeviceInfoPlusMacosPlugin"))
