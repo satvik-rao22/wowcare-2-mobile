@@ -4730,8 +4730,15 @@ ActivityItem activityItemFromFeedRow(
       name == 'Bathroom' ? pickBathroomDiaperSizeFromParams() : null;
 
   final desc = row.description.trim();
+  final studentNamesFromApi = row.students
+      .map((s) => (s['name'] ?? '').trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
   final studentName =
       row.studentDisplayName.isEmpty ? 'Student' : row.studentDisplayName;
+  final studentListForItem = studentNamesFromApi.isNotEmpty
+      ? studentNamesFromApi
+      : [studentName];
   final staffFromParams = pickStaffPresentFromParameters();
   final by = resolveActivityCreatedByForUi(
     rawCreatedBy: row.createdBy,
@@ -4762,7 +4769,7 @@ ActivityItem activityItemFromFeedRow(
     description: desc.isEmpty ? null : desc,
     photoUrl: photoUrl,
     videoUrl: videoUrl,
-    studentList: [studentName],
+    studentList: studentListForItem,
     createdBy: by,
     activityType: learningActivityName,
     categoryType: learningCategory != null && learningCategory.isNotEmpty
@@ -4799,12 +4806,24 @@ ActivityItem activityItemFromFeedRow(
         : row.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-    studentActivityRefs: [
-      {
-        'name': studentName,
-        if (sc.isNotEmpty) 'studentCode': sc,
-        if (ac.isNotEmpty) 'activityCode': ac,
-      },
-    ],
+    studentActivityRefs: row.students.isNotEmpty
+        ? row.students
+            .map(
+              (s) => <String, String>{
+                'name': (s['name'] ?? '').trim(),
+                if ((s['studentCode'] ?? '').trim().isNotEmpty)
+                  'studentCode': s['studentCode']!.trim(),
+                if (ac.isNotEmpty) 'activityCode': ac,
+              },
+            )
+            .where((m) => (m['name'] ?? '').isNotEmpty)
+            .toList()
+        : [
+            {
+              'name': studentName,
+              if (sc.isNotEmpty) 'studentCode': sc,
+              if (ac.isNotEmpty) 'activityCode': ac,
+            },
+          ],
   );
 }

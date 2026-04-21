@@ -616,8 +616,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                           final String name = student.fullName;
                           final String studentCode = student.studentCode;
                           final bool isNapping =
-                              _nappingStudentCodes.contains(studentCode) ||
-                                  student.nap;
+                              _nappingStudentCodes.contains(studentCode);
 
                           final bool isSelected = _selectedStudents.any(
                             (s) => s['studentCode'] == studentCode,

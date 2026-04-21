@@ -1311,6 +1311,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   isRequired: false,
                   allowVideo: false,
                   allowPhoto: true,
+                  readOnly: widget.readOnly,
                   isPictureBox: false,
                   limit: 10,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
@@ -1328,6 +1329,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 isRequired: false,
                 allowVideo: false,
                 allowPhoto: true,
+                readOnly: widget.readOnly,
                 isPictureBox: false,
                 limit: 10,
                 label: 'Upload Photos',

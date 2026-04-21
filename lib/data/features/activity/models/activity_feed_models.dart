@@ -89,32 +89,47 @@ class ActivityFeedPageModel {
       final description = (json['description'] ?? '').toString();
       final createdBy = (json['createdBy'] ?? '').toString();
 
-      final rows = <ActivityFeedRow>[];
+      final students = <Map<String, String>>[];
       final rawStudents = json['students'];
       if (rawStudents is List<dynamic> && rawStudents.isNotEmpty) {
         for (final s in rawStudents) {
           if (s is! Map<String, dynamic>) continue;
+          final first = (s['firstName'] ?? '').toString().trim();
+          final middle = (s['middleName'] ?? '').toString().trim();
+          final last = (s['lastName'] ?? '').toString().trim();
+          final name = [first, middle, last].where((p) => p.isNotEmpty).join(' ');
           final stu = (s['studentCode'] ?? '').toString().trim();
-          rows.add(
-            ActivityFeedRow(
-              activityCode: code.isEmpty ? null : code,
-              studentCode: stu.isEmpty ? null : stu,
-              classroomCode: room.isEmpty ? null : room,
-              activityTypeCode: activityTypeCode,
-              activityTypeName: activityTypeName,
-              activityDateIso: activityDate,
-              description: description,
-              studentFirstName: (s['firstName'] ?? '').toString(),
-              studentMiddleName: (s['middleName'] as String?)?.trim(),
-              studentLastName: (s['lastName'] ?? '').toString(),
-              createdBy: createdBy,
-              parameterValues: params,
-              attachments: atts,
-            ),
-          );
+          if (name.isNotEmpty || stu.isNotEmpty) {
+            students.add({
+              if (name.isNotEmpty) 'name': name,
+              if (stu.isNotEmpty) 'studentCode': stu,
+            });
+          }
         }
       }
-      if (rows.isNotEmpty) return rows;
+      if (students.isNotEmpty) {
+        final first = students.first;
+        final firstName = (first['name'] ?? '').trim();
+        final firstCode = (first['studentCode'] ?? '').trim();
+        return [
+          ActivityFeedRow(
+            activityCode: code.isEmpty ? null : code,
+            studentCode: firstCode.isEmpty ? null : firstCode,
+            classroomCode: room.isEmpty ? null : room,
+            activityTypeCode: activityTypeCode,
+            activityTypeName: activityTypeName,
+            activityDateIso: activityDate,
+            description: description,
+            studentFirstName: firstName,
+            studentMiddleName: null,
+            studentLastName: '',
+            createdBy: createdBy,
+            parameterValues: params,
+            attachments: atts,
+            students: students,
+          ),
+        ];
+      }
 
       // Fallback for old feed response shape.
       final stu = (json['studentCode'] ?? '').toString().trim();
@@ -133,6 +148,7 @@ class ActivityFeedPageModel {
           createdBy: createdBy,
           parameterValues: params,
           attachments: atts,
+          students: const [],
         ),
       ];
     } catch (_) {

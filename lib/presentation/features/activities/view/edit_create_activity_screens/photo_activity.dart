@@ -924,6 +924,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   isRequired: true,
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
+                  readOnly: widget.readOnly,
                   onMediaChanged:
                       _layoutAsEdit && !_canInteract ? null : _onMediaChanged,
                   initialPhotoUrls:
