@@ -65,7 +65,10 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
     _getStaffSignInFormListUseCase =
         serviceLocator<GetStaffSignInFormListUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>()
-      ..loadActiveClassrooms(onlyTypeClassroom: false);
+      ..loadActiveClassrooms(
+        onlyTypeClassroom: false,
+        applyAttendanceStaffScope: true,
+      );
     _loadStaff();
   }
 

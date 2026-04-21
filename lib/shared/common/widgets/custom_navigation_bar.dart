@@ -11,8 +11,65 @@ import 'package:wowcare/presentation/features/billing/view/parent_billing_screen
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
+
+import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
+
+// ---------------------------------------------------------------------------
+// Responsive sizing — fixed for Bug 3 (iPad split-screen)
+// Uses shortestSide to detect a true tablet regardless of split-view width.
+// ---------------------------------------------------------------------------
+class _NavSizes {
+  _NavSizes(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final w = mq.size.width;
+    // shortestSide is always the physical short dimension even in landscape.
+    // ≥600 on shortestSide = a genuine tablet, not an iPhone in landscape.
+    final shortest = mq.size.shortestSide;
+    final isTablet = shortest >= 600;
+    final isLargeTablet = shortest >= 900;
+
+    if (isLargeTablet) {
+      iconSize = 30;
+      fontSize = 13;
+      itemPaddingH = 16;
+      itemPaddingV = 12;
+      activeRadius = 16;
+    } else if (isTablet) {
+      iconSize = 26;
+      fontSize = 12;
+      itemPaddingH = 10;
+      itemPaddingV = 10;
+      activeRadius = 14;
+    } else {
+      iconSize = 22;
+      fontSize = 10;
+      itemPaddingH = 4;
+      itemPaddingV = 6;
+      activeRadius = 12;
+    }
+
+    // Bug 2 fix — Samsung & all Android gesture-nav:
+    // viewPadding is the raw inset before system consumption; it reports the
+    // correct bottom inset in every Android navigation mode (gesture, 2-button,
+    // 3-button) AND on iOS home-bar devices.
+    // DO NOT use mq.padding.bottom — it can be 0 in gesture mode on Samsung.
+    final bottomInset = mq.viewPadding.bottom;
+    barPadding = EdgeInsets.fromLTRB(
+      isLargeTablet ? 16 : (isTablet ? 12 : 6),
+      isLargeTablet ? 10 : (isTablet ? 8 : 6),
+      isLargeTablet ? 16 : (isTablet ? 12 : 6),
+      (isLargeTablet ? 10 : (isTablet ? 8 : 6)) + bottomInset,
+    );
+  }
+
+  late final double iconSize;
+  late final double fontSize;
+  late final double itemPaddingH;
+  late final double itemPaddingV;
+  late final EdgeInsets barPadding;
+  late final double activeRadius;
+}
 
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
@@ -30,8 +87,8 @@ class CustomNavigationBar extends StatefulWidget {
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
   final GlobalKey _containerKey = GlobalKey();
   double _navBarHeight = 0.0;
-  bool _hasMeasured = false;
-  int _index = 0;
+  // Bug 4 fix: removed _hasMeasured flag so height re-measures on every
+  // layout change (rotation, split-view resize, etc.).
   String _currentRoute = '';
 
   @override
@@ -52,52 +109,57 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     }
   }
 
+  // Bug 4 fix: called from didUpdateWidget + postFrameCallback on every build
+  // so height stays accurate after rotation.
+  void _measureHeight() {
+    if (!mounted) return;
+    final RenderBox? renderBox =
+        _containerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      final newHeight = renderBox.size.height;
+      if (newHeight != _navBarHeight) {
+        setState(() => _navBarHeight = newHeight);
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomNavigationBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-measure whenever the widget rebuilds (catches orientation changes).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
+  }
+
+  int _index = 0;
+
   void _updateIndexFromRoute() {
     if (!mounted) return;
-
     final roleProvider = Provider.of<RoleProvider>(context, listen: false);
     final isParent = roleProvider.isParent;
 
     if (isParent) {
-      if (_currentRoute == DashboardScreen.routeName) {
+      if (_currentRoute == DashboardScreen.routeName)
         _index = 0;
-      } else if (_currentRoute == ActivityFeedScreen.routeName) {
+      else if (_currentRoute == ActivityFeedScreen.routeName)
         _index = 2;
-      } else if (_currentRoute == MessagingScreen.routeName) {
+      else if (_currentRoute == MessagingScreen.routeName)
         _index = 3;
-      } else if (_currentRoute == ParentBillingScreen.routeName) {
+      else if (_currentRoute == ParentBillingScreen.routeName)
         _index = 4;
-      }
     } else {
-      if (_currentRoute == DashboardScreen.routeName) {
+      if (_currentRoute == DashboardScreen.routeName)
         _index = 0;
-      } else if (_currentRoute == ActivityFeedScreen.routeName) {
+      else if (_currentRoute == ActivityFeedScreen.routeName)
         _index = 3;
-      } else if (_currentRoute == MessagingScreen.routeName) {
+      else if (_currentRoute == MessagingScreen.routeName)
         _index = 4;
-      }
-    }
-  }
-
-  void _measureHeight() {
-    if (_hasMeasured) return;
-    final RenderBox? renderBox =
-        _containerKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      _navBarHeight = renderBox.size.height;
-      _hasMeasured = true;
-      setState(() {});
     }
   }
 
   void _onItemTapped(int index, BuildContext context, bool isParent) {
-    setState(() {
-      _index = index;
-    });
+    setState(() => _index = index);
 
     if (isParent) {
-      // Parent navigation items: Dashboard, Attendance, Activities,
-      // Communication, Billing.
       switch (index) {
         case 0:
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
@@ -126,13 +188,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           break;
       }
     } else {
-      // Admin navigation items: Dashboard, Attendance, Classrooms, Activities, Messages
       switch (index) {
         case 0:
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
           break;
         case 1:
-          // Show attendance popup instead of directly navigating
           AttendancePopupManager.showAttendancePopup(context);
           break;
         case 2:
@@ -164,49 +224,54 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     required int index,
     required BuildContext context,
     required bool isParent,
+    required _NavSizes sizes,
   }) {
     final bool isActive = _index == index;
 
     return Expanded(
       child: InkWell(
         onTap: () => _onItemTapped(index, context, isParent),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        borderRadius: BorderRadius.circular(sizes.activeRadius),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: EdgeInsets.symmetric(
+            horizontal: sizes.itemPaddingH,
+            vertical: sizes.itemPaddingV,
+          ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.black.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
-              : null,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Use SVG for vector icons
-                SvgPicture.asset(
-                  icon,
-                  height: 24,
-                  colorFilter: isActive
-                      ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
-                      : null,
-                ),
-                const SizedBox(height: 4),
-                Text(
+              : const BoxDecoration(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                icon,
+                height: sizes.iconSize,
+                colorFilter: isActive
+                    ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
+                    : null,
+              ),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
                   label,
                   style: TextStyle(
                     color: Colors.white,
                     fontFamily: Fonts.inter,
-                    fontSize: 12,
+                    fontSize: sizes.fontSize,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   ),
-                  textAlign: TextAlign.center,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -217,8 +282,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
+    // Bug 4 fix: schedule a re-measure after every build pass.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
+
     final roleProvider = context.watch<RoleProvider>();
     final isParent = roleProvider.isParent;
+
     final showParentAttendance = roleProvider.canOpenModule(
       AppAccessModules.studentAttendance,
     );
@@ -249,119 +318,131 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       AppAccessModules.billingSettings,
     ]);
 
-    return SafeArea(
-      top: false,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: Container(
-          key: _containerKey,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 12,
-                offset: const Offset(0, -6),
-              ),
-            ],
-          ),
-          child: Row(
-            children: isParent
-                ? [
-                    // Parent navigation: Dashboard, Attendance, Activities,
-                    // Communication, Billing.
-                    _buildNavItem(
-                      icon: MediaRes.dashboardIcon,
-                      label: 'Dashboard',
-                      index: 0,
-                      context: context,
-                      isParent: isParent,
-                    ),
-                    showParentAttendance
-                        ? _buildNavItem(
-                            icon: MediaRes.attendanceIcon,
-                            label: 'Attendance',
-                            index: 1,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                    showActivities
-                        ? _buildNavItem(
-                            icon: MediaRes.activitesIcon,
-                            label: 'Activities',
-                            index: 2,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                    showCommunication
-                        ? _buildNavItem(
-                            icon: MediaRes.communicationIcon,
-                            label: 'Communication',
-                            index: 3,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                    showBilling
-                        ? _buildNavItem(
-                            icon: MediaRes.billing_drawer_icon,
-                            label: 'Billing',
-                            index: 4,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                  ]
-                : [
-                    // Admin navigation: Dashboard, Attendance, Classrooms, Activities, Messages
-                    _buildNavItem(
-                      icon: MediaRes.dashboardIcon,
-                      label: 'Dashboard',
-                      index: 0,
-                      context: context,
-                      isParent: isParent,
-                    ),
-                    showStaffAdminAttendance
-                        ? _buildNavItem(
-                            icon: MediaRes.attendanceIcon,
-                            label: 'Attendance',
-                            index: 1,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                    showClassrooms
-                        ? _buildNavItem(
-                            icon: MediaRes.classroomIcon,
-                            label: 'Classrooms',
-                            index: 2,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                    showActivities
-                        ? _buildNavItem(
-                            icon: MediaRes.activitesIcon,
-                            label: 'Activities',
-                            index: 3,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                    showCommunication
-                        ? _buildNavItem(
-                            icon: MediaRes.communicationIcon,
-                            label: 'Messages',
-                            index: 4,
-                            context: context,
-                            isParent: isParent,
-                          )
-                        : _hiddenNavSlot(),
-                  ],
-          ),
+    final sizes = _NavSizes(context);
+
+    // Bug 1 fix: SafeArea removed entirely. We handle bottom inset manually
+    // via mq.viewPadding.bottom inside _NavSizes.barPadding, which works
+    // correctly for BOTH iPhone notch/home-bar AND Android gesture nav.
+    // Using SafeArea(bottom:false) + manual padding caused double-inset on
+    // some iPhone models because ClipRRect sits inside the SafeArea widget.
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: Container(
+        key: _containerKey,
+        padding: sizes.barPadding,
+        decoration: BoxDecoration(
+          gradient: AppColors.buildPrimaryGradient(),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, -6),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: isParent
+              ? [
+                  _buildNavItem(
+                    icon: MediaRes.dashboardIcon,
+                    label: 'Dashboard',
+                    index: 0,
+                    context: context,
+                    isParent: isParent,
+                    sizes: sizes,
+                  ),
+                  showParentAttendance
+                      ? _buildNavItem(
+                          icon: MediaRes.attendanceIcon,
+                          label: 'Attendance',
+                          index: 1,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                  showActivities
+                      ? _buildNavItem(
+                          icon: MediaRes.activitesIcon,
+                          label: 'Activities',
+                          index: 2,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                  showCommunication
+                      ? _buildNavItem(
+                          icon: MediaRes.communicationIcon,
+                          label: 'Communication',
+                          index: 3,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                  showBilling
+                      ? _buildNavItem(
+                          icon: MediaRes.billing_drawer_icon,
+                          label: 'Billing',
+                          index: 4,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                ]
+              : [
+                  _buildNavItem(
+                    icon: MediaRes.dashboardIcon,
+                    label: 'Dashboard',
+                    index: 0,
+                    context: context,
+                    isParent: isParent,
+                    sizes: sizes,
+                  ),
+                  showStaffAdminAttendance
+                      ? _buildNavItem(
+                          icon: MediaRes.attendanceIcon,
+                          label: 'Attendance',
+                          index: 1,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                  showClassrooms
+                      ? _buildNavItem(
+                          icon: MediaRes.classroomIcon,
+                          label: 'Classrooms',
+                          index: 2,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                  showActivities
+                      ? _buildNavItem(
+                          icon: MediaRes.activitesIcon,
+                          label: 'Activities',
+                          index: 3,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                  showCommunication
+                      ? _buildNavItem(
+                          icon: MediaRes.communicationIcon,
+                          label: 'Messages',
+                          index: 4,
+                          context: context,
+                          isParent: isParent,
+                          sizes: sizes,
+                        )
+                      : _hiddenNavSlot(),
+                ],
         ),
       ),
     );

@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
@@ -69,11 +72,24 @@ class ParentChildProvider extends ChangeNotifier {
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final orgCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
 
     if (userCode.isEmpty) {
       _children = const <ParentChildRef>[];
       _selectedChild = null;
       _isLoaded = false;
+      _lastLoadedContextKey = '';
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    // Parent/guardian child scope is not applicable for staff/admin personas.
+    final bool hasGuardianPersona = _hasGuardianPersona(rolesRaw);
+    if (!hasGuardianPersona) {
+      _children = const <ParentChildRef>[];
+      _selectedChild = null;
+      _isLoaded = true;
       _lastLoadedContextKey = '';
       _isLoading = false;
       notifyListeners();
@@ -173,6 +189,25 @@ class ParentChildProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  bool _hasGuardianPersona(String rolesRaw) {
+    final raw = rolesRaw.trim();
+    if (raw.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded.any((r) {
+          if (r is! Map) return false;
+          final role = (r['role'] ?? '').toString();
+          return roleStringIsGuardianPersona(role);
+        });
+      }
+    } catch (_) {
+      final u = raw.toUpperCase();
+      return u.contains('GUARDIAN') || u.contains('PARENT');
+    }
+    return false;
   }
 
   void selectByName(String? name) {

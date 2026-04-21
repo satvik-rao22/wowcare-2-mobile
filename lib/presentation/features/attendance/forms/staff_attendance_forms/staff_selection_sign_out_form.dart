@@ -65,7 +65,10 @@ class _StaffSelectionSignOutFormState
     _getStaffSignOutFormListUseCase =
         serviceLocator<GetStaffSignOutFormListUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>()
-      ..loadActiveClassrooms(onlyTypeClassroom: false);
+      ..loadActiveClassrooms(
+        onlyTypeClassroom: false,
+        applyAttendanceStaffScope: true,
+      );
     _loadStaff();
   }
 

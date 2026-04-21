@@ -22,6 +22,7 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
@@ -50,6 +51,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
+  String? _currentClassroomCodeForSelection;
+  bool _hasTransferTargets = true;
   late final ClassroomCubit _classroomCubit;
 
   @override
@@ -65,7 +68,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       ];
     }
     _classroomCubit = serviceLocator<ClassroomCubit>()
-      ..loadActiveClassrooms(onlyTypeClassroom: false);
+      ..loadActiveClassrooms(
+        onlyTypeClassroom: false,
+        applyAttendanceStaffScope: true,
+      );
     _loadPersonaFlags();
   }
 
@@ -97,6 +103,29 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         _selectedTransferTime = TimeOfDay.now();
       }
     });
+    await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isAdmin);
+  }
+
+  Future<void> _hydrateSelfStaffClassroomDataIfNeeded({
+    required bool isAdmin,
+  }) async {
+    if (isAdmin || _selectedStaff.length != 1) return;
+    final selected = _selectedStaff.first;
+    final selectedStaffCode = (selected.staffCode ?? '').trim();
+    if (selectedStaffCode.isEmpty) return;
+    try {
+      final repo = serviceLocator<StaffRepository>();
+      final profile = await repo.getStaffProfile(
+        staffCode: selectedStaffCode,
+        forEditStaff: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentClassroomCodeForSelection = profile.primaryClassroomCode.trim();
+      });
+    } catch (_) {
+      // Keep fallback classroom from selected staff payload.
+    }
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
@@ -129,9 +158,14 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     StaffEntity? staff,
     List<Classroom> classrooms,
   ) {
-    if (staff == null) return 'N/A';
-    final apiName = (staff.classroomName ?? '').trim();
-    final code = (staff.classroomCode ?? '').trim();
+    if (staff == null && (_currentClassroomCodeForSelection ?? '').trim().isEmpty) {
+      return 'N/A';
+    }
+    final apiName = (staff?.classroomName ?? '').trim();
+    final fallbackCode = (_currentClassroomCodeForSelection ?? '').trim();
+    final code = (staff?.classroomCode ?? '').trim().isNotEmpty
+        ? (staff?.classroomCode ?? '').trim()
+        : fallbackCode;
     final apiNameLooksLikeCode =
         apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
     if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
@@ -148,6 +182,16 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
 
   void _handleSubmit() {
+    if (!_hasTransferTargets) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('No other classroom available for transfer.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
     if (_selectedToClassroomCode == null || _selectedToClassroomCode!.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -378,6 +422,19 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
             _selectedStaff.isNotEmpty ? _selectedStaff.first : null,
             classroomState.classrooms,
           );
+          final currentClassroomCode =
+              (_currentClassroomCodeForSelection ?? '').trim().isNotEmpty
+              ? _currentClassroomCodeForSelection!.trim()
+              : ((_selectedStaff.isNotEmpty
+                        ? (_selectedStaff.first.classroomCode ?? '')
+                        : '')
+                    .trim());
+          final transferOptions = classroomState.classrooms
+              .where((c) => c.name.trim().isNotEmpty)
+              .where((c) => c.code.trim() != currentClassroomCode)
+              .map((c) => c.name)
+              .toList(growable: false);
+          _hasTransferTargets = transferOptions.isNotEmpty;
           String? selectedToClassroomName;
           for (final entry in _classroomNameToCode.entries) {
             if (entry.value == _selectedToClassroomCode) {
@@ -516,12 +573,12 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const AppText.label('Transfer to Classroom'),
                             const SizedBox(height: 8),
                             CustomDropdown(
-                              hintText: 'Select classroom',
-                              items: classroomState.classrooms
-                                  .where((c) => c.name != currentClassroom)
-                                  .map((c) => c.name)
-                                  .toList(),
+                              hintText: _hasTransferTargets
+                                  ? 'Select classroom'
+                                  : 'No classroom available',
+                              items: transferOptions,
                               selectedItem: selectedToClassroomName,
+                              isEnabled: _hasTransferTargets,
                               onSelect: (value) {
                                 setState(() {
                                   _selectedToClassroomCode = value == null

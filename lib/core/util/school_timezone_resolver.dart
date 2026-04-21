@@ -22,7 +22,11 @@ abstract final class SchoolTimezoneResolver {
     final cachedFor =
         (await storage.getString(StorageKeys.schoolTimeZoneSchoolCode) ?? '').trim();
     final cachedTz = (await storage.getString(StorageKeys.schoolTimeZone) ?? '').trim();
-    if (cachedFor == schoolCode && cachedTz.isNotEmpty) {
+    final hasUsableCachedTz =
+        cachedFor == schoolCode &&
+        cachedTz.isNotEmpty &&
+        cachedTz.toUpperCase() != fallbackTimeZone;
+    if (hasUsableCachedTz) {
       return cachedTz;
     }
 
@@ -30,8 +34,16 @@ abstract final class SchoolTimezoneResolver {
       schoolCode: schoolCode,
       apiClient: apiClient,
     );
-    await storage.saveString(StorageKeys.schoolTimeZoneSchoolCode, schoolCode);
-    await storage.saveString(StorageKeys.schoolTimeZone, tz);
+    if (tz.toUpperCase() != fallbackTimeZone) {
+      await storage.saveString(StorageKeys.schoolTimeZoneSchoolCode, schoolCode);
+      await storage.saveString(StorageKeys.schoolTimeZone, tz);
+      return tz;
+    }
+
+    // Preserve a previously resolved non-fallback timezone if network fetch fails.
+    if (cachedFor == schoolCode && cachedTz.isNotEmpty) {
+      return cachedTz;
+    }
     return tz;
   }
 

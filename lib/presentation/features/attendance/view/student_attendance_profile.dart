@@ -24,6 +24,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
@@ -988,6 +989,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
+    final isParentPersona = context.watch<RoleProvider>().isParent;
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -1017,8 +1019,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  _buildPopupMenu(),
+                  if (!isParentPersona) ...[
+                    const SizedBox(width: 16),
+                    _buildPopupMenu(),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),

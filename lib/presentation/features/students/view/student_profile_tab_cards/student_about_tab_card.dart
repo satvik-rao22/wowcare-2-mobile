@@ -179,7 +179,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
@@ -475,13 +477,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               : '-',
         ),
 
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () async {
-            if (!canStudentWrite) {
-              ModuleAccess.showWriteRestricted(context);
-              return;
-            }
+        if (canStudentWrite)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
             final profile = widget.studentProfile;
             if (profile == null) return;
 
@@ -630,8 +629,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               );
             }
           },
-          child: Opacity(
-            opacity: canStudentWrite ? 1 : 0.45,
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -777,8 +774,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               ),
             ],
           ),
-            ),
-        ),
+          ),
 
         _buildUpcomingMove(),
       ],

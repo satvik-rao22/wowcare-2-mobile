@@ -99,7 +99,9 @@ class _StudentSelectionSignInFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms();
+    _classroomCubit.loadActiveClassrooms(
+      applyAttendanceStaffScope: true,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
