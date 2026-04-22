@@ -747,7 +747,13 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final isShared = studentCodes.length > 1;
+    final hasSharedAttachmentInEdit = widget.isEdit &&
+        _detailAttachmentRows.any((row) {
+          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
+          final student = (row['studentCode'] ?? '').toString().trim();
+          return binding == 'SHARED' || student.isEmpty;
+        });
+    final isShared = hasSharedAttachmentInEdit || studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
     final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
     final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
@@ -831,6 +837,29 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final videoCount =
+        (video != null ? 1 : 0) +
+        ((remainingExistingVideoUrl != null &&
+                remainingExistingVideoUrl.trim().isNotEmpty)
+            ? 1
+            : 0);
+    if (photoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 photo can be attached.',
+        isError: true,
+      );
+      return;
+    }
+    if (videoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 video can be attached.',
+        isError: true,
+      );
+      return;
+    }
     setState(() {
       _newPhotos = photos;
       _remainingExistingPhotoUrls =
@@ -922,7 +951,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            if (_layoutAsEdit)
+            if (_layoutAsEdit &&
+                !(widget.isEdit &&
+                    !widget.readOnly &&
+                    _selectedStudents.length > 1))
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -940,7 +972,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   );
                 },
               )
-            else
+            else if (!_layoutAsEdit)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -961,10 +993,6 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 },
               ),
             if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Divider(height: 24),
-              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(

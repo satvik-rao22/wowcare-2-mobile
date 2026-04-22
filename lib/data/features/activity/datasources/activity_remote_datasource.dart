@@ -146,7 +146,6 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
             !isShared &&
             studentCode.toUpperCase().startsWith('STD_'))
           'studentCode': studentCode,
-        if (bindingMode.isNotEmpty) 'bindingMode': bindingMode,
       });
     }
     return out;
@@ -193,12 +192,6 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         ? normalizedApplyToCodes
         : normalizedStudentCodes;
     final normalizedAttachments = _normalizedPatchAttachments(attachments);
-    final attachmentBindingMode = normalizedAttachments
-        .map((a) => (a['bindingMode'] ?? '').toString().trim())
-        .firstWhere((v) => v.isNotEmpty, orElse: () => '');
-    final effectiveBindingMode = effectiveStudentCodes.length <= 1
-        ? 'PER_STUDENT'
-        : (attachmentBindingMode.isNotEmpty ? attachmentBindingMode : 'SHARED');
 
     final payload = <String, dynamic>{
       if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
@@ -208,7 +201,6 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'activityDate': activityDate,
       'description': description,
       'parameterValues': parameterValues,
-      'bindingMode': effectiveBindingMode,
       'attachments': normalizedAttachments,
     };
     final response = await _client.patch<dynamic>(endpoint, data: payload);

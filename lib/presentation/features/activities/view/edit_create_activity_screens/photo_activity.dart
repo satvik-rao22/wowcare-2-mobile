@@ -285,6 +285,29 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final videoCount =
+        (video != null ? 1 : 0) +
+        ((remainingExistingVideoUrl != null &&
+                remainingExistingVideoUrl.trim().isNotEmpty)
+            ? 1
+            : 0);
+    if (photoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 photo can be attached.',
+        isError: true,
+      );
+      return;
+    }
+    if (videoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 video can be attached.',
+        isError: true,
+      );
+      return;
+    }
     setState(() {
       _photos = photos;
       _video = video;
@@ -841,7 +864,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_layoutAsEdit)
+              if (_layoutAsEdit &&
+                  !(widget.isEdit &&
+                      !widget.readOnly &&
+                      _selectedStudents.length > 1))
                 GridView.builder(
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
@@ -859,7 +885,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     );
                   },
                 )
-              else
+              else if (!_layoutAsEdit)
                 GridView.builder(
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
@@ -885,10 +911,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   },
                 ),
               if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: Divider(height: 24),
-                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: ActivityEditStudentScopeCheckboxes(
