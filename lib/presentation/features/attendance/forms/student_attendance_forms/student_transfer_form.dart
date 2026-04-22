@@ -94,6 +94,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
   Map<String, String> _classroomNameToCode = <String, String>{};
+  bool _hasTransferTargets = true;
 
   @override
   void initState() {
@@ -103,6 +104,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     if (widget.students.isNotEmpty) {
       currentClassroom = _deriveCurrentClassroomName();
       availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
+      _hasTransferTargets = availableClassrooms.isNotEmpty;
     }
     _loadAvailableClassroomsFromApi();
     _loadPersonaFlags();
@@ -187,6 +189,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isEmpty) return;
+      final isScopedStaff = await isAttendanceScopedStaffPersona(
+        storage: storageService,
+      );
+      final allowedCodes = isScopedStaff
+          ? (await resolveAttendanceAllowedClassroomCodes(
+              storage: storageService,
+            )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
+          : const <String>{};
 
       final getActiveClassroomsUseCase =
           serviceLocator<GetActiveClassroomsUseCase>();
@@ -199,6 +209,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         for (final classroom in classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
+              (!isScopedStaff || allowedCodes.contains(classroom.code.trim())) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
@@ -209,6 +220,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         // Re-derive current classroom once we have a reliable map
         currentClassroom = _deriveCurrentClassroomName();
         availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
+        _hasTransferTargets = availableClassrooms.isNotEmpty;
         if (selectedClassroom != null &&
             !availableClassrooms.contains(selectedClassroom)) {
           selectedClassroom = null;
@@ -233,7 +245,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   String _deriveCurrentClassroomName() {
     if (currentStudents.isEmpty) return 'N/A';
-    final first = currentStudents.first;
+    final first = currentStudents.firstWhere(
+      (s) => s.classroomCode.trim().isNotEmpty || s.roomName.trim().isNotEmpty,
+      orElse: () => currentStudents.first,
+    );
     final code = first.classroomCode.trim();
     final roomName = first.roomName.trim();
     // Match daily-view logic: treat API name that equals code / looks like CLS_* as missing label.
@@ -261,6 +276,16 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   }
 
   void _handleSubmit() {
+    if (!_hasTransferTargets) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('No other classroom available for transfer.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
     if (selectedClassroom == null) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -600,7 +625,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                         ),
                         child: DropdownButton<String>(
                           value: selectedClassroom,
-                          hint: const Text('Select classroom'),
+                          hint: Text(
+                            _hasTransferTargets
+                                ? 'Select classroom'
+                                : 'No classroom available',
+                          ),
                           style: TextStyle(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -610,11 +639,13 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                           isExpanded: true,
                           icon: SvgPicture.asset(MediaRes.arrow_drop_down),
                           underline: Container(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedClassroom = newValue!;
-                            });
-                          },
+                          onChanged: !_hasTransferTargets
+                              ? null
+                              : (String? newValue) {
+                                  setState(() {
+                                    selectedClassroom = newValue!;
+                                  });
+                                },
                           items: availableClassrooms.map((String classroom) {
                             return DropdownMenuItem<String>(
                               value: classroom,

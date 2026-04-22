@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +9,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
@@ -86,6 +89,7 @@ class _StudentScreenState extends State<StudentScreen> {
       <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+  bool _hideSummaryCardsForScopedStaff = false;
 
   final GetClassroomByCodeUseCase _getClassroomByCode =
       serviceLocator<GetClassroomByCodeUseCase>();
@@ -106,13 +110,68 @@ class _StudentScreenState extends State<StudentScreen> {
         cubit.loadInitial();
         context.read<ClassroomCubit>().loadActiveClassrooms(
           onlyTypeClassroom: false,
+          applyAttendanceStaffScope: true,
         );
         _applyFiltersToCubit();
         _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
         _loadExpectedStudentsSummary();
+        _resolveSummaryVisibilityForPersona();
       }
+    });
+  }
+
+  Future<void> _resolveSummaryVisibilityForPersona() async {
+    final storage = serviceLocator<StorageService>();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    final staffTypeRaw =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+
+    bool hasGuardianRole = false;
+    bool hasAdminRole = false;
+    bool hasStaffRole = false;
+
+    if (rolesRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rolesRaw);
+        if (decoded is List) {
+          for (final roleEntry in decoded) {
+            if (roleEntry is! Map) continue;
+            final role = (roleEntry['role'] ?? '').toString().trim();
+            final roleUpper = role.toUpperCase();
+            if (roleUpper.isEmpty) continue;
+            if (roleStringIsGuardianPersona(role)) {
+              hasGuardianRole = true;
+              continue;
+            }
+            if (roleUpper.contains('ADMIN')) {
+              hasAdminRole = true;
+            } else {
+              hasStaffRole = true;
+            }
+          }
+        }
+      } catch (_) {
+        final u = rolesRaw.toUpperCase();
+        hasGuardianRole = u.contains('GUARDIAN') || u.contains('PARENT');
+        hasAdminRole = u.contains('ADMIN');
+        hasStaffRole = !hasGuardianRole && !hasAdminRole && u.isNotEmpty;
+      }
+    }
+
+    final bool isAdminByStaffType =
+        staffTypeRaw == 'SCHOOL_ADMIN' || staffTypeRaw == 'ORGANIZATION_ADMIN';
+    final bool isNonAdminStaffByStaffType =
+        staffTypeRaw.isNotEmpty && !isAdminByStaffType;
+
+    // Hide only for non-admin staff personas.
+    final shouldHide = !hasGuardianRole &&
+        !hasAdminRole &&
+        (isNonAdminStaffByStaffType || hasStaffRole);
+    if (!mounted) return;
+    setState(() {
+      _hideSummaryCardsForScopedStaff = shouldHide;
     });
   }
 
@@ -379,7 +438,8 @@ class _StudentScreenState extends State<StudentScreen> {
             }
             return BlocProvider(
               create: (_) =>
-                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+                  serviceLocator<ClassroomCubit>()
+                    ..loadActiveClassrooms(applyAttendanceStaffScope: true),
               child: screen,
             );
           },
@@ -1111,6 +1171,7 @@ class _StudentScreenState extends State<StudentScreen> {
                     .loadActiveClassrooms(
                       force: true,
                       onlyTypeClassroom: false,
+                      applyAttendanceStaffScope: true,
                     ),
                 // Keep these in sync on refresh as well (but DO NOT call tags API).
                 _loadGuardianNameCodeMap(),
@@ -1218,119 +1279,121 @@ class _StudentScreenState extends State<StudentScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Total Students stat card
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final bool isTablet = constraints.maxWidth >= 600;
-                      final double active = _activeCount.toDouble();
-                      final double upcoming = _upcomingCount.toDouble();
-                      final int totalCount = (active + upcoming).toInt();
-                      final String total = '$totalCount';
-                      final items = [
-                        ProgressItemHelper(
-                          label: 'Active (${active.toInt()})',
-                          value: active,
-                          color: AppColors.lightBlueProgressBar,
-                          filterValue: 'Active'
-                        ),
-                        ProgressItemHelper(
-                          label: 'Upcoming (${upcoming.toInt()})',
-                          value: upcoming,
-                          color: AppColors.mustardProgressBar,
-                          filterValue: 'Upcoming'
-                        ),
-                      ];
-                      return Container(
-                        margin: EdgeInsets.only(top: isTablet ? 16 : 12, bottom: isTablet ? 8 : 8),
-                        child: CustomStatBarCard(
-                          title: 'Total\nStudents',
-                          number: total,
-                          items: items,
-                          fullWidthBar: false,
-                          onLegendTap: (String label, String? filterValue) async {
-                            setState(() {
-                              final current = _currentFilters['Status'];
-                              if (current != null && current.length == 1 && current.first == filterValue){
-                                _currentFilters.remove('Status');
-                              } else {
-                                _currentFilters['Status'] = [filterValue!];
-                              }
-                              _syncShowInactiveFromStatus(
-                                _currentFilters['Status']?.isNotEmpty == true
-                                    ? _currentFilters['Status']!.first
-                                    : null,
-                              );
-                            });
-                            await _applyFiltersToCubit();
-                          },
+                  if (!_hideSummaryCardsForScopedStaff) ...[
+                    // Total Students stat card
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final bool isTablet = constraints.maxWidth >= 600;
+                        final double active = _activeCount.toDouble();
+                        final double upcoming = _upcomingCount.toDouble();
+                        final int totalCount = (active + upcoming).toInt();
+                        final String total = '$totalCount';
+                        final items = [
+                          ProgressItemHelper(
+                            label: 'Active (${active.toInt()})',
+                            value: active,
+                            color: AppColors.lightBlueProgressBar,
+                            filterValue: 'Active'
+                          ),
+                          ProgressItemHelper(
+                            label: 'Upcoming (${upcoming.toInt()})',
+                            value: upcoming,
+                            color: AppColors.mustardProgressBar,
+                            filterValue: 'Upcoming'
+                          ),
+                        ];
+                        return Container(
+                          margin: EdgeInsets.only(top: isTablet ? 16 : 12, bottom: isTablet ? 8 : 8),
+                          child: CustomStatBarCard(
+                            title: 'Total\nStudents',
+                            number: total,
+                            items: items,
+                            fullWidthBar: false,
+                            onLegendTap: (String label, String? filterValue) async {
+                              setState(() {
+                                final current = _currentFilters['Status'];
+                                if (current != null && current.length == 1 && current.first == filterValue){
+                                  _currentFilters.remove('Status');
+                                } else {
+                                  _currentFilters['Status'] = [filterValue!];
+                                }
+                                _syncShowInactiveFromStatus(
+                                  _currentFilters['Status']?.isNotEmpty == true
+                                      ? _currentFilters['Status']!.first
+                                      : null,
+                                );
+                              });
+                              await _applyFiltersToCubit();
+                            },
 
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Expected Students (same breakdown as Student Attendance daily summary)
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final bool isTablet = constraints.maxWidth >= 600;
-                      final present = _expectedSignedIn.toDouble();
-                      final absent = _expectedAbsent.toDouble();
-                      final signedOut = _expectedSignedOut.toDouble();
-                      final notMarked = _expectedNotMarked.toDouble();
-                      final items = [
-                        ProgressItemHelper(
-                          label: 'Signed-In (${present.toInt()})',
-                          value: present,
-                          color: AppColors.lightGreenProgressBar,
-                          filterValue: 'Signed-In',
-                        ),
-                        ProgressItemHelper(
-                          label: 'Absent (${absent.toInt()})',
-                          value: absent,
-                          color: AppColors.redProgressBar,
-                          filterValue: 'Absent',
-                        ),
-                        ProgressItemHelper(
-                          label: 'Signed Out (${signedOut.toInt()})',
-                          value: signedOut,
-                          color: AppColors.lightBlueProgressBar,
-                          filterValue: 'Signed Out',
-                        ),
-                        ProgressItemHelper(
-                          label: 'Not Marked (${notMarked.toInt()})',
-                          value: notMarked,
-                          color: AppColors.mustardProgressBar,
-                          filterValue: 'Not Marked',
-                        ),
-                      ];
-                      return Container(
-                        margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
-                        child: CustomStatBarCard(
-                          title: 'Expected\nStudents',
-                          number: '$_expectedStudentsTotal',
-                          items: items,
-                          fullWidthBar: false,
-                          normalizeBarByItemSum: true,
-                          onLegendTap: (String label, String? filterValue) {
-                            final status = label.split(' ').first;
-                            if (status == 'Signed-In' ||
-                                status == 'Absent' ||
-                                status == 'Signed' ||
-                                status == 'Not') {
-                              if (status == 'Signed') {
-                                _openStudentAttendanceWithLegendFilter('Signed Out');
-                              } else if (status == 'Not') {
-                                _openStudentAttendanceWithLegendFilter('Not Marked');
-                              } else {
-                                _openStudentAttendanceWithLegendFilter(status);
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Expected Students (same breakdown as Student Attendance daily summary)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final bool isTablet = constraints.maxWidth >= 600;
+                        final present = _expectedSignedIn.toDouble();
+                        final absent = _expectedAbsent.toDouble();
+                        final signedOut = _expectedSignedOut.toDouble();
+                        final notMarked = _expectedNotMarked.toDouble();
+                        final items = [
+                          ProgressItemHelper(
+                            label: 'Signed-In (${present.toInt()})',
+                            value: present,
+                            color: AppColors.lightGreenProgressBar,
+                            filterValue: 'Signed-In',
+                          ),
+                          ProgressItemHelper(
+                            label: 'Absent (${absent.toInt()})',
+                            value: absent,
+                            color: AppColors.redProgressBar,
+                            filterValue: 'Absent',
+                          ),
+                          ProgressItemHelper(
+                            label: 'Signed Out (${signedOut.toInt()})',
+                            value: signedOut,
+                            color: AppColors.lightBlueProgressBar,
+                            filterValue: 'Signed Out',
+                          ),
+                          ProgressItemHelper(
+                            label: 'Not Marked (${notMarked.toInt()})',
+                            value: notMarked,
+                            color: AppColors.mustardProgressBar,
+                            filterValue: 'Not Marked',
+                          ),
+                        ];
+                        return Container(
+                          margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
+                          child: CustomStatBarCard(
+                            title: 'Expected\nStudents',
+                            number: '$_expectedStudentsTotal',
+                            items: items,
+                            fullWidthBar: false,
+                            normalizeBarByItemSum: true,
+                            onLegendTap: (String label, String? filterValue) {
+                              final status = label.split(' ').first;
+                              if (status == 'Signed-In' ||
+                                  status == 'Absent' ||
+                                  status == 'Signed' ||
+                                  status == 'Not') {
+                                if (status == 'Signed') {
+                                  _openStudentAttendanceWithLegendFilter('Signed Out');
+                                } else if (status == 'Not') {
+                                  _openStudentAttendanceWithLegendFilter('Not Marked');
+                                } else {
+                                  _openStudentAttendanceWithLegendFilter(status);
+                                }
                               }
-                            }
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   // Filter/search card
                   Container(
                     padding: const EdgeInsets.all(12),

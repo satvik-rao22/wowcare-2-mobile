@@ -116,7 +116,10 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   }
 
   void _fetchFilterData() {
-    context.read<ClassroomCubit>().loadActiveClassrooms();
+    context.read<ClassroomCubit>().loadActiveClassrooms(
+      force: true,
+      applyAttendanceStaffScope: true,
+    );
   }
 
   Future<void> _loadTags() async {

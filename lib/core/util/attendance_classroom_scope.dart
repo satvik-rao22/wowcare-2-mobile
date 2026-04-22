@@ -39,7 +39,13 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
       final decoded = jsonDecode(raw);
       if (decoded is List) {
         return decoded
-            .map((e) => e.toString().trim())
+            .map((e) {
+              if (e is Map) {
+                final code = (e['code'] ?? '').toString().trim();
+                if (code.isNotEmpty) return code;
+              }
+              return e.toString().trim();
+            })
             .where((e) => e.isNotEmpty)
             .toList();
       }
@@ -90,6 +96,52 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
         .toList();
   } catch (_) {
     return <String>[];
+  }
+}
+
+/// Returns true when logged-in persona is a non-admin staff user, for whom
+/// classroom lists should be scoped to `allowedClassroomCodes`.
+Future<bool> isAttendanceScopedStaffPersona({
+  required StorageService storage,
+}) async {
+  final roleJson =
+      (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+  if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
+    return false;
+  }
+
+  final cachedStaffType =
+      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  if (cachedStaffType == 'SCHOOL_ADMIN' ||
+      cachedStaffType == 'ORGANIZATION_ADMIN') {
+    return false;
+  }
+  if (cachedStaffType.isNotEmpty) return true;
+
+  // Fallback when cache is missing: resolve from profile once.
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return false;
+
+    final repo = serviceLocator<StaffRepository>();
+    final profile = await repo.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+    final profileStaffType = profile.staffType.trim().toUpperCase();
+
+    if (profile.staffType.trim().isNotEmpty) {
+      await storage.saveString(StorageKeys.staffType, profile.staffType);
+    }
+    await storage.saveString(
+      StorageKeys.staffAllowedClassroomCodes,
+      jsonEncode(profile.allowedClassroomCodes),
+    );
+
+    return profileStaffType != 'SCHOOL_ADMIN' &&
+        profileStaffType != 'ORGANIZATION_ADMIN';
+  } catch (_) {
+    return false;
   }
 }
 

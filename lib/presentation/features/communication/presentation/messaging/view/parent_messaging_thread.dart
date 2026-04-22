@@ -1019,8 +1019,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                         children: [
                                           DocumentImageWidget(
                                             fileUuid:
-                                                widget.parentInfo['avatar'],
-                                            name: widget.parentInfo['name'],
+                                                widget.parentInfo['avatar'] ??
+                                                null,
+                                            name:
+                                                widget.parentInfo['name'] ??
+                                                null,
                                             size: 45,
                                           ),
                                           Positioned(

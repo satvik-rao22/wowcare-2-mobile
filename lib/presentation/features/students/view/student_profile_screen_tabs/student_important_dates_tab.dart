@@ -126,7 +126,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
@@ -208,18 +210,17 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GestureDetector(
-                      onTap: () => _openEdit(context),
-                      child: Opacity(
-                        opacity: canStudentWrite ? 1 : 0.45,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Important Dates',
-                              style: AppTextStyles.title,
-                            ),
-                            Container(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Important Dates',
+                          style: AppTextStyles.title,
+                        ),
+                        if (canStudentWrite)
+                          GestureDetector(
+                            onTap: () => _openEdit(context),
+                            child: Container(
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
@@ -233,9 +234,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                                 color: Colors.white,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     if (_isLoading)

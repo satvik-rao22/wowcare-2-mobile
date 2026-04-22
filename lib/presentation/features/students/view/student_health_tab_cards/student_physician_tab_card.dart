@@ -90,7 +90,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
@@ -123,16 +125,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         borderRadius: 10,
                       )
                     else
-                      Opacity(
-                        opacity: 0.45,
-                        child: GradientAddButton(
-                          onTap: () =>
-                              ModuleAccess.showWriteRestricted(context),
-                          wantedButtonSize: 40,
-                          iconSize: 22,
-                          borderRadius: 10,
-                        ),
-                      ),
+                      const SizedBox.shrink(),
                   ],
                 ),
               ),

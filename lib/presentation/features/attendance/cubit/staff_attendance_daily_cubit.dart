@@ -30,6 +30,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     await refresh(
@@ -38,6 +39,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
     );
   }
@@ -48,6 +50,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -63,6 +66,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
       isSummaryLoading: true,
     ));
@@ -75,6 +79,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         page: 0,
         size: _pageSize,
@@ -94,6 +99,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -131,6 +137,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         tagCodes: state.tagCodes,
         signInAtFilter: state.signInAtFilter,
         signOutAtFilter: state.signOutAtFilter,
+        isExpectedNotMarked: state.isExpectedNotMarked,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,

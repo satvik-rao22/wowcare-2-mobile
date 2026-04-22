@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -169,7 +168,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   }
 
   Future<void> _pickSingleDocument() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx'],
       allowMultiple: false,

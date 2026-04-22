@@ -129,7 +129,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 
   Future<void> _pickFile() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
       );

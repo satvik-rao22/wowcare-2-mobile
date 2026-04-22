@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 
@@ -14,6 +15,27 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 /// 3) Fresh fetch from `/api/v1/guardian/profile` (query: schoolCode, userCode)
 Future<String> resolveGuardianCodeForLoggedInUser() async {
   final storage = serviceLocator<StorageService>();
+
+  // Persona guard: only guardian/parent users should call guardian profile API.
+  final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+  if (rolesRaw.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(rolesRaw);
+      if (decoded is List) {
+        final hasGuardianPersona = decoded.any((r) {
+          if (r is! Map) return false;
+          final role = (r['role'] ?? '').toString();
+          return roleStringIsGuardianPersona(role);
+        });
+        if (!hasGuardianPersona) return '';
+      }
+    } catch (_) {
+      final u = rolesRaw.toUpperCase();
+      if (!u.contains('GUARDIAN') && !u.contains('PARENT')) {
+        return '';
+      }
+    }
+  }
 
   final loginContext = await storage.getJson(StorageKeys.loginContext);
   final fromContext = _readGuardianCodeFromLoginContext(loginContext);
