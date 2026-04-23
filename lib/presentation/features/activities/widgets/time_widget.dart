@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
@@ -36,10 +41,26 @@ class _TimeWidgetState extends State<TimeWidget> {
   void initState() {
     super.initState();
     _selectedTime = _parseTimeOfDay(widget.prefilledTime) ?? widget.initialTime ?? TimeOfDay.now();
+    _setSchoolDefaultTimeIfNeeded();
     // Notify initial value.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onTimeChanged?.call(_selectedTime);
     });
+  }
+
+  Future<void> _setSchoolDefaultTimeIfNeeded() async {
+    if (widget.prefilledTime != null && widget.prefilledTime!.trim().isNotEmpty) return;
+    if (widget.initialTime != null) return;
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    final schoolNow = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$2;
+    if (!mounted) return;
+    setState(() {
+      _selectedTime = schoolNow;
+    });
+    widget.onTimeChanged?.call(_selectedTime);
   }
 
   TimeOfDay? _parseTimeOfDay(String? timeStr) {

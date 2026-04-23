@@ -8,7 +8,10 @@ import '../models/staff_absence_record_models.dart';
 abstract class AttendanceRemoteDataSource {
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
@@ -317,7 +320,10 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
@@ -330,8 +336,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final queryParameters = <String, dynamic>{
       // New backend contract expects from/to date range.
       // For the daily view we always send the SAME date for both.
-      'fromAttendanceDate': attendanceDate,
-      'toAttendanceDate': attendanceDate,
+      'fromAttendanceDate': (fromAttendanceDate ?? attendanceDate),
+      'toAttendanceDate': (toAttendanceDate ?? attendanceDate),
       // Backward-compatible pagination params
       'page': page,
       'size': size,
@@ -345,6 +351,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     // Add classroomCodes if provided
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       queryParameters['classroomCodes'] = classroomCodes;
+    }
+    if (studentCodes != null && studentCodes.isNotEmpty) {
+      queryParameters['studentCodes'] = studentCodes;
     }
 
     // Add tagCodes if provided

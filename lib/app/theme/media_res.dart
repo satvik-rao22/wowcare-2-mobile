@@ -264,6 +264,8 @@ class MediaRes {
       '$_baseIcons/DailyActivitySignInIcon.svg';
   static const String dailyActivitySignOutIcon =
       '$_baseIcons/DailyActivitySignOutIcon.svg';
+  static const String dailyActivityTransferIcon =
+      '$_baseIcons/DailyActivityTransferIcon.svg';
   static const String dailyActivityAbsentIcon =
       '$_baseIcons/DailyActivityAbsentIcon.svg';
 

@@ -21,6 +21,7 @@ import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
@@ -75,6 +76,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
   @override
   void initState() {
     super.initState();
+    bootstrapActivitySchoolTimezone();
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
@@ -97,7 +99,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
+          final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
         } catch (_) {}
@@ -132,7 +134,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
@@ -329,7 +331,10 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       _activityTime!.hour,
       _activityTime!.minute,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
+    );
 
     setState(() {
       _isSubmitting = true;
@@ -488,7 +493,10 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       _activityTime!.hour,
       _activityTime!.minute,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
+    );
 
     setState(() => _isSubmitting = true);
     try {
