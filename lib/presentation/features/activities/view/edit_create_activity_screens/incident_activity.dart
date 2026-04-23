@@ -67,6 +67,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -312,6 +313,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
         .trim();
     final organizationCode =
@@ -321,6 +324,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -1115,7 +1119,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (photoCount > 1) {
+    if (widget.isEdit && photoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 photo can be attached.',
@@ -1123,7 +1127,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       return;
     }
-    if (videoCount > 1) {
+    if (widget.isEdit && videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -1398,22 +1402,33 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy: _layoutAsEdit
-                    ? (_effectiveActivity.staffPresent ??
-                        _effectiveActivity.createdBy)
-                    : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _canInteract,
-              isAlreadySigned: _layoutAsEdit,
-              incidentActivity: true,
-              onSigned: (value) {
-                setState(() {
-                  _isSigned = value;
-                });
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy: _layoutAsEdit
+                              ? (_effectiveActivity.staffPresent ??
+                                  _effectiveActivity.createdBy)
+                              : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable:
+                      lockToLoggedInStaffOnEdit ? false : _canInteract,
+                  isAlreadySigned: _layoutAsEdit,
+                  incidentActivity: true,
+                  onSigned: (value) {
+                    setState(() {
+                      _isSigned = value;
+                    });
+                  },
+                );
               },
             ),
             SizedBox(height: responsive.verticalSpacing),

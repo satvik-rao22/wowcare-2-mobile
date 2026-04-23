@@ -946,11 +946,13 @@
 // }
 
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
@@ -1028,8 +1030,8 @@ class _MediaUploaderState extends State<MediaUploader> {
   static const int videoMaxSizeMB = 200;
   static const int videoMaxDurationSec = 60;
 
-  static const List<String> _photoExt = ['jpg', 'jpeg', 'png', 'heic', 'heif'];
-  static const List<String> _videoExt = ['mp4', 'mov', 'webm'];
+  static const List<String> _photoExt = FilePickerUtils.allowedImageExtensions;
+  static const List<String> _videoExt = FilePickerUtils.allowedVideoExtensions;
 
   bool get _hasMedia =>
       _newPhotos.isNotEmpty ||
@@ -1160,25 +1162,40 @@ class _MediaUploaderState extends State<MediaUploader> {
       return;
     }
 
-    final XFile? camera = source == ImageSource.camera
-        ? await _picker.pickImage(source: source, imageQuality: 85)
-        : null;
+    List<File> candidates = [];
+    if (source == ImageSource.camera) {
+      final XFile? camera = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+      if (camera == null) return;
+      candidates = [File(camera.path)];
+    } else {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _photoExt,
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      candidates = result.files
+          .map((pf) => pf.path)
+          .whereType<String>()
+          .where((p) => p.trim().isNotEmpty)
+          .map((p) => File(p))
+          .toList();
+    }
 
-    final List<XFile> picked = camera != null
-        ? [camera]
-        : await _picker.pickMultiImage(imageQuality: 85);
-
-    if (picked.isEmpty) return;
+    if (candidates.isEmpty) return;
 
     List<File> valid = [];
-    for (var x in picked.take(remaining)) {
-      final ext = x.path.split('.').last.toLowerCase();
+    for (final f in candidates.take(remaining)) {
+      final ext = f.path.split('.').last.toLowerCase();
       if (!_photoExt.contains(ext)) {
-        _showWarning('Only JPG, PNG, HEIC allowed.');
+        _showWarning('Unsupported image format.');
         continue;
       }
 
-      final file = File(x.path);
+      final file = f;
       final sizeMB = (await file.length()) / (1024 * 1024);
       if (sizeMB > photoMaxSizeMB) {
         _showWarning('Photo too large (${sizeMB.toStringAsFixed(1)} MB). Max: $photoMaxSizeMB MB');
@@ -1206,19 +1223,32 @@ class _MediaUploaderState extends State<MediaUploader> {
       if (!replace) return;
     }
 
-    final XFile? picked = await _picker.pickVideo(
-      source: source,
-      maxDuration: const Duration(seconds: videoMaxDurationSec),
-    );
-    if (!mounted || picked == null) return;
+    File? file;
+    if (source == ImageSource.camera) {
+      final XFile? picked = await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: videoMaxDurationSec),
+      );
+      if (!mounted || picked == null) return;
+      file = File(picked.path);
+    } else {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _videoExt,
+        allowMultiple: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final path = result.files.single.path;
+      if (path == null || path.trim().isEmpty) return;
+      file = File(path);
+    }
 
-    final ext = picked.path.split('.').last.toLowerCase();
+    final ext = file.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
-      _showWarning('Only MP4, MOV, WEBM allowed.');
+      _showWarning('Unsupported video format.');
       return;
     }
 
-    final file = File(picked.path);
     final sizeMB = (await file.length()) / (1024 * 1024);
     if (sizeMB > videoMaxSizeMB) {
       _showWarning('Video too large (${sizeMB.toStringAsFixed(1)} MB).');

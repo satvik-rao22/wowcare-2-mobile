@@ -65,6 +65,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -110,6 +111,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
+
+    // Keep create flow aligned with other activity forms where date/time default
+    // to "now" and are not blocked by initial widget callback timing.
+    if (!widget.isEdit && !widget.readOnly) {
+      _activityDate = DateTime.now();
+      _activityTime = TimeOfDay.now();
+    }
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -227,6 +235,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
@@ -235,6 +245,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -292,7 +303,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (photoCount > 1) {
+    if (widget.isEdit && photoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 photo can be attached.',
@@ -300,7 +311,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       return;
     }
-    if (videoCount > 1) {
+    if (widget.isEdit && videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -538,6 +549,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     }
 
     final descriptionTrim = _descriptionController.text.trim();
+    if (descriptionTrim.isNotEmpty && descriptionTrim.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
     if (descriptionTrim.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -714,6 +733,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     ).toUtc().toIso8601String();
 
     final desc = _descriptionController.text.trim();
+    if (desc.isNotEmpty && desc.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
     if (desc.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -971,13 +998,23 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ],
               SizedBox(height: responsive.verticalSpacing),
               StaffPresentWidget(
-                staffName: staffPresentLabelForActivity(
-                  layoutAsEdit: _layoutAsEdit,
-                  activityCreatedBy:
-                      _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                  loggedInDisplayName: _staffName,
-                ),
-                isEditable: _layoutAsEdit ? _canInteract : false,
+                staffName: (widget.isEdit &&
+                        !widget.readOnly &&
+                        !(_staffType == 'SCHOOL_ADMIN' ||
+                            _staffType == 'ORGANIZATION_ADMIN'))
+                    ? _staffName
+                    : staffPresentLabelForActivity(
+                        layoutAsEdit: _layoutAsEdit,
+                        activityCreatedBy:
+                            _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                        loggedInDisplayName: _staffName,
+                      ),
+                isEditable: (widget.isEdit &&
+                        !widget.readOnly &&
+                        !(_staffType == 'SCHOOL_ADMIN' ||
+                            _staffType == 'ORGANIZATION_ADMIN'))
+                    ? false
+                    : (_layoutAsEdit ? _canInteract : false),
               ),
               SizedBox(height: responsive.verticalSpacing),
               InputWidget(

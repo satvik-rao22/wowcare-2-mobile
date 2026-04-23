@@ -62,6 +62,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -209,6 +210,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
@@ -218,6 +221,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
@@ -588,7 +592,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (photoCount > 1) {
+    if (widget.isEdit && photoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 photo can be attached.',
@@ -596,7 +600,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
-    if (videoCount > 1) {
+    if (widget.isEdit && videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -1116,14 +1120,26 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy:
-                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy:
+                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable: lockToLoggedInStaffOnEdit
+                      ? false
+                      : (_layoutAsEdit ? _canInteract : false),
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(

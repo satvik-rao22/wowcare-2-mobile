@@ -4,6 +4,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
@@ -28,6 +29,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
  bool clickToSign = false;
  final List<String> _fetchedStaffNames = [];
  bool _loadingStaffs = false;
+ late final CacheManager _cacheManager;
 
 
   void _showWarningMessage(String message) {
@@ -41,6 +43,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   @override
   void initState(){
     super.initState();
+    _cacheManager = CacheManager(serviceLocator<StorageService>());
     _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
     _loadStaffNames();
@@ -94,6 +97,32 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       final school =
           (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (org.isEmpty || school.isEmpty) return;
+
+      final cacheKey = CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'list',
+        identifier: '${org}_$school',
+      );
+
+      // Fast path: load cached staff names.
+      try {
+        final cached = await _cacheManager.loadCache(cacheKey);
+        final cachedNames = cached?['names'];
+        if (cachedNames is List && cachedNames.isNotEmpty) {
+          _fetchedStaffNames
+            ..clear()
+            ..addAll(
+              cachedNames
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort(),
+            );
+          if (mounted) setState(_rebuildStaffSelection);
+        }
+      } catch (_) {}
+
       final useCase = serviceLocator<GetStaffPageUseCase>();
       final page = await useCase(
         organizationCode: org,
@@ -113,6 +142,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             ..sort(),
         );
       if (!mounted) return;
+      await _cacheManager.saveCache(cacheKey, {
+        'names': List<String>.from(_fetchedStaffNames),
+      });
       setState(_rebuildStaffSelection);
     } catch (_) {
       // Silent fallback to logged-in staff only.

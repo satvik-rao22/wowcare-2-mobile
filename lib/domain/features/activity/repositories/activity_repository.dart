@@ -3,6 +3,7 @@ import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
+import '../entities/activity_type_summary.dart';
 import '../entities/activity_upload_session.dart';
 
 abstract class ActivityRepository {
@@ -16,6 +17,12 @@ abstract class ActivityRepository {
   /// Returns activity type details via `GET /api/v1/activity-types/{code}`.
   Future<ActivityTypeDetails> getActivityTypeDetails({
     required String code,
+  });
+
+  /// Returns all active activity types for a school via
+  /// `GET /api/v1/activity-types?schoolCode={schoolCode}`.
+  Future<List<ActivityTypeSummary>> getActiveActivityTypesForSchool({
+    required String schoolCode,
   });
 
   /// Returns currently napping student codes for a classroom via

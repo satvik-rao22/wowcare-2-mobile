@@ -295,7 +295,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   };
 
   Future<void> _onRefresh() async {
-    await _loadDailyFeed(refresh: true);
+    // Force refresh of metadata + feed.
+    // Also bust staff dropdown cache so edit screens refetch staff list.
+    try {
+      final org =
+          (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final school =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isNotEmpty && school.isNotEmpty) {
+        final staffKey = CacheManager.buildCacheKey(
+          feature: 'staff',
+          resource: 'list',
+          identifier: '${org}_$school',
+        );
+        await _cacheManager.invalidateCache(staffKey);
+      }
+    } catch (_) {}
+    await _reloadStudentsAndSettingsThenFeed(forceRefreshApis: true);
   }
 
   String _dateQueryParam(DateTime d) {
@@ -450,6 +467,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       resource: 'classrooms',
       identifier: school,
     );
+    var hydratedClassroomsFromCache = false;
     try {
       final cached = await _cacheManager.loadCache(classroomCacheKey);
       if (cached != null && cached['classrooms'] is List) {
@@ -494,9 +512,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               _selectdClassroom = null;
             }
           });
+          hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
         }
       }
     } catch (_) {}
+
+    if (hydratedClassroomsFromCache && mounted) {
+      await Future.wait<void>([
+        _loadDailyFeed(refresh: false),
+        _reloadStudentsAndSettings(forceRefreshApis: false),
+        _loadTagFilterOptions(forceRefresh: false),
+      ]);
+      return;
+    }
 
     try {
       final classrooms = await _getActiveClassroomsUseCase(

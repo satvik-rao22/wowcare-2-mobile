@@ -10,6 +10,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -27,6 +28,7 @@ import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import '../util/activity_filter_metadata_cache.dart';
 
 class ActivityStudentSelection extends StatefulWidget {
   const ActivityStudentSelection({super.key});
@@ -60,6 +62,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
   // API + storage
   late final StorageService _storageService;
+  late final CacheManager _cacheManager;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
@@ -147,6 +150,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   void initState() {
     super.initState();
     _storageService = serviceLocator<StorageService>();
+    _cacheManager = CacheManager(_storageService);
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
@@ -202,8 +206,59 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     }
   }
 
-  Future<void> _loadClassrooms() async {
+  Future<void> _loadClassrooms({bool forceRefresh = false}) async {
     if (_schoolCode == null || _schoolCode!.trim().isEmpty) return;
+
+    final classroomCacheKey = CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'classrooms',
+      identifier: _schoolCode!.trim(),
+    );
+
+    // Fast path: show cached classrooms first (if available).
+    var hydratedFromCache = false;
+    if (!forceRefresh) {
+      try {
+        final cached = await _cacheManager.loadCache(classroomCacheKey);
+        if (cached != null && cached['classrooms'] is List && mounted) {
+          final list = (cached['classrooms'] as List)
+              .whereType<Map>()
+              .map((e) => <String, String>{
+                    'name': (e['name'] ?? '').toString(),
+                    'code': (e['code'] ?? '').toString(),
+                  })
+              .where((e) => e['name']!.trim().isNotEmpty && e['code']!.trim().isNotEmpty)
+              .toList();
+          if (list.isNotEmpty) {
+            final scoped = _allowedClassroomCodes.isEmpty
+                ? list
+                : list
+                    .where((c) => _allowedClassroomCodes.contains((c['code'] ?? '').trim()))
+                    .toList();
+            setState(() {
+              _classroomOptions = scoped.map((c) => c['name']!).toList();
+              _classroomCodeByName
+                ..clear()
+                ..addEntries(scoped.map((c) => MapEntry(c['name']!, c['code']!)));
+              _classroomNameByCode
+                ..clear()
+                ..addEntries(scoped.map((c) => MapEntry(c['code']!, c['name']!)));
+
+              if (_selectedClassroom == null || !_classroomOptions.contains(_selectedClassroom)) {
+                final primaryCode = (_primaryClassroomCode ?? '').trim();
+                final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+                _selectedClassroom = primaryName ?? (_classroomOptions.isNotEmpty ? _classroomOptions.first : null);
+              }
+            });
+            hydratedFromCache = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (hydratedFromCache && !forceRefresh) {
+      return;
+    }
 
     try {
       final classrooms = await _getActiveClassroomsUseCase(
@@ -234,6 +289,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
           _selectedClassroom = primaryName ?? (_classroomOptions.isNotEmpty ? _classroomOptions.first : null);
         }
+      });
+
+      await _cacheManager.saveCache(classroomCacheKey, {
+        'classrooms': classrooms.map((c) => {'name': c.name, 'code': c.code}).toList(),
       });
     } catch (error) {
       final message = ApiErrorHandler.extractErrorMessage(error);
@@ -308,12 +367,16 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     _allowedClassroomCodes = allowed;
   }
 
-  Future<void> _loadTags() async {
+  Future<void> _loadTags({bool forceRefresh = false}) async {
     if (_schoolCode == null || _schoolCode!.trim().isEmpty) return;
 
     try {
-      final nameCodeMap =
-          await _getTagNameCodeMapForSchoolUseCase(schoolCode: _schoolCode!);
+      final nameCodeMap = await ActivityFilterMetadataCache.loadTagNameCodeMap(
+        cacheManager: _cacheManager,
+        useCase: _getTagNameCodeMapForSchoolUseCase,
+        schoolCode: _schoolCode!.trim(),
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
       setState(() {
         _tagCodeByName
@@ -393,8 +456,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       return;
     }
     await Future.wait([
-      _loadClassrooms(),
-      _loadTags(),
+      _loadClassrooms(forceRefresh: true),
+      _loadTags(forceRefresh: true),
     ]);
     if (!mounted) return;
     if (_selectedClassroom != null) {

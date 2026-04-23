@@ -851,6 +851,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       resource: 'classrooms',
       identifier: school,
     );
+    var hydratedClassroomsFromCache = false;
     try {
       final cached = await _cacheManager.loadCache(classroomCacheKey);
       if (cached != null && cached['classrooms'] is List) {
@@ -908,10 +909,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                 _selectdClassroom = primaryName ?? _classroomOptions.first;
               }
             });
+            hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
           }
         }
       }
     } catch (_) {}
+
+    if (hydratedClassroomsFromCache && mounted) {
+      await Future.wait<void>([
+        _loadRangeFeed(refresh: false),
+        _loadTagFilterOptions(forceRefresh: false),
+      ]);
+      return;
+    }
 
     try {
       final classrooms = await _getActiveClassroomsUseCase(
@@ -1495,6 +1505,23 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   Future<void> _onRefresh() async {
+    // Force refresh of tag map + feed. Also bust staff dropdown cache.
+    try {
+      final org =
+          (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final school =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isNotEmpty && school.isNotEmpty) {
+        final staffKey = CacheManager.buildCacheKey(
+          feature: 'staff',
+          resource: 'list',
+          identifier: '${org}_$school',
+        );
+        await _cacheManager.invalidateCache(staffKey);
+      }
+    } catch (_) {}
+    await _loadTagFilterOptions(forceRefresh: true);
     await _loadRangeFeed(refresh: true);
   }
 

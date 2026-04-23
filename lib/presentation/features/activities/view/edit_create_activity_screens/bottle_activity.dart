@@ -62,6 +62,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -227,6 +228,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
@@ -236,6 +239,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
@@ -300,6 +304,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
+    if (description.isNotEmpty && description.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
     if (description.isNotEmpty &&
         description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
@@ -504,6 +516,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
+    if (description.isNotEmpty && description.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
     if (description.isNotEmpty &&
         description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
@@ -852,15 +872,27 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                 max: 20.0,
               ),
             SizedBox(height: responsive.verticalSpacing,),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy:
-                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                loggedInDisplayName: _staffName,
-                staffLabelFromParameters: _staffPresentLabelForEdit,
-              ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy:
+                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                          loggedInDisplayName: _staffName,
+                          staffLabelFromParameters: _staffPresentLabelForEdit,
+                        ),
+                  isEditable: lockToLoggedInStaffOnEdit
+                      ? false
+                      : (_layoutAsEdit ? _canInteract : false),
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing,),
             InputWidget(

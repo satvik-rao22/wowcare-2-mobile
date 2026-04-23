@@ -42,6 +42,12 @@ abstract class ActivityRemoteDataSource {
     required String code,
   });
 
+  /// Fetches all active activity types for a school via
+  /// `GET /api/v1/activity-types?schoolCode={schoolCode}`.
+  Future<List<Map<String, dynamic>>> getActiveActivityTypesForSchool({
+    required String schoolCode,
+  });
+
   /// Creates grouped activity cards via `POST /api/v2/activities`.
   Future<String> createActivity({
     required ActivityCreateRequestModel request,
@@ -281,6 +287,30 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
 
     return ActivityTypeDetailsModel.fromJson(data);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getActiveActivityTypesForSchool({
+    required String schoolCode,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activityTypesRoot,
+      ApiConstants.activityBaseUrl,
+    );
+    final uri = Uri.parse(base).replace(
+      queryParameters: {'schoolCode': schoolCode.trim()},
+    );
+    final response = await _client.getUri<dynamic>(uri);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected activity-types API response format');
+    }
+    final data = body['data'];
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   @override

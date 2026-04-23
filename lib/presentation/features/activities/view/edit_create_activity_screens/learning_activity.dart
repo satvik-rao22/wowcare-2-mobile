@@ -87,6 +87,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -226,6 +227,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
         .trim();
     final organizationCode =
@@ -235,6 +238,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -450,7 +454,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (photoCount > 1) {
+    if (widget.isEdit && photoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 photo can be attached.',
@@ -458,7 +462,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
-    if (videoCount > 1) {
+    if (widget.isEdit && videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -563,15 +567,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
+    if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
@@ -824,15 +820,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
+    if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
@@ -1322,21 +1310,33 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy:
-                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy:
+                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable: lockToLoggedInStaffOnEdit
+                      ? false
+                      : (_layoutAsEdit ? _canInteract : false),
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               height: 100,
               hint: 'Enter Description',
-              isRequired: true,
+              isRequired: false,
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
