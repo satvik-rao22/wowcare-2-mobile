@@ -46,25 +46,26 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         // ),
 
       ),
-      body: Center(
-        child: hasVideo
-            ? HlsWebPlayer(videoUrl: videoUrl!)
-            : (hasPhoto
-            ? InteractiveViewer(
-          boundaryMargin: const EdgeInsets.all(20),
-          //minScale: 0.5,
-          //maxScale: 4,
-          child: Image.network(
-            photoUrl!,
-            fit: BoxFit.contain,
-            loadingBuilder: (c, child, progress) =>
-            progress == null ? child : const CircularProgressIndicator(color: Colors.white),
-            errorBuilder: (c, e, s) =>
-            const Icon(Icons.error, color: Colors.white, size: 60),
-          ),
-        )
-            : const Icon(Icons.broken_image, color: Colors.white, size: 100)),
-      ),
+      body: hasVideo
+          ? HlsWebPlayer(videoUrl: videoUrl!)
+          : Center(
+              child: hasPhoto
+                  ? InteractiveViewer(
+                      boundaryMargin: const EdgeInsets.all(20),
+                      //minScale: 0.5,
+                      //maxScale: 4,
+                      child: Image.network(
+                        photoUrl!,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (c, child, progress) => progress == null
+                            ? child
+                            : const CircularProgressIndicator(color: Colors.white),
+                        errorBuilder: (c, e, s) =>
+                            const Icon(Icons.error, color: Colors.white, size: 60),
+                      ),
+                    )
+                  : const Icon(Icons.broken_image, color: Colors.white, size: 100),
+            ),
     );
 
   }

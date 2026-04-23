@@ -15,6 +15,7 @@ class HlsWebPlayer extends StatefulWidget {
 
 class _HlsWebPlayerState extends State<HlsWebPlayer> {
   BetterPlayerController? _controller;
+  final GlobalKey _playerKey = GlobalKey();
   static const List<String> _youtubeLikeTrackNames = <String>[
     'Auto',
     '144p',
@@ -49,11 +50,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
 
     final config = BetterPlayerConfiguration(
       autoPlay: true,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       handleLifecycle: true,
       autoDetectFullscreenDeviceOrientation: true,
       autoDetectFullscreenAspectRatio: true,
-      controlsConfiguration: const BetterPlayerControlsConfiguration(
+      controlsConfiguration: BetterPlayerControlsConfiguration(
         playerTheme: BetterPlayerTheme.material,
         enableFullscreen: true,
         enablePip: true,
@@ -67,7 +68,7 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         progressBarHandleColor: Color(0xFF6FA2FF),
         progressBarBufferedColor: Color(0x99FFFFFF),
         progressBarBackgroundColor: Color(0x40FFFFFF),
-        overflowMenuIcon: Icons.more_horiz_rounded,
+        overflowMenuIcon: Icons.more_vert_rounded,
         qualitiesIcon: Icons.high_quality_rounded,
         playbackSpeedIcon: Icons.speed_rounded,
         pipMenuIcon: Icons.picture_in_picture_alt_rounded,
@@ -75,8 +76,15 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         fullscreenDisableIcon: Icons.fullscreen_exit_rounded,
         playIcon: Icons.play_arrow_rounded,
         pauseIcon: Icons.pause_rounded,
-        overflowModalColor: Color(0xFF161B22),
+        overflowModalColor: Color(0xFF111827),
         overflowModalTextColor: Color(0xFFF3F6FC),
+        overflowMenuCustomItems: <BetterPlayerOverflowMenuItem>[
+          BetterPlayerOverflowMenuItem(
+            Icons.picture_in_picture_alt_rounded,
+            'Picture in Picture',
+            _enterPipMode,
+          ),
+        ],
       ),
       translations: [
         BetterPlayerTranslations(
@@ -99,11 +107,35 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
 
     final c = BetterPlayerController(config);
     c.setupDataSource(source);
+    c.addEventsListener(_onPlayerEvent);
     _controller = c;
+  }
+
+  void _onPlayerEvent(BetterPlayerEvent event) {
+    if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
+      final ratio = _controller?.videoPlayerController?.value.aspectRatio ?? 1;
+      // Portrait videos fill vertically, landscape videos preserve full width.
+      _controller?.setOverriddenFit(ratio < 1 ? BoxFit.cover : BoxFit.fitWidth);
+    }
+  }
+
+  Future<void> _enterPipMode() async {
+    final controller = _controller;
+    if (controller == null) return;
+    final supported = await controller.isPictureInPictureSupported();
+    if (!mounted) return;
+    if (!supported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PiP is not supported on this device right now.')),
+      );
+      return;
+    }
+    await controller.enablePictureInPicture(_playerKey);
   }
 
   @override
   void dispose() {
+    _controller?.removeEventsListener(_onPlayerEvent);
     _controller?.dispose();
     super.dispose();
   }
@@ -113,7 +145,35 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     if (_controller == null) {
       return const Center(child: CircularProgressIndicator(color: Colors.white));
     }
-    return BetterPlayer(controller: _controller!);
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              key: _playerKey,
+              color: Colors.black,
+              child: BetterPlayer(controller: _controller!),
+            ),
+          ),
+          Positioned(
+            top: 14,
+            right: 14,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xA6111827),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0x66FFFFFF)),
+              ),
+              child: IconButton(
+                tooltip: 'PiP',
+                onPressed: _enterPipMode,
+                icon: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

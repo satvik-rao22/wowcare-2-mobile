@@ -46,34 +46,34 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView> {
             ? Text(widget.title!, style: const TextStyle(color: Colors.white))
             : null,
       ),
-      body: Center(
-        child: hasVideo
-            ? HlsWebPlayer(videoUrl: widget.videoUrl!)
-            : (hasImage
-            ? InteractiveViewer(
-          boundaryMargin: const EdgeInsets.all(20),
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: widget.imageUrl != null
-              ? Image.network(
-            widget.imageUrl!,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const CircularProgressIndicator(color: Colors.white);
-            },
-            errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.broken_image, color: Colors.white, size: 100),
-          )
-              : Image.file(
-            widget.imageFile!,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.broken_image, color: Colors.white, size: 100),
-          ),
-        )
-            : const Icon(Icons.broken_image, color: Colors.white, size: 100)),
-      ),
+      body: hasVideo
+          ? HlsWebPlayer(videoUrl: widget.videoUrl!)
+          : Center(
+              child: hasImage
+                  ? InteractiveViewer(
+                      boundaryMargin: const EdgeInsets.all(20),
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: widget.imageUrl != null
+                          ? Image.network(
+                              widget.imageUrl!,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const CircularProgressIndicator(color: Colors.white);
+                              },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image, color: Colors.white, size: 100),
+                            )
+                          : Image.file(
+                              widget.imageFile!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image, color: Colors.white, size: 100),
+                            ),
+                    )
+                  : const Icon(Icons.broken_image, color: Colors.white, size: 100),
+            ),
     );
   }
 }
