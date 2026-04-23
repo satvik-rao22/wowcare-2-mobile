@@ -1,7 +1,6 @@
 import 'dart:io';
-import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
@@ -25,62 +24,8 @@ class ShowFullScreenMediaView extends StatefulWidget {
 }
 
 class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView> {
-  VideoPlayerController? _videoPlayerController;
-  ChewieController? _chewieController;
-
   bool get hasImage => widget.imageUrl != null || widget.imageFile != null;
   bool get hasVideo => widget.videoUrl != null;
-
-  @override
-  void initState() {
-    super.initState();
-    if (hasVideo) {
-      _initializeVideo();
-    }
-  }
-
-  Future<void> _initializeVideo() async {
-    if (widget.videoUrl == null) return;
-
-    _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
-
-    try {
-      await _videoPlayerController!.initialize();
-      if (!mounted) return;
-
-      _chewieController = ChewieController(
-        videoPlayerController: _videoPlayerController!,
-        autoPlay: true,
-        looping: false,
-        allowFullScreen: true,
-        allowMuting: true,
-        showControls: true,
-        placeholder: Container(
-          color: Colors.black12,
-          child: const Center(child: CircularProgressIndicator(color: Colors.white)),
-        ),
-        errorBuilder: (context, errorMessage) {
-          return Center(
-            child: Text(
-              'Error: $errorMessage',
-              style: const TextStyle(color: Colors.white),
-              textAlign: TextAlign.center,
-            ),
-          );
-        },
-      );
-      setState(() {});
-    } catch (e) {
-      debugPrint('Video init error: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    _chewieController?.dispose();
-    _videoPlayerController?.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,9 +48,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView> {
       ),
       body: Center(
         child: hasVideo
-            ? (_chewieController != null
-            ? Chewie(controller: _chewieController!)
-            : const CircularProgressIndicator(color: Colors.white))
+            ? HlsWebPlayer(videoUrl: widget.videoUrl!)
             : (hasImage
             ? InteractiveViewer(
           boundaryMargin: const EdgeInsets.all(20),

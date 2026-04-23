@@ -279,6 +279,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String activityDate,
     required String description,
     required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues = const [],
   }) async {
     final payload = <String, dynamic>{
       'activityTypeCode': activityTypeCode,
@@ -290,6 +291,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       'activityDate': activityDate,
       'description': description,
       'bindingMode': 'SHARED',
+      if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
       'attachments': attachments,
     };
 

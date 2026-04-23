@@ -99,6 +99,7 @@ abstract class ActivityRepository {
     required String activityDate,
     required String description,
     required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues,
   });
 
   /// Creates upload sessions via `POST /api/v2/activities/upload-sessions`.

@@ -578,6 +578,45 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _isSubmitting = true;
     });
     try {
+      final details = await _getDetailsUseCase(code: activityTypeCode);
+      String? findCodeByNameOrType(String contains, String dataType) {
+        for (final p in details.parameters) {
+          final dt = (p.dataType ?? '').toUpperCase();
+          final n = p.parameterName.toLowerCase();
+          if (dt == dataType.toUpperCase() || n.contains(contains)) {
+            return p.code;
+          }
+        }
+        return null;
+      }
+      final localDate =
+          '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
+      final localTime =
+          '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
+      final createParameterValues = <Map<String, dynamic>>[
+        if (findCodeByNameOrType('date', 'DATE') != null)
+          {
+            'parameterCode': findCodeByNameOrType('date', 'DATE'),
+            'value': localDate,
+          },
+        if (findCodeByNameOrType('time', 'TIME') != null)
+          {
+            'parameterCode': findCodeByNameOrType('time', 'TIME'),
+            'value': localTime,
+          },
+        if (findCodeByNameOrType('staff', 'TEXT') != null)
+          {
+            'parameterCode': findCodeByNameOrType('staff', 'TEXT'),
+            'value': staffCode,
+          },
+        if (descriptionTrim.isNotEmpty &&
+            findCodeByNameOrType('description', 'TEXT') != null)
+          {
+            'parameterCode': findCodeByNameOrType('description', 'TEXT'),
+            'value': descriptionTrim,
+          },
+      ];
+
       final attachments = _uploadedAttachments.isNotEmpty
           ? _uploadedAttachments
           : await _uploadAndBuildAttachments(
@@ -599,6 +638,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         activityDate: activityDateIso,
         description: descriptionTrim,
         attachments: attachments,
+        parameterValues: createParameterValues,
       );
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -784,21 +824,28 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           attachmentsForActivityPatchRequest(mergedRows);
 
       final details = await _getDetailsUseCase(code: activityTypeCode);
-      String? findCode(String contains) {
+      String? findCode(String contains, {String? dataType}) {
+        final dtFilter = dataType?.toUpperCase();
         for (final p in details.parameters) {
-          if (p.parameterName.toLowerCase().contains(contains)) return p.code;
+          final n = p.parameterName.toLowerCase();
+          final dt = (p.dataType ?? '').toUpperCase();
+          if ((dtFilter != null && dt == dtFilter) || n.contains(contains)) {
+            return p.code;
+          }
         }
         return null;
       }
+      final dateCode = findCode('date', dataType: 'DATE');
+      final timeCode = findCode('time', dataType: 'TIME');
+      final staffCodeParam = findCode('staff');
+      final descriptionCode = findCode('description');
       final parameterValues = <Map<String, dynamic>>[
-        if (findCode('date') != null)
-          {'parameterCode': findCode('date'), 'value': localDate},
-        if (findCode('time') != null)
-          {'parameterCode': findCode('time'), 'value': localTime},
-        if (findCode('staff') != null)
-          {'parameterCode': findCode('staff'), 'value': staffCode},
-        if (findCode('description') != null)
-          {'parameterCode': findCode('description'), 'value': desc},
+        if (dateCode != null) {'parameterCode': dateCode, 'value': localDate},
+        if (timeCode != null) {'parameterCode': timeCode, 'value': localTime},
+        if (staffCodeParam != null)
+          {'parameterCode': staffCodeParam, 'value': staffCode},
+        if (descriptionCode != null)
+          {'parameterCode': descriptionCode, 'value': desc},
       ];
 
       final targets = studentMapsForScopedActivityUpdate(

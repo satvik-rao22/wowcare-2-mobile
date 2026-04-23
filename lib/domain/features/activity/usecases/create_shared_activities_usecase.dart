@@ -17,6 +17,7 @@ class CreateSharedActivitiesUseCase {
     required String activityDate,
     required String description,
     required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues = const [],
   }) async {
     try {
       return await _repository.createSharedActivities(
@@ -29,6 +30,7 @@ class CreateSharedActivitiesUseCase {
         activityDate: activityDate,
         description: description,
         attachments: attachments,
+        parameterValues: parameterValues,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);
