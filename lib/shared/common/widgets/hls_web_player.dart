@@ -114,20 +114,10 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   void _onPlayerEvent(BetterPlayerEvent event) {
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
       final controller = _controller;
-      if (controller == null || !mounted) return;
-
-      final videoRatio = controller.videoPlayerController?.value.aspectRatio ?? 1;
-      final screenSize = MediaQuery.sizeOf(context);
-      final screenRatio = screenSize.width / screenSize.height;
-      final isPortraitScreen = screenRatio < 1;
-
-      // Some delivery/transcoded streams report aspect in a way that creates
-      // a tiny center viewport. Force a stable fullscreen ratio on portrait
-      // phones and then fit based on detected video orientation.
-      if (isPortraitScreen) {
-        controller.setOverriddenAspectRatio(screenRatio);
-      }
-      controller.setOverriddenFit(videoRatio < 1 ? BoxFit.cover : BoxFit.fitWidth);
+      if (controller == null) return;
+      // Force full-screen occupancy. This avoids tiny center rendering when
+      // stream metadata reports unstable dimensions/aspect values.
+      controller.setOverriddenFit(BoxFit.cover);
     }
   }
 
