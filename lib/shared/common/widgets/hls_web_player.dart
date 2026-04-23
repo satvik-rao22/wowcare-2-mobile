@@ -113,9 +113,21 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
 
   void _onPlayerEvent(BetterPlayerEvent event) {
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
-      final ratio = _controller?.videoPlayerController?.value.aspectRatio ?? 1;
-      // Portrait videos fill vertically, landscape videos preserve full width.
-      _controller?.setOverriddenFit(ratio < 1 ? BoxFit.cover : BoxFit.fitWidth);
+      final controller = _controller;
+      if (controller == null || !mounted) return;
+
+      final videoRatio = controller.videoPlayerController?.value.aspectRatio ?? 1;
+      final screenSize = MediaQuery.sizeOf(context);
+      final screenRatio = screenSize.width / screenSize.height;
+      final isPortraitScreen = screenRatio < 1;
+
+      // Some delivery/transcoded streams report aspect in a way that creates
+      // a tiny center viewport. Force a stable fullscreen ratio on portrait
+      // phones and then fit based on detected video orientation.
+      if (isPortraitScreen) {
+        controller.setOverriddenAspectRatio(screenRatio);
+      }
+      controller.setOverriddenFit(videoRatio < 1 ? BoxFit.cover : BoxFit.fitWidth);
     }
   }
 
