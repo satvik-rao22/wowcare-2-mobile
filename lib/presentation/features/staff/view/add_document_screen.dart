@@ -62,7 +62,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Health',
     'Employment',
     'Resume',
-    'Other'
+    'Other',
   ];
 
   @override
@@ -102,7 +102,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     if (name.length > _documentNameMaxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Document name must be at most $_documentNameMaxLength characters',
+        message:
+            'Document name must be at most $_documentNameMaxLength characters',
         isWarning: true,
       );
       return;
@@ -176,15 +177,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
     if (widget.isEdit && widget.documentUuid != null) {
       context.read<StaffDocumentCubit>().updateDocument(
-            documentUuid: widget.documentUuid!,
-            staffCode: widget.staffCode,
-            document: document,
-          );
+        documentUuid: widget.documentUuid!,
+        staffCode: widget.staffCode,
+        document: document,
+      );
     } else {
       context.read<StaffDocumentCubit>().addDocument(
-            staffCode: widget.staffCode,
-            document: document,
-          );
+        staffCode: widget.staffCode,
+        document: document,
+      );
     }
   }
 
@@ -192,18 +193,20 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     const mimeTypes = {
       'pdf': 'application/pdf',
       'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'jpg': 'image/jpeg',
       'jpeg': 'image/jpeg',
       'png': 'image/png',
       'xls': 'application/vnd.ms-excel',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xlsx':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'pptx':
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     };
     return mimeTypes[extension] ?? 'application/octet-stream';
   }
-
 
   Future<void> _selectExpiryDate() async {
     try {
@@ -215,12 +218,13 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           initialDate: _selectedExpiryDate,
         ),
       );
-      
+
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        if (selectedDate.isBefore(today) || selectedDate.isAtSameMomentAs(today)) {
+        if (selectedDate.isBefore(today) ||
+            selectedDate.isAtSameMomentAs(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Expiry date must be a future date',
@@ -239,9 +243,20 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xls', 'xlsx', 'ppt', 'pptx'],
+        allowedExtensions: [
+          'pdf',
+          'doc',
+          'docx',
+          'jpg',
+          'jpeg',
+          'png',
+          'xls',
+          'xlsx',
+          'ppt',
+          'pptx',
+        ],
         allowMultiple: false,
       );
 
@@ -287,58 +302,61 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         }
       },
       child: StaffFormLayout(
-      title: widget.isEdit ? "Edit Document" : "Add Document",
-      child: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
-        behavior: HitTestBehavior.opaque,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            _buildDocumentNameField(),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildCustomDropdown(),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildDateField(),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildFileUploadField(),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildNotesField(),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom, left: 16, right: 16, top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+        title: widget.isEdit ? "Edit Document" : "Add Document",
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              _buildDocumentNameField(),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildCustomDropdown(),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildDateField(),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildFileUploadField(),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildNotesField(),
+              const SizedBox(height: 12),
+            ],
           ),
         ),
-        child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
-          builder: (context, state) {
-            return CustomButtonLayout(
-              confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-              onPressedConfirm: _addDocument,
-              showCancelButton: false,
-              isForm: false,
-              isLoading: state.isLoading,
-            );
-          },
+        bottomBar: Container(
+          padding: EdgeInsets.only(
+            bottom: safeAreaBottom,
+            left: 16,
+            right: 16,
+            top: 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                offset: const Offset(0, -4),
+                blurRadius: 16,
+              ),
+            ],
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            ),
+          ),
+          child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
+            builder: (context, state) {
+              return CustomButtonLayout(
+                confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                onPressedConfirm: _addDocument,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: state.isLoading,
+              );
+            },
+          ),
         ),
-      ),
       ),
     );
   }
@@ -360,7 +378,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             style: labelStyle,
             children: [
               const TextSpan(text: 'Document'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -370,7 +391,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: _documentNameController,
@@ -414,10 +437,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Expiry Date',
-          style: labelStyle,
-        ),
+        Text('Expiry Date', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
           onTap: _selectExpiryDate,
@@ -426,7 +446,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -437,11 +459,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      _selectedExpiryDate != null 
-                          ? DateFormat('MMM dd, yyyy').format(_selectedExpiryDate!)
+                      _selectedExpiryDate != null
+                          ? DateFormat(
+                              'MMM dd, yyyy',
+                            ).format(_selectedExpiryDate!)
                           : 'Select Date',
                       style: TextStyle(
-                        color: _selectedExpiryDate == null ? Colors.grey : Colors.black,
+                        color: _selectedExpiryDate == null
+                            ? Colors.grey
+                            : Colors.black,
                         fontSize: responsive.inputFontSize,
                         fontFamily: 'Manrope',
                       ),
@@ -450,7 +476,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
-                    colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xff573353),
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),
@@ -476,7 +505,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             ),
             children: [
               const TextSpan(text: 'Upload Document'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -490,7 +522,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             ),
             decoration: BoxDecoration(
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
               color: Colors.white,
             ),
             child: Row(
@@ -499,7 +533,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                   child: Text(
                     _selectedFilePath ?? 'Choose a File',
                     style: TextStyle(
-                      color: _selectedFilePath == null ? Colors.grey : Colors.black,
+                      color: _selectedFilePath == null
+                          ? Colors.grey
+                          : Colors.black,
                       fontSize: responsive.inputFontSize,
                       fontFamily: 'Manrope',
                     ),
@@ -508,7 +544,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 SvgPicture.asset(
                   MediaRes.uploadIcon,
                   height: responsive.isTablet ? 28.0 : 24.0,
-                  colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xff573353),
+                    BlendMode.srcIn,
+                  ),
                 ),
               ],
             ),
@@ -530,10 +569,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Notes',
-          style: labelStyle,
-        ),
+        Text('Notes', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(
@@ -543,7 +579,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: _notesController,

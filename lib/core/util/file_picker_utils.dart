@@ -28,7 +28,7 @@ class FilePickerUtils {
     BuildContext? context,
   }) async {
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions ?? defaultAllowedExtensions,
         allowMultiple: false,
@@ -53,23 +53,26 @@ class FilePickerUtils {
   /// Returns the mime type based on the file extension.
   static String getMimeType(String? extension) {
     if (extension == null) return 'application/octet-stream';
-    
+
     final ext = extension.toLowerCase().replaceAll('.', '');
-    
+
     const mimeTypes = {
       'pdf': 'application/pdf',
       'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'jpg': 'image/jpeg',
       'jpeg': 'image/jpeg',
       'png': 'image/png',
       'heic': 'image/heic',
       'xls': 'application/vnd.ms-excel',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xlsx':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'pptx':
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     };
-    
+
     return mimeTypes[ext] ?? 'application/octet-stream';
   }
 }
