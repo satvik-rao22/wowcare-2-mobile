@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
@@ -44,10 +49,25 @@ class _DateWidgetState extends State<DateWidget> {
     } else {
       _selectedDate = DateTime.now();
     }
+    _setSchoolDefaultDateIfNeeded();
     // Notify initial value.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onDateChanged?.call(_selectedDate);
     });
+  }
+
+  Future<void> _setSchoolDefaultDateIfNeeded() async {
+    if (widget.initialDate != null && widget.initialDate!.trim().isNotEmpty) return;
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+    if (!mounted) return;
+    setState(() {
+      _selectedDate = schoolToday;
+    });
+    widget.onDateChanged?.call(_selectedDate);
   }
 
 

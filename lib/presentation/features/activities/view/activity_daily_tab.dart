@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 import '../../../../app/di/di.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/guardian_code_resolver.dart';
@@ -25,6 +26,8 @@ import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
@@ -36,6 +39,8 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../util/activity_filter_metadata_cache.dart';
 import '../widgets/activity_feed_student_avatar.dart';
@@ -53,7 +58,6 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
-import '../util/activity_feed_page_cache_codec.dart';
 import '../util/activity_parent_feed_merge.dart';
 import '../utils/activity_staff_display.dart';
 
@@ -95,6 +99,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedDate = DateTime.now();
+  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _availableStudents = [];
@@ -102,20 +107,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   List<String> _filterActivityTypes = [];
   String? _selectedActivityType;
   final List<String> activityType = [
-    'Nap Start',
-    'Nap End',
-    'Bathroom',
-    'Bottle',
-    'Meal',
-    'Incident',
-    'Photo',
-    'Outdoor',
-    'Medication',
-    'Notes',
-    'Learning',
     'Sign-in',
     'Sign-out',
-    'Absent',
+    'Transfer',
   ];
   List<String> _classroomOptions = [];
   final Map<String, String> _classroomCodeByName = {};
@@ -160,6 +154,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late final GetStudentCodesForActivityTagFilterUseCase
       _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
+  late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
@@ -292,6 +287,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     'Notes': MediaRes.notesActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
+    'Sign-in': MediaRes.dailyActivitySignInIcon,
+    'Sign-out': MediaRes.dailyActivitySignOutIcon,
+    'Transfer': MediaRes.dailyActivityTransferIcon,
   };
 
   Future<void> _onRefresh() async {
@@ -921,10 +919,249 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           (row) => activityItemFromFeedRow(
             row,
             viewerDisplayName: _viewerStaffDisplayName,
+            schoolIana: _schoolIana,
           ),
         )
         .toList();
     return _withClientFilters(raw);
+  }
+
+  String? _selectedAttendanceEventFilter() {
+    if (_filterActivityTypes.length == 1) {
+      final v = _filterActivityTypes.first.trim();
+      if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+    }
+    final v = _selectedActivityType?.trim();
+    if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+    return null;
+  }
+
+  List<String>? _selectedStudentCodesForAttendanceFilter() {
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final sc = widget.studentProfile!['studentCode'];
+      if (sc is String && sc.trim().isNotEmpty) {
+        return <String>[sc.trim()];
+      }
+    }
+    final selected = _selectedStudent?.trim();
+    if (selected == null || selected.isEmpty) return null;
+    final code = _studentCodeByName[selected]?.trim();
+    if (code == null || code.isEmpty) return null;
+    return <String>[code];
+  }
+
+  String _displayClassroomName({
+    String? classroomCode,
+    String? classroomName,
+  }) {
+    final n = (classroomName ?? '').trim();
+    if (n.isNotEmpty && !n.startsWith('CLS_')) return n;
+    final c = (classroomCode ?? '').trim();
+    if (c.isEmpty) return n;
+    return _classroomNameByCode[c] ?? c;
+  }
+
+  DateTime? _attendanceClockToDateTime(
+    StudentAttendanceTime? t,
+    DateTime day,
+  ) {
+    if (t == null) return null;
+    return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
+  }
+
+  List<ActivityItem> _mapAttendanceDailyPageToItems(
+    StudentAttendanceDailyPage page,
+  ) {
+    final eventFilter = _selectedAttendanceEventFilter();
+    final day = _selectedDate ?? DateTime.now();
+    final selectedClassroomName = _selectdClassroom;
+    final selectedClassroomCode = selectedClassroomName != null
+        ? _classroomCodeByName[selectedClassroomName]
+        : null;
+    final out = <ActivityItem>[];
+    for (final row in page.items) {
+      final studentName = row.studentName.trim().isEmpty
+          ? 'Student'
+          : row.studentName.trim();
+      final studentCode = row.studentCode?.trim();
+      final baseClassName = _displayClassroomName(
+        classroomCode: row.classroomCode,
+        classroomName: row.classroomName,
+      );
+      if (row.isTransfer == true) {
+        if (eventFilter == null || eventFilter == 'Transfer') {
+          final at = _attendanceClockToDateTime(row.transferTime, day) ??
+              _attendanceClockToDateTime(row.nextActionTime, day) ??
+              day;
+          final fromName = _displayClassroomName(
+            classroomCode: row.fromClassroomCode,
+            classroomName: row.fromClassroomName,
+          );
+          final toName = _displayClassroomName(
+            classroomCode: row.toClassroomCode,
+            classroomName: row.toClassroomName,
+          );
+          final fromCode = (row.fromClassroomCode ?? '').trim();
+          final toCode = (row.toClassroomCode ?? '').trim();
+
+          final selectedCode = (selectedClassroomCode ?? '').trim();
+          final bool viewingFromClassroom =
+              selectedCode.isNotEmpty && fromCode.isNotEmpty && selectedCode == fromCode;
+          final bool viewingToClassroom =
+              selectedCode.isNotEmpty && toCode.isNotEmpty && selectedCode == toCode;
+
+          final String transferLine;
+          if (viewingFromClassroom) {
+            transferLine =
+                'Transferred to ${toName.isEmpty ? 'classroom' : toName}';
+          } else if (viewingToClassroom) {
+            transferLine =
+                'Transferred from ${fromName.isEmpty ? 'classroom' : fromName}';
+          } else {
+            transferLine =
+                'Transferred from ${fromName.isEmpty ? 'classroom' : fromName} to ${toName.isEmpty ? 'classroom' : toName}';
+          }
+
+          out.add(
+            ActivityItem(
+              time: DateFormat.jm().format(at),
+              date: DateFormat('MMMM d, yyyy').format(at),
+              name: 'Transfer',
+              description: transferLine,
+              studentList: <String>[studentName],
+              createdBy: (row.transferredBy ?? '').trim().isEmpty
+                  ? _viewerStaffDisplayName
+                  : row.transferredBy!.trim(),
+              studentCode: studentCode?.isEmpty == true ? null : studentCode,
+              classroomCode: viewingFromClassroom
+                  ? (row.fromClassroomCode ?? row.classroomCode).trim()
+                  : ((row.toClassroomCode ?? row.classroomCode).trim()),
+              activityDateIso: at.toIso8601String(),
+              studentActivityRefs: <Map<String, String>>[
+                {
+                  'name': studentName,
+                  if (studentCode != null && studentCode.isNotEmpty)
+                    'studentCode': studentCode,
+                },
+              ],
+            ),
+          );
+        }
+        // Important: backend may return the final sign-out time on the last
+        // transfer row (`isTransfer: true`). Render sign-out from transfer rows too.
+        if ((eventFilter == null || eventFilter == 'Sign-out') &&
+            row.signedOutTime != null) {
+          final at = _attendanceClockToDateTime(row.signedOutTime, day) ?? day;
+          final effectiveClassName = _displayClassroomName(
+            classroomCode:
+                (row.toClassroomCode ?? row.classroomCode).trim().isEmpty
+                    ? row.classroomCode
+                    : row.toClassroomCode,
+            classroomName:
+                (row.toClassroomName ?? row.classroomName).trim().isEmpty
+                    ? row.classroomName
+                    : row.toClassroomName!,
+          );
+          out.add(
+            ActivityItem(
+              time: DateFormat.jm().format(at),
+              date: DateFormat('MMMM d, yyyy').format(at),
+              name: 'Sign-out',
+              description:
+                  'Signed-Out from ${effectiveClassName.isEmpty ? 'classroom' : effectiveClassName}',
+              studentList: <String>[studentName],
+              createdBy: (row.signedOutBy ?? '').trim().isEmpty
+                  ? _viewerStaffDisplayName
+                  : row.signedOutBy!.trim(),
+              studentCode: studentCode?.isEmpty == true ? null : studentCode,
+              classroomCode:
+                  (row.toClassroomCode ?? row.classroomCode).trim(),
+              activityDateIso: at.toIso8601String(),
+              studentActivityRefs: <Map<String, String>>[
+                {
+                  'name': studentName,
+                  if (studentCode != null && studentCode.isNotEmpty)
+                    'studentCode': studentCode,
+                },
+              ],
+            ),
+          );
+        }
+        continue;
+      }
+
+      if ((eventFilter == null || eventFilter == 'Sign-in') &&
+          row.signedInTime != null) {
+        final at = _attendanceClockToDateTime(row.signedInTime, day) ?? day;
+        out.add(
+          ActivityItem(
+            time: DateFormat.jm().format(at),
+            date: DateFormat('MMMM d, yyyy').format(at),
+            name: 'Sign-in',
+            description:
+                'Signed-In to ${baseClassName.isEmpty ? 'classroom' : baseClassName}',
+            studentList: <String>[studentName],
+            createdBy: (row.signedInBy ?? '').trim().isEmpty
+                ? _viewerStaffDisplayName
+                : row.signedInBy!.trim(),
+            studentCode: studentCode?.isEmpty == true ? null : studentCode,
+            classroomCode: row.classroomCode.trim(),
+            activityDateIso: at.toIso8601String(),
+            studentActivityRefs: <Map<String, String>>[
+              {
+                'name': studentName,
+                if (studentCode != null && studentCode.isNotEmpty)
+                  'studentCode': studentCode,
+              },
+            ],
+          ),
+        );
+      }
+
+      if ((eventFilter == null || eventFilter == 'Sign-out') &&
+          row.signedOutTime != null) {
+        final at = _attendanceClockToDateTime(row.signedOutTime, day) ?? day;
+        out.add(
+          ActivityItem(
+            time: DateFormat.jm().format(at),
+            date: DateFormat('MMMM d, yyyy').format(at),
+            name: 'Sign-out',
+            description:
+                'Signed-Out from ${baseClassName.isEmpty ? 'classroom' : baseClassName}',
+            studentList: <String>[studentName],
+            createdBy: (row.signedOutBy ?? '').trim().isEmpty
+                ? _viewerStaffDisplayName
+                : row.signedOutBy!.trim(),
+            studentCode: studentCode?.isEmpty == true ? null : studentCode,
+            classroomCode: row.classroomCode.trim(),
+            activityDateIso: at.toIso8601String(),
+            studentActivityRefs: <Map<String, String>>[
+              {
+                'name': studentName,
+                if (studentCode != null && studentCode.isNotEmpty)
+                  'studentCode': studentCode,
+              },
+            ],
+          ),
+        );
+      }
+    }
+    out.sort((a, b) {
+      DateTime aDt;
+      DateTime bDt;
+      try {
+        aDt = DateTime.parse(a.activityDateIso!);
+      } catch (_) {
+        aDt = DateTime(1970);
+      }
+      try {
+        bDt = DateTime.parse(b.activityDateIso!);
+      } catch (_) {
+        bDt = DateTime(1970);
+      }
+      return bDt.compareTo(aDt);
+    });
+    return out;
   }
 
   void _onFeedScroll() {
@@ -969,39 +1206,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final classroomCode = _classroomCodeByName[classroomName]!;
     final dateStr = _dateQueryParam(date);
-
-    String? studentCode;
-    if (widget.fromStudentProfile && widget.studentProfile != null) {
-      final sc = widget.studentProfile!['studentCode'];
-      if (sc is String && sc.trim().isNotEmpty) {
-        studentCode = sc.trim();
-      }
-    } else if (_selectedStudent != null) {
-      studentCode = _studentCodeByName[_selectedStudent!];
-    }
-
-    final typeCode = _activityTypeCodeForApiFilter();
+    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
+    final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+    final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
 
     try {
-      final page = await _getDailyActivityFeedUseCase(
-        classroomCode: classroomCode,
-        date: dateStr,
-        studentCode: studentCode,
-        activityTypeCode: typeCode,
+      final page = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        classroomCodes: <String>[classroomCode],
+        studentCodes: studentCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         page: _feedNextPage,
         size: _feedPageSize,
       );
-
-      final items = _mapDailyFeedPageToItems(page);
+      final items = _mapAttendanceDailyPageToItems(page);
 
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _feedHasMore = !page.last;
-        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+        _feedHasMore = page.hasMore;
+        _feedNextPage = page.hasMore ? page.page + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -1240,22 +1469,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final classroomCode = _classroomCodeByName[classroomName]!;
     final dateStr = _dateQueryParam(date);
 
-    String? studentCode;
-    if (widget.fromStudentProfile && widget.studentProfile != null) {
-      final sc = widget.studentProfile!['studentCode'];
-      if (sc is String && sc.trim().isNotEmpty) {
-        studentCode = sc.trim();
-      }
-    } else if (_selectedStudent != null) {
-      studentCode = _studentCodeByName[_selectedStudent!];
-    }
-
-    final typeCode = _activityTypeCodeForApiFilter();
+    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
+    final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+    final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
     final requestKey = [
       classroomCode,
       dateStr,
-      studentCode ?? '',
-      typeCode ?? '',
+      (studentCodes ?? const <String>[]).join(','),
+      selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
     ].join('|');
@@ -1278,44 +1500,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
     }
 
-    await _rebuildStudentCodesForTagFilter();
-    if (!mounted) return;
-
-    if (!refresh) {
-      try {
-        final cached = await _cacheManager.loadCache(
-          ActivityFeedPageCacheCodec.dailyCacheKey(requestKey),
-          validFor: StorageKeys.activityFeedCacheDuration,
-        );
-        final rev = await ActivityFeedInvalidation.currentRevision(
-          _storageService,
-        );
-        final cachedPage = ActivityFeedPageCacheCodec.decode(
-          cached,
-          currentRevision: rev,
-        );
-        if (cachedPage != null && mounted) {
-          final items = _mapDailyFeedPageToItems(cachedPage);
-          setState(() {
-            _activities = items;
-            _loadingFeed = false;
-            _feedError = null;
-            _feedHasMore = !cachedPage.last;
-            _feedNextPage = cachedPage.last ? 0 : cachedPage.pageNumber + 1;
-            _loadingMoreFeed = false;
-          });
-          _lastFeedRequestKey = requestKey;
-          _isFeedRequestInFlight = false;
-          _lastFeedCompletedAt = DateTime.now();
-          _lastFeedCompletedWithError = false;
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _maybeLoadNextDailyFeedPage(),
-          );
-          return;
-        }
-      } catch (_) {}
-    }
-
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
@@ -1329,36 +1513,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      final page = await _getDailyActivityFeedUseCase(
-        classroomCode: classroomCode,
-        date: dateStr,
-        studentCode: studentCode,
-        activityTypeCode: typeCode,
+      final page = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        classroomCodes: <String>[classroomCode],
+        studentCodes: studentCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
         page: 0,
         size: _feedPageSize,
       );
 
-      final items = _mapDailyFeedPageToItems(page);
+      final items = _mapAttendanceDailyPageToItems(page);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
         return;
       }
-      try {
-        final rev = await ActivityFeedInvalidation.currentRevision(
-          _storageService,
-        );
-        await _cacheManager.saveCache(
-          ActivityFeedPageCacheCodec.dailyCacheKey(requestKey),
-          ActivityFeedPageCacheCodec.wrapPage(page, rev),
-        );
-      } catch (_) {}
       setState(() {
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
-        _feedHasMore = !page.last;
-        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+        _feedHasMore = page.hasMore;
+        _feedNextPage = page.hasMore ? page.page + 1 : 0;
       });
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
@@ -1399,6 +1575,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _getStudentCodesForActivityTagFilterUseCase =
         serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+    _getStudentAttendanceDailyUseCase =
+        serviceLocator<GetStudentAttendanceDailyUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
@@ -1410,13 +1588,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _selectedStudent = n.trim();
       }
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _bootstrapSchoolZone();
+      await _bootstrap();
+    });
     _feedScrollController.addListener(_onFeedScroll);
     _feedInvalidationSub = ActivityFeedInvalidation.onInvalidated.listen((_) {
       if (mounted) {
         _loadDailyFeed(refresh: true);
       }
     });
+  }
+
+  Future<void> _bootstrapSchoolZone() async {
+    try {
+      final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storageService,
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _schoolIana = z;
+        _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(z);
+      });
+    } catch (_) {}
   }
 
   @override
@@ -2044,12 +2239,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                             // color: activityColor
                                                             //     .withOpacity(0.25),
                                                             child: Center(
-                                                              child: Image.asset(
-                                                                activityIcons[activity
-                                                                    .name],
-                                                                //'assets/icons/activity-nap-icon.png',
-                                                                fit:
-                                                                    BoxFit.fill,
+                                                              child: Builder(
+                                                                builder: (_) {
+                                                                  final iconPath =
+                                                                      (activityIcons[activity.name] ??
+                                                                              MediaRes
+                                                                                  .notesActivityIcon)
+                                                                          .toString();
+                                                                  if (iconPath
+                                                                      .toLowerCase()
+                                                                      .endsWith(
+                                                                        '.svg',
+                                                                      )) {
+                                                                    return SvgPicture.asset(
+                                                                      iconPath,
+                                                                      fit: BoxFit
+                                                                          .contain,
+                                                                    );
+                                                                  }
+                                                                  return Image.asset(
+                                                                    iconPath,
+                                                                    fit: BoxFit.fill,
+                                                                  );
+                                                                },
                                                               ),
                                                             ),
                                                           ),
@@ -3472,12 +3684,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                   // color: activityColor
                                                                   //     .withOpacity(0.25),
                                                                   child: Center(
-                                                                    child: Image.asset(
-                                                                      activityIcons[activity
-                                                                          .name],
-                                                                      //'assets/icons/activity-nap-icon.png',
-                                                                      fit: BoxFit
-                                                                          .fill,
+                                                                    child: Builder(
+                                                                      builder: (_) {
+                                                                        final iconPath =
+                                                                            (activityIcons[activity.name] ??
+                                                                                    MediaRes.notesActivityIcon)
+                                                                                .toString();
+                                                                        if (iconPath
+                                                                            .toLowerCase()
+                                                                            .endsWith(
+                                                                              '.svg',
+                                                                            )) {
+                                                                          return SvgPicture.asset(
+                                                                            iconPath,
+                                                                            fit:
+                                                                                BoxFit.contain,
+                                                                          );
+                                                                        }
+                                                                        return Image.asset(
+                                                                          iconPath,
+                                                                          fit:
+                                                                              BoxFit.fill,
+                                                                        );
+                                                                      },
                                                                     ),
                                                                   ),
                                                                 ),
@@ -4110,6 +4339,12 @@ String activityFeedCardBodyLine(ActivityItem activity) {
     if (desc != null && desc.isNotEmpty) return desc;
     return 'No description';
   }
+  if (activity.name == 'Sign-in' ||
+      activity.name == 'Sign-out' ||
+      activity.name == 'Transfer') {
+    final d = activity.description?.trim();
+    return (d != null && d.isNotEmpty) ? d : 'No description';
+  }
   final d = activity.description?.trim();
   return (d != null && d.isNotEmpty) ? d : 'No description';
 }
@@ -4120,6 +4355,11 @@ int activityFeedCardBodyMaxLines(ActivityItem activity) {
   if (activity.name == 'Nap Start' || activity.name == 'Nap End') return 4;
   if (activity.name == 'Learning') return 3;
   if (activity.name == 'Bathroom') return 3;
+  if (activity.name == 'Sign-in' ||
+      activity.name == 'Sign-out' ||
+      activity.name == 'Transfer') {
+    return 2;
+  }
   return 1;
 }
 
@@ -4495,10 +4735,15 @@ String mapApiActivityTypeNameToUiLabel(String apiName) {
 ActivityItem activityItemFromFeedRow(
   ActivityFeedRow row, {
   String? viewerDisplayName,
+  String? schoolIana,
 }) {
   DateTime dt;
   try {
-    dt = DateTime.parse(row.activityDateIso).toLocal();
+    final parsed = DateTime.parse(row.activityDateIso);
+    final iana = (schoolIana ?? '').trim();
+    dt = iana.isEmpty
+        ? parsed.toLocal()
+        : SchoolZoneDateTime.dateTimeFromInstantInSchool(parsed, iana);
   } catch (_) {
     dt = DateTime.now();
   }

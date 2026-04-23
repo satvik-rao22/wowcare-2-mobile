@@ -8,7 +8,10 @@ class GetStudentAttendanceDailyUseCase {
 
   Future<StudentAttendanceDailyPage> call({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
@@ -19,7 +22,10 @@ class GetStudentAttendanceDailyUseCase {
   }) {
     return _repository.getStudentAttendanceDaily(
       attendanceDate: attendanceDate,
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
       classroomCodes: classroomCodes,
+      studentCodes: studentCodes,
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
