@@ -301,6 +301,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       context: context,
       students: _selectedStudentsData,
       selectedDate: _activityDate,
+      selectedTime: _activityTime,
     );
     if (!isWithinAttendanceWindow) return;
 
@@ -343,12 +344,22 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
 
     if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
+      // When coming from student-selection, DateWidget can be non-editable; ensure we still use
+      // the attendance date carried forward in selectedStudents payload.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
     }
 
     final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
@@ -408,6 +419,14 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
         isError: true,
       );
       return;
+    }
+
+    // Force activity payload date to match student-selection attendance date.
+    final prefilled = widget.selectedStudents != null
+        ? resolveSelectedAttendanceDate(_selectedStudentsData)
+        : null;
+    if (prefilled != null) {
+      _activityDate = prefilled;
     }
 
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
@@ -548,6 +567,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       context: context,
       students: _selectedStudentsData,
       selectedDate: _activityDate,
+      selectedTime: _activityTime,
     );
     if (!isWithinAttendanceWindow) return;
 
@@ -898,7 +918,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: false,
+                          isEditable: true,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {
@@ -984,5 +1004,6 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     );
   }
 }
+
 
 

@@ -345,6 +345,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       context: context,
       students: _selectedStudentsData,
       selectedDate: _activityDate,
+      selectedTime: _activityTime,
     );
     if (!isWithinAttendanceWindow) return;
 
@@ -469,6 +470,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         t.hour,
         t.minute,
       );
+
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
       final activityDateIso = await activityUtcIsoFromSchoolWallClock(
         date: _activityDate!,
         time: _activityTime!,
@@ -555,6 +564,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       context: context,
       students: _selectedStudentsData,
       selectedDate: _activityDate,
+      selectedTime: _activityTime,
     );
     if (!isWithinAttendanceWindow) return;
 
@@ -851,7 +861,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: false,
+                          isEditable: true,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {
@@ -940,5 +950,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     );
   }
 }
+
 
 

@@ -26,9 +26,11 @@ import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
+import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
@@ -142,6 +144,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
+  late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
@@ -301,6 +304,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
     _getStudentAttendanceDailyUseCase =
         serviceLocator<GetStudentAttendanceDailyUseCase>();
+    _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
@@ -633,25 +637,63 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (mounted) setState(() {});
 
     try {
-      final page = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: _dateQueryParam(start),
-        fromAttendanceDate: _dateQueryParam(start),
-        toAttendanceDate: _dateQueryParam(end),
-        classroomCodes: <String>[classroomCode],
-        studentCodes: studentCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: _feedNextPage,
-        size: _feedPageSize,
-      );
+      final selectedStudentCode =
+          (studentCodes != null && studentCodes.isNotEmpty)
+              ? studentCodes.first
+              : null;
+      final typeCode = _activityTypeCodeForApiFilter();
+      final pageIndex = _feedNextPage;
 
-      final items = _itemsFromAttendancePage(page);
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+        _getRangeActivityFeedUseCase(
+          classroomCode: classroomCode,
+          startDate: _dateQueryParam(start),
+          endDate: _dateQueryParam(end),
+          studentCode: selectedStudentCode,
+          activityTypeCode: typeCode,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
+
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(activityFeedPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -945,6 +987,30 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
     }
     return null;
+  }
+
+  String? _activityTypeCodeForApiFilter() {
+    // Attendance events are handled via attendance APIs.
+    final event = _selectedAttendanceEventFilter();
+    if (event != null) return null;
+    if (_filterActivityTypes.length == 1) {
+      final code = _activityTypeCodeForLabel(_filterActivityTypes.first);
+      if (code != null && code.trim().isNotEmpty) return code.trim();
+    }
+    return null;
+  }
+
+  List<ActivityItem> _itemsFromActivityFeedPage(ActivityFeedPage page) {
+    final raw = page.content
+        .map(
+          (row) => activityItemFromFeedRow(
+            row,
+            viewerDisplayName: _viewerStaffDisplayName,
+            schoolIana: _schoolIana,
+          ),
+        )
+        .toList();
+    return _withClientFilters(raw);
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -1445,19 +1511,56 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final page = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: _dateQueryParam(start),
-        fromAttendanceDate: _dateQueryParam(start),
-        toAttendanceDate: _dateQueryParam(end),
-        classroomCodes: <String>[classroomCode],
-        studentCodes: studentCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: 0,
-        size: _feedPageSize,
-      );
+      final selectedStudentCode =
+          (studentCodes != null && studentCodes.isNotEmpty)
+              ? studentCodes.first
+              : null;
+      final typeCode = _activityTypeCodeForApiFilter();
 
-      final items = _itemsFromAttendancePage(page);
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: 0,
+          size: _feedPageSize,
+        ),
+        _getRangeActivityFeedUseCase(
+          classroomCode: classroomCode,
+          startDate: _dateQueryParam(start),
+          endDate: _dateQueryParam(end),
+          studentCode: selectedStudentCode,
+          activityTypeCode: typeCode,
+          page: 0,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
+
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(activityFeedPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -1468,8 +1571,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;

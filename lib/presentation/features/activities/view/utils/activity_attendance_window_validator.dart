@@ -6,8 +6,6 @@ import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 TimeOfDay? _parseHmsToTimeOfDay(String? raw) {
   if (raw == null) return null;
@@ -23,14 +21,16 @@ TimeOfDay? _parseHmsToTimeOfDay(String? raw) {
 
 int _minutesOfDay(TimeOfDay t) => (t.hour * 60) + t.minute;
 
-String _formatTimeOfDay24(TimeOfDay t) {
-  final hh = t.hour.toString().padLeft(2, '0');
-  final mm = t.minute.toString().padLeft(2, '0');
-  return '$hh:$mm:00';
-}
-
 String _formatHmsReadable(String? raw) {
   final tod = _parseHmsToTimeOfDay(raw);
+  if (tod == null) return '--';
+  final hour12 = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
+  final minute = tod.minute.toString().padLeft(2, '0');
+  final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
+  return '$hour12:$minute $period';
+}
+
+String _formatTimeOfDayReadable(TimeOfDay? tod) {
   if (tod == null) return '--';
   final hour12 = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
   final minute = tod.minute.toString().padLeft(2, '0');
@@ -139,19 +139,16 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   required BuildContext context,
   required List<Map<String, dynamic>> students,
   DateTime? selectedDate,
+  TimeOfDay? selectedTime,
 }) async {
   if (students.isEmpty) return true;
   final storage = serviceLocator<StorageService>();
   final apiClient = serviceLocator<ApiClient>();
-  final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-    storage: storage,
-    apiClient: apiClient,
-  );
-  final nowTime = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$2;
-  final nowMins = _minutesOfDay(nowTime);
-  final nowDisplay = _formatTimeOfDay24(nowTime);
-  final fallbackDate = selectedDate ??
-      SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$1;
+  final fallbackDate = selectedDate ?? DateTime.now();
+  final effectiveSelectedTime = selectedTime;
+  final selectedTimeMins =
+      effectiveSelectedTime != null ? _minutesOfDay(effectiveSelectedTime) : null;
+  final selectedTimeDisplay = _formatTimeOfDayReadable(effectiveSelectedTime);
 
   for (final student in students) {
     String? signInRaw = (student['signedInTime'] as String?)?.trim();
@@ -184,7 +181,6 @@ Future<bool> validateStudentsWithinAttendanceWindow({
     final signOut = _parseHmsToTimeOfDay(signOutRaw);
     final signInDisplay = _formatHmsReadable(signInRaw);
     final signOutDisplay = _formatHmsReadable(signOutRaw);
-    final nowReadable = _formatHmsReadable(nowDisplay);
 
     if (signIn == null || signOut == null) {
       final reason = signIn == null
@@ -193,7 +189,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            '$name cannot be marked right now because $reason (window: $signInDisplay - $signOutDisplay). Current school time: $nowReadable.',
+            '$name cannot be marked because $reason (window: $signInDisplay - $signOutDisplay). Selected activity time: $selectedTimeDisplay.',
         isWarning: true,
       );
       return false;
@@ -201,11 +197,14 @@ Future<bool> validateStudentsWithinAttendanceWindow({
 
     final signInMins = _minutesOfDay(signIn);
     final signOutMins = _minutesOfDay(signOut);
-    if (nowMins < signInMins || nowMins > signOutMins) {
+    // Validate against the time the user is recording the activity for.
+    // School "current time" is irrelevant; we compare the picked activity time.
+    if (selectedTimeMins != null &&
+        (selectedTimeMins < signInMins || selectedTimeMins > signOutMins)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            '$name can be marked only between $signInDisplay and $signOutDisplay. Current school time: $nowReadable.',
+            '$name can be marked only between $signInDisplay and $signOutDisplay. Selected activity time: $selectedTimeDisplay.',
         isWarning: true,
       );
       return false;

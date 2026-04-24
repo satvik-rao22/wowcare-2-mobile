@@ -508,6 +508,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       context: context,
       students: _selectedStudentsData,
       selectedDate: _activityDate,
+      selectedTime: _activityTime,
     );
     if (!isWithinAttendanceWindow) return;
 
@@ -578,6 +579,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       return;
     }
 
+    // Ensure the API payload uses the attendance date chosen on student selection.
+    final prefilled = widget.selectedStudents != null
+        ? resolveSelectedAttendanceDate(_selectedStudentsData)
+        : null;
+    if (prefilled != null) {
+      _activityDate = prefilled;
+    }
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -701,6 +709,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       context: context,
       students: _selectedStudentsData,
       selectedDate: _activityDate,
+      selectedTime: _activityTime,
     );
     if (!isWithinAttendanceWindow) return;
 
@@ -1015,7 +1024,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 children: [
                   Flexible(
                     child: DateWidget(
-                      isEditable: false,
+                      isEditable: !_layoutAsEdit,
                       isRequired: true,
                       initialDate: _layoutAsEdit
                           ? _effectiveActivity.date
@@ -1108,5 +1117,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     );
   }
 }
+
 
 

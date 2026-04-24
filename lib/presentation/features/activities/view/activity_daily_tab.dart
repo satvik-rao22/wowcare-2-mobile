@@ -1215,22 +1215,60 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (mounted) setState(() {});
 
     try {
-      final page = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: dateStr,
-        classroomCodes: <String>[classroomCode],
-        studentCodes: studentCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: _feedNextPage,
-        size: _feedPageSize,
-      );
-      final items = _mapAttendanceDailyPageToItems(page);
+      final selectedStudentCode =
+          (studentCodes != null && studentCodes.isNotEmpty)
+              ? studentCodes.first
+              : null;
+      final typeCode = _activityTypeCodeForApiFilter();
+      final pageIndex = _feedNextPage;
+
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: dateStr,
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+        _getDailyActivityFeedUseCase(
+          classroomCode: classroomCode,
+          date: dateStr,
+          studentCode: selectedStudentCode,
+          activityTypeCode: typeCode,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
+
+      final items = <ActivityItem>[
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapDailyFeedPageToItems(activityFeedPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -1513,17 +1551,53 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      final page = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: dateStr,
-        classroomCodes: <String>[classroomCode],
-        studentCodes: studentCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: 0,
-        size: _feedPageSize,
-      );
+      final selectedStudentCode =
+          (studentCodes != null && studentCodes.isNotEmpty)
+              ? studentCodes.first
+              : null;
+      final typeCode = _activityTypeCodeForApiFilter();
 
-      final items = _mapAttendanceDailyPageToItems(page);
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: dateStr,
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: 0,
+          size: _feedPageSize,
+        ),
+        _getDailyActivityFeedUseCase(
+          classroomCode: classroomCode,
+          date: dateStr,
+          studentCode: selectedStudentCode,
+          activityTypeCode: typeCode,
+          page: 0,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
+
+      final items = <ActivityItem>[
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapDailyFeedPageToItems(activityFeedPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -1533,8 +1607,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedNextPage = _feedHasMore ? 1 : 0;
       });
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
