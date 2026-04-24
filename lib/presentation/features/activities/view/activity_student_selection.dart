@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -12,15 +13,19 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../data/features/attendance/datasources/attendance_remote_datasource.dart';
+import '../../../../data/features/attendance/repositories/attendance_repository_impl.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
-import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import '../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
@@ -65,23 +70,23 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   late final CacheManager _cacheManager;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
+  late final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
   String? _schoolCode;
+  String _schoolTimeZone = SchoolTimezoneResolver.fallbackTimeZone;
+  DateTime _selectedAttendanceDate = DateTime.now();
 
-  // Students from /api/v1/student-classroom for current filters
-  List<StudentClassroomItem> _studentsForCurrentFilters = [];
+  // Students from /api/v1/student-attendance/view/custom for selected date
+  List<StudentAttendanceCustomItem> _studentsForCurrentFilters = [];
   bool _isLoadingFilters = false;
   bool _isLoadingStudents = false;
   String? _studentsError;
-  Set<String> _nappingStudentCodes = <String>{};
 
-  List<StudentClassroomItem> get _filteredStudents {
+  List<StudentAttendanceCustomItem> get _filteredStudents {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) return _studentsForCurrentFilters;
 
     return _studentsForCurrentFilters.where((student) {
-      final fullName = student.fullName.toLowerCase();
+      final fullName = student.studentName.toLowerCase();
       return fullName.contains(query);
     }).toList();
   }
@@ -154,10 +159,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _getStudentClassroomListUseCase =
-        serviceLocator<GetStudentClassroomListUseCase>();
-    _getNapStartStudentsUseCase =
-        serviceLocator<GetNapStartStudentsUseCase>();
+    if (serviceLocator.isRegistered<GetStudentAttendanceCustomUseCase>()) {
+      _getStudentAttendanceCustomUseCase =
+          serviceLocator<GetStudentAttendanceCustomUseCase>();
+    } else {
+      final apiClient = serviceLocator<ApiClient>();
+      final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
+      final repo = AttendanceRepositoryImpl(remote, _storageService, apiClient);
+      _getStudentAttendanceCustomUseCase = GetStudentAttendanceCustomUseCase(repo);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initFiltersAndLoad();
@@ -182,6 +192,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         });
         return;
       }
+      _schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storageService,
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      final schoolNow =
+          SchoolZoneDateTime.schoolCalendarDateAndTimeNow(_schoolTimeZone).$1;
+      _selectedAttendanceDate =
+          DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
 
       await _loadStaffClassroomScope();
 
@@ -393,14 +411,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   }
 
   Future<void> _loadStudentsForCurrentFilters({bool refresh = false}) async {
-    if (_schoolCode == null ||
-        _schoolCode!.trim().isEmpty ||
-        _selectedClassroom == null) {
+    if (_schoolCode == null || _schoolCode!.trim().isEmpty) {
       return;
     }
-
-    final classroomCode = _classroomCodeByName[_selectedClassroom!];
-    if (classroomCode == null || classroomCode.trim().isEmpty) return;
 
     final tagCodes = _selectedTags
         .map((name) => _tagCodeByName[name])
@@ -413,23 +426,25 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     });
 
     try {
-      final students = await _getStudentClassroomListUseCase(
-        schoolCode: _schoolCode!,
-        classroomCode: classroomCode,
-        tagCodes: tagCodes,
-        status: const ['ACTIVE'],
-        attendanceStatus: 'SIGNED_IN',
-        refresh: refresh,
+      final selectedDate = _formatAttendanceDate(_selectedAttendanceDate);
+      final page = await _getStudentAttendanceCustomUseCase(
+        fromAttendanceDate: selectedDate,
+        toAttendanceDate: selectedDate,
+        classroomCodes: null,
+        tagCodes: tagCodes.isEmpty ? null : tagCodes,
+        search: _searchController.text.trim().isEmpty
+            ? null
+            : _searchController.text.trim(),
+        page: 0,
+        size: 200,
       );
-      final napStartCodes = await _getNapStartStudentsUseCase(
-        classroomCode: classroomCode,
-      );
+      final students =
+          page.items.where((item) => item.hasSignIn).toList(growable: false);
 
       if (!mounted) return;
 
       setState(() {
         _studentsForCurrentFilters = students;
-        _nappingStudentCodes = napStartCodes.map((e) => e.trim()).toSet();
         _isLoadingStudents = false;
         _studentsError = null;
       });
@@ -447,6 +462,21 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   }
 
   void _applyFilters() => setState(() {});
+
+  String _classroomLabelForStudent(StudentAttendanceCustomItem student) {
+    final fromApi = student.classroomName.trim();
+    if (fromApi.isNotEmpty) return fromApi;
+    final mapped = _classroomNameByCode[student.classroomCode.trim()] ?? '';
+    return mapped.trim().isEmpty ? 'Classroom' : mapped.trim();
+  }
+
+  String _formatAttendanceDate(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final yyyy = normalized.year.toString().padLeft(4, '0');
+    final mm = normalized.month.toString().padLeft(2, '0');
+    final dd = normalized.day.toString().padLeft(2, '0');
+    return '$yyyy-$mm-$dd';
+  }
 
   Future<void> _onPullRefresh() async {
     if (_schoolCode == null || _schoolCode!.trim().isEmpty) {
@@ -528,6 +558,20 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                 ),
                             ),
           const SizedBox(height: 12),
+          CustomDateTimeField(
+            hasLabel: false,
+            initialDate: _selectedAttendanceDate,
+            fetchInitialTime: false,
+            onDateSelected: (date) {
+              setState(() {
+                _selectedAttendanceDate = DateTime(date.year, date.month, date.day);
+                _selectedStudents.clear();
+                _selectAll = false;
+              });
+              _loadStudentsForCurrentFilters(refresh: true);
+            },
+          ),
+          const SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
@@ -577,28 +621,33 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                     if (newVal) {
                         for (final student in _filteredStudents) {
                                         _selectedStudents.add({
-                            'name': student.fullName,
-                                          'classroom': _selectedClassroom!,
+                            'name': student.studentName,
+                                          'classroom': _classroomLabelForStudent(student),
                             'classroomCode': student.classroomCode,
                             'studentCode': student.studentCode,
-                            'profilePictureUrl': student.profilePictureUrl,
-                            'status': student.status,
-                            'expectedToday': student.expectedToday,
-                            'signedIn': student.signedIn,
-                            'absent': student.absent,
-                            'notMarked': student.notMarked,
-                            'nappingStatus': student.nap,
-                            'photoPermission': student.photoPermission,
-                            'notes': student.notes,
-                            'medication': student.medication,
-                            'allergies': student.allergies,
-                            'dietaryRestriction': student.dietaryRestriction,
+                            'profilePictureUrl': '',
+                            'status': '',
+                            'expectedToday': student.isExpectedToday,
+                            'signedIn': student.hasSignIn,
+                            'absent': false,
+                            'notMarked': false,
+                            'nappingStatus': false,
+                            'photoPermission': true,
+                            'notes': '',
+                            'medication': '',
+                            'allergies': '',
+                            'dietaryRestriction': '',
+                            'signedInBy': student.signedInBy,
+                            'signedInTime': student.signedInTime,
+                            'signedOutBy': student.signedOutBy,
+                            'signedOutTime': student.signedOutTime,
+                            'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
                                         });
                                       }
                                     } else {
-                                      _selectedStudents.removeWhere(
-                          (s) => s['classroom'] == _selectedClassroom,
-                        );
+                                      _selectedStudents.removeWhere((s) =>
+                                          _filteredStudents.any((st) =>
+                                              st.studentCode == s['studentCode']));
                                     }
                                   });
                   },
@@ -626,6 +675,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                     _selectedStudents.clear();
                     _searchController.clear();
                     _selectedTags = [];
+                    final schoolNow =
+                        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(_schoolTimeZone).$1;
+                    _selectedAttendanceDate =
+                        DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
                     _selectAll = false;
                   });
                   _loadStudentsForCurrentFilters();
@@ -676,10 +729,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final student = _filteredStudents[index];
-                          final String name = student.fullName;
+                          final String name = student.studentName;
                           final String studentCode = student.studentCode;
-                          final bool isNapping =
-                              _nappingStudentCodes.contains(studentCode);
+                          const bool isNapping = false;
 
                           final bool isSelected = _selectedStudents.any(
                             (s) => s['studentCode'] == studentCode,
@@ -696,23 +748,28 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                 if (selected == true) {
                                   _selectedStudents.add({
                                     'name': name,
-                                    'classroom': _selectedClassroom!,
+                                    'classroom': _classroomLabelForStudent(student),
                                     'classroomCode': student.classroomCode,
                                     'studentCode': student.studentCode,
-                                    'profilePictureUrl':
-                                        student.profilePictureUrl,
-                                    'status': student.status,
-                                    'expectedToday': student.expectedToday,
-                                    'signedIn': student.signedIn,
-                                    'absent': student.absent,
-                                    'notMarked': student.notMarked,
+                                    'profilePictureUrl': '',
+                                    'status': '',
+                                    'expectedToday': student.isExpectedToday,
+                                    'signedIn': student.hasSignIn,
+                                    'absent': false,
+                                    'notMarked': false,
                                     'nappingStatus': isNapping,
-                                    'photoPermission': student.photoPermission,
-                                    'notes': student.notes,
-                                    'medication': student.medication,
-                                    'allergies': student.allergies,
-                                    'dietaryRestriction':
-                                        student.dietaryRestriction,
+                                    'photoPermission': true,
+                                    'notes': '',
+                                    'medication': '',
+                                    'allergies': '',
+                                    'dietaryRestriction': '',
+                                    'signedInBy': student.signedInBy,
+                                    'signedInTime': student.signedInTime,
+                                    'signedOutBy': student.signedOutBy,
+                                    'signedOutTime': student.signedOutTime,
+                                    'attendanceDate': _formatAttendanceDate(
+                                      _selectedAttendanceDate,
+                                    ),
                                   });
                                 } else {
                                   _selectedStudents.removeWhere(

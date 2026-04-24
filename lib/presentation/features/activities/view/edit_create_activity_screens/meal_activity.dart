@@ -24,6 +24,8 @@ import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -104,6 +106,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -294,6 +297,13 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -534,6 +544,13 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -883,6 +900,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {
                             setState(() {
                               _activityDate = d;
@@ -966,3 +984,5 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     );
   }
 }
+
+

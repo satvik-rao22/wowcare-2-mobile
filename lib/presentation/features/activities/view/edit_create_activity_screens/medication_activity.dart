@@ -21,6 +21,8 @@ import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -88,6 +90,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     if(widget.selectedStudents != null){
       _selectedStudentsData = List.from(widget.selectedStudents!);
       _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -230,6 +233,13 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -430,6 +440,13 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+    );
+    if (!isWithinAttendanceWindow) return;
+
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -690,6 +707,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -762,3 +780,5 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     );
   }
 }
+
+
