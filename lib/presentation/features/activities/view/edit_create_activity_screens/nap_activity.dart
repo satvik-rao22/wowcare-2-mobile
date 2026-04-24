@@ -861,7 +861,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {

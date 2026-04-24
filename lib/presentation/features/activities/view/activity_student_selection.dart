@@ -799,11 +799,19 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           onPressedCancel: () => Navigator.of(context).pop(),
           onPressedConfirm: () {
             if (_selectedStudents.isNotEmpty) {
+              final selectedDate = _formatAttendanceDate(_selectedAttendanceDate);
+              final normalizedSelectedStudents = _selectedStudents
+                  .map((student) {
+                    final next = Map<String, dynamic>.from(student);
+                    next['attendanceDate'] = selectedDate;
+                    return next;
+                  })
+                  .toList(growable: false);
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => ChooseActivity(
-                    selectedStudents: _selectedStudents.toList(),
+                    selectedStudents: normalizedSelectedStudents,
                   ),
                 ),
               );

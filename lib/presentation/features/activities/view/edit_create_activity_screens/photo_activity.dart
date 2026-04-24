@@ -1024,7 +1024,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 children: [
                   Flexible(
                     child: DateWidget(
-                      isEditable: !_layoutAsEdit,
+                      isEditable: false,
                       isRequired: true,
                       initialDate: _layoutAsEdit
                           ? _effectiveActivity.date

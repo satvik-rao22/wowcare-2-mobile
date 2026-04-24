@@ -1120,7 +1120,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {

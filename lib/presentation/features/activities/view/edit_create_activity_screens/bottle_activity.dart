@@ -865,7 +865,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                           onDateChanged: (d) => _activityDate = d,
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) => _activityDate = d,
