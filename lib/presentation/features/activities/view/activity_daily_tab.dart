@@ -102,6 +102,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
+  String? _selectedStudentCode;
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
@@ -799,8 +800,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _reloadStudentsAndSettings({bool forceRefreshApis = false}) async {
-    _studentCodeByName.clear();
-    _availableStudents = [];
     _classroomActivitySettings = [];
 
     final classroomName = _selectdClassroom;
@@ -865,6 +864,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             if (_selectedStudent != null &&
                 !_availableStudents.contains(_selectedStudent)) {
               _selectedStudent = null;
+              _selectedStudentCode = null;
             }
           });
         }
@@ -887,6 +887,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         if (_selectedStudent != null &&
             !_availableStudents.contains(_selectedStudent)) {
           _selectedStudent = null;
+          _selectedStudentCode = null;
         }
       });
       await _cacheManager.saveCache(studentsCacheKey, {
@@ -945,7 +946,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
     final selected = _selectedStudent?.trim();
     if (selected == null || selected.isEmpty) return null;
-    final code = _studentCodeByName[selected]?.trim();
+    final code =
+        (_selectedStudentCode ?? _studentCodeByName[selected])?.trim();
     if (code == null || code.isEmpty) return null;
     return <String>[code];
   }
@@ -1203,7 +1205,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         !_classroomCodeByName.containsKey(classroomName)) {
       return;
     }
-
     final classroomCode = _classroomCodeByName[classroomName]!;
     final dateStr = _dateQueryParam(date);
     final studentCodes = _selectedStudentCodesForAttendanceFilter();
@@ -1222,28 +1223,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final typeCode = _activityTypeCodeForApiFilter();
       final pageIndex = _feedNextPage;
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
-          attendanceDate: dateStr,
-          classroomCodes: <String>[classroomCode],
-          studentCodes: studentCodes,
-          signInAtFilter: signInAtFilter,
-          signOutAtFilter: signOutAtFilter,
-          page: pageIndex,
-          size: _feedPageSize,
-        ),
-        _getDailyActivityFeedUseCase(
-          classroomCode: classroomCode,
-          date: dateStr,
-          studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
-          page: pageIndex,
-          size: _feedPageSize,
-        ),
-      ]);
-
-      final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        classroomCodes: <String>[classroomCode],
+        studentCodes: studentCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
+      final activityFeedPage = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: selectedStudentCode,
+        activityTypeCode: typeCode,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
 
       final items = <ActivityItem>[
         ..._mapAttendanceDailyPageToItems(attendancePage),
@@ -1503,8 +1499,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       return;
     }
-
     final classroomCode = _classroomCodeByName[classroomName]!;
+
     final dateStr = _dateQueryParam(date);
 
     final studentCodes = _selectedStudentCodesForAttendanceFilter();
@@ -1557,28 +1553,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               : null;
       final typeCode = _activityTypeCodeForApiFilter();
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
-          attendanceDate: dateStr,
-          classroomCodes: <String>[classroomCode],
-          studentCodes: studentCodes,
-          signInAtFilter: signInAtFilter,
-          signOutAtFilter: signOutAtFilter,
-          page: 0,
-          size: _feedPageSize,
-        ),
-        _getDailyActivityFeedUseCase(
-          classroomCode: classroomCode,
-          date: dateStr,
-          studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
-          page: 0,
-          size: _feedPageSize,
-        ),
-      ]);
-
-      final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        classroomCodes: <String>[classroomCode],
+        studentCodes: studentCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: 0,
+        size: _feedPageSize,
+      );
+      final activityFeedPage = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: selectedStudentCode,
+        activityTypeCode: typeCode,
+        page: 0,
+        size: _feedPageSize,
+      );
 
       final items = <ActivityItem>[
         ..._mapAttendanceDailyPageToItems(attendancePage),
@@ -1661,6 +1652,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (n != null && n.trim().isNotEmpty) {
         _selectedStudent = n.trim();
       }
+      final sc = (widget.studentProfile?['studentCode'] ?? '').toString().trim();
+      if (sc.isNotEmpty) _selectedStudentCode = sc;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
@@ -1701,11 +1694,45 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (_selectedStudent != null &&
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
+        _selectedStudentCode = null;
       }
     } else {
-      _availableStudents = [];
-      _selectedStudent = null;
+      _availableStudents = _studentCodeByName.keys.toList()..sort();
+      if (_selectedStudent != null &&
+          !_availableStudents.contains(_selectedStudent)) {
+        _selectedStudent = null;
+        _selectedStudentCode = null;
+      }
     }
+  }
+
+  Future<void> _loadAllStudentsForDropdown({bool refresh = false}) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty) return;
+    final classroomCodes = _classroomCodeByName.values
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+    if (classroomCodes.isEmpty) return;
+    try {
+      final page = await _getStudentPageUseCase(
+        schoolCode: school,
+        classroomCodes: classroomCodes,
+        status: 'ACTIVE',
+        page: 0,
+        size: 500,
+      );
+      if (!mounted) return;
+      setState(() {
+        _studentCodeByName
+          ..clear()
+          ..addEntries(page.items.map((s) => MapEntry(s.fullName, s.code)));
+        if (_selectdClassroom == null) {
+          _updateAvailableStudents();
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _openActivityFilter() async {
@@ -1948,18 +1975,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                       //   }),
                                       // ),
                                       child: _buildCustomDropdown(
-                                        _selectdClassroom == null
-                                            ? 'Select Classroom First'
-                                            : 'Select Student',
+                                        'Select Student',
                                         _availableStudents,
                                         _selectedStudent,
                                         (value) {
-                                          if (_selectdClassroom != null) {
-                                            setState(() {
-                                              _selectedStudent = value;
-                                            });
-                                            _loadDailyFeed();
-                                          }
+                                          setState(() {
+                                            _selectedStudent = value;
+                                            _selectedStudentCode =
+                                                _studentCodeByName[value]?.trim();
+                                          });
+                                          _loadDailyFeed(refresh: true);
                                         },
                                       ),
                                     ),
@@ -2002,16 +2027,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () {
                                         setState(() {
-                                  final now = DateTime.now();
-                                  _selectedDate =
-                                      DateTime(now.year, now.month, now.day);
-                                  if (_classroomOptions.isNotEmpty) {
-                                    _selectdClassroom = _classroomOptions.first;
-                                  }
+                                  _selectdClassroom = null;
                                   _selectedStudent = null;
+                                  _selectedStudentCode = null;
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _updateAvailableStudents();
                                 });
+                                _loadAllStudentsForDropdown(refresh: true);
                                 _reloadStudentsAndSettingsThenFeed(
                                   forceRefreshApis: true,
                                 );
@@ -3400,18 +3423,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     //   }),
                                     // ),
                                     child: _buildCustomDropdown(
-                                      _selectdClassroom == null
-                                          ? 'Select Classroom First'
-                                          : 'Select Student',
+                                      'Select Student',
                                       _availableStudents,
                                       _selectedStudent,
                                       (value) {
-                                        if (_selectdClassroom != null) {
-                                          setState(() {
-                                            _selectedStudent = value;
-                                          });
-                                          _loadDailyFeed();
-                                        }
+                                        setState(() {
+                                          _selectedStudent = value;
+                                          _selectedStudentCode =
+                                              _studentCodeByName[value]?.trim();
+                                        });
+                                        _loadDailyFeed(refresh: true);
                                       },
                                     ),
                                   ),
@@ -3452,16 +3473,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () {
                                       setState(() {
-                                  final now = DateTime.now();
-                                  _selectedDate =
-                                      DateTime(now.year, now.month, now.day);
-                                  if (_classroomOptions.isNotEmpty) {
-                                    _selectdClassroom = _classroomOptions.first;
-                                  }
+                                  _selectdClassroom = null;
                                   _selectedStudent = null;
+                                  _selectedStudentCode = null;
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _updateAvailableStudents();
                                 });
+                                _loadAllStudentsForDropdown(refresh: true);
                                 _reloadStudentsAndSettingsThenFeed(
                                   forceRefreshApis: true,
                                 );
