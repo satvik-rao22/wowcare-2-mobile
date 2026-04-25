@@ -102,7 +102,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
-  String? _selectedStudentCode;
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
@@ -382,8 +381,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   List<String>? _selectedStudentCodesForAttendanceFilter() {
     final selected = _selectedStudent?.trim();
     if (selected == null || selected.isEmpty) return null;
-    final code =
-        (_selectedStudentCode ?? _studentCodeByName[selected])?.trim();
+    final code = _studentCodeByName[selected]?.trim();
     if (code == null || code.isEmpty) return null;
     return <String>[code];
   }
@@ -646,26 +644,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final typeCode = _activityTypeCodeForApiFilter();
       final pageIndex = _feedNextPage;
 
-      final attendancePage = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: _dateQueryParam(start),
-        fromAttendanceDate: _dateQueryParam(start),
-        toAttendanceDate: _dateQueryParam(end),
-        classroomCodes: <String>[classroomCode],
-        studentCodes: studentCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: pageIndex,
-        size: _feedPageSize,
-      );
-      final activityFeedPage = await _getRangeActivityFeedUseCase(
-        classroomCode: classroomCode,
-        startDate: _dateQueryParam(start),
-        endDate: _dateQueryParam(end),
-        studentCode: selectedStudentCode,
-        activityTypeCode: typeCode,
-        page: pageIndex,
-        size: _feedPageSize,
-      );
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+        _getRangeActivityFeedUseCase(
+          classroomCode: classroomCode,
+          startDate: _dateQueryParam(start),
+          endDate: _dateQueryParam(end),
+          studentCode: selectedStudentCode,
+          activityTypeCode: typeCode,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
@@ -880,52 +883,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (_selectedStudent != null &&
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
-        _selectedStudentCode = null;
       }
     } else {
-      _availableStudents = classroomStudents.values
-          .expand((s) => s)
-          .toSet()
-          .toList()
-        ..sort();
-      if (_availableStudents.isEmpty) {
-        _availableStudents = _studentCodeByName.keys.toList()..sort();
-      }
-      if (_selectedStudent != null &&
-          !_availableStudents.contains(_selectedStudent)) {
-        _selectedStudent = null;
-        _selectedStudentCode = null;
-      }
+      _availableStudents = [];
+      _selectedStudent = null;
     }
-  }
-
-  Future<void> _loadAllStudentsForDropdown({bool refresh = false}) async {
-    final school = _schoolCode;
-    if (school == null || school.isEmpty) return;
-    final classroomCodes = _classroomCodeByName.values
-        .map((c) => c.trim())
-        .where((c) => c.isNotEmpty)
-        .toSet()
-        .toList();
-    if (classroomCodes.isEmpty) return;
-    try {
-      final page = await _getStudentPageUseCase(
-        schoolCode: school,
-        classroomCodes: classroomCodes,
-        status: 'ACTIVE',
-        page: 0,
-        size: 500,
-      );
-      if (!mounted) return;
-      setState(() {
-        _studentCodeByName
-          ..clear()
-          ..addEntries(page.items.map((s) => MapEntry(s.fullName, s.code)));
-        if (_selectdClassroom == null) {
-          _updateAvailableStudents();
-        }
-      });
-    } catch (_) {}
   }
 
   Future<void> _openActivityFilter() async {
@@ -1501,17 +1463,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     }
 
     final classroomName = _selectdClassroom;
-    if (classroomName == null) {
-      if (mounted) {
-        setState(() {
-          activities.clear();
-          _feedHasMore = false;
-          _loadingMoreFeed = false;
-          _feedError = null;
-        });
-      }
-      return;
-    }
+    if (classroomName == null) return;
 
     final classroomCode = _classroomCodeByName[classroomName];
     if (classroomCode == null || classroomCode.trim().isEmpty) {
@@ -1565,26 +1517,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               : null;
       final typeCode = _activityTypeCodeForApiFilter();
 
-      final attendancePage = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: _dateQueryParam(start),
-        fromAttendanceDate: _dateQueryParam(start),
-        toAttendanceDate: _dateQueryParam(end),
-        classroomCodes: <String>[classroomCode],
-        studentCodes: studentCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: 0,
-        size: _feedPageSize,
-      );
-      final activityFeedPage = await _getRangeActivityFeedUseCase(
-        classroomCode: classroomCode,
-        startDate: _dateQueryParam(start),
-        endDate: _dateQueryParam(end),
-        studentCode: selectedStudentCode,
-        activityTypeCode: typeCode,
-        page: 0,
-        size: _feedPageSize,
-      );
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: 0,
+          size: _feedPageSize,
+        ),
+        _getRangeActivityFeedUseCase(
+          classroomCode: classroomCode,
+          startDate: _dateQueryParam(start),
+          endDate: _dateQueryParam(end),
+          studentCode: selectedStudentCode,
+          activityTypeCode: typeCode,
+          page: 0,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
@@ -1664,11 +1621,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                   if (cachedList.isNotEmpty) {
                     if (mounted) {
                       setState(() {
-                        _studentCodeByName.addEntries(
-                          cachedList.map(
-                            (s) => MapEntry(s['name'] ?? '', s['code'] ?? ''),
-                          ),
-                        );
+                        _studentCodeByName
+                          ..clear()
+                          ..addEntries(
+                            cachedList.map(
+                              (s) =>
+                                  MapEntry(s['name'] ?? '', s['code'] ?? ''),
+                            ),
+                          );
                         classroomStudents[classroomName] =
                             cachedList.map((s) => s['name'] ?? '').toList();
                         _updateAvailableStudents();
@@ -1687,9 +1647,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             );
             if (mounted) {
               setState(() {
-                _studentCodeByName.addEntries(
-                  students.map((s) => MapEntry(s.fullName, s.studentCode)),
-                );
+                _studentCodeByName
+                  ..clear()
+                  ..addEntries(
+                    students.map((s) => MapEntry(s.fullName, s.studentCode)),
+                  );
                 classroomStudents[classroomName] =
                     students.map((s) => s.fullName).toList();
                 _updateAvailableStudents();
@@ -1916,8 +1878,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   widget.studentName,
                                   (v) => setState(() {
                                     _selectedStudent = v;
-                                    _selectedStudentCode =
-                                        _studentCodeByName[v]?.trim();
                                   }),
                                   height: 40,
                                 ),
@@ -1943,14 +1903,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             CustomClearAllChip(
                               onTap: () {
                                 setState(() {
-                                  _selectdClassroom = null;
+                                  final now = DateTime.now();
+                                  _selectedStartDate =
+                                      DateTime(now.year, now.month, 1);
+                                  _selectedEndDate =
+                                      DateTime(now.year, now.month + 1, 0);
+                                  if (_classroomOptions.isNotEmpty) {
+                                    _selectdClassroom = _classroomOptions.first;
+                                  }
                                   _selectedStudent = null;
-                                  _selectedStudentCode = null;
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
-                                  _updateAvailableStudents();
                                 });
-                                _loadAllStudentsForDropdown(refresh: true);
                                 _refreshApisAfterClearAll();
                               },
                               label: 'Clear All',
@@ -1987,16 +1951,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   //   }),
                                   // ),
                                   child: _buildCustomDropdown(
-                                    'Select Student',
+                                    _selectdClassroom == null
+                                        ? 'Select Classroom First'
+                                        : 'Select Student',
                                     _availableStudents,
                                     _selectedStudent,
                                     (value) {
-                                      setState(() {
-                                        _selectedStudent = value;
-                                        _selectedStudentCode =
-                                            _studentCodeByName[value]?.trim();
-                                      });
-                                      _loadRangeFeed(refresh: true);
+                                      if (_selectdClassroom != null) {
+                                        setState(() {
+                                          _selectedStudent = value;
+                                        });
+                                        _loadRangeFeed(refresh: true);
+                                      }
                                     },
                                   ),
                                 ),
@@ -2031,14 +1997,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                 CustomClearAllChip(
                                   onTap: () {
                                     setState(() {
-                                      _selectdClassroom = null;
+                                      _selectdClassroom = _classroomOptions[0];
                                       _selectedStudent = null;
-                                      _selectedStudentCode = null;
                                       _filterActivityTypes.clear();
                                       _filterTags.clear();
-                                      _updateAvailableStudents();
                                     });
-                                    _loadAllStudentsForDropdown(refresh: true);
                                     _loadRangeFeed(refresh: true);
                                   },
                                   label: 'Clear All',

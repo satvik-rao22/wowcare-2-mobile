@@ -1,12 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 
 String _formatTimeOfDayReadable(TimeOfDay? tod) {
@@ -53,22 +55,52 @@ Future<DateTime?> _selectedInstantUtc({
   }
 }
 
+Future<bool> _shouldSkipAtTimeValidationForCurrentTime({
+  required DateTime date,
+  required DateTime selectedInstantUtc,
+}) async {
+  try {
+    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    final schoolNow =
+        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$1;
+    final isSameDate = schoolNow.year == date.year &&
+        schoolNow.month == date.month &&
+        schoolNow.day == date.day;
+    if (!isSameDate) return false;
+
+    final nowInstantUtc = SchoolZoneDateTime.utcFromSchoolWallClock(
+      schoolTimeZone,
+      year: schoolNow.year,
+      month: schoolNow.month,
+      day: schoolNow.day,
+      hour: schoolNow.hour,
+      minute: schoolNow.minute,
+    );
+
+    // Treat only "current time" as skippable (with 1-minute tolerance).
+    final diff = selectedInstantUtc.difference(nowInstantUtc).inSeconds.abs();
+    return diff <= 60;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
   required ApiClient apiClient,
-  required StorageService storage,
   required List<String> studentCodes,
+  required String classroomCode,
   required DateTime instantUtc,
 }) async {
   if (studentCodes.isEmpty) return const <String, bool>{};
   final endpoint = ApiPaths.url(ApiPaths.studentAttendanceSignInStatusAtTime);
-  final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
-    storage: storage,
-  );
   final response = await apiClient.client.post<dynamic>(
     endpoint,
     data: <String, dynamic>{
+      'classroomCode': classroomCode,
       'studentCodes': studentCodes,
-      'allowedClassroomCodes': allowedClassroomCodes,
       'instant': instantUtc.toIso8601String(),
     },
   );
@@ -85,20 +117,17 @@ Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
 
 Future<Map<String, bool>> _fetchStaffSignedInStatusAtTime({
   required ApiClient apiClient,
-  required StorageService storage,
   required List<String> staffCodes,
+  required String classroomCode,
   required DateTime instantUtc,
 }) async {
   if (staffCodes.isEmpty) return const <String, bool>{};
   final endpoint = ApiPaths.url(ApiPaths.staffAttendanceSignInStatusAtTime);
-  final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
-    storage: storage,
-  );
   final response = await apiClient.client.post<dynamic>(
     endpoint,
     data: <String, dynamic>{
+      'classroomCode': classroomCode,
       'staffCodes': staffCodes,
-      'allowedClassroomCodes': allowedClassroomCodes,
       'instant': instantUtc.toIso8601String(),
     },
   );
@@ -111,6 +140,55 @@ Future<Map<String, bool>> _fetchStaffSignedInStatusAtTime({
     final isPresent = value == true || value.toString().toUpperCase() == 'SIGNED_IN';
     return MapEntry(code, isPresent);
   });
+}
+
+String _resolveClassroomCodeFromSelectedStudents(
+  List<Map<String, dynamic>> students,
+) {
+  for (final student in students) {
+    final dynamic classroomCodeDynamic =
+        student['classroomCode'] ?? student['classroomcode'];
+    final classroomCode =
+        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    if (classroomCode.isNotEmpty) return classroomCode;
+  }
+  return '';
+}
+
+Future<bool> _shouldRunStaffAtTimeValidation(StorageService storage) async {
+  const allowedStaffPersonas = <String>{
+    'STAFF',
+    'TEACHER',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+  };
+  final staffType =
+      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  if (staffType.isNotEmpty) return allowedStaffPersonas.contains(staffType);
+
+  final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+  if (rolesRaw.isEmpty) return false;
+  try {
+    final decoded = jsonDecode(rolesRaw);
+    if (decoded is List) {
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final roleCode = (item['role'] ?? item['code'] ?? '')
+            .toString()
+            .trim()
+            .toUpperCase();
+        if (allowedStaffPersonas.contains(roleCode)) return true;
+      }
+      return false;
+    }
+  } catch (_) {
+    final rawUpper = rolesRaw.toUpperCase();
+    for (final role in allowedStaffPersonas) {
+      if (rawUpper.contains(role)) return true;
+    }
+  }
+  return false;
 }
 
 Future<bool> validateStudentsWithinAttendanceWindow({
@@ -130,14 +208,23 @@ Future<bool> validateStudentsWithinAttendanceWindow({
     time: selectedTime,
   );
   if (instantUtc == null) return true;
+  final shouldSkipAtTimeValidation =
+      await _shouldSkipAtTimeValidationForCurrentTime(
+    date: selectedDate,
+    selectedInstantUtc: instantUtc,
+  );
+  if (shouldSkipAtTimeValidation) return true;
+  final classroomCode = _resolveClassroomCodeFromSelectedStudents(students);
+  if (classroomCode.isEmpty) return true;
 
+  final shouldValidateStaff = await _shouldRunStaffAtTimeValidation(storage);
   final staffCode = (await resolveLoggedInStaffCode() ?? '').trim();
-  if (staffCode.isNotEmpty) {
+  if (shouldValidateStaff && staffCode.isNotEmpty) {
     try {
       final staffStatus = await _fetchStaffSignedInStatusAtTime(
         apiClient: apiClient,
-        storage: storage,
         staffCodes: <String>[staffCode],
+        classroomCode: classroomCode,
         instantUtc: instantUtc,
       );
       final isStaffPresent = staffStatus[staffCode] == true;
@@ -151,7 +238,13 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         return false;
       }
     } catch (_) {
-      // Non-blocking on status API failure; avoid false negatives.
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Unable to validate staff attendance at the selected time. Please try again.',
+        isWarning: true,
+      );
+      return false;
     }
   }
 
@@ -169,8 +262,8 @@ Future<bool> validateStudentsWithinAttendanceWindow({
     try {
       final studentStatus = await _fetchStudentSignedInStatusAtTime(
         apiClient: apiClient,
-        storage: storage,
         studentCodes: studentCodes,
+        classroomCode: classroomCode,
         instantUtc: instantUtc,
       );
       for (final code in studentCodes) {
@@ -186,7 +279,13 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         }
       }
     } catch (_) {
-      // Non-blocking on status API failure; avoid false negatives.
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Unable to validate student attendance at the selected time. Please try again.',
+        isWarning: true,
+      );
+      return false;
     }
   }
   return true;

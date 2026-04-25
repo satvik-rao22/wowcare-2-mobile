@@ -415,6 +415,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       return;
     }
 
+    final selectedClassroomCode =
+        (_classroomCodeByName[_selectedClassroom]?.trim() ?? '');
+    final classroomCodes = selectedClassroomCode.isEmpty
+        ? (_primaryClassroomCode?.trim().isNotEmpty == true
+            ? <String>[_primaryClassroomCode!.trim()]
+            : null)
+        : <String>[selectedClassroomCode];
+
     final tagCodes = _selectedTags
         .map((name) => _tagCodeByName[name])
         .whereType<String>()
@@ -430,7 +438,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       final page = await _getStudentAttendanceCustomUseCase(
         fromAttendanceDate: selectedDate,
         toAttendanceDate: selectedDate,
-        classroomCodes: null,
+        classroomCodes: classroomCodes,
         tagCodes: tagCodes.isEmpty ? null : tagCodes,
         search: _searchController.text.trim().isEmpty
             ? null
