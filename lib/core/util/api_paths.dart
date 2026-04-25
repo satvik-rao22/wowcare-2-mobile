@@ -195,6 +195,9 @@ class ApiPaths {
 
       /// `GET/POST /api/v1/guardian/...` (student MS — devtunnel **8085**).
       case 'guardian':
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
         return ApiMicroservices.student;
       case 'student-attendance':
       case 'student-absence-records':
@@ -493,6 +496,12 @@ class ApiPaths {
       '/api/v2/activities/upload-sessions';
   static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
   static const String activitiesFeedRange = '/api/v2/activities/feed/range';
+  static const String guardianActivitiesFeedDaily =
+      '/api/v2/guardian/activities/feed/daily';
+  static const String guardianActivitiesFeedRange =
+      '/api/v2/guardian/activities/feed/range';
+  static String guardianAcknowledgeActivity(String cardGroupCode) =>
+      '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/acknowledge';
   static String adminApproveActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
   static String adminRejectActivity(String cardGroupCode) =>

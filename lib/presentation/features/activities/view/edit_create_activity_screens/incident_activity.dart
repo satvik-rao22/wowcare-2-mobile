@@ -18,6 +18,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
@@ -58,9 +59,7 @@ class IncidentActivityScreen extends StatefulWidget {
 class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
-  bool get _showRequireAdminApprovalToggle =>
-      !_layoutAsEdit &&
-      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
+  bool get _showRequireAdminApprovalToggle => true;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -74,12 +73,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String? _activityTypeCode;
   String _staffName = '';
   String _staffType = '';
-  bool _requireAdminApproval = false;
+  bool _requireAdminApproval = true;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isAcknowledging = false;
   bool _loadingActivityDetail = false;
+  bool _isGuardianPersona = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
@@ -95,12 +96,20 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
+  late final AcknowledgeActivityUseCase _acknowledgeActivityUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
+  bool get _showGuardianAcknowledgeButton {
+    if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
+    final code = (_effectiveActivity.activityCode ?? '').trim();
+    if (code.isEmpty) return false;
+    return (_effectiveActivity.approvalStatus ?? '').toUpperCase() ==
+        'PARENT_ACKNOWLEDGEMENT_PENDING';
+  }
 
   List<Map<String, dynamic>> _scopedStudentsForCreate() {
     if (_selectedStudentsData.length <= 1 || _scopedEditStudentIndices.isEmpty) {
@@ -219,6 +228,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
+    _acknowledgeActivityUseCase = serviceLocator<AcknowledgeActivityUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
@@ -322,6 +332,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
+    final roles =
+        (await storage.getString(StorageKeys.roles) ?? '').trim().toUpperCase();
     final staffType =
         (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
@@ -334,10 +346,39 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
       _staffType = staffType.toUpperCase();
+      _isGuardianPersona = roles.contains('GUARDIAN') || roles.contains('PARENT');
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
+  }
+
+  Future<void> _onAcknowledgePressed() async {
+    if (_isAcknowledging || !_showGuardianAcknowledgeButton) return;
+    final code = (_effectiveActivity.activityCode ?? '').trim();
+    if (code.isEmpty) return;
+
+    setState(() => _isAcknowledging = true);
+    try {
+      final message = await _acknowledgeActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message.isNotEmpty ? message : 'Activity acknowledged',
+      );
+      await _prefetchActivityForEdit();
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAcknowledging = false);
+      }
+    }
   }
 
   Future<void> _loadActivityContextForCreate() async {
@@ -1482,27 +1523,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
             if (_showRequireAdminApprovalToggle)
-              Row(
-                children: [
-                  const Text(
-                    'Requires Admin Approval',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xff573353),
-                    ),
-                  ),
-                  const Spacer(),
-                  Switch(
-                    value: _requireAdminApproval,
-                    onChanged: (value) {
-                      setState(() {
-                        _requireAdminApproval = value;
-                      });
-                    },
-                  ),
-                ],
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              AbsorbPointer(
+                absorbing: true,
+                child: CustomToggle(
+                  label: 'Requires Admin Approval',
+                  isToggled: true,
+                  labelOnLeftSide: true,
+                  onToggle: (_) {},
+                ),
               ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
@@ -1547,7 +1577,20 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         ),
       ),
       bottomBar: widget.readOnly
-          ? const SafeArea(child: SizedBox.shrink())
+          ? SafeArea(
+              child: _showGuardianAcknowledgeButton
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: CustomButtonLayout(
+                        confirmButtonLabel: 'Acknowledge',
+                        onPressedConfirm: _onAcknowledgePressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading: _isAcknowledging || _loadingActivityDetail,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            )
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),

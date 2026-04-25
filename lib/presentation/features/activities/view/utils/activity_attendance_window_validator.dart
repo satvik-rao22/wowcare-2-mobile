@@ -58,7 +58,13 @@ Future<DateTime?> _selectedInstantUtc({
 Future<bool> _shouldSkipAtTimeValidationForCurrentTime({
   required DateTime date,
   required DateTime selectedInstantUtc,
+  required TimeOfDay selectedTime,
 }) async {
+  // Fast path: selected instant is effectively "now" in UTC (device clock).
+  final deviceNowDiffSeconds =
+      selectedInstantUtc.difference(DateTime.now().toUtc()).inSeconds.abs();
+  if (deviceNowDiffSeconds <= 180) return true;
+
   try {
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -66,11 +72,6 @@ Future<bool> _shouldSkipAtTimeValidationForCurrentTime({
     );
     final schoolNow =
         SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$1;
-    final isSameDate = schoolNow.year == date.year &&
-        schoolNow.month == date.month &&
-        schoolNow.day == date.day;
-    if (!isSameDate) return false;
-
     final nowInstantUtc = SchoolZoneDateTime.utcFromSchoolWallClock(
       schoolTimeZone,
       year: schoolNow.year,
@@ -80,11 +81,21 @@ Future<bool> _shouldSkipAtTimeValidationForCurrentTime({
       minute: schoolNow.minute,
     );
 
-    // Treat only "current time" as skippable (with 1-minute tolerance).
-    final diff = selectedInstantUtc.difference(nowInstantUtc).inSeconds.abs();
-    return diff <= 60;
+    // Skip validation when user selected current wall-clock minute.
+    final selectedMatchesNowMinute =
+        selectedTime.hour == schoolNow.hour && selectedTime.minute == schoolNow.minute;
+    if (selectedMatchesNowMinute) return true;
+
+    // Fallback tolerance for clock drift / rounding.
+    // When selected date differs due timezone/day rollover edge cases, instant diff
+    // is still authoritative for "current time" checks.
+    final diffSeconds = selectedInstantUtc.difference(nowInstantUtc).inSeconds.abs();
+    return diffSeconds <= 180;
   } catch (_) {
-    return false;
+    // Final fallback if school timezone resolution fails.
+    final fallbackDiffSeconds =
+        selectedInstantUtc.difference(DateTime.now().toUtc()).inSeconds.abs();
+    return fallbackDiffSeconds <= 180;
   }
 }
 
@@ -212,6 +223,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       await _shouldSkipAtTimeValidationForCurrentTime(
     date: selectedDate,
     selectedInstantUtc: instantUtc,
+    selectedTime: selectedTime,
   );
   if (shouldSkipAtTimeValidation) return true;
   final classroomCode = _resolveClassroomCodeFromSelectedStudents(students);

@@ -6,7 +6,6 @@ import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
-import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
@@ -30,15 +29,6 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
  final List<String> _fetchedStaffNames = [];
  bool _loadingStaffs = false;
  late final CacheManager _cacheManager;
-
-
-  void _showWarningMessage(String message) {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: message,
-      isWarning: true,
-    );
-  }
 
   @override
   void initState(){
@@ -194,11 +184,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
         InkWell(
-          onTap: !widget.isEditable ?(){
-            _showWarningMessage("Can not be edited.");
-          } : null,
+          onTap: null,
           child: Opacity(
-            opacity: widget.isEditable ? 1.0 : widget.incidentActivity ? 1.0 : 0.4,
+            opacity: widget.isEditable ? 1.0 : 0.4,
             child: CustomDropdown(
               hintText: 'Select present staff',
               items: staffList,

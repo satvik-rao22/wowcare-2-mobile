@@ -11,6 +11,7 @@ class GetDailyActivityFeedUseCase {
     required String date,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) {
@@ -19,6 +20,7 @@ class GetDailyActivityFeedUseCase {
       date: date,
       studentCode: studentCode,
       activityTypeCode: activityTypeCode,
+      guardianPersona: guardianPersona,
       page: page,
       size: size,
     );

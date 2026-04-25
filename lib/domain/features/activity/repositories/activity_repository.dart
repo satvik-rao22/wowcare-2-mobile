@@ -37,6 +37,7 @@ abstract class ActivityRepository {
     required String date,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -48,6 +49,7 @@ abstract class ActivityRepository {
     required String endDate,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -75,6 +77,9 @@ abstract class ActivityRepository {
 
   /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
   Future<String> rejectActivity({required String code});
+
+  /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
+  Future<String> acknowledgeActivity({required String code});
 
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({

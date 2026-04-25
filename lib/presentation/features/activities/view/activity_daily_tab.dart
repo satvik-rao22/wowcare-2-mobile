@@ -1251,6 +1251,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           date: dateStr,
           studentCode: selectedStudentCode,
           activityTypeCode: typeCode,
+          guardianPersona: _parentHome,
           page: pageIndex,
           size: _feedPageSize,
         ),
@@ -1378,6 +1379,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             date: dateStr,
             studentCode: sc,
             activityTypeCode: typeCode,
+            guardianPersona: true,
             page: 0,
             size: _feedPageSize,
           );
@@ -1459,6 +1461,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             date: dateStr,
             studentCode: sc,
             activityTypeCode: typeCode,
+            guardianPersona: true,
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -1586,6 +1589,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           date: dateStr,
           studentCode: selectedStudentCode,
           activityTypeCode: typeCode,
+          guardianPersona: _parentHome,
           page: 0,
           size: _feedPageSize,
         ),
@@ -2497,7 +2501,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                               ),
                                                             ),
                                                           ),
-                                                          if (isNotParent)
+                                                          if (isNotParent ||
+                                                              activity.name
+                                                                  .toLowerCase() ==
+                                                                  'incident')
                                                             PopupMenuButton<
                                                               String
                                                             >(
@@ -4032,7 +4039,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (isNotParent)
+                                                                if (isNotParent ||
+                                                                    activity.name
+                                                                        .toLowerCase() ==
+                                                                        'incident')
                                                                   PopupMenuButton<
                                                                     String
                                                                   >(

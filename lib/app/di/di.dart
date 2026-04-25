@@ -113,6 +113,7 @@ import '../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../domain/features/activity/usecases/approve_activity_usecase.dart';
+import '../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
 import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
@@ -513,6 +514,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<RejectActivityUseCase>(
     () => RejectActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AcknowledgeActivityUseCase>(
+    () => AcknowledgeActivityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
     () => CreateActivityUploadSessionsUseCase(serviceLocator()),

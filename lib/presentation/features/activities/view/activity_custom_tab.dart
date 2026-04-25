@@ -669,6 +669,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
           activityTypeCode: typeCode,
+          guardianPersona: _parentHome,
           page: pageIndex,
           size: _feedPageSize,
         ),
@@ -1639,6 +1640,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
           activityTypeCode: typeCode,
+          guardianPersona: _parentHome,
           page: 0,
           size: _feedPageSize,
         ),
@@ -2495,7 +2497,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                   ],
                                                                 ),
                                                               ),
-                                                              if (isNotParent)
+                                                              if (isNotParent ||
+                                                                  activity.name
+                                                                      .toLowerCase() ==
+                                                                      'incident')
                                                                 PopupMenuButton<
                                                                   String
                                                                 >(

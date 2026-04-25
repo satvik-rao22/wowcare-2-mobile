@@ -36,6 +36,9 @@ abstract class ActivityRemoteDataSource {
   /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
   Future<String> rejectActivity({required String cardGroupCode});
 
+  /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
+  Future<String> acknowledgeActivity({required String cardGroupCode});
+
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
@@ -101,6 +104,7 @@ abstract class ActivityRemoteDataSource {
     required String date,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -112,6 +116,7 @@ abstract class ActivityRemoteDataSource {
     required String endDate,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -273,6 +278,23 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       return message.trim();
     }
     return 'Activity rejected successfully';
+  }
+
+  @override
+  Future<String> acknowledgeActivity({required String cardGroupCode}) async {
+    final endpoint = ApiPaths.url(
+      ApiPaths.guardianAcknowledgeActivity(cardGroupCode),
+    );
+    final response = await _client.post<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian-acknowledge API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity acknowledged successfully';
   }
 
   @override
@@ -544,11 +566,14 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String date,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final base = ApiPaths.urlWithBase(
-      ApiPaths.activitiesFeedDaily,
+      guardianPersona
+          ? ApiPaths.guardianActivitiesFeedDaily
+          : ApiPaths.activitiesFeedDaily,
       ApiConstants.activityBaseUrl,
     );
     final qp = <String, String>{
@@ -585,11 +610,14 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String endDate,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final base = ApiPaths.urlWithBase(
-      ApiPaths.activitiesFeedRange,
+      guardianPersona
+          ? ApiPaths.guardianActivitiesFeedRange
+          : ApiPaths.activitiesFeedRange,
       ApiConstants.activityBaseUrl,
     );
 

@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -57,7 +58,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _showRequireAdminApprovalToggle =>
-      !_layoutAsEdit &&
       !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -1192,27 +1192,17 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
             if (_showRequireAdminApprovalToggle)
-              Row(
-                children: [
-                  const Text(
-                    'Requires Admin Approval',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xff573353),
-                    ),
-                  ),
-                  const Spacer(),
-                  Switch(
-                    value: _requireAdminApproval,
-                    onChanged: (value) {
-                      setState(() {
-                        _requireAdminApproval = value;
-                      });
-                    },
-                  ),
-                ],
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              CustomToggle(
+                label: 'Requires Admin Approval',
+                isToggled: _requireAdminApproval,
+                labelOnLeftSide: true,
+                onToggle: (value) {
+                  setState(() {
+                    _requireAdminApproval = value;
+                  });
+                },
               ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)

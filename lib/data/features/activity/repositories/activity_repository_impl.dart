@@ -140,6 +140,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String date,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
@@ -148,6 +149,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       date: date,
       studentCode: studentCode,
       activityTypeCode: activityTypeCode,
+      guardianPersona: guardianPersona,
       page: page,
       size: size,
     );
@@ -161,6 +163,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String endDate,
     String? studentCode,
     String? activityTypeCode,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
@@ -170,6 +173,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       endDate: endDate,
       studentCode: studentCode,
       activityTypeCode: activityTypeCode,
+      guardianPersona: guardianPersona,
       page: page,
       size: size,
     );
@@ -243,6 +247,15 @@ class ActivityRepositoryImpl implements ActivityRepository {
   @override
   Future<String> rejectActivity({required String code}) async {
     final message = await _remoteDataSource.rejectActivity(
+      cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> acknowledgeActivity({required String code}) async {
+    final message = await _remoteDataSource.acknowledgeActivity(
       cardGroupCode: code,
     );
     await ActivityFeedInvalidation.invalidate(_storageService);
