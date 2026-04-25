@@ -67,9 +67,10 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _mealType = ['Breakfast', 'Lunch', 'Snack'];
-  /// Matches backend Meal "Quantity" dropdown (All / Most / Some / None).
-  final List<String> _quantityOptions = ['All', 'Most', 'Some', 'None'];
+  List<ActivityTypeParameterOption> _mealTypeParamOptions = [];
+  List<ActivityTypeParameterOption> _quantityParamOptions = [];
+  List<String> _mealType = [];
+  List<String> _quantityOptions = [];
 
   String? _selectedMealType;
   String? _selectedQuantity;
@@ -84,6 +85,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _loadingMealOptions = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
@@ -125,12 +127,9 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
-      _selectedMealType = activity.mealType;
+      _selectedMealType = activity.mealType?.trim();
       final q = activity.mealQuantity?.trim();
-      _selectedQuantity =
-          (q != null && q.isNotEmpty && _quantityOptions.contains(q))
-              ? q
-              : null;
+      _selectedQuantity = (q != null && q.isNotEmpty) ? q : null;
       _activityTypeCode = activity.activityTypeCode;
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
@@ -142,6 +141,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
+        await _loadMealParameterOptions();
       });
     }
     _loadStaffContext();
@@ -166,12 +166,9 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text = item.description ?? '';
-        _selectedMealType = item.mealType;
+        _selectedMealType = item.mealType?.trim();
         final q = item.mealQuantity?.trim();
-        _selectedQuantity =
-            (q != null && q.isNotEmpty && _quantityOptions.contains(q))
-                ? q
-                : null;
+        _selectedQuantity = (q != null && q.isNotEmpty) ? q : null;
         _activityTypeCode = item.activityTypeCode;
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
@@ -182,6 +179,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           } catch (_) {}
         }
       });
+      await _loadMealParameterOptions();
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -238,6 +236,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
         setState(() {
           _activityTypeCode = mealSetting!.activityTypeCode;
         });
+        await _loadMealParameterOptions();
       }
     } catch (e) {
       CoreUtils.logApiError('Failed to load activity settings for Meal: $e');
@@ -294,6 +293,72 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       if (n.contains('quant')) return p;
     }
     return null;
+  }
+
+  String? _canonicalLabelFromOptions(
+    String? rawValue,
+    List<ActivityTypeParameterOption> options,
+  ) {
+    final raw = (rawValue ?? '').trim();
+    if (raw.isEmpty) return null;
+    for (final o in options) {
+      final label = (o.optionLabel ?? '').trim();
+      final optionCode = (o.optionCode ?? o.code).trim();
+      final rawCode = o.code.trim();
+      if (label.isNotEmpty && label.toLowerCase() == raw.toLowerCase()) {
+        return label;
+      }
+      if (optionCode.isNotEmpty &&
+          optionCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+      if (rawCode.isNotEmpty &&
+          rawCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadMealParameterOptions() async {
+    final code = _activityTypeCode?.trim();
+    if (code == null || code.isEmpty || !mounted) return;
+    setState(() => _loadingMealOptions = true);
+    try {
+      final details = await _getActivityTypeDetailsUseCase(code: code);
+      if (!mounted) return;
+      final mealParam = _findMealTypeParameter(details.parameters);
+      final quantityParam = _findQuantityParameter(details.parameters);
+      final mealOptions = List<ActivityTypeParameterOption>.from(
+        mealParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final qtyOptions = List<ActivityTypeParameterOption>.from(
+        quantityParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      setState(() {
+        _mealTypeParamOptions = mealOptions;
+        _quantityParamOptions = qtyOptions;
+        _mealType = mealOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _quantityOptions = qtyOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _selectedMealType =
+            _canonicalLabelFromOptions(_selectedMealType, _mealTypeParamOptions);
+        _selectedQuantity =
+            _canonicalLabelFromOptions(_selectedQuantity, _quantityParamOptions);
+        _loadingMealOptions = false;
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Failed to load Meal parameter options: $e');
+      if (!mounted) return;
+      setState(() => _loadingMealOptions = false);
+    }
   }
 
   Future<void> _submitCreateActivity() async {
@@ -896,7 +961,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               dropDownName: 'Meal Type',
               selectedValue: _selectedMealType,
               isRequired: true,
-              isEnabled: _canInteract,
+              isEnabled:
+                  _canInteract && !_loadingMealOptions && _mealType.isNotEmpty,
               onSelect: (value) {
                 setState(() {
                   _selectedMealType = value;
@@ -909,7 +975,9 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               dropDownName: 'Quantity',
               selectedValue: _selectedQuantity,
               isRequired: true,
-              isEnabled: _canInteract,
+              isEnabled: _canInteract &&
+                  !_loadingMealOptions &&
+                  _quantityOptions.isNotEmpty,
               onSelect: (value) {
                 setState(() {
                   _selectedQuantity = value;
@@ -1024,7 +1092,9 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                   onPressedConfirm: _onPressedBottom,
                   showCancelButton: false,
                   isForm: false,
-                  isLoading: _isSubmitting || _loadingActivityDetail,
+                  isLoading: _isSubmitting ||
+                      _loadingActivityDetail ||
+                      _loadingMealOptions,
                 ),
               ),
             ),

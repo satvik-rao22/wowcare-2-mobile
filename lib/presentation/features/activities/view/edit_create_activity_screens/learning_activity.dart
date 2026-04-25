@@ -74,25 +74,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _activityType = [
-    'Art and Craft',
-    'Circle Time',
-    'Morning Time',
-    'Music and Movement',
-    'Puzzle Time',
-    'Other',
-  ];
-  final List<String> _category = [
-    'Creativity',
-    'Empathy',
-    'Self care',
-    'Math/Science',
-    'Communication',
-    'Language',
-    'Teamwork',
-    'Decision making',
-    'Other',
-  ];
+  List<ActivityTypeParameterOption> _activityNameParamOptions = [];
+  List<ActivityTypeParameterOption> _categoryParamOptions = [];
+  List<String> _activityType = [];
+  List<String> _category = [];
   String? _selectedCategory;
   String? _selectedActivityType;
 
@@ -106,6 +91,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _loadingLearningOptions = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
@@ -156,7 +142,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
           activity.description ?? activity.whatHappened ?? '';
-      _selectedActivityType = activity.activityType ?? '';
+      _selectedActivityType = activity.activityType?.trim();
       final cats = activity.categoryType;
       _selectedCategory = (cats != null && cats.isNotEmpty) ? cats.first : null;
       _activityTypeCode = activity.activityTypeCode;
@@ -181,6 +167,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
+        await _loadLearningParameterOptions();
       });
     }
     _loadStaffContext();
@@ -206,7 +193,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         }
         _descriptionController.text =
             item.description ?? item.whatHappened ?? '';
-        _selectedActivityType = item.activityType ?? '';
+        _selectedActivityType = item.activityType?.trim();
         final cats = item.categoryType;
         _selectedCategory = (cats != null && cats.isNotEmpty)
             ? cats.first
@@ -232,6 +219,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           } catch (_) {}
         }
       });
+      await _loadLearningParameterOptions();
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -289,6 +277,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         setState(() {
           _activityTypeCode = learningSetting!.activityTypeCode;
         });
+        await _loadLearningParameterOptions();
       }
     } catch (e) {
       CoreUtils.logApiError(
@@ -348,6 +337,76 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       if (n.contains('categor')) return p;
     }
     return null;
+  }
+
+  String? _canonicalLabelFromOptions(
+    String? rawValue,
+    List<ActivityTypeParameterOption> options,
+  ) {
+    final raw = (rawValue ?? '').trim();
+    if (raw.isEmpty) return null;
+    for (final o in options) {
+      final label = (o.optionLabel ?? '').trim();
+      final optionCode = (o.optionCode ?? o.code).trim();
+      final rawCode = o.code.trim();
+      if (label.isNotEmpty && label.toLowerCase() == raw.toLowerCase()) {
+        return label;
+      }
+      if (optionCode.isNotEmpty &&
+          optionCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+      if (rawCode.isNotEmpty &&
+          rawCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadLearningParameterOptions() async {
+    final code = _activityTypeCode?.trim();
+    if (code == null || code.isEmpty || !mounted) return;
+    setState(() => _loadingLearningOptions = true);
+    try {
+      final details = await _getActivityTypeDetailsUseCase(code: code);
+      if (!mounted) return;
+      final activityParam = _findActivityNameParameter(details.parameters);
+      final categoryParam = _findCategoryParameter(details.parameters);
+      final activityOptions = List<ActivityTypeParameterOption>.from(
+        activityParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final categoryOptions = List<ActivityTypeParameterOption>.from(
+        categoryParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      setState(() {
+        _activityNameParamOptions = activityOptions;
+        _categoryParamOptions = categoryOptions;
+        _activityType = activityOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _category = categoryOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _selectedActivityType = _canonicalLabelFromOptions(
+          _selectedActivityType,
+          _activityNameParamOptions,
+        );
+        _selectedCategory = _canonicalLabelFromOptions(
+          _selectedCategory,
+          _categoryParamOptions,
+        );
+        _loadingLearningOptions = false;
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Failed to load Learning parameter options: $e');
+      if (!mounted) return;
+      setState(() => _loadingLearningOptions = false);
+    }
   }
 
   Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
@@ -681,14 +740,6 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
-
     // Ensure the API payload uses the attendance date chosen on student selection.
     final prefilled = widget.selectedStudents != null
         ? resolveSelectedAttendanceDate(_selectedStudentsData)
@@ -960,13 +1011,6 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -1337,7 +1381,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     dropDownName: 'Activity Name',
                     selectedValue: _selectedActivityType,
                     isRequired: true,
-                    isEnabled: _canInteract,
+                    isEnabled: _canInteract &&
+                        !_loadingLearningOptions &&
+                        _activityType.isNotEmpty,
                     onSelect: (value) {
                       setState(() {
                         _selectedActivityType = value;
@@ -1352,7 +1398,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     hintText: 'Select category',
                     items: _category,
                     selectedItem: _selectedCategory,
-                    isEnabled: _canInteract,
+                    isEnabled: _canInteract &&
+                        !_loadingLearningOptions &&
+                        _category.isNotEmpty,
                     onSelect: (value) {
                       setState(() {
                         _selectedCategory = value;
@@ -1459,7 +1507,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   isLoading:
                       _isSubmitting ||
                       _isUploadingMedia ||
-                      _loadingActivityDetail,
+                      _loadingActivityDetail ||
+                      _loadingLearningOptions,
                 ),
               ),
             ),
