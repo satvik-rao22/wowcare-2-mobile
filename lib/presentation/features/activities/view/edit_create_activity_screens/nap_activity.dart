@@ -52,6 +52,9 @@ class NapActivityScreen extends StatefulWidget {
 class _NapActivityScreenState extends State<NapActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _showRequireAdminApprovalToggle =>
+      !_layoutAsEdit &&
+      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -63,6 +66,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   String? _activityTypeCode;
   String _staffName = '';
   String _staffType = '';
+  bool _requireAdminApproval = false;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -329,6 +333,65 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     return nappingSelectedCount == selectedSet.length;
   }
 
+  bool? _resolveNapEndFromSelectedStudentsData() {
+    if (_selectedStudentsData.isEmpty) return null;
+    var hasNapping = false;
+    var hasNotNapping = false;
+
+    for (final student in _selectedStudentsData) {
+      final raw = student['nappingStatus'];
+      final isNapping = raw == true;
+      if (isNapping) {
+        hasNapping = true;
+      } else {
+        hasNotNapping = true;
+      }
+      if (hasNapping && hasNotNapping) {
+        return null;
+      }
+    }
+
+    // If all selected students are currently napping, this event is nap end.
+    return hasNapping && !hasNotNapping;
+  }
+
+  Future<bool?> _resolveNapEndForCreate({
+    required String classroomCode,
+    required List<String> studentCodes,
+  }) async {
+    final fromSelection = _resolveNapEndFromSelectedStudentsData();
+    if (fromSelection != null) {
+      return fromSelection;
+    }
+    return _resolveNapEndFromCurrentStatus(
+      classroomCode: classroomCode,
+      studentCodes: studentCodes,
+    );
+  }
+
+  String _timeLabelForCurrentContext() {
+    if (_layoutAsEdit) return 'Time';
+    final fromSelection = _resolveNapEndFromSelectedStudentsData();
+    if (fromSelection == true) return 'End Time';
+    if (fromSelection == false) return 'Start Time';
+    return 'Time';
+  }
+
+  bool _isNapEndContextForUi() {
+    if (_layoutAsEdit) {
+      return _effectiveActivity.name == 'Nap End';
+    }
+    return _resolveNapEndFromSelectedStudentsData() == true;
+  }
+
+  String _descriptionLabelForContext() {
+    return _isNapEndContextForUi() ? 'Nap End' : 'Description';
+  }
+
+  String _descriptionHintForContext() {
+    return _isNapEndContextForUi() ? 'Nap Ended' : 'Enter Description';
+  }
+
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -350,7 +413,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (!isWithinAttendanceWindow) return;
 
 
-    final description = _descriptionController.text.trim();
+    final enteredDescription = _descriptionController.text.trim();
+    var description = enteredDescription;
     if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -463,14 +527,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           '${_activityDate!.year}-${_two(_activityDate!.month)}-${_two(_activityDate!.day)}';
       final localTime = '${_two(t.hour)}:${_two(t.minute)}:00';
 
-      final combinedDateTime = DateTime(
-        _activityDate!.year,
-        _activityDate!.month,
-        _activityDate!.day,
-        t.hour,
-        t.minute,
-      );
-
       // Ensure the API payload uses the attendance date chosen on student selection.
       final prefilled = widget.selectedStudents != null
           ? resolveSelectedAttendanceDate(_selectedStudentsData)
@@ -498,11 +554,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final isNapEnd = await _resolveNapEndFromCurrentStatus(
+      final isNapEnd = await _resolveNapEndForCreate(
         classroomCode: classroomCode,
         studentCodes: studentCodes,
       );
       if (isNapEnd == null) return;
+      if (description.isEmpty) {
+        description = isNapEnd ? 'Nap Ended' : 'Nap Started';
+      }
       _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
 
       final message = await _createActivityUseCase(
@@ -516,6 +575,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         description: description,
         napStart: !isNapEnd,
         napEnd: isNapEnd,
+        requireAdminApproval: _requireAdminApproval,
         parameterValues: parameterValues,
         attachments: const [],
       );
@@ -619,13 +679,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     }
 
     final t = _activityTime!;
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      t.hour,
-      t.minute,
-    );
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -875,7 +928,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                 Flexible(
                   child: _layoutAsEdit
                       ? TimeWidget(
-                          label: 'Time',
+                          label: _timeLabelForCurrentContext(),
                           isEditable: _canInteract,
                           isRequired: true,
                           prefilledTime: _prefilledTimeForEdit(),
@@ -886,7 +939,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : TimeWidget(
-                          label: 'Time',
+                          label: _timeLabelForCurrentContext(),
                           isRequired: true,
                           isEditable: true,
                           onTimeChanged: (t) {
@@ -924,11 +977,35 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             InputWidget(
               controller: _descriptionController,
               height: 100,
-              hint: 'Enter Description',
+              label: _descriptionLabelForContext(),
+              hint: _descriptionHintForContext(),
               isRequired: false,
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              Row(
+                children: [
+                  const Text(
+                    'Requires Admin Approval',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: _requireAdminApproval,
+                    onChanged: (value) {
+                      setState(() {
+                        _requireAdminApproval = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),

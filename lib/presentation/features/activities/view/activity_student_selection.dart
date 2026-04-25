@@ -21,6 +21,7 @@ import '../../../../data/features/attendance/datasources/attendance_remote_datas
 import '../../../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -71,6 +72,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
+  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   String? _schoolCode;
   String _schoolTimeZone = SchoolTimezoneResolver.fallbackTimeZone;
   DateTime _selectedAttendanceDate = DateTime.now();
@@ -80,6 +82,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   bool _isLoadingFilters = false;
   bool _isLoadingStudents = false;
   String? _studentsError;
+  Set<String> _nappingStudentCodes = <String>{};
 
   List<StudentAttendanceCustomItem> get _filteredStudents {
     final query = _searchController.text.trim().toLowerCase();
@@ -168,6 +171,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       final repo = AttendanceRepositoryImpl(remote, _storageService, apiClient);
       _getStudentAttendanceCustomUseCase = GetStudentAttendanceCustomUseCase(repo);
     }
+    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initFiltersAndLoad();
@@ -448,11 +452,29 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       );
       final students =
           page.items.where((item) => item.hasSignIn).toList(growable: false);
+      var nappingCodes = <String>{};
+      if (selectedClassroomCode.isNotEmpty) {
+        try {
+          final napStartStudents = await _getNapStartStudentsUseCase(
+            classroomCode: selectedClassroomCode,
+          );
+          nappingCodes = napStartStudents
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toSet();
+        } catch (error) {
+          CoreUtils.logApiError(
+            'Failed to load nap-start students for classroom $selectedClassroomCode: '
+            '${ApiErrorHandler.extractErrorMessage(error)}',
+          );
+        }
+      }
 
       if (!mounted) return;
 
       setState(() {
         _studentsForCurrentFilters = students;
+        _nappingStudentCodes = nappingCodes;
         _isLoadingStudents = false;
         _studentsError = null;
       });
@@ -628,6 +650,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                     _selectAll = newVal;
                                     if (newVal) {
                         for (final student in _filteredStudents) {
+                          final isNapping =
+                              _nappingStudentCodes.contains(student.studentCode);
                                         _selectedStudents.add({
                             'name': student.studentName,
                                           'classroom': _classroomLabelForStudent(student),
@@ -639,7 +663,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                             'signedIn': student.hasSignIn,
                             'absent': false,
                             'notMarked': false,
-                            'nappingStatus': false,
+                            'nappingStatus': isNapping,
                             'photoPermission': true,
                             'notes': '',
                             'medication': '',
@@ -739,7 +763,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                           final student = _filteredStudents[index];
                           final String name = student.studentName;
                           final String studentCode = student.studentCode;
-                          const bool isNapping = false;
+                          final bool isNapping =
+                              _nappingStudentCodes.contains(studentCode);
 
                           final bool isSelected = _selectedStudents.any(
                             (s) => s['studentCode'] == studentCode,

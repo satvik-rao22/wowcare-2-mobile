@@ -70,6 +70,12 @@ abstract class ActivityRepository {
   /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/approve`.
+  Future<String> approveActivity({required String code});
+
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
+  Future<String> rejectActivity({required String code});
+
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required String activityTypeCode,
@@ -82,6 +88,7 @@ abstract class ActivityRepository {
     required String description,
     bool? napStart,
     bool? napEnd,
+    bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues,
     List<Map<String, dynamic>> attachments,
   });
@@ -98,6 +105,7 @@ abstract class ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? requireAdminApproval,
     required List<Map<String, dynamic>> attachments,
     List<Map<String, dynamic>> parameterValues,
   });

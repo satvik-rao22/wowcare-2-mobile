@@ -232,6 +232,24 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<String> approveActivity({required String code}) async {
+    final message = await _remoteDataSource.approveActivity(
+      cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> rejectActivity({required String code}) async {
+    final message = await _remoteDataSource.rejectActivity(
+      cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
   Future<String> createActivity({
     required String activityTypeCode,
     required String classroomCode,
@@ -243,6 +261,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String description,
     bool? napStart,
     bool? napEnd,
+    bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
@@ -257,6 +276,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       description: description,
       napStart: napStart,
       napEnd: napEnd,
+      requireAdminApproval: requireAdminApproval,
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
       bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       parameterValues: parameterValues,
@@ -278,6 +298,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? requireAdminApproval,
     required List<Map<String, dynamic>> attachments,
     List<Map<String, dynamic>> parameterValues = const [],
   }) async {
@@ -291,6 +312,8 @@ class ActivityRepositoryImpl implements ActivityRepository {
       'activityDate': activityDate,
       'description': description,
       'bindingMode': 'SHARED',
+      if (requireAdminApproval != null)
+        'requireAdminApproval': requireAdminApproval,
       if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
       'attachments': attachments,
     };

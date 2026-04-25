@@ -30,6 +30,12 @@ abstract class ActivityRemoteDataSource {
   /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/approve`.
+  Future<String> approveActivity({required String cardGroupCode});
+
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
+  Future<String> rejectActivity({required String cardGroupCode});
+
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
@@ -237,6 +243,36 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       return message.trim();
     }
     return 'Activity deleted successfully';
+  }
+
+  @override
+  Future<String> approveActivity({required String cardGroupCode}) async {
+    final endpoint = ApiPaths.url(ApiPaths.adminApproveActivity(cardGroupCode));
+    final response = await _client.post<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected approve-activity API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity approved successfully';
+  }
+
+  @override
+  Future<String> rejectActivity({required String cardGroupCode}) async {
+    final endpoint = ApiPaths.url(ApiPaths.adminRejectActivity(cardGroupCode));
+    final response = await _client.post<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected reject-activity API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity rejected successfully';
   }
 
   @override

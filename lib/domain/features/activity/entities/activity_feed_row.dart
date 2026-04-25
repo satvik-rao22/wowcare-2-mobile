@@ -19,6 +19,9 @@ class ActivityFeedRow extends Equatable {
     required this.parameterValues,
     required this.attachments,
     this.students = const [],
+    this.napStart,
+    this.napEnd,
+    this.approvalStatus,
   });
 
   /// Present on feed rows and on `GET /api/v1/activities/code/{code}` — used for edit/PATCH.
@@ -36,6 +39,9 @@ class ActivityFeedRow extends Equatable {
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
   final List<Map<String, String>> students;
+  final bool? napStart;
+  final bool? napEnd;
+  final String? approvalStatus;
 
   factory ActivityFeedRow.fromActivityDetail(ActivityDetail d) {
     final firstName = d.studentFirstName.trim();
@@ -59,6 +65,9 @@ class ActivityFeedRow extends Equatable {
       createdBy: d.createdBy,
       parameterValues: d.parameterValues,
       attachments: d.attachments,
+      napStart: null,
+      napEnd: null,
+      approvalStatus: null,
       students: fullName.isEmpty
           ? const []
           : [
@@ -103,6 +112,9 @@ class ActivityFeedRow extends Equatable {
         parameterValues,
         attachments,
         students,
+        napStart,
+        napEnd,
+        approvalStatus,
       ];
 }
 

@@ -165,6 +165,7 @@ class ApiPaths {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
+    final nextSeg = parts.length > 3 ? parts[3] : '';
     switch (seg) {
       case 'auth':
       case 'users':
@@ -211,6 +212,13 @@ class ApiPaths {
       case 'shared-activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'admin':
+        // v2 admin activity moderation endpoints, e.g.
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
       case 'conversations':
         return ApiMicroservices.communication;
       default:
@@ -485,6 +493,10 @@ class ApiPaths {
       '/api/v2/activities/upload-sessions';
   static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
   static const String activitiesFeedRange = '/api/v2/activities/feed/range';
+  static String adminApproveActivity(String cardGroupCode) =>
+      '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
+  static String adminRejectActivity(String cardGroupCode) =>
+      '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/reject';
   static const String activityTypesRoot = '/api/v1/activity-types';
 
   // —— Document host (base path returned by upload-session response) ——

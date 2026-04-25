@@ -299,6 +299,7 @@ class MediaRes {
 
   static const String greenCheckCircleIcon =
       '$_baseIcons/green-check-circle.svg';
+  static const String redCrossCircleIcon = '$_baseIcons/red-cross-circle.svg';
   static const String homeIcon = '$_baseIcons/Home.svg';
 
   // Attendance sign-in/out method icons

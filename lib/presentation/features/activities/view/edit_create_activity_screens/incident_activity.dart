@@ -58,6 +58,9 @@ class IncidentActivityScreen extends StatefulWidget {
 class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _showRequireAdminApprovalToggle =>
+      !_layoutAsEdit &&
+      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -71,6 +74,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String? _activityTypeCode;
   String _staffName = '';
   String _staffType = '';
+  bool _requireAdminApproval = false;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -640,6 +644,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: whatHappened,
+        requireAdminApproval: _requireAdminApproval,
         parameterValues: parameterValues,
         attachments: attachments,
       );
@@ -1476,6 +1481,29 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              Row(
+                children: [
+                  const Text(
+                    'Requires Admin Approval',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: _requireAdminApproval,
+                    onChanged: (value) {
+                      setState(() {
+                        _requireAdminApproval = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
               IgnorePointer(

@@ -29,6 +29,8 @@ import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
+import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
+import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
@@ -146,9 +148,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   StreamSubscription<void>? _feedInvalidationSub;
+  bool _isAdminPersona = false;
 
   final List<String> activityType = [
     'Sign-in',
@@ -306,6 +311,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         serviceLocator<GetStudentAttendanceDailyUseCase>();
     _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -1094,9 +1101,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   Future<void> _bootstrapRangeFeed() async {
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    final roles =
+        (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final staffType =
+        (await _storageService.getString(StorageKeys.staffType) ?? '')
+            .trim()
+            .toUpperCase();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
+        _isAdminPersona = roles.contains('ADMIN') ||
+            staffType == 'SCHOOL_ADMIN' ||
+            staffType == 'ORGANIZATION_ADMIN';
       });
     }
 
@@ -1455,6 +1471,94 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         context: context,
       );
     }
+  }
+
+  Future<void> _approveActivityFromMenu(ActivityItem activity) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot approve: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      await _loadRangeFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    }
+  }
+
+  Future<void> _rejectActivityFromMenu(ActivityItem activity) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot reject: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      await _loadRangeFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    }
+  }
+
+  Future<void> _showApprovalActionBottomSheet({
+    required ActivityItem activity,
+    required bool isApprove,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DeleteConfirmationBottomSheet(
+          name: activity.name,
+          type: isApprove ? 'activity_approve' : 'activity_reject',
+          onDelete: () async {
+            if (isApprove) {
+              await _approveActivityFromMenu(activity);
+            } else {
+              await _rejectActivityFromMenu(activity);
+            }
+            if (ctx.mounted) Navigator.of(ctx).pop();
+          },
+          onCancel: () {
+            Navigator.of(ctx).pop();
+          },
+        );
+      },
+    );
   }
 
   Future<void> _loadRangeFeed({bool refresh = false}) async {
@@ -2334,32 +2438,61 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                 MainAxisAlignment
                                                                     .spaceBetween,
                                                             children: [
-                                                              Container(
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          12,
-                                                                      vertical:
-                                                                          6,
+                                                              Expanded(
+                                                                child: Wrap(
+                                                                  spacing: 8,
+                                                                  runSpacing: 6,
+                                                                  crossAxisAlignment:
+                                                                      WrapCrossAlignment.center,
+                                                                  children: [
+                                                                    Container(
+                                                                      padding: const EdgeInsets.symmetric(
+                                                                        horizontal: 12,
+                                                                        vertical: 6,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color: activityColor.withOpacity(
+                                                                          0.5,
+                                                                        ),
+                                                                        borderRadius: BorderRadius.circular(
+                                                                          4,
+                                                                        ),
+                                                                      ),
+                                                                      child: Text(
+                                                                        activity.name,
+                                                                        style: const TextStyle(
+                                                                          color: AppColors.primaryColor,
+                                                                          fontSize: 12,
+                                                                        ),
+                                                                      ),
                                                                     ),
-                                                                decoration: BoxDecoration(
-                                                                  color: activityColor
-                                                                      .withOpacity(
-                                                                        0.5,
+                                                                    if (activityApprovalStatusBadgeLabel(activity.approvalStatus) != null)
+                                                                      Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal: 10,
+                                                                          vertical: 6,
+                                                                        ),
+                                                                        decoration: BoxDecoration(
+                                                                          color: activityApprovalStatusBadgeColor(
+                                                                            activity.approvalStatus,
+                                                                          ),
+                                                                          borderRadius: BorderRadius.circular(
+                                                                            4,
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          activityApprovalStatusBadgeLabel(
+                                                                                activity.approvalStatus,
+                                                                              ) ??
+                                                                              '',
+                                                                          style: const TextStyle(
+                                                                            color: AppColors.primaryColor,
+                                                                            fontSize: 12,
+                                                                            fontWeight: FontWeight.w500,
+                                                                          ),
+                                                                        ),
                                                                       ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        4,
-                                                                      ),
-                                                                ),
-                                                                child: Text(
-                                                                  activity.name,
-                                                                  style: const TextStyle(
-                                                                    color: AppColors
-                                                                        .primaryColor,
-                                                                    fontSize:
-                                                                        12,
-                                                                  ),
+                                                                  ],
                                                                 ),
                                                               ),
                                                               if (isNotParent)
@@ -2416,7 +2549,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                       },
                                                                     ),
                                                                     if (widget
-                                                                        .allowActivityWrite) ...[
+                                                                            .allowActivityWrite &&
+                                                                        canEditActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                        ))
                                                                       PopupMenuItem<
                                                                         String
                                                                       >(
@@ -2457,6 +2595,65 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                           }
                                                                         },
                                                                       ),
+                                                                    if (canAdminApproveOrRejectActivityItem(
+                                                                      activity,
+                                                                      isAdminPersona:
+                                                                          _isAdminPersona,
+                                                                    )) ...[
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'approve',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Approve',
+                                                                          icon: Icon(
+                                                                            Icons.check_circle_outline,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          await _showApprovalActionBottomSheet(
+                                                                            activity:
+                                                                                activity,
+                                                                            isApprove:
+                                                                                true,
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'reject',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Reject',
+                                                                          icon: Icon(
+                                                                            Icons.cancel_outlined,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          await _showApprovalActionBottomSheet(
+                                                                            activity:
+                                                                                activity,
+                                                                            isApprove:
+                                                                                false,
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                    if (widget
+                                                                            .allowActivityWrite &&
+                                                                        canDeleteActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                        ))
                                                                       PopupMenuItem<
                                                                         String
                                                                       >(
@@ -2500,7 +2697,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                           );
                                                                         },
                                                                       ),
-                                                                    ],
                                                                   ],
                                                                 ),
                                                             ],
