@@ -188,6 +188,14 @@ class _ChooseActivityState extends State<ChooseActivity> {
       }
     }
 
+    // Nap cannot be started for a mixed multi-selection that includes
+    // students who are already in an active nap.
+    if (_isMultipleStudentsSelected &&
+        normalized == 'nap' &&
+        _hasAnyAlreadyNappingStudent()) {
+      return true;
+    }
+
     // Fallback rule for Incident if settings are not yet loaded.
     if (_enabledActivities == null && activityName == 'Incident' && _isMultipleStudentsSelected) {
       return true;
@@ -197,10 +205,25 @@ class _ChooseActivityState extends State<ChooseActivity> {
   }
 
   String _getDisabledActivityTooltip(String activityName) {
+    final normalized = activityName.toLowerCase();
+    if (_isMultipleStudentsSelected &&
+        normalized == 'nap' &&
+        _hasAnyAlreadyNappingStudent()) {
+      return 'Nap is disabled because one or more selected students are already napping.';
+    }
     if (activityName == 'Incident' && _isMultipleStudentsSelected) {
       return 'Incident can only be recorded for a single student.';
     }
     return 'This activity is currently disabled';
+  }
+
+  bool _hasAnyAlreadyNappingStudent() {
+    for (final student in widget.selectedStudents) {
+      final dynamic status = student['nappingStatus'] ?? student['isNapping'];
+      if (status == true) return true;
+      if (status is String && status.toLowerCase() == 'true') return true;
+    }
+    return false;
   }
 
   void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {

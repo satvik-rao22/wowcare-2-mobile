@@ -508,6 +508,35 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     return '$yyyy-$mm-$dd';
   }
 
+  Map<String, dynamic> _buildSelectedStudentMap(
+    StudentAttendanceCustomItem student, {
+    required bool isNapping,
+  }) {
+    return {
+      'name': student.studentName,
+      'classroom': _classroomLabelForStudent(student),
+      'classroomCode': student.classroomCode,
+      'studentCode': student.studentCode,
+      'profilePictureUrl': '',
+      'status': '',
+      'expectedToday': student.isExpectedToday,
+      'signedIn': student.hasSignIn,
+      'absent': false,
+      'notMarked': false,
+      'nappingStatus': isNapping,
+      'photoPermission': true,
+      'notes': '',
+      'medication': '',
+      'allergies': '',
+      'dietaryRestriction': '',
+      'signedInBy': student.signedInBy,
+      'signedInTime': student.signedInTime,
+      'signedOutBy': student.signedOutBy,
+      'signedOutTime': student.signedOutTime,
+      'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
+    };
+  }
+
   Future<void> _onPullRefresh() async {
     if (_schoolCode == null || _schoolCode!.trim().isEmpty) {
       _showWarningMessage(
@@ -652,29 +681,12 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                         for (final student in _filteredStudents) {
                           final isNapping =
                               _nappingStudentCodes.contains(student.studentCode);
-                                        _selectedStudents.add({
-                            'name': student.studentName,
-                                          'classroom': _classroomLabelForStudent(student),
-                            'classroomCode': student.classroomCode,
-                            'studentCode': student.studentCode,
-                            'profilePictureUrl': '',
-                            'status': '',
-                            'expectedToday': student.isExpectedToday,
-                            'signedIn': student.hasSignIn,
-                            'absent': false,
-                            'notMarked': false,
-                            'nappingStatus': isNapping,
-                            'photoPermission': true,
-                            'notes': '',
-                            'medication': '',
-                            'allergies': '',
-                            'dietaryRestriction': '',
-                            'signedInBy': student.signedInBy,
-                            'signedInTime': student.signedInTime,
-                            'signedOutBy': student.signedOutBy,
-                            'signedOutTime': student.signedOutTime,
-                            'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
-                                        });
+                                        _selectedStudents.add(
+                                          _buildSelectedStudentMap(
+                                            student,
+                                            isNapping: isNapping,
+                                          ),
+                                        );
                                       }
                                     } else {
                                       _selectedStudents.removeWhere((s) =>
@@ -779,31 +791,12 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                   .removeCurrentSnackBar();
                               setState(() {
                                 if (selected == true) {
-                                  _selectedStudents.add({
-                                    'name': name,
-                                    'classroom': _classroomLabelForStudent(student),
-                                    'classroomCode': student.classroomCode,
-                                    'studentCode': student.studentCode,
-                                    'profilePictureUrl': '',
-                                    'status': '',
-                                    'expectedToday': student.isExpectedToday,
-                                    'signedIn': student.hasSignIn,
-                                    'absent': false,
-                                    'notMarked': false,
-                                    'nappingStatus': isNapping,
-                                    'photoPermission': true,
-                                    'notes': '',
-                                    'medication': '',
-                                    'allergies': '',
-                                    'dietaryRestriction': '',
-                                    'signedInBy': student.signedInBy,
-                                    'signedInTime': student.signedInTime,
-                                    'signedOutBy': student.signedOutBy,
-                                    'signedOutTime': student.signedOutTime,
-                                    'attendanceDate': _formatAttendanceDate(
-                                      _selectedAttendanceDate,
+                                  _selectedStudents.add(
+                                    _buildSelectedStudentMap(
+                                      student,
+                                      isNapping: isNapping,
                                     ),
-                                  });
+                                  );
                                 } else {
                                   _selectedStudents.removeWhere(
                                     (s) =>
