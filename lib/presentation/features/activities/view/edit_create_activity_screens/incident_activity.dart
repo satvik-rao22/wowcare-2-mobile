@@ -59,8 +59,15 @@ class IncidentActivityScreen extends StatefulWidget {
 class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
-  bool get _showRequireAdminApprovalToggle =>
-      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -104,12 +111,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
+  String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
+  bool get _isAcknowledged => _approvalStatus == 'ACKNOWLEDGED';
   bool get _showGuardianAcknowledgeButton {
     if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
     if (code.isEmpty) return false;
-    return (_effectiveActivity.approvalStatus ?? '').toUpperCase() ==
-        'PARENT_ACKNOWLEDGEMENT_PENDING';
+    return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
   }
 
   List<Map<String, dynamic>> _scopedStudentsForCreate() {
@@ -483,14 +491,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (_newPhotos.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please add at least one photo (required for Incident)',
-        isWarning: true,
-      );
-      return;
-    }
     if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -787,19 +787,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final keepsExistingPhotos = _remainingExistingPhotoUrls.isNotEmpty ||
-        imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows)
-            .isNotEmpty ||
-        (_effectiveActivity.photoUrl ?? '').trim().isNotEmpty;
-    final hasPhotoForSave = keepsExistingPhotos || _newPhotos.isNotEmpty;
-    if (!hasPhotoForSave) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Incident requires at least one photo',
-        isWarning: true,
-      );
-      return;
-    }
     if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1139,12 +1126,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
+          final checksumSha256 =
+              await _imageUploadService.computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
+            checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
             ownerType: ownerType,
             ownerCode: ownerCode,
@@ -1490,7 +1480,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             Builder(
               builder: (context) {
                 final isAdminPersona =
-                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                    _isAdminDesignation;
                 final lockToLoggedInStaffOnEdit =
                     widget.isEdit && !widget.readOnly && !isAdminPersona;
                 return StaffPresentWidget(
@@ -1507,6 +1497,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   isEditable:
                       lockToLoggedInStaffOnEdit ? false : _canInteract,
                   isAlreadySigned: _layoutAsEdit,
+                  clickToSignEditable: _canInteract || _isGuardianPersona,
                   incidentActivity: true,
                   onSigned: (value) {
                     setState(() {
@@ -1561,14 +1552,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               )
             else
               MediaUploader(
-                isRequired: true,
+                isRequired: false,
                 allowVideo: false,
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
                 limit: 10,
                 photoSizeLimit: 20,
-                label: 'Photos (required)',
+                label: 'Photos',
                 onMediaChanged: _onMediaChanged,
               ),
             if (_newPhotos.isNotEmpty) ...[
@@ -1585,8 +1576,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: CustomButtonLayout(
-                        confirmButtonLabel: 'Acknowledge',
-                        onPressedConfirm: _onAcknowledgePressed,
+                        confirmButtonLabel: _isAcknowledged ? 'Acknowledged' : 'Acknowledge',
+                        onPressedConfirm: _isAcknowledged ? null : _onAcknowledgePressed,
                         showCancelButton: false,
                         isForm: false,
                         isLoading: _isAcknowledging || _loadingActivityDetail,
@@ -1636,7 +1627,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     final uploadsSynced = _newPhotos.isEmpty ||
         _uploadedPhotoCount == _newPhotos.length;
-    final createSatisfied = _layoutAsEdit || _newPhotos.isNotEmpty;
+    final createSatisfied = true;
 
     if (uploadsSynced && createSatisfied) {
       final parts = <String>[];
@@ -1666,9 +1657,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       ..write(
         'Photos $_uploadedPhotoCount/${_newPhotos.length}',
       );
-    if (!_layoutAsEdit && _newPhotos.isEmpty) {
-      buf.write(' — add at least one photo (required)');
-    }
     return Row(
       children: [
         const Icon(Icons.error_outline, size: 16, color: Colors.orange),

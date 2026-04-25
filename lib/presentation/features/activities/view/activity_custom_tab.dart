@@ -2497,10 +2497,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                   ],
                                                                 ),
                                                               ),
-                                                              if (isNotParent ||
-                                                                  activity.name
-                                                                      .toLowerCase() ==
-                                                                      'incident')
+                                                              if (true)
                                                                 PopupMenuButton<
                                                                   String
                                                                 >(

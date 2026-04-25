@@ -79,12 +79,15 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
             ? photo.uri.pathSegments.last
             : 'photo.jpg';
         final contentLengthBytes = await photo.length();
+        final checksumSha256 =
+            await uploadService.computeFileChecksumSha256(photo);
         final presign = await uploadService.createAssetPresign(
           sessionCode: uploadSession.sessionCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
           fileName: fileName,
           contentType: 'image/jpeg',
           contentLengthBytes: contentLengthBytes,
+          checksumSha256: checksumSha256,
           mediaType: 'IMAGE',
           ownerType: ownerType,
           ownerCode: ownerCode,

@@ -2501,10 +2501,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                               ),
                                                             ),
                                                           ),
-                                                          if (isNotParent ||
-                                                              activity.name
-                                                                  .toLowerCase() ==
-                                                                  'incident')
+                                                          if (true)
                                                             PopupMenuButton<
                                                               String
                                                             >(
@@ -4039,10 +4036,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (isNotParent ||
-                                                                    activity.name
-                                                                        .toLowerCase() ==
-                                                                        'incident')
+                                                                if (true)
                                                                   PopupMenuButton<
                                                                     String
                                                                   >(

@@ -57,8 +57,15 @@ class NotesActivityScreen extends StatefulWidget {
 class _NotesActivityScreenState extends State<NotesActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
-  bool get _showRequireAdminApprovalToggle =>
-      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -826,12 +833,15 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
+          final checksumSha256 =
+              await _imageUploadService.computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
+            checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
             ownerType: ownerType,
             ownerCode: ownerCode,
@@ -1091,7 +1101,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
             Builder(
               builder: (context) {
                 final isAdminPersona =
-                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                    _isAdminDesignation;
                 final lockToLoggedInStaffOnEdit =
                     widget.isEdit && !widget.readOnly && !isAdminPersona;
                 return StaffPresentWidget(

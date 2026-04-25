@@ -50,8 +50,15 @@ class MedicationActivityScreen extends StatefulWidget {
 class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
-  bool get _showRequireAdminApprovalToggle =>
-      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -749,7 +756,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
             Builder(
               builder: (context) {
                 final isAdminPersona =
-                    _staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN';
+                    _isAdminDesignation;
                 final lockToLoggedInStaffOnEdit =
                     widget.isEdit && !widget.readOnly && !isAdminPersona;
                 return StaffPresentWidget(

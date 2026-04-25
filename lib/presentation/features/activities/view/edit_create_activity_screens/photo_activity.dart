@@ -60,8 +60,15 @@ class PhotoVideoActivityScreen extends StatefulWidget {
 class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
-  bool get _showRequireAdminApprovalToggle =>
-      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -455,12 +462,15 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   ? 'video/webm'
                   : 'video/mp4')
           : 'image/jpeg';
+      final checksumSha256 =
+          await _uploadService.computeFileChecksumSha256(file);
       final presign = await _uploadService.createAssetPresign(
         sessionCode: uploadSession.sessionCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
         fileName: generatedFileName,
         contentType: contentType,
         contentLengthBytes: await file.length(),
+        checksumSha256: checksumSha256,
         mediaType: isVideo ? 'VIDEO' : 'IMAGE',
         ownerType: 'CLASSROOM',
         ownerCode: classroomCode,

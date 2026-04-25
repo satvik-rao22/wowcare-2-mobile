@@ -11,12 +11,13 @@ import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
-  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false});
+  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false, this.clickToSignEditable});
   final String staffName;
   final bool isEditable;
   final bool incidentActivity;
   final ValueChanged<bool>? onSigned;
   final bool isAlreadySigned;
+  final bool? clickToSignEditable;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -44,6 +45,11 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.staffName.trim() != widget.staffName.trim()) {
       setState(_rebuildStaffSelection);
+    }
+    if (oldWidget.isAlreadySigned != widget.isAlreadySigned) {
+      setState(() {
+        clickToSign = widget.isAlreadySigned;
+      });
     }
   }
 
@@ -146,6 +152,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final signEditable = widget.clickToSignEditable ?? widget.isEditable;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -169,9 +176,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             if (widget.incidentActivity)
               CheckboxWidget(
                 label: 'Click to sign',
-                isEditable: widget.isEditable,
+                isEditable: signEditable,
                 isChecked: clickToSign,
-                onChecked: widget.isEditable
+                onChecked: signEditable
                     ? (newValue) {
                         setState(() {
                           clickToSign = newValue;

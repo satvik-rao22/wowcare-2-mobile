@@ -132,6 +132,7 @@ abstract class ActivityRepository {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
