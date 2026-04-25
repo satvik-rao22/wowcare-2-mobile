@@ -474,7 +474,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
-        requireAdminApproval: _requireAdminApproval,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: attachments,
       );

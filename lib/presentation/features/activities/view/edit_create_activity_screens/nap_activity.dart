@@ -575,7 +575,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         description: description,
         napStart: !isNapEnd,
         napEnd: isNapEnd,
-        requireAdminApproval: _requireAdminApproval,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: const [],
       );

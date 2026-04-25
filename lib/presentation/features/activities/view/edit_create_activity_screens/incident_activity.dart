@@ -59,7 +59,8 @@ class IncidentActivityScreen extends StatefulWidget {
 class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
-  bool get _showRequireAdminApprovalToggle => true;
+  bool get _showRequireAdminApprovalToggle =>
+      !(_staffType == 'SCHOOL_ADMIN' || _staffType == 'ORGANIZATION_ADMIN');
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -685,7 +686,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: whatHappened,
-        requireAdminApproval: _requireAdminApproval,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: attachments,
       );

@@ -487,7 +487,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
-        requireAdminApproval: _requireAdminApproval,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: const [],
       );

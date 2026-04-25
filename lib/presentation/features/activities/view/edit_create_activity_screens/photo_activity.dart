@@ -658,7 +658,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: descriptionTrim,
-        requireAdminApproval: _requireAdminApproval,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         attachments: attachments,
         parameterValues: createParameterValues,
       );
