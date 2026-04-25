@@ -285,6 +285,14 @@ class ApiPaths {
   static String staffProfilePath(String staffCode) =>
       '$staffMyProfile/$staffCode';
 
+  /// POST `/api/v1/staff/my-profile/{staffCode}/profile-photo/upload-session`.
+  static String staffProfilePhotoUploadSessionPath(String staffCode) =>
+      '$staffMyProfile/$staffCode/profile-photo/upload-session';
+
+  /// POST `/api/v1/staff/my-profile/{staffCode}/profile-photo/finalize`.
+  static String staffProfilePhotoFinalizePath(String staffCode) =>
+      '$staffMyProfile/$staffCode/profile-photo/finalize';
+
   /// GET/PATCH other staff profile — `/api/v1/staff/{staffCode}/profile`.
   static String staffProfileByCodePath(String staffCode) =>
       '/api/v1/staff/$staffCode/profile';

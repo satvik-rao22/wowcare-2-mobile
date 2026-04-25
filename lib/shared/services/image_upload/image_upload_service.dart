@@ -77,7 +77,7 @@ class ImageUploadService {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
-    required String checksumSha256,
+    String? checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
@@ -95,7 +95,8 @@ class ImageUploadService {
         'fileName': fileName,
         'contentType': contentType,
         'contentLengthBytes': contentLengthBytes,
-        'checksumSha256': checksumSha256,
+        if ((checksumSha256 ?? '').trim().isNotEmpty)
+          'checksumSha256': checksumSha256!.trim(),
         'mediaType': mediaType,
         'ownerType': ownerType,
         'ownerCode': ownerCode,
@@ -290,6 +291,76 @@ class ImageUploadService {
     return _UploadSessionStatusResult(
       isReady: readyCount == expectedAssetCodes.length,
     );
+  }
+
+  Future<String> createStaffProfilePhotoUploadSession({
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffProfilePhotoUploadSessionPath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create profile photo session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    return sessionCode;
+  }
+
+  Future<String> finalizeStaffProfilePhoto({
+    required String staffCode,
+    required String sessionCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffProfilePhotoFinalizePath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'sessionCode': sessionCode},
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected finalize response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to finalize profile photo',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing finalize response data');
+    }
+    final url = (data['url'] ?? '').toString().trim();
+    if (url.isEmpty) {
+      throw Exception('Profile photo URL missing after finalize');
+    }
+    return url;
   }
 }
 

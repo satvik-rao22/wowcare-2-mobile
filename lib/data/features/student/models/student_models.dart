@@ -6,6 +6,7 @@ class StudentListItemModel extends Equatable {
     required this.firstName,
     required this.lastName,
     required this.status,
+    this.profilePhotoUrl,
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
@@ -18,6 +19,7 @@ class StudentListItemModel extends Equatable {
   final String firstName;
   final String lastName;
   final String status;
+  final String? profilePhotoUrl;
   final String classroom;
   final String dob;
   final String movementDate;
@@ -135,6 +137,7 @@ class StudentListItemModel extends Equatable {
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      profilePhotoUrl: json['profilePhotoUrl'] as String?,
       classroom: classroomCodeOrName,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
@@ -150,6 +153,7 @@ class StudentListItemModel extends Equatable {
       'firstName': firstName,
       'lastName': lastName,
       'status': status,
+      if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
       'classroom': classroom,
       'dob': dob,
       'movementDate': movementDate,
@@ -165,6 +169,7 @@ class StudentListItemModel extends Equatable {
         firstName,
         lastName,
         status,
+        profilePhotoUrl,
         classroom,
         dob,
         movementDate,
