@@ -42,6 +42,7 @@ import '../../../../domain/features/student_classroom/usecases/get_student_class
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../util/activity_filter_metadata_cache.dart';
+import '../util/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -648,7 +649,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
-      final typeCode = _activityTypeCodeForApiFilter();
+      final typeCodes = _activityTypeCodesForApiFilter();
       final pageIndex = _feedNextPage;
 
       final results = await Future.wait([
@@ -668,7 +669,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           startDate: _dateQueryParam(start),
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
+          activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: pageIndex,
           size: _feedPageSize,
@@ -773,7 +774,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final page = await _getStudentAttendanceDailyUseCase(
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
         attendanceDate: _dateQueryParam(start),
         fromAttendanceDate: _dateQueryParam(start),
         toAttendanceDate: _dateQueryParam(end),
@@ -783,7 +784,50 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         page: 0,
         size: _feedPageSize,
       );
-      final items = _itemsFromAttendancePage(page);
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final activityPages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return const ActivityFeedPage(
+              content: [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: 0,
+              last: true,
+            );
+          }
+          return _getRangeActivityFeedUseCase(
+            classroomCode: cc,
+            startDate: _dateQueryParam(start),
+            endDate: _dateQueryParam(end),
+            studentCode: sc,
+            activityTypeCodes: typeCodes,
+            guardianPersona: true,
+            page: 0,
+            size: _feedPageSize,
+          );
+        }),
+      );
+      final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(mergedActivityPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -794,8 +838,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
@@ -846,7 +890,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final page = await _getStudentAttendanceDailyUseCase(
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
         attendanceDate: _dateQueryParam(start),
         fromAttendanceDate: _dateQueryParam(start),
         toAttendanceDate: _dateQueryParam(end),
@@ -856,13 +900,56 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         page: pageIndex,
         size: _feedPageSize,
       );
-      final items = _itemsFromAttendancePage(page);
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final activityPages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return ActivityFeedPage(
+              content: const [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: pageIndex,
+              last: true,
+            );
+          }
+          return _getRangeActivityFeedUseCase(
+            classroomCode: cc,
+            startDate: _dateQueryParam(start),
+            endDate: _dateQueryParam(end),
+            studentCode: sc,
+            activityTypeCodes: typeCodes,
+            guardianPersona: true,
+            page: pageIndex,
+            size: _feedPageSize,
+          );
+        }),
+      );
+      final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(mergedActivityPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -997,15 +1084,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return null;
   }
 
-  String? _activityTypeCodeForApiFilter() {
+  List<String>? _activityTypeCodesForApiFilter() {
     // Attendance events are handled via attendance APIs.
     final event = _selectedAttendanceEventFilter();
     if (event != null) return null;
-    if (_filterActivityTypes.length == 1) {
-      final code = _activityTypeCodeForLabel(_filterActivityTypes.first);
-      if (code != null && code.trim().isNotEmpty) return code.trim();
+    final codes = <String>{};
+    for (final label in _filterActivityTypes) {
+      final code = _activityTypeCodeForLabel(label);
+      if (code != null && code.trim().isNotEmpty) {
+        codes.add(code.trim());
+      }
     }
-    return null;
+    return codes.isEmpty ? null : codes.toList();
+  }
+
+  int _appliedFilterBadgeCount() {
+    final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
+    final hasTagFilter = _filterTags.isNotEmpty;
+    return (hasActivityTypeFilter ? 1 : 0) + (hasTagFilter ? 1 : 0);
   }
 
   List<ActivityItem> _itemsFromActivityFeedPage(ActivityFeedPage page) {
@@ -1398,15 +1494,22 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
             _parentStudentClassroomByCode[globalSelectedCode];
-        _parentAllowedStudentCodes
-          ..clear()
-          ..add(globalSelectedCode);
-        _parentStudentClassroomByCode..clear();
         if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
+          _parentAllowedStudentCodes
+            ..clear()
+            ..add(globalSelectedCode);
+          _parentStudentClassroomByCode.clear();
           _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
               .trim();
+          _lastGlobalSelectedStudentCode = globalSelectedCode;
+        } else {
+          // Keep the full guardian student->classroom map when the globally
+          // selected child has no classroom mapping yet. Otherwise range-feed
+          // API calls are skipped due to missing classroomCode.
+          CoreUtils.logApiError(
+            'Parent selected child has no classroom mapping; using all mapped guardian students for custom feed.',
+          );
         }
-        _lastGlobalSelectedStudentCode = globalSelectedCode;
       }
 
       if (_parentAllowedStudentCodes.isEmpty) {
@@ -1620,7 +1723,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
-      final typeCode = _activityTypeCodeForApiFilter();
+      final typeCodes = _activityTypeCodesForApiFilter();
 
       final results = await Future.wait([
         _getStudentAttendanceDailyUseCase(
@@ -1639,7 +1742,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           startDate: _dateQueryParam(start),
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
+          activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: 0,
           size: _feedPageSize,
@@ -1893,6 +1996,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         await _cacheManager.invalidateCache(staffKey);
       }
     } catch (_) {}
+    if (_parentHome) {
+      await _bootstrapParentHome();
+    } else {
+      // Force classroom metadata refresh for staff/admin personas too.
+      final school = (_schoolCode ?? '').trim();
+      if (school.isNotEmpty) {
+        final classroomCacheKey = CacheManager.buildCacheKey(
+          feature: 'activity',
+          resource: 'classrooms',
+          identifier: school,
+        );
+        await _cacheManager.invalidateCache(classroomCacheKey);
+      }
+      await _bootstrapRangeFeed();
+    }
     await _loadTagFilterOptions(forceRefresh: true);
     await _loadRangeFeed(refresh: true);
   }
@@ -2078,12 +2196,57 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(100),
                                     onTap: _openActivityFilter,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: SvgPicture.asset(
-                                        MediaRes.filterIcon,
-                                        height: 20,
-                                      ),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: SvgPicture.asset(
+                                            MediaRes.filterIcon,
+                                            height: 20,
+                                          ),
+                                        ),
+                                        Builder(
+                                          builder: (context) {
+                                            final badgeCount =
+                                                _appliedFilterBadgeCount();
+                                            if (badgeCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 2,
+                                              top: 2,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color.fromRGBO(
+                                                    179,
+                                                    38,
+                                                    30,
+                                                    1,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  badgeCount > 99
+                                                      ? '99+'
+                                                      : '$badgeCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),

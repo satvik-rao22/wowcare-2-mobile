@@ -315,6 +315,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         await _cacheManager.invalidateCache(staffKey);
       }
     } catch (_) {}
+    if (_parentHome) {
+      await _bootstrapParentHome();
+      await _loadTagFilterOptions(forceRefresh: true);
+      await _loadDailyFeed(refresh: true);
+      return;
+    }
     await _reloadStudentsAndSettingsThenFeed(forceRefreshApis: true);
   }
 
@@ -335,15 +341,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return null;
   }
 
-  /// Single type for API: one filter-sheet selection, else parent "Activity Type" dropdown.
-  String? _activityTypeCodeForApiFilter() {
-    if (_filterActivityTypes.length == 1) {
-      return _activityTypeCodeForLabel(_filterActivityTypes.first);
+  /// Multi-select aware API payload for `activityTypeCode[]`.
+  List<String>? _activityTypeCodesForApiFilter() {
+    final codes = <String>{};
+    if (_filterActivityTypes.isNotEmpty) {
+      for (final label in _filterActivityTypes) {
+        final code = _activityTypeCodeForLabel(label);
+        if (code != null && code.trim().isNotEmpty) {
+          codes.add(code.trim());
+        }
+      }
+      return codes.isEmpty ? null : codes.toList();
     }
-    if (_filterActivityTypes.isEmpty) {
-      return _activityTypeCodeForLabel(_selectedActivityType);
+    final selectedCode = _activityTypeCodeForLabel(_selectedActivityType);
+    if (selectedCode != null && selectedCode.trim().isNotEmpty) {
+      return <String>[selectedCode.trim()];
     }
     return null;
+  }
+
+  int _appliedFilterBadgeCount() {
+    final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
+    final hasTagFilter = _filterTags.isNotEmpty;
+    return (hasActivityTypeFilter ? 1 : 0) + (hasTagFilter ? 1 : 0);
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -1233,7 +1253,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
-      final typeCode = _activityTypeCodeForApiFilter();
+      final typeCodes = _activityTypeCodesForApiFilter();
       final pageIndex = _feedNextPage;
 
       final results = await Future.wait([
@@ -1250,7 +1270,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           classroomCode: classroomCode,
           date: dateStr,
           studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
+          activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: pageIndex,
           size: _feedPageSize,
@@ -1325,13 +1345,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final codes = _parentAllowedStudentCodes.toList()..sort();
     final dateStr = _dateQueryParam(date);
-    final typeCode = _activityTypeCodeForApiFilter();
+    final typeCodes = _activityTypeCodesForApiFilter();
     final requestKey = [
       'parentDaily',
       school,
       codes.join(','),
       dateStr,
-      typeCode ?? '',
+      (typeCodes ?? const <String>[]).join(','),
       _filterActivityTypes.join(','),
       _filterTags.join(','),
     ].join('|');
@@ -1378,7 +1398,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             classroomCode: cc,
             date: dateStr,
             studentCode: sc,
-            activityTypeCode: typeCode,
+            activityTypeCodes: typeCodes,
             guardianPersona: true,
             page: 0,
             size: _feedPageSize,
@@ -1437,7 +1457,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     final dateStr = _dateQueryParam(date);
-    final typeCode = _activityTypeCodeForApiFilter();
+    final typeCodes = _activityTypeCodesForApiFilter();
     final pageIndex = _feedNextPage;
 
     _loadingMoreFeed = true;
@@ -1460,7 +1480,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             classroomCode: cc,
             date: dateStr,
             studentCode: sc,
-            activityTypeCode: typeCode,
+            activityTypeCodes: typeCodes,
             guardianPersona: true,
             page: pageIndex,
             size: _feedPageSize,
@@ -1572,7 +1592,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
-      final typeCode = _activityTypeCodeForApiFilter();
+      final typeCodes = _activityTypeCodesForApiFilter();
 
       final results = await Future.wait([
         _getStudentAttendanceDailyUseCase(
@@ -1588,7 +1608,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           classroomCode: classroomCode,
           date: dateStr,
           studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
+          activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: 0,
           size: _feedPageSize,
@@ -2079,12 +2099,61 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                           100,
                                         ),
                                         onTap: _openActivityFilter,
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(8),
-                                          child: SvgPicture.asset(
-                                            MediaRes.filterIcon,
-                                            height: 20,
-                                          ),
+                                        child: Stack(
+                                          clipBehavior: Clip.none,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(8),
+                                              child: SvgPicture.asset(
+                                                MediaRes.filterIcon,
+                                                height: 20,
+                                              ),
+                                            ),
+                                            Builder(
+                                              builder: (context) {
+                                                final badgeCount =
+                                                    _appliedFilterBadgeCount();
+                                                if (badgeCount == 0) {
+                                                  return const SizedBox.shrink();
+                                                }
+                                                return Positioned(
+                                                  right: 2,
+                                                  top: 2,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 5,
+                                                          vertical: 2,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color:
+                                                          const Color.fromRGBO(
+                                                            179,
+                                                            38,
+                                                            30,
+                                                            1,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      badgeCount > 99
+                                                          ? '99+'
+                                                          : '$badgeCount',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -3592,12 +3661,61 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(100),
                                       onTap: _openActivityFilter,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(8),
-                                        child: SvgPicture.asset(
-                                          MediaRes.filterIcon,
-                                          height: 20,
-                                        ),
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: SvgPicture.asset(
+                                              MediaRes.filterIcon,
+                                              height: 20,
+                                            ),
+                                          ),
+                                          Builder(
+                                            builder: (context) {
+                                              final badgeCount =
+                                                  _appliedFilterBadgeCount();
+                                              if (badgeCount == 0) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return Positioned(
+                                                right: 2,
+                                                top: 2,
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 5,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color.fromRGBO(
+                                                          179,
+                                                          38,
+                                                          30,
+                                                          1,
+                                                        ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    badgeCount > 99
+                                                        ? '99+'
+                                                        : '$badgeCount',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),

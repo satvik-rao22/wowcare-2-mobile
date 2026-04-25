@@ -104,7 +104,7 @@ abstract class ActivityRemoteDataSource {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -116,7 +116,7 @@ abstract class ActivityRemoteDataSource {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -568,7 +568,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -579,24 +579,27 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
           : ApiPaths.activitiesFeedDaily,
       ApiConstants.activityBaseUrl,
     );
-    final qp = <String, String>{
-      'classroomCode': classroomCode.trim(),
-      'date': date.trim(),
-      'page': '$page',
-      'size': '$size',
-      'sort': 'activityDate,desc',
+    final qp = <String, List<String>>{
+      'classroomCode': <String>[classroomCode.trim()],
+      'date': <String>[date.trim()],
+      'page': <String>['$page'],
+      'size': <String>['$size'],
+      'sort': <String>['activityDate,desc'],
     };
     final sc = studentCode?.trim();
     if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = sc;
+      qp['studentCode'] = <String>[sc];
     }
-    final at = activityTypeCode?.trim();
-    if (at != null && at.isNotEmpty) {
-      qp['activityTypeCode'] = at;
+    final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ats.isNotEmpty) {
+      qp['activityTypeCode'] = ats;
     }
 
-    final uri = Uri.parse(base).replace(queryParameters: qp);
-    final response = await _client.getUri<dynamic>(uri);
+    final response = await _client.get<dynamic>(base, queryParameters: qp);
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
@@ -612,7 +615,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -624,27 +627,30 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       ApiConstants.activityBaseUrl,
     );
 
-    final qp = <String, String>{
-      'classroomCode': classroomCode.trim(),
-      'startDate': startDate.trim(),
-      'endDate': endDate.trim(),
-      'page': '$page',
-      'size': '$size',
-      'sort': 'activityDate,desc',
+    final qp = <String, List<String>>{
+      'classroomCode': <String>[classroomCode.trim()],
+      'startDate': <String>[startDate.trim()],
+      'endDate': <String>[endDate.trim()],
+      'page': <String>['$page'],
+      'size': <String>['$size'],
+      'sort': <String>['activityDate,desc'],
     };
 
     final sc = studentCode?.trim();
     if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = sc;
+      qp['studentCode'] = <String>[sc];
     }
 
-    final at = activityTypeCode?.trim();
-    if (at != null && at.isNotEmpty) {
-      qp['activityTypeCode'] = at;
+    final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ats.isNotEmpty) {
+      qp['activityTypeCode'] = ats;
     }
 
-    final uri = Uri.parse(base).replace(queryParameters: qp);
-    final response = await _client.getUri<dynamic>(uri);
+    final response = await _client.get<dynamic>(base, queryParameters: qp);
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
