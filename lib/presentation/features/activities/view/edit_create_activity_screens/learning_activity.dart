@@ -1415,10 +1415,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               builder: (context) {
                 final isAdminPersona =
                     _isAdminDesignation;
-                final lockToLoggedInStaffOnEdit =
-                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaffOnEdit
+                  staffName: lockToLoggedInStaff
                       ? _staffName
                       : staffPresentLabelForActivity(
                           layoutAsEdit: _layoutAsEdit,
@@ -1426,7 +1425,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                               _layoutAsEdit ? _effectiveActivity.createdBy : '',
                           loggedInDisplayName: _staffName,
                         ),
-                  isEditable: lockToLoggedInStaffOnEdit
+                  isEditable: lockToLoggedInStaff
                       ? false
                       : (_layoutAsEdit ? _canInteract : false),
                 );

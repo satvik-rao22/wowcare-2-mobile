@@ -18,6 +18,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
@@ -115,6 +116,31 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+
+  String? _findParameterCode(
+    List<ActivityTypeParameter> parameters, {
+    String? contains,
+    String? exactName,
+    String? dataType,
+  }) {
+    final containsNeedle = contains?.trim().toLowerCase();
+    final exactNeedle = exactName?.trim().toLowerCase();
+    final dataTypeNeedle = dataType?.trim().toUpperCase();
+
+    for (final p in parameters) {
+      final name = p.parameterName.trim().toLowerCase();
+      final type = (p.dataType ?? '').trim().toUpperCase();
+      final matchesExact = exactNeedle != null && name == exactNeedle;
+      final matchesContains =
+          containsNeedle != null && name.contains(containsNeedle);
+      final matchesType = dataTypeNeedle != null && type == dataTypeNeedle;
+      if (matchesExact || matchesContains || matchesType) {
+        final code = p.code.trim();
+        if (code.isNotEmpty) return code;
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -610,43 +636,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     });
     try {
       final details = await _getDetailsUseCase(code: activityTypeCode);
-      String? findCodeByNameOrType(String contains, String dataType) {
-        for (final p in details.parameters) {
-          final dt = (p.dataType ?? '').toUpperCase();
-          final n = p.parameterName.toLowerCase();
-          if (dt == dataType.toUpperCase() || n.contains(contains)) {
-            return p.code;
-          }
-        }
-        return null;
-      }
       final localDate =
           '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
       final localTime =
           '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
-      final createParameterValues = <Map<String, dynamic>>[
-        if (findCodeByNameOrType('date', 'DATE') != null)
-          {
-            'parameterCode': findCodeByNameOrType('date', 'DATE'),
-            'value': localDate,
-          },
-        if (findCodeByNameOrType('time', 'TIME') != null)
-          {
-            'parameterCode': findCodeByNameOrType('time', 'TIME'),
-            'value': localTime,
-          },
-        if (findCodeByNameOrType('staff', 'TEXT') != null)
-          {
-            'parameterCode': findCodeByNameOrType('staff', 'TEXT'),
-            'value': staffCode,
-          },
-        if (descriptionTrim.isNotEmpty &&
-            findCodeByNameOrType('description', 'TEXT') != null)
-          {
-            'parameterCode': findCodeByNameOrType('description', 'TEXT'),
-            'value': descriptionTrim,
-          },
-      ];
 
       final attachments = _uploadedAttachments.isNotEmpty
           ? _uploadedAttachments
@@ -657,6 +650,52 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               schoolCode: schoolCode,
               studentCodes: studentCodes,
             );
+      final uploadAssetCodes = attachments
+          .map((row) => (row['assetCode'] ?? '').toString().trim())
+          .where((code) => code.isNotEmpty)
+          .toList();
+      final uploadPhotoCode = _findParameterCode(
+        details.parameters,
+        exactName: 'upload photo',
+      );
+      final createParameterValues = <Map<String, dynamic>>[
+        if (_findParameterCode(details.parameters, exactName: 'date') != null)
+          {
+            'parameterCode':
+                _findParameterCode(details.parameters, exactName: 'date'),
+            'value': localDate,
+          },
+        if (_findParameterCode(details.parameters, exactName: 'time') != null)
+          {
+            'parameterCode':
+                _findParameterCode(details.parameters, exactName: 'time'),
+            'value': localTime,
+          },
+        if (_findParameterCode(details.parameters, contains: 'staff') != null)
+          {
+            'parameterCode':
+                _findParameterCode(details.parameters, contains: 'staff'),
+            'value': staffCode,
+          },
+        if (descriptionTrim.isNotEmpty &&
+            _findParameterCode(
+                  details.parameters,
+                  exactName: 'description',
+                ) !=
+                null)
+          {
+            'parameterCode': _findParameterCode(
+              details.parameters,
+              exactName: 'description',
+            ),
+            'value': descriptionTrim,
+          },
+        if (uploadPhotoCode != null && uploadAssetCodes.isNotEmpty)
+          {
+            'parameterCode': uploadPhotoCode,
+            'value': uploadAssetCodes.join(','),
+          },
+      ];
 
       // Shared media flow (photos + videos): create one shared activity per attachment.
       await _createSharedUseCase(
@@ -863,28 +902,36 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           attachmentsForActivityPatchRequest(mergedRows);
 
       final details = await _getDetailsUseCase(code: activityTypeCode);
-      String? findCode(String contains, {String? dataType}) {
-        final dtFilter = dataType?.toUpperCase();
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          final dt = (p.dataType ?? '').toUpperCase();
-          if ((dtFilter != null && dt == dtFilter) || n.contains(contains)) {
-            return p.code;
-          }
-        }
-        return null;
-      }
-      final dateCode = findCode('date', dataType: 'DATE');
-      final timeCode = findCode('time', dataType: 'TIME');
-      final staffCodeParam = findCode('staff');
-      final descriptionCode = findCode('description');
+      final dateCode = _findParameterCode(details.parameters, exactName: 'date');
+      final timeCode = _findParameterCode(details.parameters, exactName: 'time');
+      final staffCodeParam = _findParameterCode(
+        details.parameters,
+        contains: 'staff',
+      );
+      final descriptionCode = _findParameterCode(
+        details.parameters,
+        exactName: 'description',
+      );
+      final uploadMediaCode = _findParameterCode(
+        details.parameters,
+        exactName: widget.isPhoto ? 'upload photo' : 'upload video',
+      );
+      final uploadAssetCodes = patchAttachments
+          .map((row) => (row['assetCode'] ?? '').toString().trim())
+          .where((code) => code.isNotEmpty)
+          .toList();
       final parameterValues = <Map<String, dynamic>>[
         if (dateCode != null) {'parameterCode': dateCode, 'value': localDate},
         if (timeCode != null) {'parameterCode': timeCode, 'value': localTime},
         if (staffCodeParam != null)
           {'parameterCode': staffCodeParam, 'value': staffCode},
-        if (descriptionCode != null)
+        if (descriptionCode != null && desc.isNotEmpty)
           {'parameterCode': descriptionCode, 'value': desc},
+        if (uploadMediaCode != null && uploadAssetCodes.isNotEmpty)
+          {
+            'parameterCode': uploadMediaCode,
+            'value': uploadAssetCodes.join(','),
+          },
       ];
 
       final targets = studentMapsForScopedActivityUpdate(
@@ -1084,24 +1131,24 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 ),
               ],
               SizedBox(height: responsive.verticalSpacing),
-              StaffPresentWidget(
-                staffName: (widget.isEdit &&
-                        !widget.readOnly &&
-                        !(_staffType == 'SCHOOL_ADMIN' ||
-                            _staffType == 'ORGANIZATION_ADMIN'))
-                    ? _staffName
-                    : staffPresentLabelForActivity(
-                        layoutAsEdit: _layoutAsEdit,
-                        activityCreatedBy:
-                            _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                        loggedInDisplayName: _staffName,
-                      ),
-                isEditable: (widget.isEdit &&
-                        !widget.readOnly &&
-                        !(_staffType == 'SCHOOL_ADMIN' ||
-                            _staffType == 'ORGANIZATION_ADMIN'))
-                    ? false
-                    : (_layoutAsEdit ? _canInteract : false),
+              Builder(
+                builder: (context) {
+                  final isAdminPersona = _isAdminDesignation;
+                  final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                  return StaffPresentWidget(
+                    staffName: lockToLoggedInStaff
+                        ? _staffName
+                        : staffPresentLabelForActivity(
+                            layoutAsEdit: _layoutAsEdit,
+                            activityCreatedBy:
+                                _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                            loggedInDisplayName: _staffName,
+                          ),
+                    isEditable: lockToLoggedInStaff
+                        ? false
+                        : (_layoutAsEdit ? _canInteract : false),
+                  );
+                },
               ),
               SizedBox(height: responsive.verticalSpacing),
               InputWidget(
