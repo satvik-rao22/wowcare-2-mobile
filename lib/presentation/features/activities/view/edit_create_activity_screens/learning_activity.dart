@@ -117,6 +117,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
 
   @override
   void initState() {
@@ -141,6 +145,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
@@ -190,6 +195,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -559,10 +565,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    if (widget.isEdit && photoCount > 2) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Maximum 2 photos can be attached.',
         isError: true,
       );
       return;
@@ -1512,7 +1518,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   allowPhoto: true,
                   readOnly: widget.readOnly,
                   isPictureBox: false,
-                  limit: 10,
+                  limit: 2,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
                       : (_effectiveActivity.photoUrl != null &&
@@ -1530,7 +1536,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: 10,
+                limit: 2,
                 label: 'Upload Photos',
                 onMediaChanged: _onMediaChanged,
               ),

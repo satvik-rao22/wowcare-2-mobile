@@ -107,6 +107,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
 
   @override
   void initState() {
@@ -135,6 +139,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
@@ -179,6 +184,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -652,10 +658,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    if (widget.isEdit && photoCount > 2) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Maximum 2 photos can be attached.',
         isError: true,
       );
       return;

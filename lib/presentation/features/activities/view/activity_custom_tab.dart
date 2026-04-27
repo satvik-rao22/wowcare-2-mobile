@@ -419,11 +419,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
   List<String> _selectedClassroomCodesForFeed() {
     final selectedNames = _selectedClassrooms;
-    return selectedNames
+    final fromSelectedDropdown = selectedNames
         .map((name) => _classroomCodeByName[name]?.trim() ?? '')
         .where((code) => code.isNotEmpty)
         .toSet()
         .toList();
+    if (fromSelectedDropdown.isNotEmpty) return fromSelectedDropdown;
+
+    final selectedStudentNames = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+        : ((_selectedStudent?.trim().isNotEmpty ?? false)
+              ? <String>[_selectedStudent!.trim()]
+              : const <String>[]);
+    final fromSelectedStudents = classroomStudents.entries
+        .where(
+          (entry) => selectedStudentNames.any(
+            (studentName) => entry.value.contains(studentName),
+          ),
+        )
+        .map((entry) => _classroomCodeByName[entry.key]?.trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    return const <String>[];
   }
 
   String _displayClassroomName({
@@ -656,13 +676,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       return _loadNextParentHomeRangeFeedPage();
     }
 
-    final classroomCodes = _selectedClassroomCodesForFeed().isNotEmpty
-        ? _selectedClassroomCodesForFeed()
-        : _classroomOptions
-              .map((name) => _classroomCodeByName[name]?.trim() ?? '')
-              .where((code) => code.isNotEmpty)
-              .toSet()
-              .toList();
+    final classroomCodes = _selectedClassroomCodesForFeed();
     final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
     if (classroomCode == null || classroomCode.trim().isEmpty) return;
 
@@ -1044,9 +1058,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _selectedStudents = _selectedStudents
           .where((name) => _availableStudents.contains(name))
           .toList();
-      _selectedStudent = _selectedStudents.isNotEmpty
-          ? _selectedStudents.first
-          : null;
+      _selectedStudent = null;
     }
   }
 
@@ -1174,10 +1186,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     });
   }
 
-  /// Refreshes tag map from the network, then reloads the range feed (bypassing caches).
+  /// Refreshes dropdown dependencies from the network without triggering feed.
   Future<void> _refreshApisAfterClearAll() async {
     await _loadTagFilterOptions(forceRefresh: true);
-    await _loadRangeFeed(refresh: true);
+    if (isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms(refresh: true);
+    }
   }
 
   Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
@@ -1851,13 +1865,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       return _loadParentHomeRangeFeed(refresh: refresh);
     }
 
-    final classroomCodes = _selectedClassroomCodesForFeed().isNotEmpty
-        ? _selectedClassroomCodesForFeed()
-        : _classroomOptions
-              .map((name) => _classroomCodeByName[name]?.trim() ?? '')
-              .where((code) => code.isNotEmpty)
-              .toSet()
-              .toList();
+    final classroomCodes = _selectedClassroomCodesForFeed();
     final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
     final classroomName = _selectdClassroom ?? (classroomCode == null
         ? null
@@ -2339,12 +2347,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                       DateTime(now.year, now.month, 1);
                                   _selectedEndDate =
                                       DateTime(now.year, now.month + 1, 0);
-                                  if (_classroomOptions.isNotEmpty) {
-                                    _selectdClassroom = _classroomOptions.first;
-                                  }
-                                  _selectedClassrooms = _selectdClassroom == null
-                                      ? <String>[]
-                                      : <String>[_selectdClassroom!];
+                                  _selectdClassroom = null;
+                                  _selectedClassrooms = <String>[];
                                   _selectedStudent = null;
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
@@ -2482,18 +2486,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                 ),
                                 const SizedBox(width: 8),
                                 CustomClearAllChip(
-                                  onTap: () {
+                                  onTap: () async {
                                     setState(() {
-                                      _selectdClassroom = _classroomOptions[0];
-                                      _selectedClassrooms = <String>[
-                                        _classroomOptions[0],
-                                      ];
+                                      _selectdClassroom = null;
+                                      _selectedClassrooms = <String>[];
                                       _selectedStudent = null;
                                       _selectedStudents = [];
                                       _filterActivityTypes.clear();
                                       _filterTags.clear();
                                     });
-                                    _loadRangeFeed(refresh: true);
+                                    await _refreshApisAfterClearAll();
                                   },
                                   label: 'Clear All',
                                 ),

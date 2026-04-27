@@ -107,6 +107,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
 
   @override
   void initState() {
@@ -131,6 +135,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
@@ -175,6 +180,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -912,10 +918,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    if (widget.isEdit && photoCount > 2) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Maximum 2 photos can be attached.',
         isError: true,
       );
       return;
@@ -1162,7 +1168,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   allowPhoto: true,
                   readOnly: widget.readOnly,
                   isPictureBox: false,
-                  limit: 10,
+                  limit: 2,
                   label: 'Upload Photo',
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
@@ -1180,7 +1186,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: 10,
+                limit: 2,
                 label: 'Upload Photo',
                 onMediaChanged: _onMediaChanged,
               ),

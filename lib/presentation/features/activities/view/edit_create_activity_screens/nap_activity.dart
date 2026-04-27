@@ -91,6 +91,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
 
   @override
   void initState() {
@@ -109,6 +113,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (_layoutAsEdit && widget.activityData != null) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
 
@@ -159,6 +164,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);

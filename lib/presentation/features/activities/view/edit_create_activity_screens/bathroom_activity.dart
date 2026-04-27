@@ -115,6 +115,10 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
 
   @override
   void initState() {
@@ -138,6 +142,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
@@ -178,6 +183,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);

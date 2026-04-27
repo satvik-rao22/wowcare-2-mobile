@@ -188,11 +188,11 @@ class _ChooseActivityState extends State<ChooseActivity> {
       }
     }
 
-    // Nap cannot be started for a mixed multi-selection that includes
-    // students who are already in an active nap.
+    // Nap should be disabled only for a mixed multi-selection where
+    // some students are already napping and some are not.
     if (_isMultipleStudentsSelected &&
         normalized == 'nap' &&
-        _hasAnyAlreadyNappingStudent()) {
+        _hasMixedNappingSelection()) {
       return true;
     }
 
@@ -208,8 +208,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
     final normalized = activityName.toLowerCase();
     if (_isMultipleStudentsSelected &&
         normalized == 'nap' &&
-        _hasAnyAlreadyNappingStudent()) {
-      return 'Nap is disabled because one or more selected students are already napping.';
+        _hasMixedNappingSelection()) {
+      return 'Nap is disabled for mixed selection. Select either all currently napping students or all not-napping students.';
     }
     if (activityName == 'Incident' && _isMultipleStudentsSelected) {
       return 'Incident can only be recorded for a single student.';
@@ -217,13 +217,20 @@ class _ChooseActivityState extends State<ChooseActivity> {
     return 'This activity is currently disabled';
   }
 
-  bool _hasAnyAlreadyNappingStudent() {
-    for (final student in widget.selectedStudents) {
-      final dynamic status = student['nappingStatus'] ?? student['isNapping'];
-      if (status == true) return true;
-      if (status is String && status.toLowerCase() == 'true') return true;
-    }
+  bool _isStudentCurrentlyNapping(Map<String, dynamic> student) {
+    final dynamic status = student['nappingStatus'] ?? student['isNapping'];
+    if (status == true) return true;
+    if (status is String && status.toLowerCase() == 'true') return true;
     return false;
+  }
+
+  bool _hasMixedNappingSelection() {
+    if (widget.selectedStudents.isEmpty) return false;
+    final hasNapping = widget.selectedStudents.any(_isStudentCurrentlyNapping);
+    final hasNotNapping = widget.selectedStudents.any(
+      (student) => !_isStudentCurrentlyNapping(student),
+    );
+    return hasNapping && hasNotNapping;
   }
 
   void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {

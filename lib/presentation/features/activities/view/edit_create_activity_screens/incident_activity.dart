@@ -115,6 +115,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
   String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
   bool get _isAcknowledged =>
       _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
@@ -258,6 +262,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
@@ -306,6 +311,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -1208,10 +1214,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    if (widget.isEdit && photoCount > 2) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Maximum 2 photos can be attached.',
         isError: true,
       );
       return;
@@ -1537,9 +1543,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 absorbing: true,
                 child: CustomToggle(
                   label: 'Requires Admin Approval',
-                  isToggled: true,
+                  isToggled: _requireAdminApproval,
                   labelOnLeftSide: true,
-                  onToggle: (_) {},
+                  onToggle: (value) {
+                    setState(() {
+                      _requireAdminApproval = value;
+                    });
+                  },
                 ),
               ),
             SizedBox(height: responsive.verticalSpacing),
@@ -1552,7 +1562,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   allowPhoto: true,
                   readOnly: widget.readOnly,
                   isPictureBox: false,
-                  limit: 10,
+                  limit: 2,
                   photoSizeLimit: 20,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
@@ -1571,7 +1581,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: 10,
+                limit: 2,
                 photoSizeLimit: 20,
                 label: 'Photos',
                 onMediaChanged: _onMediaChanged,

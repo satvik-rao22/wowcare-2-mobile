@@ -1040,6 +1040,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     await _loadDailyFeed(refresh: true);
   }
 
+  Future<void> _refreshDropdownsAfterClearAll() async {
+    await _loadTagFilterOptions(forceRefresh: true);
+    if (isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms(forceRefreshApis: true);
+    }
+  }
+
   List<ActivityItem> _mapDailyFeedPageToItems(ActivityFeedPage page) {
     final raw = page.content
         .map(
@@ -1128,11 +1135,31 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   List<String> _selectedClassroomCodesForFeed() {
     final selectedNames = _selectedClassrooms;
-    return selectedNames
+    final fromSelectedDropdown = selectedNames
         .map((name) => _classroomCodeByName[name]?.trim() ?? '')
         .where((code) => code.isNotEmpty)
         .toSet()
         .toList();
+    if (fromSelectedDropdown.isNotEmpty) return fromSelectedDropdown;
+
+    final selectedStudentNames = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+        : ((_selectedStudent?.trim().isNotEmpty ?? false)
+              ? <String>[_selectedStudent!.trim()]
+              : const <String>[]);
+    final fromSelectedStudents = _classroomStudents.entries
+        .where(
+          (entry) => selectedStudentNames.any(
+            (studentName) => entry.value.contains(studentName),
+          ),
+        )
+        .map((entry) => _classroomCodeByName[entry.key]?.trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    return const <String>[];
   }
 
   String _displayClassroomName({
@@ -1740,13 +1767,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final school = _schoolCode;
     final date = _selectedDate;
-    final classroomCodes = _selectedClassroomCodesForFeed().isNotEmpty
-        ? _selectedClassroomCodesForFeed()
-        : _classroomOptions
-              .map((name) => _classroomCodeByName[name]?.trim() ?? '')
-              .where((code) => code.isNotEmpty)
-              .toSet()
-              .toList();
+    final classroomCodes = _selectedClassroomCodesForFeed();
     final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
     if (school == null ||
         school.isEmpty ||
@@ -1985,9 +2006,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       _selectedStudents = _selectedStudents
           .where((name) => _availableStudents.contains(name))
           .toList();
-      _selectedStudent = _selectedStudents.isNotEmpty
-          ? _selectedStudents.first
-          : null;
+      _selectedStudent = null;
     }
   }
 
@@ -2431,25 +2450,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     ),
                                     const SizedBox(width: 8),
                                     CustomClearAllChip(
-                                      onTap: () {
+                                      onTap: () async {
                                         setState(() {
                                   final now = DateTime.now();
                                   _selectedDate =
                                       DateTime(now.year, now.month, now.day);
-                                  if (_classroomOptions.isNotEmpty) {
-                                    _selectdClassroom = _classroomOptions.first;
-                                  }
-                                  _selectedClassrooms = _selectdClassroom == null
-                                      ? <String>[]
-                                      : <String>[_selectdClassroom!];
+                                  _selectdClassroom = null;
+                                  _selectedClassrooms = <String>[];
                                   _selectedStudent = null;
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
-                                _reloadStudentsAndSettingsThenFeed(
-                                  forceRefreshApis: true,
-                                );
+                                await _refreshDropdownsAfterClearAll();
                               },
                               label: 'Clear All',
                             ),
@@ -4007,25 +4020,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   ),
                                   const SizedBox(width: 8),
                                   CustomClearAllChip(
-                                    onTap: () {
+                                    onTap: () async {
                                       setState(() {
                                   final now = DateTime.now();
                                   _selectedDate =
                                       DateTime(now.year, now.month, now.day);
-                                  if (_classroomOptions.isNotEmpty) {
-                                    _selectdClassroom = _classroomOptions.first;
-                                  }
-                                  _selectedClassrooms = _selectdClassroom == null
-                                      ? <String>[]
-                                      : <String>[_selectdClassroom!];
+                                  _selectdClassroom = null;
+                                  _selectedClassrooms = <String>[];
                                   _selectedStudent = null;
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
-                                _reloadStudentsAndSettingsThenFeed(
-                                  forceRefreshApis: true,
-                                );
+                                await _refreshDropdownsAfterClearAll();
                               },
                               label: 'Clear All',
                             ),

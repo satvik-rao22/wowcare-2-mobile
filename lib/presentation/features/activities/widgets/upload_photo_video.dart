@@ -1187,6 +1187,11 @@ class _MediaUploaderState extends State<MediaUploader> {
 
     if (candidates.isEmpty) return;
 
+    if (source == ImageSource.gallery && candidates.length > remaining) {
+      _showWarning('You can only select up to $maxPhotos photos.');
+      return;
+    }
+
     List<File> valid = [];
     for (final f in candidates.take(remaining)) {
       final ext = f.path.split('.').last.toLowerCase();
