@@ -18,6 +18,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
@@ -29,6 +30,9 @@ import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
+import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -55,6 +59,15 @@ class IncidentActivityScreen extends StatefulWidget {
 class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -67,11 +80,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
+  bool _requireAdminApproval = true;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isAcknowledging = false;
   bool _loadingActivityDetail = false;
+  bool _isGuardianPersona = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
@@ -87,12 +104,21 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
+  late final AcknowledgeActivityUseCase _acknowledgeActivityUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
+  String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
+  bool get _isAcknowledged => _approvalStatus == 'ACKNOWLEDGED';
+  bool get _showGuardianAcknowledgeButton {
+    if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
+    final code = (_effectiveActivity.activityCode ?? '').trim();
+    if (code.isEmpty) return false;
+    return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
+  }
 
   List<Map<String, dynamic>> _scopedStudentsForCreate() {
     if (_selectedStudentsData.length <= 1 || _scopedEditStudentIndices.isEmpty) {
@@ -206,10 +232,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   @override
   void initState() {
     super.initState();
+    bootstrapActivitySchoolTimezone();
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
+    _acknowledgeActivityUseCase = serviceLocator<AcknowledgeActivityUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
@@ -220,6 +248,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -246,7 +275,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
+          final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
         } catch (_) {}
@@ -295,7 +324,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
@@ -312,6 +341,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
+    final roles =
+        (await storage.getString(StorageKeys.roles) ?? '').trim().toUpperCase();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
         .trim();
     final organizationCode =
@@ -321,10 +354,40 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
+      _isGuardianPersona = roles.contains('GUARDIAN') || roles.contains('PARENT');
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
+  }
+
+  Future<void> _onAcknowledgePressed() async {
+    if (_isAcknowledging || !_showGuardianAcknowledgeButton) return;
+    final code = (_effectiveActivity.activityCode ?? '').trim();
+    if (code.isEmpty) return;
+
+    setState(() => _isAcknowledging = true);
+    try {
+      final message = await _acknowledgeActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message.isNotEmpty ? message : 'Activity acknowledged',
+      );
+      await _prefetchActivityForEdit();
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAcknowledging = false);
+      }
+    }
   }
 
   Future<void> _loadActivityContextForCreate() async {
@@ -375,6 +438,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     final whatHappened = _descriptionController.text.trim();
     if (whatHappened.isEmpty) {
@@ -420,14 +491,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (_newPhotos.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please add at least one photo (required for Incident)',
-        isWarning: true,
-      );
-      return;
-    }
     if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -516,7 +579,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _activityTime!.hour,
       _activityTime!.minute,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+
+    // Ensure the API payload uses the attendance date chosen on student selection.
+    final prefilled = widget.selectedStudents != null
+        ? resolveSelectedAttendanceDate(_selectedStudentsData)
+        : null;
+    if (prefilled != null) {
+      _activityDate = prefilled;
+    }
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
+    );
 
     setState(() {
       _isSubmitting = true;
@@ -612,6 +686,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: whatHappened,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: attachments,
       );
@@ -657,6 +734,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     final whatHappened = _descriptionController.text.trim();
     if (whatHappened.isEmpty) {
@@ -702,19 +787,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final keepsExistingPhotos = _remainingExistingPhotoUrls.isNotEmpty ||
-        imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows)
-            .isNotEmpty ||
-        (_effectiveActivity.photoUrl ?? '').trim().isNotEmpty;
-    final hasPhotoForSave = keepsExistingPhotos || _newPhotos.isNotEmpty;
-    if (!hasPhotoForSave) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Incident requires at least one photo',
-        isWarning: true,
-      );
-      return;
-    }
     if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -814,7 +886,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _activityTime!.hour,
       _activityTime!.minute,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
+    );
 
     setState(() => _isSubmitting = true);
     try {
@@ -1018,7 +1093,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final isShared = studentCodes.length > 1;
+    final hasSharedAttachmentInEdit = widget.isEdit &&
+        _detailAttachmentRows.any((row) {
+          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
+          final student = (row['studentCode'] ?? '').toString().trim();
+          return binding == 'SHARED' || student.isEmpty;
+        });
+    final isShared = hasSharedAttachmentInEdit || studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
     final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
     final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
@@ -1045,12 +1126,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
+          final checksumSha256 =
+              await _imageUploadService.computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
+            checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
             ownerType: ownerType,
             ownerCode: ownerCode,
@@ -1102,6 +1186,29 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final videoCount =
+        (video != null ? 1 : 0) +
+        ((remainingExistingVideoUrl != null &&
+                remainingExistingVideoUrl.trim().isNotEmpty)
+            ? 1
+            : 0);
+    if (widget.isEdit && photoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 photo can be attached.',
+        isError: true,
+      );
+      return;
+    }
+    if (widget.isEdit && videoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 video can be attached.',
+        isError: true,
+      );
+      return;
+    }
     setState(() {
       _newPhotos = photos;
       _remainingExistingPhotoUrls =
@@ -1222,7 +1329,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 ),
               ),
             if (_layoutAsEdit) const SizedBox(height: 12),
-            if (_layoutAsEdit)
+            if (_layoutAsEdit &&
+                !(widget.isEdit &&
+                    !widget.readOnly &&
+                    _selectedStudents.length > 1))
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -1240,7 +1350,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   );
                 },
               )
-            else
+            else if (!_layoutAsEdit)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -1261,10 +1371,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 },
               ),
             if (!widget.readOnly && _selectedStudents.length > 1) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Divider(height: 24),
-              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -1292,6 +1398,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -1370,22 +1477,34 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy: _layoutAsEdit
-                    ? (_effectiveActivity.staffPresent ??
-                        _effectiveActivity.createdBy)
-                    : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _canInteract,
-              isAlreadySigned: _layoutAsEdit,
-              incidentActivity: true,
-              onSigned: (value) {
-                setState(() {
-                  _isSigned = value;
-                });
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _isAdminDesignation;
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy: _layoutAsEdit
+                              ? (_effectiveActivity.staffPresent ??
+                                  _effectiveActivity.createdBy)
+                              : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable:
+                      lockToLoggedInStaffOnEdit ? false : _canInteract,
+                  isAlreadySigned: _layoutAsEdit,
+                  clickToSignEditable: _canInteract || _isGuardianPersona,
+                  incidentActivity: true,
+                  onSigned: (value) {
+                    setState(() {
+                      _isSigned = value;
+                    });
+                  },
+                );
               },
             ),
             SizedBox(height: responsive.verticalSpacing),
@@ -1397,6 +1516,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              AbsorbPointer(
+                absorbing: true,
+                child: CustomToggle(
+                  label: 'Requires Admin Approval',
+                  isToggled: true,
+                  labelOnLeftSide: true,
+                  onToggle: (_) {},
+                ),
+              ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
               IgnorePointer(
@@ -1421,14 +1552,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               )
             else
               MediaUploader(
-                isRequired: true,
+                isRequired: false,
                 allowVideo: false,
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
                 limit: 10,
                 photoSizeLimit: 20,
-                label: 'Photos (required)',
+                label: 'Photos',
                 onMediaChanged: _onMediaChanged,
               ),
             if (_newPhotos.isNotEmpty) ...[
@@ -1440,7 +1571,20 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         ),
       ),
       bottomBar: widget.readOnly
-          ? const SafeArea(child: SizedBox.shrink())
+          ? SafeArea(
+              child: _showGuardianAcknowledgeButton
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: CustomButtonLayout(
+                        confirmButtonLabel: _isAcknowledged ? 'Acknowledged' : 'Acknowledge',
+                        onPressedConfirm: _isAcknowledged ? null : _onAcknowledgePressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading: _isAcknowledging || _loadingActivityDetail,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            )
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1483,7 +1627,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     final uploadsSynced = _newPhotos.isEmpty ||
         _uploadedPhotoCount == _newPhotos.length;
-    final createSatisfied = _layoutAsEdit || _newPhotos.isNotEmpty;
+    final createSatisfied = true;
 
     if (uploadsSynced && createSatisfied) {
       final parts = <String>[];
@@ -1513,9 +1657,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       ..write(
         'Photos $_uploadedPhotoCount/${_newPhotos.length}',
       );
-    if (!_layoutAsEdit && _newPhotos.isEmpty) {
-      buf.write(' — add at least one photo (required)');
-    }
     return Row(
       children: [
         const Icon(Icons.error_outline, size: 16, color: Colors.orange),
@@ -1534,3 +1675,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     );
   }
 }
+
+
+

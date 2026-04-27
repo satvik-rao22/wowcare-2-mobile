@@ -11,7 +11,8 @@ class GetRangeActivityFeedUseCase {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) {
@@ -20,7 +21,8 @@ class GetRangeActivityFeedUseCase {
       startDate: startDate,
       endDate: endDate,
       studentCode: studentCode,
-      activityTypeCode: activityTypeCode,
+      activityTypeCodes: activityTypeCodes,
+      guardianPersona: guardianPersona,
       page: page,
       size: size,
     );

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:mime/mime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -58,7 +59,7 @@ class _MessageCompositionBulkMessagingState
   Future<void> _pickFile() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'ppt', 'pptx'],
+      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
     );
 
     if (result == null || result.files.isEmpty) return;

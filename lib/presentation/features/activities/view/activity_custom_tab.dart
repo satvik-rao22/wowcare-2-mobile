@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 import '../../../../core/util/core_utils.dart';
 import '../../../../app/di/di.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/guardian_code_resolver.dart';
@@ -23,9 +24,13 @@ import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/staff_code_resolver.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
+import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
+import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
@@ -34,7 +39,10 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../util/activity_filter_metadata_cache.dart';
+import '../util/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -53,8 +61,6 @@ import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
-import '../util/activity_feed_page_cache_codec.dart';
-import '../util/activity_parent_feed_merge.dart';
 
 class ActivityCustomTab extends StatefulWidget {
   const ActivityCustomTab({
@@ -96,6 +102,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     DateTime.now().month + 1,
     0,
   );
+  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _availableStudents = [];
@@ -131,7 +138,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   List<String> _allowedClassroomCodes = const [];
   String? _primaryClassroomCode;
 
-  late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetClassroomActivitySettingsUseCase
   _getClassroomActivitySettingsUseCase;
@@ -140,26 +146,20 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   late final GetStudentCodesForActivityTagFilterUseCase
       _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
+  late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
+  late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   StreamSubscription<void>? _feedInvalidationSub;
+  bool _isAdminPersona = false;
 
   final List<String> activityType = [
-    'Nap Start',
-    'Nap End',
-    'Bathroom',
-    'Bottle',
-    'Meal',
-    'Incident',
-    'Photo',
-    'Outdoor',
-    'Medication',
-    'Notes',
-    'Learning',
     'Sign-in',
     'Sign-out',
-    'Absent',
+    'Transfer',
   ];
   final Map<String, List<String>> classroomStudents = {};
   final List<Color> _colorPalette = [
@@ -290,13 +290,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     'Notes': MediaRes.notesActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
+    'Sign-in': MediaRes.dailyActivitySignInIcon,
+    'Sign-out': MediaRes.dailyActivitySignOutIcon,
+    'Transfer': MediaRes.dailyActivityTransferIcon,
   };
 
   @override
   void initState() {
     super.initState();
-    _getRangeActivityFeedUseCase =
-        serviceLocator<GetRangeActivityFeedUseCase>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getClassroomActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
@@ -307,7 +308,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _getStudentCodesForActivityTagFilterUseCase =
         serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+    _getStudentAttendanceDailyUseCase =
+        serviceLocator<GetStudentAttendanceDailyUseCase>();
+    _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -316,6 +322,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     //_selectedStudent = _allStudents[0];
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _bootstrapSchoolZone();
       await _bootstrapRangeFeed();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -324,6 +331,22 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _loadRangeFeed(refresh: true);
       }
     });
+  }
+
+  Future<void> _bootstrapSchoolZone() async {
+    try {
+      final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storageService,
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      if (!mounted) return;
+      final today = SchoolZoneDateTime.schoolCalendarTodayOnly(z);
+      setState(() {
+        _schoolIana = z;
+        _selectedStartDate = DateTime(today.year, today.month, 1);
+        _selectedEndDate = DateTime(today.year, today.month + 1, 0);
+      });
+    } catch (_) {}
   }
 
   @override
@@ -353,16 +376,245 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     }
   }
 
-  List<ActivityItem> _itemsFromRangeFeedPage(ActivityFeedPage page) {
-    final raw = page.content
-        .map(
-          (row) => activityItemFromFeedRow(
-            row,
-            viewerDisplayName: _viewerStaffDisplayName,
+  String? _selectedAttendanceEventFilter() {
+    if (_filterActivityTypes.length == 1) {
+      final v = _filterActivityTypes.first.trim();
+      if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+    }
+    final v = _selectedActivityType?.trim();
+    if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+    return null;
+  }
+
+  List<String>? _selectedStudentCodesForAttendanceFilter() {
+    final selected = _selectedStudent?.trim();
+    if (selected == null || selected.isEmpty) return null;
+    final code = _studentCodeByName[selected]?.trim();
+    if (code == null || code.isEmpty) return null;
+    return <String>[code];
+  }
+
+  String _displayClassroomName({
+    String? classroomCode,
+    String? classroomName,
+  }) {
+    final n = (classroomName ?? '').trim();
+    if (n.isNotEmpty && !n.startsWith('CLS_')) return n;
+    final c = (classroomCode ?? '').trim();
+    if (c.isEmpty) return n;
+    return _classroomNameByCode[c] ?? c;
+  }
+
+  DateTime? _attendanceClockToDateTime(
+    StudentAttendanceTime? t,
+    DateTime day,
+  ) {
+    if (t == null) return null;
+    return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
+  }
+
+  List<ActivityItem> _itemsFromAttendancePage(StudentAttendanceDailyPage page) {
+    final eventFilter = _selectedAttendanceEventFilter();
+    final selectedClassroomName = _selectdClassroom;
+    final selectedClassroomCode = selectedClassroomName != null
+        ? _classroomCodeByName[selectedClassroomName]
+        : null;
+    final out = <ActivityItem>[];
+    for (final row in page.items) {
+      DateTime rowDay;
+      try {
+        final src = (row.signedInAt ?? row.signedOutAt ?? '').trim();
+        rowDay = src.isEmpty
+            ? (_selectedStartDate ?? DateTime.now())
+            : SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                DateTime.parse(src),
+                _schoolIana,
+              );
+      } catch (_) {
+        rowDay = _selectedStartDate ?? DateTime.now();
+      }
+      final studentName = row.studentName.trim().isEmpty
+          ? 'Student'
+          : row.studentName.trim();
+      final studentCode = row.studentCode?.trim();
+      final baseClassName = _displayClassroomName(
+        classroomCode: row.classroomCode,
+        classroomName: row.classroomName,
+      );
+
+      if (row.isTransfer == true) {
+        if (eventFilter == null || eventFilter == 'Transfer') {
+          final at = _attendanceClockToDateTime(row.transferTime, rowDay) ??
+              _attendanceClockToDateTime(row.nextActionTime, rowDay) ??
+              rowDay;
+          final fromName = _displayClassroomName(
+            classroomCode: row.fromClassroomCode,
+            classroomName: row.fromClassroomName,
+          );
+          final toName = _displayClassroomName(
+            classroomCode: row.toClassroomCode,
+            classroomName: row.toClassroomName,
+          );
+          final fromCode = (row.fromClassroomCode ?? '').trim();
+          final toCode = (row.toClassroomCode ?? '').trim();
+          final selectedCode = (selectedClassroomCode ?? '').trim();
+          final bool viewingFromClassroom =
+              selectedCode.isNotEmpty && fromCode.isNotEmpty && selectedCode == fromCode;
+          final bool viewingToClassroom =
+              selectedCode.isNotEmpty && toCode.isNotEmpty && selectedCode == toCode;
+
+          final String transferLine;
+          if (viewingFromClassroom) {
+            transferLine =
+                'Transferred to ${toName.isEmpty ? 'classroom' : toName}';
+          } else if (viewingToClassroom) {
+            transferLine =
+                'Transferred from ${fromName.isEmpty ? 'classroom' : fromName}';
+          } else {
+            transferLine =
+                'Transferred from ${fromName.isEmpty ? 'classroom' : fromName} to ${toName.isEmpty ? 'classroom' : toName}';
+          }
+          out.add(
+            ActivityItem(
+              time: DateFormat.jm().format(at),
+              date: DateFormat('MMMM d, yyyy').format(at),
+              name: 'Transfer',
+              description: transferLine,
+              studentList: <String>[studentName],
+              createdBy: (row.transferredBy ?? '').trim().isEmpty
+                  ? _viewerStaffDisplayName
+                  : row.transferredBy!.trim(),
+              studentCode: studentCode?.isEmpty == true ? null : studentCode,
+              classroomCode: viewingFromClassroom
+                  ? (row.fromClassroomCode ?? row.classroomCode).trim()
+                  : ((row.toClassroomCode ?? row.classroomCode).trim()),
+              activityDateIso: at.toIso8601String(),
+              studentActivityRefs: <Map<String, String>>[
+                {
+                  'name': studentName,
+                  if (studentCode != null && studentCode.isNotEmpty)
+                    'studentCode': studentCode,
+                },
+              ],
+            ),
+          );
+        }
+        // Backend may return the final sign-out time on the last transfer row.
+        if ((eventFilter == null || eventFilter == 'Sign-out') &&
+            row.signedOutTime != null) {
+          final at =
+              _attendanceClockToDateTime(row.signedOutTime, rowDay) ?? rowDay;
+          final effectiveClassName = _displayClassroomName(
+            classroomCode:
+                (row.toClassroomCode ?? row.classroomCode).trim().isEmpty
+                    ? row.classroomCode
+                    : row.toClassroomCode,
+            classroomName:
+                (row.toClassroomName ?? row.classroomName).trim().isEmpty
+                    ? row.classroomName
+                    : row.toClassroomName!,
+          );
+          out.add(
+            ActivityItem(
+              time: DateFormat.jm().format(at),
+              date: DateFormat('MMMM d, yyyy').format(at),
+              name: 'Sign-out',
+              description:
+                  'Signed-Out from ${effectiveClassName.isEmpty ? 'classroom' : effectiveClassName}',
+              studentList: <String>[studentName],
+              createdBy: (row.signedOutBy ?? '').trim().isEmpty
+                  ? _viewerStaffDisplayName
+                  : row.signedOutBy!.trim(),
+              studentCode: studentCode?.isEmpty == true ? null : studentCode,
+              classroomCode:
+                  (row.toClassroomCode ?? row.classroomCode).trim(),
+              activityDateIso: at.toIso8601String(),
+              studentActivityRefs: <Map<String, String>>[
+                {
+                  'name': studentName,
+                  if (studentCode != null && studentCode.isNotEmpty)
+                    'studentCode': studentCode,
+                },
+              ],
+            ),
+          );
+        }
+        continue;
+      }
+
+      if ((eventFilter == null || eventFilter == 'Sign-in') &&
+          row.signedInTime != null) {
+        final at = _attendanceClockToDateTime(row.signedInTime, rowDay) ?? rowDay;
+        out.add(
+          ActivityItem(
+            time: DateFormat.jm().format(at),
+            date: DateFormat('MMMM d, yyyy').format(at),
+            name: 'Sign-in',
+            description:
+                'Signed-In to ${baseClassName.isEmpty ? 'classroom' : baseClassName}',
+            studentList: <String>[studentName],
+            createdBy: (row.signedInBy ?? '').trim().isEmpty
+                ? _viewerStaffDisplayName
+                : row.signedInBy!.trim(),
+            studentCode: studentCode?.isEmpty == true ? null : studentCode,
+            classroomCode: row.classroomCode.trim(),
+            activityDateIso: at.toIso8601String(),
+            studentActivityRefs: <Map<String, String>>[
+              {
+                'name': studentName,
+                if (studentCode != null && studentCode.isNotEmpty)
+                  'studentCode': studentCode,
+              },
+            ],
           ),
-        )
-        .toList();
-    return _withClientFilters(raw);
+        );
+      }
+
+      if ((eventFilter == null || eventFilter == 'Sign-out') &&
+          row.signedOutTime != null) {
+        final at =
+            _attendanceClockToDateTime(row.signedOutTime, rowDay) ?? rowDay;
+        out.add(
+          ActivityItem(
+            time: DateFormat.jm().format(at),
+            date: DateFormat('MMMM d, yyyy').format(at),
+            name: 'Sign-out',
+            description:
+                'Signed-Out from ${baseClassName.isEmpty ? 'classroom' : baseClassName}',
+            studentList: <String>[studentName],
+            createdBy: (row.signedOutBy ?? '').trim().isEmpty
+                ? _viewerStaffDisplayName
+                : row.signedOutBy!.trim(),
+            studentCode: studentCode?.isEmpty == true ? null : studentCode,
+            classroomCode: row.classroomCode.trim(),
+            activityDateIso: at.toIso8601String(),
+            studentActivityRefs: <Map<String, String>>[
+              {
+                'name': studentName,
+                if (studentCode != null && studentCode.isNotEmpty)
+                  'studentCode': studentCode,
+              },
+            ],
+          ),
+        );
+      }
+    }
+    out.sort((a, b) {
+      DateTime aDt;
+      DateTime bDt;
+      try {
+        aDt = DateTime.parse(a.activityDateIso!);
+      } catch (_) {
+        aDt = DateTime(1970);
+      }
+      try {
+        bDt = DateTime.parse(b.activityDateIso!);
+      } catch (_) {
+        bDt = DateTime(1970);
+      }
+      return bDt.compareTo(aDt);
+    });
+    return _withClientFilters(out);
   }
 
   Future<void> _loadNextRangeFeedPage() async {
@@ -381,34 +633,76 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
     if (start == null || end == null) return;
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
 
-    final selectedStudent = _selectedStudent;
-    final studentCodeForRequest = selectedStudent == null
-        ? null
-        : _studentCodeByName[selectedStudent];
-    final typeCode = _activityTypeCodeForApiFilter();
+    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
+    final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+    final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
 
     try {
-      final page = await _getRangeActivityFeedUseCase(
-        classroomCode: classroomCode,
-        startDate: _dateQueryParam(start),
-        endDate: _dateQueryParam(end),
-        studentCode: studentCodeForRequest,
-        activityTypeCode: typeCode,
-        page: _feedNextPage,
-        size: _feedPageSize,
-      );
+      final selectedStudentCode =
+          (studentCodes != null && studentCodes.isNotEmpty)
+              ? studentCodes.first
+              : null;
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final pageIndex = _feedNextPage;
 
-      final items = _itemsFromRangeFeedPage(page);
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+        _getRangeActivityFeedUseCase(
+          classroomCode: classroomCode,
+          startDate: _dateQueryParam(start),
+          endDate: _dateQueryParam(end),
+          studentCode: selectedStudentCode,
+          activityTypeCodes: typeCodes,
+          guardianPersona: _parentHome,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
+
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(activityFeedPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = !page.last;
-        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -448,16 +742,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
       return;
     }
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
 
     final codes = _parentAllowedStudentCodes.toList()..sort();
-    final typeCode = _activityTypeCodeForApiFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
     final requestKey = [
       'parentRange',
       school,
       codes.join(','),
       _dateQueryParam(start),
       _dateQueryParam(end),
-      typeCode ?? '',
+      selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
     ].join('|');
@@ -472,14 +768,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
     }
 
-    await _rebuildStudentCodesForTagFilter();
-    if (!mounted) return;
-
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
     try {
-      final pages = await Future.wait(
+      final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+      final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: _dateQueryParam(start),
+        fromAttendanceDate: _dateQueryParam(start),
+        toAttendanceDate: _dateQueryParam(end),
+        studentCodes: codes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: 0,
+        size: _feedPageSize,
+      );
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final activityPages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
           if (cc.isEmpty) {
@@ -496,15 +802,32 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             startDate: _dateQueryParam(start),
             endDate: _dateQueryParam(end),
             studentCode: sc,
-            activityTypeCode: typeCode,
+            activityTypeCodes: typeCodes,
+            guardianPersona: true,
             page: 0,
             size: _feedPageSize,
           );
         }),
       );
-
-      final merged = mergeActivityFeedPages(pages);
-      final items = _itemsFromRangeFeedPage(merged);
+      final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(mergedActivityPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -515,8 +838,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = !merged.last;
-        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
+        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
@@ -555,15 +878,30 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _parentAllowedStudentCodes.isEmpty) {
       return;
     }
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
 
-    final typeCode = _activityTypeCodeForApiFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
     final pageIndex = _feedNextPage;
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
 
     try {
-      final pages = await Future.wait(
+      final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+      final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: _dateQueryParam(start),
+        fromAttendanceDate: _dateQueryParam(start),
+        toAttendanceDate: _dateQueryParam(end),
+        studentCodes: _parentAllowedStudentCodes.toList(),
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final activityPages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
           if (cc.isEmpty) {
@@ -580,21 +918,38 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             startDate: _dateQueryParam(start),
             endDate: _dateQueryParam(end),
             studentCode: sc,
-            activityTypeCode: typeCode,
+            activityTypeCodes: typeCodes,
+            guardianPersona: true,
             page: pageIndex,
             size: _feedPageSize,
           );
         }),
       );
-
-      final merged = mergeActivityFeedPages(pages);
-      final items = _itemsFromRangeFeedPage(merged);
+      final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(mergedActivityPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = !merged.last;
-        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
+        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -729,14 +1084,37 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return null;
   }
 
-  String? _activityTypeCodeForApiFilter() {
-    if (_filterActivityTypes.length == 1) {
-      return _activityTypeCodeForLabel(_filterActivityTypes.first);
+  List<String>? _activityTypeCodesForApiFilter() {
+    // Attendance events are handled via attendance APIs.
+    final event = _selectedAttendanceEventFilter();
+    if (event != null) return null;
+    final codes = <String>{};
+    for (final label in _filterActivityTypes) {
+      final code = _activityTypeCodeForLabel(label);
+      if (code != null && code.trim().isNotEmpty) {
+        codes.add(code.trim());
+      }
     }
-    if (_filterActivityTypes.isEmpty) {
-      return _activityTypeCodeForLabel(_selectedActivityType);
-    }
-    return null;
+    return codes.isEmpty ? null : codes.toList();
+  }
+
+  int _appliedFilterBadgeCount() {
+    final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
+    final hasTagFilter = _filterTags.isNotEmpty;
+    return (hasActivityTypeFilter ? 1 : 0) + (hasTagFilter ? 1 : 0);
+  }
+
+  List<ActivityItem> _itemsFromActivityFeedPage(ActivityFeedPage page) {
+    final raw = page.content
+        .map(
+          (row) => activityItemFromFeedRow(
+            row,
+            viewerDisplayName: _viewerStaffDisplayName,
+            schoolIana: _schoolIana,
+          ),
+        )
+        .toList();
+    return _withClientFilters(raw);
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -820,9 +1198,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   Future<void> _bootstrapRangeFeed() async {
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    final roles =
+        (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final staffType =
+        (await _storageService.getString(StorageKeys.staffType) ?? '')
+            .trim()
+            .toUpperCase();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
+        _isAdminPersona = roles.contains('ADMIN') ||
+            staffType == 'SCHOOL_ADMIN' ||
+            staffType == 'ORGANIZATION_ADMIN';
       });
     }
 
@@ -851,6 +1238,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       resource: 'classrooms',
       identifier: school,
     );
+    var hydratedClassroomsFromCache = false;
     try {
       final cached = await _cacheManager.loadCache(classroomCacheKey);
       if (cached != null && cached['classrooms'] is List) {
@@ -908,10 +1296,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                 _selectdClassroom = primaryName ?? _classroomOptions.first;
               }
             });
+            hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
           }
         }
       }
     } catch (_) {}
+
+    if (hydratedClassroomsFromCache && mounted) {
+      await Future.wait<void>([
+        _loadRangeFeed(refresh: false),
+        _loadTagFilterOptions(forceRefresh: false),
+      ]);
+      return;
+    }
 
     try {
       final classrooms = await _getActiveClassroomsUseCase(
@@ -1097,15 +1494,22 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
             _parentStudentClassroomByCode[globalSelectedCode];
-        _parentAllowedStudentCodes
-          ..clear()
-          ..add(globalSelectedCode);
-        _parentStudentClassroomByCode..clear();
         if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
+          _parentAllowedStudentCodes
+            ..clear()
+            ..add(globalSelectedCode);
+          _parentStudentClassroomByCode.clear();
           _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
               .trim();
+          _lastGlobalSelectedStudentCode = globalSelectedCode;
+        } else {
+          // Keep the full guardian student->classroom map when the globally
+          // selected child has no classroom mapping yet. Otherwise range-feed
+          // API calls are skipped due to missing classroomCode.
+          CoreUtils.logApiError(
+            'Parent selected child has no classroom mapping; using all mapped guardian students for custom feed.',
+          );
         }
-        _lastGlobalSelectedStudentCode = globalSelectedCode;
       }
 
       if (_parentAllowedStudentCodes.isEmpty) {
@@ -1173,6 +1577,94 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     }
   }
 
+  Future<void> _approveActivityFromMenu(ActivityItem activity) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot approve: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      await _loadRangeFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    }
+  }
+
+  Future<void> _rejectActivityFromMenu(ActivityItem activity) async {
+    final code = activity.activityCode?.trim();
+    if (code == null || code.isEmpty) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot reject: missing activity reference.',
+        isError: true,
+      );
+      return;
+    }
+    try {
+      final message = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+      await _loadRangeFeed(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    }
+  }
+
+  Future<void> _showApprovalActionBottomSheet({
+    required ActivityItem activity,
+    required bool isApprove,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DeleteConfirmationBottomSheet(
+          name: activity.name,
+          type: isApprove ? 'activity_approve' : 'activity_reject',
+          onDelete: () async {
+            if (isApprove) {
+              await _approveActivityFromMenu(activity);
+            } else {
+              await _rejectActivityFromMenu(activity);
+            }
+            if (ctx.mounted) Navigator.of(ctx).pop();
+          },
+          onCancel: () {
+            Navigator.of(ctx).pop();
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _loadRangeFeed({bool refresh = false}) async {
     if (_parentHome) {
       return _loadParentHomeRangeFeed(refresh: refresh);
@@ -1195,17 +1687,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
     if (start == null || end == null) return;
-    final selectedStudent = _selectedStudent;
-    final studentCodeForRequest = selectedStudent == null
-        ? null
-        : _studentCodeByName[selectedStudent];
-    final typeCode = _activityTypeCodeForApiFilter();
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
+    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
     final requestKey = [
       classroomCode,
       _dateQueryParam(start),
       _dateQueryParam(end),
-      studentCodeForRequest ?? '',
-      typeCode ?? '',
+      (studentCodes ?? const <String>[]).join(','),
+      selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
     ].join('|');
@@ -1222,81 +1713,75 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
     }
 
-    await _rebuildStudentCodesForTagFilter();
-    if (!mounted) return;
-
-    if (!refresh) {
-      try {
-        final cached = await _cacheManager.loadCache(
-          ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
-          validFor: StorageKeys.activityFeedCacheDuration,
-        );
-        final rev = await ActivityFeedInvalidation.currentRevision(
-          _storageService,
-        );
-        final cachedPage = ActivityFeedPageCacheCodec.decode(
-          cached,
-          currentRevision: rev,
-        );
-        if (cachedPage != null && mounted) {
-          final items = _itemsFromRangeFeedPage(cachedPage);
-          setState(() {
-            activities
-              ..clear()
-              ..addAll(items);
-            _feedError = null;
-            _feedHasMore = !cachedPage.last;
-            _feedNextPage = cachedPage.last ? 0 : cachedPage.pageNumber + 1;
-            _loadingMoreFeed = false;
-          });
-          _lastFeedRequestKey = requestKey;
-          _isFeedRequestInFlight = false;
-          _lastFeedCompletedAt = DateTime.now();
-          _lastFeedCompletedWithError = false;
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _maybeLoadNextRangeFeedPage(),
-          );
-          return;
-        }
-      } catch (_) {}
-    }
-
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
     try {
-      final page = await _getRangeActivityFeedUseCase(
-        classroomCode: classroomCode,
-        startDate: _dateQueryParam(start),
-        endDate: _dateQueryParam(end),
-        studentCode: studentCodeForRequest,
-        activityTypeCode: typeCode,
-        page: 0,
-        size: _feedPageSize,
-      );
+      final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+      final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
+      final selectedStudentCode =
+          (studentCodes != null && studentCodes.isNotEmpty)
+              ? studentCodes.first
+              : null;
+      final typeCodes = _activityTypeCodesForApiFilter();
 
-      final items = _itemsFromRangeFeedPage(page);
+      final results = await Future.wait([
+        _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          classroomCodes: <String>[classroomCode],
+          studentCodes: studentCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: 0,
+          size: _feedPageSize,
+        ),
+        _getRangeActivityFeedUseCase(
+          classroomCode: classroomCode,
+          startDate: _dateQueryParam(start),
+          endDate: _dateQueryParam(end),
+          studentCode: selectedStudentCode,
+          activityTypeCodes: typeCodes,
+          guardianPersona: _parentHome,
+          page: 0,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final activityFeedPage = results[1] as ActivityFeedPage;
+
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(activityFeedPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
         return;
       }
-      try {
-        final rev = await ActivityFeedInvalidation.currentRevision(
-          _storageService,
-        );
-        await _cacheManager.saveCache(
-          ActivityFeedPageCacheCodec.rangeCacheKey(requestKey),
-          ActivityFeedPageCacheCodec.wrapPage(page, rev),
-        );
-      } catch (_) {}
       setState(() {
         activities
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = !page.last;
-        _feedNextPage = page.last ? 0 : page.pageNumber + 1;
+        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
@@ -1495,6 +1980,38 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   Future<void> _onRefresh() async {
+    // Force refresh of tag map + feed. Also bust staff dropdown cache.
+    try {
+      final org =
+          (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final school =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isNotEmpty && school.isNotEmpty) {
+        final staffKey = CacheManager.buildCacheKey(
+          feature: 'staff',
+          resource: 'list',
+          identifier: '${org}_$school',
+        );
+        await _cacheManager.invalidateCache(staffKey);
+      }
+    } catch (_) {}
+    if (_parentHome) {
+      await _bootstrapParentHome();
+    } else {
+      // Force classroom metadata refresh for staff/admin personas too.
+      final school = (_schoolCode ?? '').trim();
+      if (school.isNotEmpty) {
+        final classroomCacheKey = CacheManager.buildCacheKey(
+          feature: 'activity',
+          resource: 'classrooms',
+          identifier: school,
+        );
+        await _cacheManager.invalidateCache(classroomCacheKey);
+      }
+      await _bootstrapRangeFeed();
+    }
+    await _loadTagFilterOptions(forceRefresh: true);
     await _loadRangeFeed(refresh: true);
   }
 
@@ -1668,6 +2185,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                         setState(() {
                                           _selectedStudent = value;
                                         });
+                                        _loadRangeFeed(refresh: true);
                                       }
                                     },
                                   ),
@@ -1678,12 +2196,57 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(100),
                                     onTap: _openActivityFilter,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: SvgPicture.asset(
-                                        MediaRes.filterIcon,
-                                        height: 20,
-                                      ),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: SvgPicture.asset(
+                                            MediaRes.filterIcon,
+                                            height: 20,
+                                          ),
+                                        ),
+                                        Builder(
+                                          builder: (context) {
+                                            final badgeCount =
+                                                _appliedFilterBadgeCount();
+                                            if (badgeCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 2,
+                                              top: 2,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color.fromRGBO(
+                                                    179,
+                                                    38,
+                                                    30,
+                                                    1,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  badgeCount > 99
+                                                      ? '99+'
+                                                      : '$badgeCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -1997,12 +2560,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                 // color: activityColor
                                                                 //     .withOpacity(0.25),
                                                                 child: Center(
-                                                                  child: Image.asset(
-                                                                    activityIcons[activity
-                                                                        .name],
-                                                                    //'assets/icons/activity-nap-icon.png',
-                                                                    fit: BoxFit
-                                                                        .fill,
+                                                                  child: Builder(
+                                                                    builder: (_) {
+                                                                      final iconPath =
+                                                                          (activityIcons[activity.name] ??
+                                                                                  MediaRes.notesActivityIcon)
+                                                                              .toString();
+                                                                      if (iconPath
+                                                                          .toLowerCase()
+                                                                          .endsWith(
+                                                                            '.svg',
+                                                                          )) {
+                                                                        return SvgPicture.asset(
+                                                                          iconPath,
+                                                                          fit: BoxFit
+                                                                              .contain,
+                                                                        );
+                                                                      }
+                                                                      return Image.asset(
+                                                                        iconPath,
+                                                                        fit: BoxFit
+                                                                            .fill,
+                                                                      );
+                                                                    },
                                                                   ),
                                                                 ),
                                                               ),
@@ -2023,35 +2603,64 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                 MainAxisAlignment
                                                                     .spaceBetween,
                                                             children: [
-                                                              Container(
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          12,
-                                                                      vertical:
-                                                                          6,
+                                                              Expanded(
+                                                                child: Wrap(
+                                                                  spacing: 8,
+                                                                  runSpacing: 6,
+                                                                  crossAxisAlignment:
+                                                                      WrapCrossAlignment.center,
+                                                                  children: [
+                                                                    Container(
+                                                                      padding: const EdgeInsets.symmetric(
+                                                                        horizontal: 12,
+                                                                        vertical: 6,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color: activityColor.withOpacity(
+                                                                          0.5,
+                                                                        ),
+                                                                        borderRadius: BorderRadius.circular(
+                                                                          4,
+                                                                        ),
+                                                                      ),
+                                                                      child: Text(
+                                                                        activity.name,
+                                                                        style: const TextStyle(
+                                                                          color: AppColors.primaryColor,
+                                                                          fontSize: 12,
+                                                                        ),
+                                                                      ),
                                                                     ),
-                                                                decoration: BoxDecoration(
-                                                                  color: activityColor
-                                                                      .withOpacity(
-                                                                        0.5,
+                                                                    if (activityApprovalStatusBadgeLabel(activity.approvalStatus) != null)
+                                                                      Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal: 10,
+                                                                          vertical: 6,
+                                                                        ),
+                                                                        decoration: BoxDecoration(
+                                                                          color: activityApprovalStatusBadgeColor(
+                                                                            activity.approvalStatus,
+                                                                          ),
+                                                                          borderRadius: BorderRadius.circular(
+                                                                            4,
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          activityApprovalStatusBadgeLabel(
+                                                                                activity.approvalStatus,
+                                                                              ) ??
+                                                                              '',
+                                                                          style: const TextStyle(
+                                                                            color: AppColors.primaryColor,
+                                                                            fontSize: 12,
+                                                                            fontWeight: FontWeight.w500,
+                                                                          ),
+                                                                        ),
                                                                       ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        4,
-                                                                      ),
-                                                                ),
-                                                                child: Text(
-                                                                  activity.name,
-                                                                  style: const TextStyle(
-                                                                    color: AppColors
-                                                                        .primaryColor,
-                                                                    fontSize:
-                                                                        12,
-                                                                  ),
+                                                                  ],
                                                                 ),
                                                               ),
-                                                              if (isNotParent)
+                                                              if (true)
                                                                 PopupMenuButton<
                                                                   String
                                                                 >(
@@ -2105,7 +2714,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                       },
                                                                     ),
                                                                     if (widget
-                                                                        .allowActivityWrite) ...[
+                                                                            .allowActivityWrite &&
+                                                                        canEditActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                        ))
                                                                       PopupMenuItem<
                                                                         String
                                                                       >(
@@ -2146,6 +2760,65 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                           }
                                                                         },
                                                                       ),
+                                                                    if (canAdminApproveOrRejectActivityItem(
+                                                                      activity,
+                                                                      isAdminPersona:
+                                                                          _isAdminPersona,
+                                                                    )) ...[
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'approve',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Approve',
+                                                                          icon: Icon(
+                                                                            Icons.check_circle_outline,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          await _showApprovalActionBottomSheet(
+                                                                            activity:
+                                                                                activity,
+                                                                            isApprove:
+                                                                                true,
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'reject',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Reject',
+                                                                          icon: Icon(
+                                                                            Icons.cancel_outlined,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          await _showApprovalActionBottomSheet(
+                                                                            activity:
+                                                                                activity,
+                                                                            isApprove:
+                                                                                false,
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                    if (widget
+                                                                            .allowActivityWrite &&
+                                                                        canDeleteActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                        ))
                                                                       PopupMenuItem<
                                                                         String
                                                                       >(
@@ -2189,7 +2862,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                           );
                                                                         },
                                                                       ),
-                                                                    ],
                                                                   ],
                                                                 ),
                                                             ],

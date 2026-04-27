@@ -8,7 +8,10 @@ import '../entities/student_attendance_expected_summary.dart';
 abstract class AttendanceRepository {
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,

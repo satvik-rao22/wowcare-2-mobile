@@ -105,12 +105,16 @@ import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
+import '../../domain/features/activity/usecases/approve_activity_usecase.dart';
+import '../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
+import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
@@ -484,6 +488,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetClassroomActivitySettingsUseCase>(
     () => GetClassroomActivitySettingsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetActiveActivityTypesForSchoolUseCase>(
+    () => GetActiveActivityTypesForSchoolUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
     () => GetActivityTypeDetailsUseCase(serviceLocator()),
   );
@@ -501,6 +508,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteActivityUseCase>(
     () => DeleteActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ApproveActivityUseCase>(
+    () => ApproveActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RejectActivityUseCase>(
+    () => RejectActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AcknowledgeActivityUseCase>(
+    () => AcknowledgeActivityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
     () => CreateActivityUploadSessionsUseCase(serviceLocator()),

@@ -1,7 +1,9 @@
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 
 /// Disk-backed helpers for activity filter dropdowns (tags + activity types per classroom).
@@ -120,5 +122,40 @@ class ActivityFilterMetadataCache {
       'settings': settings.map(_settingToMap).toList(),
     });
     return settings;
+  }
+
+  /// School-wide active activity types via `GET /api/v1/activity-types?schoolCode=...`.
+  static Future<List<ActivityTypeSummary>> loadActiveActivityTypesForSchool({
+    required CacheManager cacheManager,
+    required GetActiveActivityTypesForSchoolUseCase useCase,
+    required String schoolCode,
+    bool forceRefresh = false,
+  }) async {
+    final key = CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'activity_types',
+      identifier: schoolCode,
+    );
+    if (!forceRefresh) {
+      final cached = await cacheManager.loadCache(
+        key,
+        validFor: StorageKeys.cacheValidDuration,
+      );
+      if (cached != null && cached['items'] is List) {
+        final out = <ActivityTypeSummary>[];
+        for (final raw in (cached['items'] as List).whereType<Map>()) {
+          final code = (raw['code'] ?? '').toString().trim();
+          final name = (raw['name'] ?? '').toString().trim();
+          if (code.isEmpty || name.isEmpty) continue;
+          out.add(ActivityTypeSummary(code: code, name: name));
+        }
+        if (out.isNotEmpty) return out;
+      }
+    }
+    final items = await useCase(schoolCode: schoolCode);
+    await cacheManager.saveCache(key, {
+      'items': items.map((e) => {'code': e.code, 'name': e.name}).toList(),
+    });
+    return items;
   }
 }

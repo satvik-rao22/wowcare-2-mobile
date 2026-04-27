@@ -30,6 +30,15 @@ abstract class ActivityRemoteDataSource {
   /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/approve`.
+  Future<String> approveActivity({required String cardGroupCode});
+
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
+  Future<String> rejectActivity({required String cardGroupCode});
+
+  /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
+  Future<String> acknowledgeActivity({required String cardGroupCode});
+
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
@@ -40,6 +49,12 @@ abstract class ActivityRemoteDataSource {
   /// `GET /api/v1/activity-types/{code}`.
   Future<ActivityTypeDetailsModel> getActivityTypeDetails({
     required String code,
+  });
+
+  /// Fetches all active activity types for a school via
+  /// `GET /api/v1/activity-types?schoolCode={schoolCode}`.
+  Future<List<Map<String, dynamic>>> getActiveActivityTypesForSchool({
+    required String schoolCode,
   });
 
   /// Creates grouped activity cards via `POST /api/v2/activities`.
@@ -78,6 +93,7 @@ abstract class ActivityRemoteDataSource {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
@@ -88,7 +104,8 @@ abstract class ActivityRemoteDataSource {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -99,7 +116,8 @@ abstract class ActivityRemoteDataSource {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -146,7 +164,6 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
             !isShared &&
             studentCode.toUpperCase().startsWith('STD_'))
           'studentCode': studentCode,
-        if (bindingMode.isNotEmpty) 'bindingMode': bindingMode,
       });
     }
     return out;
@@ -193,12 +210,6 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         ? normalizedApplyToCodes
         : normalizedStudentCodes;
     final normalizedAttachments = _normalizedPatchAttachments(attachments);
-    final attachmentBindingMode = normalizedAttachments
-        .map((a) => (a['bindingMode'] ?? '').toString().trim())
-        .firstWhere((v) => v.isNotEmpty, orElse: () => '');
-    final effectiveBindingMode = effectiveStudentCodes.length <= 1
-        ? 'PER_STUDENT'
-        : (attachmentBindingMode.isNotEmpty ? attachmentBindingMode : 'SHARED');
 
     final payload = <String, dynamic>{
       if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
@@ -208,7 +219,6 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'activityDate': activityDate,
       'description': description,
       'parameterValues': parameterValues,
-      'bindingMode': effectiveBindingMode,
       'attachments': normalizedAttachments,
     };
     final response = await _client.patch<dynamic>(endpoint, data: payload);
@@ -239,6 +249,53 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       return message.trim();
     }
     return 'Activity deleted successfully';
+  }
+
+  @override
+  Future<String> approveActivity({required String cardGroupCode}) async {
+    final endpoint = ApiPaths.url(ApiPaths.adminApproveActivity(cardGroupCode));
+    final response = await _client.post<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected approve-activity API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity approved successfully';
+  }
+
+  @override
+  Future<String> rejectActivity({required String cardGroupCode}) async {
+    final endpoint = ApiPaths.url(ApiPaths.adminRejectActivity(cardGroupCode));
+    final response = await _client.post<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected reject-activity API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity rejected successfully';
+  }
+
+  @override
+  Future<String> acknowledgeActivity({required String cardGroupCode}) async {
+    final endpoint = ApiPaths.url(
+      ApiPaths.guardianAcknowledgeActivity(cardGroupCode),
+    );
+    final response = await _client.post<dynamic>(endpoint);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian-acknowledge API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity acknowledged successfully';
   }
 
   @override
@@ -289,6 +346,30 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
 
     return ActivityTypeDetailsModel.fromJson(data);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getActiveActivityTypesForSchool({
+    required String schoolCode,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.activityTypesRoot,
+      ApiConstants.activityBaseUrl,
+    );
+    final uri = Uri.parse(base).replace(
+      queryParameters: {'schoolCode': schoolCode.trim()},
+    );
+    final response = await _client.getUri<dynamic>(uri);
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected activity-types API response format');
+    }
+    final data = body['data'];
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   @override
@@ -438,6 +519,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
@@ -458,6 +540,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'fileName': fileName,
       'contentType': contentType,
       'contentLengthBytes': contentLengthBytes,
+      'checksumSha256': checksumSha256,
       'mediaType': mediaType,
       'ownerType': ownerType,
       'ownerCode': ownerCode,
@@ -485,32 +568,38 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final base = ApiPaths.urlWithBase(
-      ApiPaths.activitiesFeedDaily,
+      guardianPersona
+          ? ApiPaths.guardianActivitiesFeedDaily
+          : ApiPaths.activitiesFeedDaily,
       ApiConstants.activityBaseUrl,
     );
-    final qp = <String, String>{
-      'classroomCode': classroomCode.trim(),
-      'date': date.trim(),
-      'page': '$page',
-      'size': '$size',
-      'sort': 'activityDate,desc',
+    final qp = <String, List<String>>{
+      'classroomCode': <String>[classroomCode.trim()],
+      'date': <String>[date.trim()],
+      'page': <String>['$page'],
+      'size': <String>['$size'],
+      'sort': <String>['activityDate,desc'],
     };
     final sc = studentCode?.trim();
     if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = sc;
+      qp['studentCode'] = <String>[sc];
     }
-    final at = activityTypeCode?.trim();
-    if (at != null && at.isNotEmpty) {
-      qp['activityTypeCode'] = at;
+    final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ats.isNotEmpty) {
+      qp['activityTypeCode'] = ats;
     }
 
-    final uri = Uri.parse(base).replace(queryParameters: qp);
-    final response = await _client.getUri<dynamic>(uri);
+    final response = await _client.get<dynamic>(base, queryParameters: qp);
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
@@ -526,36 +615,42 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final base = ApiPaths.urlWithBase(
-      ApiPaths.activitiesFeedRange,
+      guardianPersona
+          ? ApiPaths.guardianActivitiesFeedRange
+          : ApiPaths.activitiesFeedRange,
       ApiConstants.activityBaseUrl,
     );
 
-    final qp = <String, String>{
-      'classroomCode': classroomCode.trim(),
-      'startDate': startDate.trim(),
-      'endDate': endDate.trim(),
-      'page': '$page',
-      'size': '$size',
-      'sort': 'activityDate,desc',
+    final qp = <String, List<String>>{
+      'classroomCode': <String>[classroomCode.trim()],
+      'startDate': <String>[startDate.trim()],
+      'endDate': <String>[endDate.trim()],
+      'page': <String>['$page'],
+      'size': <String>['$size'],
+      'sort': <String>['activityDate,desc'],
     };
 
     final sc = studentCode?.trim();
     if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = sc;
+      qp['studentCode'] = <String>[sc];
     }
 
-    final at = activityTypeCode?.trim();
-    if (at != null && at.isNotEmpty) {
-      qp['activityTypeCode'] = at;
+    final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ats.isNotEmpty) {
+      qp['activityTypeCode'] = ats;
     }
 
-    final uri = Uri.parse(base).replace(queryParameters: qp);
-    final response = await _client.getUri<dynamic>(uri);
+    final response = await _client.get<dynamic>(base, queryParameters: qp);
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {

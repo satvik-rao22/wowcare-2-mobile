@@ -264,6 +264,8 @@ class MediaRes {
       '$_baseIcons/DailyActivitySignInIcon.svg';
   static const String dailyActivitySignOutIcon =
       '$_baseIcons/DailyActivitySignOutIcon.svg';
+  static const String dailyActivityTransferIcon =
+      '$_baseIcons/DailyActivityTransferIcon.svg';
   static const String dailyActivityAbsentIcon =
       '$_baseIcons/DailyActivityAbsentIcon.svg';
 
@@ -297,6 +299,7 @@ class MediaRes {
 
   static const String greenCheckCircleIcon =
       '$_baseIcons/green-check-circle.svg';
+  static const String redCrossCircleIcon = '$_baseIcons/red-cross-circle.svg';
   static const String homeIcon = '$_baseIcons/Home.svg';
 
   // Attendance sign-in/out method icons

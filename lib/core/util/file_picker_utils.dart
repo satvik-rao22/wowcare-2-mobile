@@ -5,18 +5,50 @@ import 'package:wowcare/core/util/core_utils.dart';
 class FilePickerUtils {
   const FilePickerUtils._();
 
-  static const List<String> defaultAllowedExtensions = [
+  /// Allowed document formats:
+  /// application/pdf,
+  /// application/msword,
+  /// application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+  /// application/vnd.ms-excel,
+  /// application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  static const List<String> allowedDocumentExtensions = [
     'pdf',
     'doc',
     'docx',
-    'jpg',
-    'jpeg',
-    'png',
-    'heic',
     'xls',
     'xlsx',
-    'ppt',
-    'pptx',
+  ];
+
+  /// Allowed video formats: video/mp4, video/quicktime, video/webm
+  static const List<String> allowedVideoExtensions = [
+    'mp4',
+    'mov', // QuickTime
+    'webm',
+  ];
+
+  /// Allowed image formats:
+  /// image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,
+  /// image/heic-sequence,image/heif-sequence,image/avif,image/gif,
+  /// image/bmp,image/tiff
+  static const List<String> allowedImageExtensions = [
+    'jpeg',
+    'jpg',
+    'png',
+    'webp',
+    'heic',
+    'heif',
+    'heic-sequence',
+    'heif-sequence',
+    'avif',
+    'gif',
+    'bmp',
+    'tiff',
+    'tif',
+  ];
+
+  static const List<String> defaultAllowedExtensions = [
+    ...allowedDocumentExtensions,
+    ...allowedImageExtensions,
   ];
 
   /// Picks a single file from the device storage.
@@ -60,14 +92,24 @@ class FilePickerUtils {
       'pdf': 'application/pdf',
       'doc': 'application/msword',
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'jpg': 'image/jpeg',
       'jpeg': 'image/jpeg',
+      'jpg': 'image/jpeg',
       'png': 'image/png',
+      'webp': 'image/webp',
       'heic': 'image/heic',
+      'heif': 'image/heif',
+      'heic-sequence': 'image/heic-sequence',
+      'heif-sequence': 'image/heif-sequence',
+      'avif': 'image/avif',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'tif': 'image/tiff',
+      'tiff': 'image/tiff',
       'xls': 'application/vnd.ms-excel',
       'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime',
+      'webm': 'video/webm',
     };
     
     return mimeTypes[ext] ?? 'application/octet-stream';

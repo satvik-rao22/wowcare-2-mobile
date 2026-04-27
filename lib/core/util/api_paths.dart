@@ -165,6 +165,7 @@ class ApiPaths {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
+    final nextSeg = parts.length > 3 ? parts[3] : '';
     switch (seg) {
       case 'auth':
       case 'users':
@@ -194,6 +195,9 @@ class ApiPaths {
 
       /// `GET/POST /api/v1/guardian/...` (student MS — devtunnel **8085**).
       case 'guardian':
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
         return ApiMicroservices.student;
       case 'student-attendance':
       case 'student-absence-records':
@@ -211,6 +215,13 @@ class ApiPaths {
       case 'shared-activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'admin':
+        // v2 admin activity moderation endpoints, e.g.
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
       case 'conversations':
         return ApiMicroservices.communication;
       default:
@@ -381,6 +392,8 @@ class ApiPaths {
       '/api/v1/student-attendance/profile/absent/toggle';
   static const String studentAttendanceSignInStatus =
       '/api/v1/student-attendance/sign-in/status';
+  static const String studentAttendanceSignInStatusAtTime =
+      '/api/v1/student-attendance/sign-in/status/at-time';
   static const String studentAttendanceExpectedSummaryCard =
       '/api/v1/student-attendance/expected/summary/card';
 
@@ -440,6 +453,8 @@ class ApiPaths {
       '/api/v1/staff-absence-records/mark-absent';
   static const String staffAttendanceSignInStatus =
       '/api/v1/staff-attendance/sign-in/status';
+  static const String staffAttendanceSignInStatusAtTime =
+      '/api/v1/staff-attendance/sign-in/status/at-time';
   static const String staffAttendanceProfile =
       '/api/v1/staff-attendance/profile';
   static const String staffAttendanceProfileAbsentToggle =
@@ -481,6 +496,16 @@ class ApiPaths {
       '/api/v2/activities/upload-sessions';
   static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
   static const String activitiesFeedRange = '/api/v2/activities/feed/range';
+  static const String guardianActivitiesFeedDaily =
+      '/api/v2/guardian/activities/feed/daily';
+  static const String guardianActivitiesFeedRange =
+      '/api/v2/guardian/activities/feed/range';
+  static String guardianAcknowledgeActivity(String cardGroupCode) =>
+      '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/acknowledge';
+  static String adminApproveActivity(String cardGroupCode) =>
+      '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
+  static String adminRejectActivity(String cardGroupCode) =>
+      '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/reject';
   static const String activityTypesRoot = '/api/v1/activity-types';
 
   // —— Document host (base path returned by upload-session response) ——

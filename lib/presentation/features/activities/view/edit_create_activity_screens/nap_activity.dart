@@ -5,6 +5,7 @@ import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -22,6 +23,9 @@ import '../../../../../domain/features/activity/usecases/get_nap_start_students_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
+import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -49,6 +53,15 @@ class NapActivityScreen extends StatefulWidget {
 class _NapActivityScreenState extends State<NapActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -59,6 +72,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
+  bool _requireAdminApproval = false;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
@@ -80,6 +95,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   @override
   void initState() {
     super.initState();
+    bootstrapActivitySchoolTimezone();
 
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
@@ -101,7 +117,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
+          final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
         } catch (_) {}
@@ -118,7 +134,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         _selectedStudents = _selectedStudentsData
             .map((s) => s['name'] as String)
             .toList();
-        _loadActivityContextForCreate();
+        _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _loadActivityContextForCreate();
       } else {
         _selectedStudentsData = [];
         _selectedStudents = [];
@@ -151,7 +168,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
@@ -168,6 +185,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
@@ -177,6 +196,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
@@ -320,6 +340,65 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     return nappingSelectedCount == selectedSet.length;
   }
 
+  bool? _resolveNapEndFromSelectedStudentsData() {
+    if (_selectedStudentsData.isEmpty) return null;
+    var hasNapping = false;
+    var hasNotNapping = false;
+
+    for (final student in _selectedStudentsData) {
+      final raw = student['nappingStatus'];
+      final isNapping = raw == true;
+      if (isNapping) {
+        hasNapping = true;
+      } else {
+        hasNotNapping = true;
+      }
+      if (hasNapping && hasNotNapping) {
+        return null;
+      }
+    }
+
+    // If all selected students are currently napping, this event is nap end.
+    return hasNapping && !hasNotNapping;
+  }
+
+  Future<bool?> _resolveNapEndForCreate({
+    required String classroomCode,
+    required List<String> studentCodes,
+  }) async {
+    final fromSelection = _resolveNapEndFromSelectedStudentsData();
+    if (fromSelection != null) {
+      return fromSelection;
+    }
+    return _resolveNapEndFromCurrentStatus(
+      classroomCode: classroomCode,
+      studentCodes: studentCodes,
+    );
+  }
+
+  String _timeLabelForCurrentContext() {
+    if (_layoutAsEdit) return 'Time';
+    final fromSelection = _resolveNapEndFromSelectedStudentsData();
+    if (fromSelection == true) return 'End Time';
+    if (fromSelection == false) return 'Start Time';
+    return 'Time';
+  }
+
+  bool _isNapEndContextForUi() {
+    if (_layoutAsEdit) {
+      return _effectiveActivity.name == 'Nap End';
+    }
+    return _resolveNapEndFromSelectedStudentsData() == true;
+  }
+
+  String _descriptionLabelForContext() {
+    return _isNapEndContextForUi() ? 'Nap End' : 'Description';
+  }
+
+  String _descriptionHintForContext() {
+    return _isNapEndContextForUi() ? 'Nap Ended' : 'Enter Description';
+  }
+
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -332,17 +411,18 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
 
-    final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
+
+    final enteredDescription = _descriptionController.text.trim();
+    var description = enteredDescription;
+    if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
@@ -454,14 +534,17 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           '${_activityDate!.year}-${_two(_activityDate!.month)}-${_two(_activityDate!.day)}';
       final localTime = '${_two(t.hour)}:${_two(t.minute)}:00';
 
-      final combinedDateTime = DateTime(
-        _activityDate!.year,
-        _activityDate!.month,
-        _activityDate!.day,
-        t.hour,
-        t.minute,
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
       );
-      final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -478,11 +561,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final isNapEnd = await _resolveNapEndFromCurrentStatus(
+      final isNapEnd = await _resolveNapEndForCreate(
         classroomCode: classroomCode,
         studentCodes: studentCodes,
       );
       if (isNapEnd == null) return;
+      if (description.isEmpty) {
+        description = isNapEnd ? 'Nap Ended' : 'Nap Started';
+      }
       _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
 
       final message = await _createActivityUseCase(
@@ -496,6 +582,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         description: description,
         napStart: !isNapEnd,
         napEnd: isNapEnd,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: const [],
       );
@@ -540,17 +629,17 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
+    if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
@@ -599,14 +688,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     }
 
     final t = _activityTime!;
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      t.hour,
-      t.minute,
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
     setState(() => _isSubmitting = true);
     try {
@@ -767,7 +852,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            if (_layoutAsEdit)
+            if (_layoutAsEdit &&
+                !(widget.isEdit &&
+                    !widget.readOnly &&
+                    _selectedStudents.length > 1))
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -785,7 +873,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                   );
                 },
               )
-            else
+            else if (!_layoutAsEdit)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -806,10 +894,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                 },
               ),
             if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Divider(height: 24),
-              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -841,6 +925,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {
                             setState(() {
                               _activityDate = d;
@@ -852,7 +937,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                 Flexible(
                   child: _layoutAsEdit
                       ? TimeWidget(
-                          label: 'Time',
+                          label: _timeLabelForCurrentContext(),
                           isEditable: _canInteract,
                           isRequired: true,
                           prefilledTime: _prefilledTimeForEdit(),
@@ -863,7 +948,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : TimeWidget(
-                          label: 'Time',
+                          label: _timeLabelForCurrentContext(),
                           isRequired: true,
                           isEditable: true,
                           onTimeChanged: (t) {
@@ -876,24 +961,50 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy:
-                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _isAdminDesignation;
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy:
+                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable: lockToLoggedInStaffOnEdit
+                      ? false
+                      : (_layoutAsEdit ? _canInteract : false),
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               height: 100,
-              hint: 'Enter Description',
-              isRequired: true,
+              label: _descriptionLabelForContext(),
+              hint: _descriptionHintForContext(),
+              isRequired: false,
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              CustomToggle(
+                label: 'Requires Admin Approval',
+                isToggled: _requireAdminApproval,
+                labelOnLeftSide: true,
+                onToggle: (value) {
+                  setState(() {
+                    _requireAdminApproval = value;
+                  });
+                },
+              ),
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),
@@ -915,3 +1026,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     );
   }
 }
+
+
+

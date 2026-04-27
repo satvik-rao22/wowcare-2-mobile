@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
@@ -76,6 +77,7 @@ class ImageUploadService {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
@@ -93,6 +95,7 @@ class ImageUploadService {
         'fileName': fileName,
         'contentType': contentType,
         'contentLengthBytes': contentLengthBytes,
+        'checksumSha256': checksumSha256,
         'mediaType': mediaType,
         'ownerType': ownerType,
         'ownerCode': ownerCode,
@@ -136,6 +139,11 @@ class ImageUploadService {
       presignedPutUrl: presignedPutUrl,
       requiredHeaders: requiredHeaders,
     );
+  }
+
+  Future<String> computeFileChecksumSha256(File file) async {
+    final bytes = await file.readAsBytes();
+    return sha256.convert(bytes).toString();
   }
 
   Future<void> completeAssetUpload({

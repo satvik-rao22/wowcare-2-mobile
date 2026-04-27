@@ -18,6 +18,7 @@ class CreateActivityUseCase {
     required String description,
     bool? napStart,
     bool? napEnd,
+    bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
@@ -33,6 +34,7 @@ class CreateActivityUseCase {
         description: description,
         napStart: napStart,
         napEnd: napEnd,
+        requireAdminApproval: requireAdminApproval,
         parameterValues: parameterValues,
         attachments: attachments,
       );

@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart
 
 /// JSON-serializable snapshot of [ActivityFeedPage] for [CacheManager].
 class ActivityFeedPageCacheCodec {
-  static const int _version = 2;
+  static const int _version = 4;
 
   static String cacheIdentifier(String requestKey) {
     return base64Url.encode(utf8.encode(requestKey)).replaceAll('=', '');
@@ -99,6 +99,9 @@ class ActivityFeedPageCacheCodec {
           r.parameterValues.map((e) => Map<String, dynamic>.from(e)).toList(),
       'attachments':
           r.attachments.map((e) => Map<String, dynamic>.from(e)).toList(),
+      'napStart': r.napStart,
+      'napEnd': r.napEnd,
+      'approvalStatus': r.approvalStatus,
     };
   }
 
@@ -113,6 +116,14 @@ class ActivityFeedPageCacheCodec {
     // Guard old cached rows where batch group (ABG_*) was stored as activityCode.
     if (s.toUpperCase().startsWith('ABG_')) return null;
     return s;
+  }
+
+  static bool? _asNullableBool(dynamic raw) {
+    if (raw is bool) return raw;
+    final v = (raw ?? '').toString().trim().toLowerCase();
+    if (v == 'true') return true;
+    if (v == 'false') return false;
+    return null;
   }
 
   static ActivityFeedRow? _decodeRow(Map<String, dynamic> j) {
@@ -161,6 +172,9 @@ class ActivityFeedPageCacheCodec {
                 .map((e) => Map<String, dynamic>.from(e))
                 .toList()
             : const [],
+        napStart: _asNullableBool(j['napStart']),
+        napEnd: _asNullableBool(j['napEnd']),
+        approvalStatus: _optionalNonEmptyString(j['approvalStatus']),
       );
     } catch (_) {
       return null;

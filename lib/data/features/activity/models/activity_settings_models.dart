@@ -124,6 +124,7 @@ class ActivityCreateRequestModel {
     this.napStart,
     this.napEnd,
     this.bindingMode = 'SHARED',
+    this.requireAdminApproval,
     this.parameterValues = const [],
     this.attachments = const [],
   });
@@ -139,6 +140,7 @@ class ActivityCreateRequestModel {
   final bool? napStart;
   final bool? napEnd;
   final String bindingMode;
+  final bool? requireAdminApproval;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
 
@@ -155,6 +157,8 @@ class ActivityCreateRequestModel {
       if (napStart != null) 'napStart': napStart,
       if (napEnd != null) 'napEnd': napEnd,
       'bindingMode': bindingMode,
+      if (requireAdminApproval != null)
+        'requireAdminApproval': requireAdminApproval,
       // Backend expects keys to be present (even if empty arrays).
       'parameterValues': parameterValues,
       'attachments': attachments,

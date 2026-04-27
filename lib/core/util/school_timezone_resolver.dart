@@ -11,6 +11,8 @@ abstract final class SchoolTimezoneResolver {
   SchoolTimezoneResolver._();
 
   static const String fallbackTimeZone = 'UTC';
+  static String _lastKnownTimeZone = fallbackTimeZone;
+  static String get lastKnownTimeZone => _lastKnownTimeZone;
 
   static Future<String> resolveForCurrentSchool({
     required StorageService storage,
@@ -27,6 +29,7 @@ abstract final class SchoolTimezoneResolver {
         cachedTz.isNotEmpty &&
         cachedTz.toUpperCase() != fallbackTimeZone;
     if (hasUsableCachedTz) {
+      _lastKnownTimeZone = cachedTz;
       return cachedTz;
     }
 
@@ -37,13 +40,16 @@ abstract final class SchoolTimezoneResolver {
     if (tz.toUpperCase() != fallbackTimeZone) {
       await storage.saveString(StorageKeys.schoolTimeZoneSchoolCode, schoolCode);
       await storage.saveString(StorageKeys.schoolTimeZone, tz);
+      _lastKnownTimeZone = tz;
       return tz;
     }
 
     // Preserve a previously resolved non-fallback timezone if network fetch fails.
     if (cachedFor == schoolCode && cachedTz.isNotEmpty) {
+      _lastKnownTimeZone = cachedTz;
       return cachedTz;
     }
+    _lastKnownTimeZone = tz;
     return tz;
   }
 
@@ -63,10 +69,14 @@ abstract final class SchoolTimezoneResolver {
         if (data is Map<String, dynamic>) {
           final raw =
               (data['timeZone'] ?? data['timezone'] ?? '').toString().trim();
-          if (raw.isNotEmpty) return raw;
+          if (raw.isNotEmpty) {
+            _lastKnownTimeZone = raw;
+            return raw;
+          }
         }
       }
     } catch (_) {}
+    _lastKnownTimeZone = fallbackTimeZone;
     return fallbackTimeZone;
   }
 }

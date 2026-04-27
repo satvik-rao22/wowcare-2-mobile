@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -131,7 +132,10 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+        allowedExtensions: [
+          ...FilePickerUtils.allowedDocumentExtensions,
+          ...FilePickerUtils.allowedImageExtensions,
+        ],
       );
 
       if (result != null) {

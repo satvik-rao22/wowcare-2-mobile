@@ -16,7 +16,9 @@ class CreateSharedActivitiesUseCase {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? requireAdminApproval,
     required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues = const [],
   }) async {
     try {
       return await _repository.createSharedActivities(
@@ -28,7 +30,9 @@ class CreateSharedActivitiesUseCase {
         organizationCode: organizationCode,
         activityDate: activityDate,
         description: description,
+        requireAdminApproval: requireAdminApproval,
         attachments: attachments,
+        parameterValues: parameterValues,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

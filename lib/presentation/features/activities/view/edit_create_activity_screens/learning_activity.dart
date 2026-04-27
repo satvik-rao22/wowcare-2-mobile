@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/activities/widgets/staff_present_w
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -30,6 +31,9 @@ import '../../widgets/activity_dropdown_widget.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
+import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
@@ -56,30 +60,24 @@ class LearningActivityScreen extends StatefulWidget {
 class _LearningActivityScreenState extends State<LearningActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _activityType = [
-    'Art and Craft',
-    'Circle Time',
-    'Morning Time',
-    'Music and Movement',
-    'Puzzle Time',
-    'Other',
-  ];
-  final List<String> _category = [
-    'Creativity',
-    'Empathy',
-    'Self care',
-    'Math/Science',
-    'Communication',
-    'Language',
-    'Teamwork',
-    'Decision making',
-    'Other',
-  ];
+  List<ActivityTypeParameterOption> _activityNameParamOptions = [];
+  List<ActivityTypeParameterOption> _categoryParamOptions = [];
+  List<String> _activityType = [];
+  List<String> _category = [];
   String? _selectedCategory;
   String? _selectedActivityType;
 
@@ -87,10 +85,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
+  bool _requireAdminApproval = false;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _loadingLearningOptions = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
@@ -117,6 +118,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   @override
   void initState() {
     super.initState();
+    bootstrapActivitySchoolTimezone();
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
@@ -131,6 +133,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -139,7 +142,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
           activity.description ?? activity.whatHappened ?? '';
-      _selectedActivityType = activity.activityType ?? '';
+      _selectedActivityType = activity.activityType?.trim();
       final cats = activity.categoryType;
       _selectedCategory = (cats != null && cats.isNotEmpty) ? cats.first : null;
       _activityTypeCode = activity.activityTypeCode;
@@ -157,13 +160,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
+          final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
         } catch (_) {}
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
+        await _loadLearningParameterOptions();
       });
     }
     _loadStaffContext();
@@ -189,7 +193,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         }
         _descriptionController.text =
             item.description ?? item.whatHappened ?? '';
-        _selectedActivityType = item.activityType ?? '';
+        _selectedActivityType = item.activityType?.trim();
         final cats = item.categoryType;
         _selectedCategory = (cats != null && cats.isNotEmpty)
             ? cats.first
@@ -209,12 +213,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
         }
       });
+      await _loadLearningParameterOptions();
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -226,6 +231,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
         .trim();
     final organizationCode =
@@ -235,6 +242,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -269,6 +277,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         setState(() {
           _activityTypeCode = learningSetting!.activityTypeCode;
         });
+        await _loadLearningParameterOptions();
       }
     } catch (e) {
       CoreUtils.logApiError(
@@ -330,6 +339,76 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     return null;
   }
 
+  String? _canonicalLabelFromOptions(
+    String? rawValue,
+    List<ActivityTypeParameterOption> options,
+  ) {
+    final raw = (rawValue ?? '').trim();
+    if (raw.isEmpty) return null;
+    for (final o in options) {
+      final label = (o.optionLabel ?? '').trim();
+      final optionCode = (o.optionCode ?? o.code).trim();
+      final rawCode = o.code.trim();
+      if (label.isNotEmpty && label.toLowerCase() == raw.toLowerCase()) {
+        return label;
+      }
+      if (optionCode.isNotEmpty &&
+          optionCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+      if (rawCode.isNotEmpty &&
+          rawCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadLearningParameterOptions() async {
+    final code = _activityTypeCode?.trim();
+    if (code == null || code.isEmpty || !mounted) return;
+    setState(() => _loadingLearningOptions = true);
+    try {
+      final details = await _getActivityTypeDetailsUseCase(code: code);
+      if (!mounted) return;
+      final activityParam = _findActivityNameParameter(details.parameters);
+      final categoryParam = _findCategoryParameter(details.parameters);
+      final activityOptions = List<ActivityTypeParameterOption>.from(
+        activityParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final categoryOptions = List<ActivityTypeParameterOption>.from(
+        categoryParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      setState(() {
+        _activityNameParamOptions = activityOptions;
+        _categoryParamOptions = categoryOptions;
+        _activityType = activityOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _category = categoryOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _selectedActivityType = _canonicalLabelFromOptions(
+          _selectedActivityType,
+          _activityNameParamOptions,
+        );
+        _selectedCategory = _canonicalLabelFromOptions(
+          _selectedCategory,
+          _categoryParamOptions,
+        );
+        _loadingLearningOptions = false;
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Failed to load Learning parameter options: $e');
+      if (!mounted) return;
+      setState(() => _loadingLearningOptions = false);
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
     required String classroomCode,
     required String activityTypeCode,
@@ -353,7 +432,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final isShared = studentCodes.length > 1;
+    final hasSharedAttachmentInEdit = widget.isEdit &&
+        _detailAttachmentRows.any((row) {
+          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
+          final student = (row['studentCode'] ?? '').toString().trim();
+          return binding == 'SHARED' || student.isEmpty;
+        });
+    final isShared = hasSharedAttachmentInEdit || studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
     final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
     final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
@@ -380,12 +465,15 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
+          final checksumSha256 =
+              await _imageUploadService.computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
+            checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
             ownerType: ownerType,
             ownerCode: ownerCode,
@@ -437,6 +525,29 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final videoCount =
+        (video != null ? 1 : 0) +
+        ((remainingExistingVideoUrl != null &&
+                remainingExistingVideoUrl.trim().isNotEmpty)
+            ? 1
+            : 0);
+    if (widget.isEdit && photoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 photo can be attached.',
+        isError: true,
+      );
+      return;
+    }
+    if (widget.isEdit && videoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 video can be attached.',
+        isError: true,
+      );
+      return;
+    }
     setState(() {
       _newPhotos = photos;
       _remainingExistingPhotoUrls = List<String>.from(
@@ -514,6 +625,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     if (_selectedActivityType == null ||
         _selectedActivityType!.trim().isEmpty) {
@@ -534,15 +653,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
+    if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
@@ -629,14 +740,17 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
+    // Ensure the API payload uses the attendance date chosen on student selection.
+    final prefilled = widget.selectedStudents != null
+        ? resolveSelectedAttendanceDate(_selectedStudentsData)
+        : null;
+    if (prefilled != null) {
+      _activityDate = prefilled;
+    }
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
     setState(() {
       _isSubmitting = true;
@@ -731,6 +845,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: attachments,
       );
@@ -775,6 +892,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     if (_selectedActivityType == null ||
         _selectedActivityType!.trim().isEmpty) {
@@ -795,15 +920,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
+    if (description.isNotEmpty && description.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
@@ -894,14 +1011,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
     if (_isUploadingMedia) {
       CoreUtils.showTopSnackBar(
@@ -1169,7 +1282,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            if (_layoutAsEdit)
+            if (_layoutAsEdit &&
+                !(widget.isEdit &&
+                    !widget.readOnly &&
+                    _selectedStudents.length > 1))
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -1187,7 +1303,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   );
                 },
               )
-            else
+            else if (!_layoutAsEdit)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -1208,10 +1324,6 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                 },
               ),
             if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Divider(height: 24),
-              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -1239,6 +1351,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -1268,7 +1381,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     dropDownName: 'Activity Name',
                     selectedValue: _selectedActivityType,
                     isRequired: true,
-                    isEnabled: _canInteract,
+                    isEnabled: _canInteract &&
+                        !_loadingLearningOptions &&
+                        _activityType.isNotEmpty,
                     onSelect: (value) {
                       setState(() {
                         _selectedActivityType = value;
@@ -1283,7 +1398,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     hintText: 'Select category',
                     items: _category,
                     selectedItem: _selectedCategory,
-                    isEnabled: _canInteract,
+                    isEnabled: _canInteract &&
+                        !_loadingLearningOptions &&
+                        _category.isNotEmpty,
                     onSelect: (value) {
                       setState(() {
                         _selectedCategory = value;
@@ -1294,24 +1411,49 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy:
-                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _isAdminDesignation;
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy:
+                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable: lockToLoggedInStaffOnEdit
+                      ? false
+                      : (_layoutAsEdit ? _canInteract : false),
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               height: 100,
               hint: 'Enter Description',
-              isRequired: true,
+              isRequired: false,
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              CustomToggle(
+                label: 'Requires Admin Approval',
+                isToggled: _requireAdminApproval,
+                labelOnLeftSide: true,
+                onToggle: (value) {
+                  setState(() {
+                    _requireAdminApproval = value;
+                  });
+                },
+              ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
               IgnorePointer(
@@ -1365,10 +1507,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   isLoading:
                       _isSubmitting ||
                       _isUploadingMedia ||
-                      _loadingActivityDetail,
+                      _loadingActivityDetail ||
+                      _loadingLearningOptions,
                 ),
               ),
             ),
     );
   }
 }
+
+
+

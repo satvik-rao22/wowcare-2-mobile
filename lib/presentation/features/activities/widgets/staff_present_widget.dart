@@ -4,19 +4,20 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
-import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
-  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false});
+  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false, this.clickToSignEditable});
   final String staffName;
   final bool isEditable;
   final bool incidentActivity;
   final ValueChanged<bool>? onSigned;
   final bool isAlreadySigned;
+  final bool? clickToSignEditable;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -28,19 +29,12 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
  bool clickToSign = false;
  final List<String> _fetchedStaffNames = [];
  bool _loadingStaffs = false;
-
-
-  void _showWarningMessage(String message) {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: message,
-      isWarning: true,
-    );
-  }
+ late final CacheManager _cacheManager;
 
   @override
   void initState(){
     super.initState();
+    _cacheManager = CacheManager(serviceLocator<StorageService>());
     _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
     _loadStaffNames();
@@ -51,6 +45,11 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.staffName.trim() != widget.staffName.trim()) {
       setState(_rebuildStaffSelection);
+    }
+    if (oldWidget.isAlreadySigned != widget.isAlreadySigned) {
+      setState(() {
+        clickToSign = widget.isAlreadySigned;
+      });
     }
   }
 
@@ -94,6 +93,32 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       final school =
           (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (org.isEmpty || school.isEmpty) return;
+
+      final cacheKey = CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'list',
+        identifier: '${org}_$school',
+      );
+
+      // Fast path: load cached staff names.
+      try {
+        final cached = await _cacheManager.loadCache(cacheKey);
+        final cachedNames = cached?['names'];
+        if (cachedNames is List && cachedNames.isNotEmpty) {
+          _fetchedStaffNames
+            ..clear()
+            ..addAll(
+              cachedNames
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort(),
+            );
+          if (mounted) setState(_rebuildStaffSelection);
+        }
+      } catch (_) {}
+
       final useCase = serviceLocator<GetStaffPageUseCase>();
       final page = await useCase(
         organizationCode: org,
@@ -113,6 +138,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             ..sort(),
         );
       if (!mounted) return;
+      await _cacheManager.saveCache(cacheKey, {
+        'names': List<String>.from(_fetchedStaffNames),
+      });
       setState(_rebuildStaffSelection);
     } catch (_) {
       // Silent fallback to logged-in staff only.
@@ -124,6 +152,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final signEditable = widget.clickToSignEditable ?? widget.isEditable;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -147,9 +176,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             if (widget.incidentActivity)
               CheckboxWidget(
                 label: 'Click to sign',
-                isEditable: widget.isEditable,
+                isEditable: signEditable,
                 isChecked: clickToSign,
-                onChecked: widget.isEditable
+                onChecked: signEditable
                     ? (newValue) {
                         setState(() {
                           clickToSign = newValue;
@@ -162,11 +191,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
         InkWell(
-          onTap: !widget.isEditable ?(){
-            _showWarningMessage("Can not be edited.");
-          } : null,
+          onTap: null,
           child: Opacity(
-            opacity: widget.isEditable ? 1.0 : widget.incidentActivity ? 1.0 : 0.4,
+            opacity: widget.isEditable ? 1.0 : 0.4,
             child: CustomDropdown(
               hintText: 'Select present staff',
               items: staffList,
