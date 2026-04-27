@@ -77,7 +77,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late Map<String, dynamic> _profileSibling;
   ParentChildProvider? _parentChildProvider;
   String? _profilePhotoUrl;
-  String? _loggedInStaffCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
@@ -125,18 +124,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Future<void> _loadUploadContext() async {
     final storage = serviceLocator<StorageService>();
-    final directStaffCode =
-        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-    final fallbackStaffCode =
-        (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     if (!mounted) return;
     setState(() {
-      _loggedInStaffCode =
-          directStaffCode.isNotEmpty ? directStaffCode : fallbackStaffCode;
       _schoolCode = schoolCode.isEmpty ? null : schoolCode;
       _organizationCode = organizationCode.isEmpty ? null : organizationCode;
     });
@@ -336,7 +329,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
       final studentCode = (_activeStudentCode ?? '').trim();
-      final staffCode = (_loggedInStaffCode ?? '').trim();
       final schoolCode = (_schoolCode ?? '').trim();
       final organizationCode = (_organizationCode ?? '').trim();
       if (studentCode.isEmpty) {
@@ -347,18 +339,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         );
         return;
       }
-      if (staffCode.isEmpty || schoolCode.isEmpty || organizationCode.isEmpty) {
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
         await _loadUploadContext();
       }
-      final resolvedStaffCode = (_loggedInStaffCode ?? '').trim();
       final resolvedSchoolCode = (_schoolCode ?? '').trim();
       final resolvedOrganizationCode = (_organizationCode ?? '').trim();
-      if (resolvedStaffCode.isEmpty ||
-          resolvedSchoolCode.isEmpty ||
+      if (resolvedSchoolCode.isEmpty ||
           resolvedOrganizationCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Missing staff or school context for photo upload.',
+          message: 'Missing school context for photo upload.',
           isError: true,
         );
         return;
@@ -367,8 +357,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       setState(() => _isUploadingProfilePhoto = true);
       final uploadService = serviceLocator<ImageUploadService>();
       final file = File(image.path);
-      final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
-        staffCode: resolvedStaffCode,
+      final sessionCode = await uploadService.createStudentProfilePhotoUploadSession(
+        studentCode: studentCode,
         schoolCode: resolvedSchoolCode,
         organizationCode: resolvedOrganizationCode,
       );
@@ -402,9 +392,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         sessionCode: sessionCode,
         expectedAssetCodes: <String>[presign.assetCode],
       );
-      final finalizedUrl = await uploadService.finalizeStaffProfilePhoto(
-        staffCode: resolvedStaffCode,
+      final finalizedUrl = await uploadService.finalizeStudentProfilePhoto(
+        studentCode: studentCode,
         sessionCode: sessionCode,
+        assetCode: presign.assetCode,
       );
 
       DocumentImageWidget.clearProfilePhotoCache(
