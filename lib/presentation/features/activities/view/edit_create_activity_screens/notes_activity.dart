@@ -1114,7 +1114,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),

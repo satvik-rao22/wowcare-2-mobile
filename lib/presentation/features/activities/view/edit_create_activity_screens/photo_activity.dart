@@ -1146,7 +1146,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                           ),
                     isEditable: lockToLoggedInStaff
                         ? false
-                        : (_layoutAsEdit ? _canInteract : false),
+                        : _canInteract,
                   );
                 },
               ),

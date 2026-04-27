@@ -112,6 +112,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String? _feedError;
   String? _schoolCode;
   String _viewerStaffDisplayName = '';
+  final Map<String, String> _staffDisplayNameByCode = {};
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _classroomNameByCode = {};
   final Map<String, String> _studentCodeByName = {};
@@ -678,6 +679,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
       final activityFeedPage = results[1] as ActivityFeedPage;
+      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
@@ -810,6 +812,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         }),
       );
       final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
@@ -926,6 +929,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         }),
       );
       final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
@@ -1109,12 +1113,42 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         .map(
           (row) => activityItemFromFeedRow(
             row,
-            viewerDisplayName: _viewerStaffDisplayName,
+            // Guardian feed should not fallback to guardian display name as
+            // "created by" when API returns system/staff-code placeholders.
+            viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
             schoolIana: _schoolIana,
+            staffDisplayNameByCode: _staffDisplayNameByCode,
           ),
         )
         .toList();
     return _withClientFilters(raw);
+  }
+
+  Future<void> _primeStaffDisplayNamesFromFeedRows(
+    Iterable<ActivityFeedRow> rows,
+  ) async {
+    final missingCodes = <String>{};
+    for (final row in rows) {
+      final code = (row.staffCode ?? '').trim();
+      if (code.isEmpty) continue;
+      if (_staffDisplayNameByCode.containsKey(code)) continue;
+      missingCodes.add(code);
+    }
+    if (missingCodes.isEmpty) return;
+    final repo = serviceLocator<StaffRepository>();
+    await Future.wait(
+      missingCodes.map((code) async {
+        try {
+          final profile = await repo.getStaffProfile(staffCode: code);
+          final full = profile.fullName.trim();
+          final composed = '${profile.firstName} ${profile.lastName}'.trim();
+          final resolved = full.isNotEmpty ? full : composed;
+          if (resolved.isNotEmpty) {
+            _staffDisplayNameByCode[code] = resolved;
+          }
+        } catch (_) {}
+      }),
+    );
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -1751,6 +1785,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
       final activityFeedPage = results[1] as ActivityFeedPage;
+      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
@@ -1980,6 +2015,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   Future<void> _onRefresh() async {
+    // Hard-reset de-dupe guards so manual refresh always re-fetches.
+    _lastFeedRequestKey = null;
+    _lastFeedCompletedAt = null;
+    _lastFeedCompletedWithError = true;
+
     // Force refresh of tag map + feed. Also bust staff dropdown cache.
     try {
       final org =
@@ -1998,6 +2038,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     } catch (_) {}
     if (_parentHome) {
       await _bootstrapParentHome();
+      // Parent bootstrap already calls _loadRangeFeed(refresh: true).
+      await _loadTagFilterOptions(forceRefresh: true);
+      return;
     } else {
       // Force classroom metadata refresh for staff/admin personas too.
       final school = (_schoolCode ?? '').trim();
@@ -2660,7 +2703,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                   ],
                                                                 ),
                                                               ),
-                                                              if (true)
+                                                              if (!isAttendanceCardActivityItem(activity))
                                                                 PopupMenuButton<
                                                                   String
                                                                 >(

@@ -1052,7 +1052,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),

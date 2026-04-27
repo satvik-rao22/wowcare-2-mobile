@@ -769,7 +769,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),

@@ -1427,7 +1427,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),

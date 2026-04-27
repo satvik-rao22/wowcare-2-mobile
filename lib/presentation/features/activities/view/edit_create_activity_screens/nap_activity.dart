@@ -977,7 +977,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),

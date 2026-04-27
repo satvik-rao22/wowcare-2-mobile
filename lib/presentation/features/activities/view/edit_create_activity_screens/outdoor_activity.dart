@@ -1189,7 +1189,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),

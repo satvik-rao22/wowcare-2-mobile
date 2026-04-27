@@ -16,6 +16,7 @@ class ActivityFeedRow extends Equatable {
     this.studentMiddleName,
     required this.studentLastName,
     required this.createdBy,
+    this.staffCode,
     required this.parameterValues,
     required this.attachments,
     this.students = const [],
@@ -36,6 +37,7 @@ class ActivityFeedRow extends Equatable {
   final String? studentMiddleName;
   final String studentLastName;
   final String createdBy;
+  final String? staffCode;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
   final List<Map<String, String>> students;
@@ -63,6 +65,7 @@ class ActivityFeedRow extends Equatable {
       studentMiddleName: d.studentMiddleName,
       studentLastName: d.studentLastName,
       createdBy: d.createdBy,
+      staffCode: d.staffCode.trim().isEmpty ? null : d.staffCode.trim(),
       parameterValues: d.parameterValues,
       attachments: d.attachments,
       napStart: null,
@@ -109,6 +112,7 @@ class ActivityFeedRow extends Equatable {
         studentMiddleName,
         studentLastName,
         createdBy,
+        staffCode,
         parameterValues,
         attachments,
         students,

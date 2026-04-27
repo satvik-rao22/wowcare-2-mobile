@@ -132,6 +132,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   String? _schoolCode;
   /// Logged-in user's display name; used when feed [createdBy] is "system", etc.
   String _viewerStaffDisplayName = '';
+  final Map<String, String> _staffDisplayNameByCode = {};
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
   Map<String, String> _tagNameToCode = {};
@@ -298,6 +299,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   };
 
   Future<void> _onRefresh() async {
+    // Hard-reset de-dupe guards so manual refresh always re-fetches.
+    _lastFeedRequestKey = null;
+    _lastFeedCompletedAt = null;
+    _lastFeedCompletedWithError = true;
+
     // Force refresh of metadata + feed.
     // Also bust staff dropdown cache so edit screens refetch staff list.
     try {
@@ -318,7 +324,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (_parentHome) {
       await _bootstrapParentHome();
       await _loadTagFilterOptions(forceRefresh: true);
-      await _loadDailyFeed(refresh: true);
+      // Parent bootstrap already calls _loadDailyFeed(refresh: true).
       return;
     }
     await _reloadStudentsAndSettingsThenFeed(forceRefreshApis: true);
@@ -952,12 +958,42 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .map(
           (row) => activityItemFromFeedRow(
             row,
-            viewerDisplayName: _viewerStaffDisplayName,
+            // Guardian feed should not fallback to guardian display name as
+            // "created by" when API returns system/staff-code placeholders.
+            viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
             schoolIana: _schoolIana,
+            staffDisplayNameByCode: _staffDisplayNameByCode,
           ),
         )
         .toList();
     return _withClientFilters(raw);
+  }
+
+  Future<void> _primeStaffDisplayNamesFromFeedRows(
+    Iterable<ActivityFeedRow> rows,
+  ) async {
+    final missingCodes = <String>{};
+    for (final row in rows) {
+      final code = (row.staffCode ?? '').trim();
+      if (code.isEmpty) continue;
+      if (_staffDisplayNameByCode.containsKey(code)) continue;
+      missingCodes.add(code);
+    }
+    if (missingCodes.isEmpty) return;
+    final repo = serviceLocator<StaffRepository>();
+    await Future.wait(
+      missingCodes.map((code) async {
+        try {
+          final profile = await repo.getStaffProfile(staffCode: code);
+          final full = profile.fullName.trim();
+          final composed = '${profile.firstName} ${profile.lastName}'.trim();
+          final resolved = full.isNotEmpty ? full : composed;
+          if (resolved.isNotEmpty) {
+            _staffDisplayNameByCode[code] = resolved;
+          }
+        } catch (_) {}
+      }),
+    );
   }
 
   String? _selectedAttendanceEventFilter() {
@@ -1279,6 +1315,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
       final activityFeedPage = results[1] as ActivityFeedPage;
+      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._mapAttendanceDailyPageToItems(attendancePage),
@@ -1346,11 +1383,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final codes = _parentAllowedStudentCodes.toList()..sort();
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
+    final selectedEvent = _selectedAttendanceEventFilter();
+    final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+    final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
     final requestKey = [
       'parentDaily',
       school,
       codes.join(','),
       dateStr,
+      selectedEvent ?? '',
       (typeCodes ?? const <String>[]).join(','),
       _filterActivityTypes.join(','),
       _filterTags.join(','),
@@ -1382,6 +1423,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        studentCodes: codes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: 0,
+        size: _feedPageSize,
+      );
       final pages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
@@ -1407,7 +1456,25 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
 
       final merged = mergeActivityFeedPages(pages);
-      final items = _mapDailyFeedPageToItems(merged);
+      await _primeStaffDisplayNamesFromFeedRows(merged.content);
+      final items = <ActivityItem>[
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapDailyFeedPageToItems(merged),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -1417,7 +1484,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
-        _feedHasMore = !merged.last;
+        _feedHasMore = attendancePage.hasMore || !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
@@ -1459,11 +1526,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
     final pageIndex = _feedNextPage;
+    final selectedEvent = _selectedAttendanceEventFilter();
+    final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
+    final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
 
     try {
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        studentCodes: _parentAllowedStudentCodes.toList(),
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
       final pages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
@@ -1489,12 +1567,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
 
       final merged = mergeActivityFeedPages(pages);
-      final items = _mapDailyFeedPageToItems(merged);
+      await _primeStaffDisplayNamesFromFeedRows(merged.content);
+      final items = <ActivityItem>[
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapDailyFeedPageToItems(merged),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _feedHasMore = !merged.last;
+        _feedHasMore = attendancePage.hasMore || !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
     } catch (e) {
@@ -1617,6 +1713,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
       final activityFeedPage = results[1] as ActivityFeedPage;
+      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._mapAttendanceDailyPageToItems(attendancePage),
@@ -2570,7 +2667,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                               ),
                                                             ),
                                                           ),
-                                                          if (true)
+                                                          if (!isAttendanceCardActivityItem(activity))
                                                             PopupMenuButton<
                                                               String
                                                             >(
@@ -4154,7 +4251,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (true)
+                                                                if (!isAttendanceCardActivityItem(activity))
                                                                   PopupMenuButton<
                                                                     String
                                                                   >(
@@ -5155,6 +5252,16 @@ bool isIncidentActivityItem(ActivityItem activity) {
   return name == 'incident' || name.contains('incident');
 }
 
+bool isAttendanceCardActivityItem(ActivityItem activity) {
+  final normalized = activity.name
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z]'), '');
+  return normalized == 'signin' ||
+      normalized == 'signout' ||
+      normalized == 'transfer';
+}
+
 bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (status == 'REJECTED') return false;
@@ -5271,6 +5378,7 @@ ActivityItem activityItemFromFeedRow(
   ActivityFeedRow row, {
   String? viewerDisplayName,
   String? schoolIana,
+  Map<String, String>? staffDisplayNameByCode,
 }) {
   bool? _boolFromAny(dynamic raw) {
     if (raw is bool) return raw;
@@ -5589,9 +5697,15 @@ ActivityItem activityItemFromFeedRow(
       ? studentNamesFromApi
       : [studentName];
   final staffFromParams = pickStaffPresentFromParameters();
+  final mappedStaffName = (() {
+    final code = (row.staffCode ?? '').trim();
+    if (code.isEmpty) return null;
+    final resolved = staffDisplayNameByCode?[code]?.trim() ?? '';
+    return resolved.isEmpty ? null : resolved;
+  })();
   final by = resolveActivityCreatedByForUi(
     rawCreatedBy: row.createdBy,
-    staffLabelFromParameters: staffFromParams,
+    staffLabelFromParameters: mappedStaffName ?? staffFromParams,
     viewerDisplayNameFallback: viewerDisplayName,
   );
 

@@ -1448,7 +1448,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                         ),
                   isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
                 );
               },
             ),
