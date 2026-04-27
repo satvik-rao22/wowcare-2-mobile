@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -211,6 +210,24 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         .toList();
   }
 
+  /// Same shape as [ChooseActivity.selectedStudents] for class activity list + create flow.
+  List<Map<String, dynamic>> _activityStudentMaps(
+    List<StudentClassroomItem> selected,
+  ) {
+    final roomCode = widget.selectedRoom?.code.trim() ?? '';
+    return selected
+        .map(
+          (s) => <String, dynamic>{
+            'name': s.fullName,
+            'studentCode': s.studentCode,
+            'classroomCode': s.classroomCode.trim().isNotEmpty
+                ? s.classroomCode.trim()
+                : roomCode,
+          },
+        )
+        .toList();
+  }
+
   Map<String, dynamic> _getStudentIcons(StudentClassroomItem student) {
     final icons = <String, dynamic>{};
 
@@ -249,13 +266,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
 
     return icons;
-  }
-
-  List<String> _getCombinedOngoingActivities(
-    List<StudentClassroomItem> selectedStudents,
-  ) {
-    // Current API entity doesn't expose activity list; keep empty for now.
-    return const [];
   }
 
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
@@ -1062,16 +1072,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
               bottom: 16,
               child: Row(
                 children: [
-                  if (_showActivitiesPanel &&
-                      _canShowActivitiesPanel(selectedStudents))
-                    ActivityStatusPanel(
-                      onGoingActivities:
-                          _getCombinedOngoingActivities(selectedStudents),
-                      isSignedIN: true,
-                    ),
-                  const SizedBox(width: 10),
                   StudentActionPanel(
                     currentPanel: _currentPanel,
+                    activityStudentMaps: _canShowActivitiesPanel(selectedStudents)
+                        ? _activityStudentMaps(selectedStudents)
+                        : null,
                     attendanceAvailability:
                         _attendanceAvailabilityForSelection(selectedStudents),
                     onAttendanceTap: () {

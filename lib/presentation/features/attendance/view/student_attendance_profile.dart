@@ -24,6 +24,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
@@ -117,7 +118,11 @@ class _AttendanceField extends StatelessWidget {
       case ProfileAbsentMarkMethod.gps:
         return SvgPicture.asset(MediaRes.gpsMethodIcon, width: 16, height: 16);
       case ProfileAbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: 16, height: 16);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: 16,
+          height: 16,
+        );
       case ProfileAbsentMarkMethod.kiosk:
         return SvgPicture.asset(MediaRes.pinMethodIcon, width: 16, height: 16);
       case ProfileAbsentMarkMethod.app:
@@ -125,14 +130,20 @@ class _AttendanceField extends StatelessWidget {
           MediaRes.appMethodIcon,
           width: 16,
           height: 16,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case ProfileAbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: 16,
           height: 16,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }
@@ -264,7 +275,8 @@ class StudentAttendanceProfile extends StatefulWidget {
   final bool syncWithParentChildSelection;
 
   @override
-  State<StudentAttendanceProfile> createState() => _StudentAttendanceProfileState();
+  State<StudentAttendanceProfile> createState() =>
+      _StudentAttendanceProfileState();
 }
 
 class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
@@ -392,9 +404,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         return DateFormat('hh:mm a').format(iso.toLocal());
       }
 
-      final amPmMatch =
-          RegExp(r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$')
-              .firstMatch(s);
+      final amPmMatch = RegExp(
+        r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$',
+      ).firstMatch(s);
       if (amPmMatch != null) {
         final hour = int.parse(amPmMatch.group(1)!);
         final minute = int.parse(amPmMatch.group(2)!);
@@ -498,8 +510,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   Future<void> _applyParentChildSelection(ParentChildRef child) async {
-    String roomName =
-        child.classroom.trim().isNotEmpty ? child.classroom : '—';
+    String roomName = child.classroom.trim().isNotEmpty ? child.classroom : '—';
     var isSignedIn = false;
 
     try {
@@ -591,12 +602,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       'sort': <String>['attendanceDate,desc'],
     };
 
-    final allowedClassroomCodes =
-        await resolveAttendanceAllowedClassroomCodes(
+    final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
       storage: serviceLocator<StorageService>(),
     );
-    queryParameters['allowedClassroomCodes'] =
-        List<String>.from(allowedClassroomCodes);
+    queryParameters['allowedClassroomCodes'] = List<String>.from(
+      allowedClassroomCodes,
+    );
 
     try {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
@@ -660,7 +671,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             }
           }
 
-          final fallbackClassroom = m['classroomName'] as String? ?? widget.roomName;
+          final fallbackClassroom =
+              m['classroomName'] as String? ?? widget.roomName;
           final resolvedClassroomName = _resolveClassroomNameByCode(
             m['classroomCode'] as String?,
             codeToNameMap,
@@ -720,8 +732,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         'pageable.sort': <String>['absenceDate,desc'],
       };
 
-      absentQueryParameters['allowedClassroomCodes'] =
-          List<String>.from(allowedClassroomCodes);
+      absentQueryParameters['allowedClassroomCodes'] = List<String>.from(
+        allowedClassroomCodes,
+      );
 
       final absentResponse = await client.get<dynamic>(
         absentEndpoint,
@@ -753,11 +766,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               startDate: date,
               endDate: date,
               absentTime: _formatApiTime(m['markedAbsentTime']),
-              absentBy:
-                  (m['markedAbsentByName'] ?? m['markedAbsentBy'] ?? '').toString(),
+              absentBy: (m['markedAbsentByName'] ?? m['markedAbsentBy'] ?? '')
+                  .toString(),
               note: m['absenceNote'] as String? ?? '',
-              markAbsentMethod:
-                  _mapAbsentMethodStringToEnum(m['markAbsentMethod'] as String?),
+              markAbsentMethod: _mapAbsentMethodStringToEnum(
+                m['markAbsentMethod'] as String?,
+              ),
             ),
           );
         }
@@ -820,14 +834,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   bool get _isActiveProfile {
-    final status = (student?.profileStatus ?? widget.profileStatus).toUpperCase();
+    final status = (student?.profileStatus ?? widget.profileStatus)
+        .toUpperCase();
     return status == 'A' || status == 'ACTIVE';
   }
 
   StudentAttendanceGate get _todayGate => studentAttendanceGateFromTodayStatus(
-        isActiveProfile: _isActiveProfile,
-        todayStatusRaw: _todayStatusRaw,
-      );
+    isActiveProfile: _isActiveProfile,
+    todayStatusRaw: _todayStatusRaw,
+  );
 
   bool get _canSignIn => !_isTodayStatusLoading && _todayGate.canSignIn;
   bool get _canSignOut => !_isTodayStatusLoading && _todayGate.canSignOut;
@@ -846,7 +861,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       );
       return {
         for (final c in classrooms)
-          if (c.name.trim().isNotEmpty && c.code.trim().isNotEmpty) c.name: c.code,
+          if (c.name.trim().isNotEmpty && c.code.trim().isNotEmpty)
+            c.name: c.code,
       };
     } catch (_) {
       return const <String, String>{};
@@ -855,9 +871,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   Future<Map<String, String>> _loadClassroomCodeToNameMap() async {
     final nameToCode = await _loadClassroomNameToCodeMap();
-    return {
-      for (final entry in nameToCode.entries) entry.value: entry.key,
-    };
+    return {for (final entry in nameToCode.entries) entry.value: entry.key};
   }
 
   Future<void> _handleStudentAction(String actionLabel) async {
@@ -871,7 +885,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text('This action is not allowed for current attendance state'),
+          content: Text(
+            'This action is not allowed for current attendance state',
+          ),
           backgroundColor: AppColors.warningColor,
         ),
       );
@@ -955,10 +971,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     }
 
     if (target == null || !mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => target!),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => target!));
     if (!mounted) return;
     await refreshData();
   }
@@ -976,6 +989,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
+    final isParentPersona = context.watch<RoleProvider>().isParent;
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -1005,14 +1019,17 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  _buildPopupMenu(),
+                  if (!isParentPersona) ...[
+                    const SizedBox(width: 16),
+                    _buildPopupMenu(),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
               Builder(
                 builder: (context) {
-                  return isStudentLoading && (isAttendancesLoading || isAbsentDaysLoading)
+                  return isStudentLoading &&
+                          (isAttendancesLoading || isAbsentDaysLoading)
                       ? _buildAttendanceShimmer()
                       : Column(
                           children: [
@@ -1023,7 +1040,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 AppText.title(
-                                  showAbsentDays ? 'Absent Days' : 'Present Days',
+                                  showAbsentDays
+                                      ? 'Absent Days'
+                                      : 'Present Days',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
@@ -1119,9 +1138,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                         children: [
                           AppText.body(
                             currentStudent.roomName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
                           const SizedBox(width: 100),
                           InkWell(
@@ -1159,7 +1176,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                                           MediaRes.alertIcon,
                                           currentStudent.allergies,
                                         ),
-                                      if (currentStudent.dietRestriction.isNotEmpty)
+                                      if (currentStudent
+                                          .dietRestriction
+                                          .isNotEmpty)
                                         _buildIconDetail(
                                           MediaRes.foodIcon2,
                                           currentStudent.dietRestriction,
@@ -1168,7 +1187,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.of(context).pop(),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
                                       child: AppText.body(
                                         'Close',
                                         style: const TextStyle(
@@ -1234,10 +1254,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           Expanded(
             child: AppText.body(
               detail,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black87,
-              ),
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
             ),
           ),
         ],
@@ -1259,9 +1276,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             valueColor: const Color(0xFF4CAF50),
           ),
           const SizedBox(height: 16),
-          _buildAttendedHoursStat(
-            report: null,
-          ),
+          _buildAttendedHoursStat(report: null),
           const SizedBox(height: 16),
           _buildStatItem(
             icon: MediaRes.calenderClockIcon,
@@ -1312,14 +1327,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       ),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 22, colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn)),
+          SvgPicture.asset(
+            icon,
+            height: 22,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          ),
           const SizedBox(width: 8),
           AppText.body(
             label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
           Container(
@@ -1327,10 +1343,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: valueColor,
-                width: 1.5,
-              ),
+              border: Border.all(color: valueColor, width: 1.5),
             ),
             child: Center(
               child: AppText.body(
@@ -1348,9 +1361,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     );
   }
 
-  Widget _buildAttendedHoursStat({
-    required _AttendanceReportModel? report,
-  }) {
+  Widget _buildAttendedHoursStat({required _AttendanceReportModel? report}) {
     int hours = 0;
     int minutes = 0;
 
@@ -1374,16 +1385,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           SvgPicture.asset(
             MediaRes.timerIcon,
             height: 22,
-            colorFilter:
-                const ColorFilter.mode(Color(0xFF4285F4), BlendMode.srcIn),
+            colorFilter: const ColorFilter.mode(
+              Color(0xFF4285F4),
+              BlendMode.srcIn,
+            ),
           ),
           const SizedBox(width: 8),
           const AppText.body(
             'Attended Hours',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
           Row(
@@ -1404,19 +1414,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     );
   }
 
-  Widget _buildValueCircle({
-    required String text,
-    required Color color,
-  }) {
+  Widget _buildValueCircle({required String text, required Color color}) {
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: color,
-          width: 1.5,
-        ),
+        border: Border.all(color: color, width: 1.5),
       ),
       child: Center(
         child: AppText.body(
@@ -1445,9 +1449,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         shrinkWrap: true,
         itemCount: 5,
         itemBuilder: (context, index) {
-          return const ShimmerLoaderCard(
-            child: SizedBox(height: 50),
-          );
+          return const ShimmerLoaderCard(child: SizedBox(height: 50));
         },
       );
     }
@@ -1458,9 +1460,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
         ),
         child: Center(
           child: AppText.body(
@@ -1473,12 +1473,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     }
 
     return Column(
-      children: List.generate(
-        attendances.length,
-        (index) {
-          return _buildAttendanceItem(index);
-        },
-      ),
+      children: List.generate(attendances.length, (index) {
+        return _buildAttendanceItem(index);
+      }),
     );
   }
 
@@ -1488,9 +1485,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         shrinkWrap: true,
         itemCount: 5,
         itemBuilder: (context, index) {
-          return const ShimmerLoaderCard(
-            child: SizedBox(height: 50),
-          );
+          return const ShimmerLoaderCard(child: SizedBox(height: 50));
         },
       );
     }
@@ -1501,9 +1496,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
         ),
         child: Center(
           child: AppText.body(
@@ -1516,12 +1509,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     }
 
     return Column(
-      children: List.generate(
-        absentDays.length,
-        (index) {
-          return _buildAbsentDayItem(index);
-        },
-      ),
+      children: List.generate(absentDays.length, (index) {
+        return _buildAbsentDayItem(index);
+      }),
     );
   }
 
@@ -1544,29 +1534,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(attendance.date),
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         trailing: AppText.body(
           collapsedText,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1576,14 +1557,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           });
         },
         children: [
-          Divider(
-            color: AppColors.primaryColor.withOpacity(0.1),
-          ),
+          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(
-            label: 'Classroom',
-            text: attendance.roomName,
-          ),
+          _AttendanceField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In',
@@ -1626,22 +1602,16 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(absentDay.startDate),
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: AppColors.primaryColor.withOpacity(0.2),
-          ),
+          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1651,18 +1621,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           });
         },
         children: [
-          Divider(
-            color: AppColors.primaryColor.withOpacity(0.1),
-          ),
+          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(
-            label: 'Classroom',
-            text: student?.roomName ?? '',
-          ),
+          _AttendanceField(label: 'Classroom', text: student?.roomName ?? ''),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',
-            text: '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
+            text:
+                '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1689,18 +1655,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return Column(
       children: [
         ShimmerLoaderCard(
-          child: Container(
-            height: 300,
-            width: double.infinity,
-          ),
+          child: Container(height: 300, width: double.infinity),
         ),
         ListView.builder(
           shrinkWrap: true,
           itemCount: 3,
           itemBuilder: (context, index) {
-            return const ShimmerLoaderCard(
-              child: SizedBox(height: 50),
-            );
+            return const ShimmerLoaderCard(child: SizedBox(height: 50));
           },
         ),
       ],

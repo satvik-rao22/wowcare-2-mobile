@@ -3,6 +3,7 @@ import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
+import '../entities/activity_type_summary.dart';
 import '../entities/activity_upload_session.dart';
 
 abstract class ActivityRepository {
@@ -18,12 +19,25 @@ abstract class ActivityRepository {
     required String code,
   });
 
+  /// Returns all active activity types for a school via
+  /// `GET /api/v1/activity-types?schoolCode={schoolCode}`.
+  Future<List<ActivityTypeSummary>> getActiveActivityTypesForSchool({
+    required String schoolCode,
+  });
+
+  /// Returns currently napping student codes for a classroom via
+  /// `GET /api/v1/activities/{classroomCode}/nap-start-students`.
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  });
+
   /// `GET /api/v1/activities/feed/daily`
   Future<ActivityFeedPage> getDailyActivityFeed({
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -34,7 +48,8 @@ abstract class ActivityRepository {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? activityTypeCodes,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -42,9 +57,11 @@ abstract class ActivityRepository {
   /// `GET /api/v1/activities/code/{code}`
   Future<ActivityDetail> getActivity({required String code});
 
-  /// `PATCH /api/v1/activities/{code}`
+  /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
     required String code,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -52,8 +69,17 @@ abstract class ActivityRepository {
     List<Map<String, dynamic>> attachments = const [],
   });
 
-  /// `DELETE /api/v1/activities/{code}` (soft delete).
+  /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
+
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/approve`.
+  Future<String> approveActivity({required String code});
+
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
+  Future<String> rejectActivity({required String code});
+
+  /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
+  Future<String> acknowledgeActivity({required String code});
 
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
@@ -65,11 +91,31 @@ abstract class ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? napStart,
+    bool? napEnd,
+    bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues,
     List<Map<String, dynamic>> attachments,
   });
 
-  /// Creates upload sessions via `POST /api/v1/activities/upload-sessions`.
+  /// Creates shared activity cards via `POST /api/v2/shared-activities`.
+  ///
+  /// Returns `data` list (each entry contains at least `cardCode`).
+  Future<List<Map<String, dynamic>>> createSharedActivities({
+    required String activityTypeCode,
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+    required String activityDate,
+    required String description,
+    bool? requireAdminApproval,
+    required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues,
+  });
+
+  /// Creates upload sessions via `POST /api/v2/activities/upload-sessions`.
   Future<ActivityUploadSession> createActivityUploadSessions({
     required String organizationCode,
     required String schoolCode,
@@ -86,6 +132,7 @@ abstract class ActivityRepository {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,

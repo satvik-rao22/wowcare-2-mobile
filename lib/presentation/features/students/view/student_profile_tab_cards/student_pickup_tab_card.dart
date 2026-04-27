@@ -76,7 +76,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
@@ -134,16 +136,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         borderRadius: 10,
                       )
                     else
-                      Opacity(
-                        opacity: 0.45,
-                        child: GradientAddButton(
-                          onTap: () =>
-                              ModuleAccess.showWriteRestricted(context),
-                          wantedButtonSize: 40,
-                          iconSize: 22,
-                          borderRadius: 10,
-                        ),
-                      ),
+                      const SizedBox.shrink(),
                   ],
                 ),
               ),

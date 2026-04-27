@@ -1,7 +1,8 @@
-﻿import 'package:wowcare/core/common/widgets/gradient_background.dart';
-import 'package:wowcare/core/res/media_res.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+
+import '../../../app/theme/media_res.dart';
+import '../widgets/gradient_background.dart';
 
 class PageUnderConstruction extends StatelessWidget {
   const PageUnderConstruction({super.key});
@@ -11,11 +12,8 @@ class PageUnderConstruction extends StatelessWidget {
     return Scaffold(
       body: GradientBackground(
         image: MediaRes.backgroundImage2,
-        child: Center(
-          child: Lottie.asset(MediaRes.signInLottie11),
-        ),
+        child: Center(child: Lottie.asset(MediaRes.signInLottie11)),
       ),
     );
   }
 }
-

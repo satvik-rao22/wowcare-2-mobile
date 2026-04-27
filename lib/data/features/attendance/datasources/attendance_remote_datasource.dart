@@ -8,10 +8,14 @@ import '../models/staff_absence_record_models.dart';
 abstract class AttendanceRemoteDataSource {
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -94,7 +98,8 @@ abstract class AttendanceRemoteDataSource {
   /// Student Absent toggle view - absent students for a date (used in Daily -> Show Absent toggle).
   ///
   /// Response shape matches [StudentAttendanceAbsentFormPageModel].
-  Future<StudentAttendanceAbsentFormPageModel> getStudentAttendanceAbsentToggleView({
+  Future<StudentAttendanceAbsentFormPageModel>
+  getStudentAttendanceAbsentToggleView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -113,6 +118,7 @@ abstract class AttendanceRemoteDataSource {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -248,13 +254,13 @@ abstract class AttendanceRemoteDataSource {
 
   /// Expected attendance summary used for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummaryModel>
-      getStudentAttendanceExpectedSummaryCard({
+  getStudentAttendanceExpectedSummaryCard({
     required List<String> allowedClassroomCodes,
   });
 
   /// Staff expected attendance summary used for the daily "Expected Staff" card.
   Future<StaffAttendanceExpectedSummaryModel>
-      getStaffAttendanceExpectedSummaryCard({
+  getStaffAttendanceExpectedSummaryCard({
     required List<String> allowedClassroomCodes,
   });
 
@@ -306,17 +312,22 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     Map<String, dynamic> queryParameters,
     List<String> allowedClassroomCodes,
   ) {
-    queryParameters['allowedClassroomCodes'] =
-        List<String>.from(allowedClassroomCodes);
+    queryParameters['allowedClassroomCodes'] = List<String>.from(
+      allowedClassroomCodes,
+    );
   }
 
   @override
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -325,8 +336,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final queryParameters = <String, dynamic>{
       // New backend contract expects from/to date range.
       // For the daily view we always send the SAME date for both.
-      'fromAttendanceDate': attendanceDate,
-      'toAttendanceDate': attendanceDate,
+      'fromAttendanceDate': (fromAttendanceDate ?? attendanceDate),
+      'toAttendanceDate': (toAttendanceDate ?? attendanceDate),
       // Backward-compatible pagination params
       'page': page,
       'size': size,
@@ -340,6 +351,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     // Add classroomCodes if provided
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       queryParameters['classroomCodes'] = classroomCodes;
+    }
+    if (studentCodes != null && studentCodes.isNotEmpty) {
+      queryParameters['studentCodes'] = studentCodes;
     }
 
     // Add tagCodes if provided
@@ -356,6 +370,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
     if (signOutAtFilter != null && signOutAtFilter.isNotEmpty) {
       queryParameters['signOutAtFilter'] = signOutAtFilter;
+    }
+    if (isExpectedNotMarked == true) {
+      queryParameters['isExpectedNotMarked'] = true;
     }
 
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
@@ -376,7 +393,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
 
     return StudentAttendanceDailyPageModel.fromJson(
-        response.data! as Map<String, dynamic>);
+      response.data! as Map<String, dynamic>,
+    );
   }
 
   @override
@@ -428,7 +446,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student custom attendance API response format');
+      throw Exception(
+        'Unexpected student custom attendance API response format',
+      );
     }
 
     return StudentAttendanceCustomPageModel.fromJson(
@@ -485,7 +505,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student sign-in form list API response format');
+      throw Exception(
+        'Unexpected student sign-in form list API response format',
+      );
     }
 
     return StudentAttendanceCustomPageModel.fromJson(
@@ -542,7 +564,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student sign-out form list API response format');
+      throw Exception(
+        'Unexpected student sign-out form list API response format',
+      );
     }
 
     return StudentAttendanceCustomPageModel.fromJson(
@@ -599,7 +623,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student transfer form list API response format');
+      throw Exception(
+        'Unexpected student transfer form list API response format',
+      );
     }
 
     return StudentAttendanceCustomPageModel.fromJson(
@@ -656,7 +682,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student absent form list API response format');
+      throw Exception(
+        'Unexpected student absent form list API response format',
+      );
     }
 
     return StudentAttendanceAbsentFormPageModel.fromJson(
@@ -665,7 +693,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<StudentAttendanceAbsentFormPageModel> getStudentAttendanceAbsentToggleView({
+  Future<StudentAttendanceAbsentFormPageModel>
+  getStudentAttendanceAbsentToggleView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -729,6 +758,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page = 0,
     int size = 10,
@@ -758,6 +788,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
     if (signOutAtFilter != null && signOutAtFilter.isNotEmpty) {
       queryParameters['signOutAtFilter'] = signOutAtFilter;
+    }
+    if (isExpectedNotMarked == true) {
+      queryParameters['isExpectedNotMarked'] = true;
     }
 
     if (sort != null && sort.isNotEmpty) {
@@ -892,7 +925,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected staff sign-out form list API response format');
+      throw Exception(
+        'Unexpected staff sign-out form list API response format',
+      );
     }
 
     return StaffAttendanceDailyPageModel.fromJson(
@@ -1006,7 +1041,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected staff transfer form list API response format');
+      throw Exception(
+        'Unexpected staff transfer form list API response format',
+      );
     }
 
     return StaffAttendanceDailyPageModel.fromJson(
@@ -1191,16 +1228,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String staffCode,
     required List<String> allowedClassroomCodes,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
-      ApiConstants.attendanceBaseUrl,
-    );
-
-    final queryParameters = <String, dynamic>{
-      'staffCode': staffCode,
-    };
+    final queryParameters = <String, dynamic>{'staffCode': staffCode};
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceDailyRecordByRowCode(attendanceRecordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
     await _client.delete<dynamic>(
       endpoint,
       queryParameters: queryParameters,
@@ -1219,9 +1253,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       ApiConstants.attendanceBaseUrl,
     );
 
-    final queryParameters = <String, dynamic>{
-      'staffCode': staffCode,
-    };
+    final queryParameters = <String, dynamic>{'staffCode': staffCode};
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
     await _client.delete<dynamic>(
@@ -1237,16 +1269,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String staffCode,
     required List<String> allowedClassroomCodes,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.staffAttendanceRecords}/$attendanceRecordCode',
-      ApiConstants.attendanceBaseUrl,
-    );
-
-    final queryParameters = <String, dynamic>{
-      'staffCode': staffCode,
-    };
+    final queryParameters = <String, dynamic>{'staffCode': staffCode};
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceDailyRecordByRowCode(attendanceRecordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
     await _client.delete<dynamic>(
       endpoint,
       queryParameters: queryParameters,
@@ -1310,7 +1339,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   @override
   Future<StudentAttendanceExpectedSummaryModel>
-      getStudentAttendanceExpectedSummaryCard({
+  getStudentAttendanceExpectedSummaryCard({
     required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
@@ -1340,7 +1369,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   @override
   Future<StaffAttendanceExpectedSummaryModel>
-      getStaffAttendanceExpectedSummaryCard({
+  getStaffAttendanceExpectedSummaryCard({
     required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
@@ -1428,14 +1457,12 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> payload,
     required List<String> allowedClassroomCodes,
   }) async {
+    final body = Map<String, dynamic>.from(payload);
+
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.studentAttendanceRecords}/$attendanceRecordCode',
+      ApiPaths.studentAttendanceDailyRecordByRowCode(attendanceRecordCode),
       ApiConstants.attendanceBaseUrl,
     );
-
-    final body = Map<String, dynamic>.from(payload)
-      ..['allowedClassroomCodes'] = List<String>.from(allowedClassroomCodes);
-
     final response = await _client.patch<Map<String, dynamic>>(
       endpoint,
       data: body,

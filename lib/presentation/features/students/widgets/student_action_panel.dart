@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
@@ -24,6 +32,9 @@ class StudentActionPanel extends StatefulWidget {
     this.onMarkAbsentTap,
     this.isAttendanceActionLoading = false,
     this.attendanceAvailability = StudentAttendanceActionAvailability.allEnabled,
+    /// Selected students in the same shape as [ChooseActivity.selectedStudents]
+    /// (`classroomCode`, `studentCode`, `name`). Drives class activity list + navigation.
+    this.activityStudentMaps,
   });
 
   final StudentPanelType currentPanel;
@@ -41,6 +52,7 @@ class StudentActionPanel extends StatefulWidget {
   final VoidCallback? onMarkAbsentTap;
   final bool isAttendanceActionLoading;
   final StudentAttendanceActionAvailability attendanceAvailability;
+  final List<Map<String, dynamic>>? activityStudentMaps;
 
   @override
   State<StudentActionPanel> createState() => _StudentActionPanelState();
@@ -49,30 +61,241 @@ class StudentActionPanel extends StatefulWidget {
 class _StudentActionPanelState extends State<StudentActionPanel> {
   StudentPanelType _currentPanel = StudentPanelType.none;
 
-  final Map<String, String> _activityIcons = const {
-    'NAP START': MediaRes.napActivityIcon,
-    'NAP END': MediaRes.napActivityIcon,
-    'BATHROOM': MediaRes.bathroomActivityIcon,
-    'BOTTLE': MediaRes.bottleActivityIcon,
-    'MEAL': MediaRes.mealActivityIcon,
-    'INCIDENT': MediaRes.incidentActivityIcon,
-    'PHOTO': MediaRes.photoVideoActivityIcon,
-    'MEDICATION': MediaRes.medicationActivityIcon,
-    'NOTES': MediaRes.notesActivityIcon,
-    'OUTDOOR': MediaRes.outdoorActivityIcon,
-    'LEARNING': MediaRes.learningActivityIcon,
-  };
+  late final GetClassroomActivitySettingsUseCase
+      _getClassroomActivitySettingsUseCase;
+  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
+
+  bool _activitiesLoading = false;
+  List<String> _visibleActivityKeys = [];
+  Set<String>? _enabledActivities;
+  Set<String>? _multiStudentAllowed;
+  final Map<String, String> _activityTypeCodeByName = {};
+  final Map<String, String> _activityDisplayNameByKey = {};
+  String? _activitiesLoadClassroomCode;
+  String? _pendingNavigationKey;
 
   void _togglePanel(StudentPanelType panel) {
     setState(() {
       _currentPanel = _currentPanel == panel ? StudentPanelType.none : panel;
     });
+    if (_currentPanel == StudentPanelType.activities) {
+      _ensureActivitySettingsLoaded();
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _currentPanel = widget.currentPanel;
+    _getClassroomActivitySettingsUseCase =
+        serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getActivityTypeDetailsUseCase =
+        serviceLocator<GetActivityTypeDetailsUseCase>();
+    if (_currentPanel == StudentPanelType.activities) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ensureActivitySettingsLoaded();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(StudentActionPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPanel != oldWidget.currentPanel) {
+      _currentPanel = widget.currentPanel;
+      if (_currentPanel == StudentPanelType.activities) {
+        _ensureActivitySettingsLoaded();
+      }
+    }
+    if (widget.activityStudentMaps != oldWidget.activityStudentMaps) {
+      _activitiesLoadClassroomCode = null;
+      if (_currentPanel == StudentPanelType.activities) {
+        _ensureActivitySettingsLoaded();
+      }
+    }
+  }
+
+  String? _classroomCodeFromMaps() {
+    final maps = widget.activityStudentMaps;
+    if (maps == null || maps.isEmpty) return null;
+    final dynamic code = maps.first['classroomCode'] ?? maps.first['classroomcode'];
+    if (code is String && code.trim().isNotEmpty) return code.trim();
+    return null;
+  }
+
+  String? _getKnownActivityKeyByNormalized(String normalizedName) {
+    for (final key in ChooseActivity.activityIcons.keys) {
+      if (key.toLowerCase() == normalizedName) {
+        return key;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _ensureActivitySettingsLoaded() async {
+    final classroomCode = _classroomCodeFromMaps();
+    if (classroomCode == null || classroomCode.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _activitiesLoading = false;
+        _visibleActivityKeys = [];
+      });
+      return;
+    }
+    if (_activitiesLoadClassroomCode == classroomCode &&
+        _visibleActivityKeys.isNotEmpty) {
+      return;
+    }
+
+    setState(() => _activitiesLoading = true);
+    try {
+      final List<ActivitySetting> settings =
+          await _getClassroomActivitySettingsUseCase(
+        classroomCode: classroomCode,
+        refresh: true,
+      );
+
+      final enabled = <String>{};
+      final multiAllowed = <String>{};
+      final visibleKeys = <String>[];
+      final seenKeys = <String>{};
+      final codeByName = <String, String>{};
+      final displayByKey = <String, String>{};
+
+      for (final setting in settings) {
+        final name = setting.activityTypeName.trim();
+        if (name.isEmpty) continue;
+
+        final normalized = name.toLowerCase();
+        codeByName[normalized] = setting.activityTypeCode;
+        final knownKey = _getKnownActivityKeyByNormalized(normalized);
+        if (knownKey != null) {
+          displayByKey[knownKey] = name;
+        }
+
+        if (setting.isEnabled && knownKey != null) {
+          enabled.add(normalized);
+          if (!seenKeys.contains(knownKey)) {
+            seenKeys.add(knownKey);
+            visibleKeys.add(knownKey);
+          }
+        }
+        if (setting.isMultiStudent) {
+          multiAllowed.add(normalized);
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _enabledActivities = enabled.isEmpty ? null : enabled;
+        _multiStudentAllowed = multiAllowed.isEmpty ? null : multiAllowed;
+        _activityTypeCodeByName
+          ..clear()
+          ..addAll(codeByName);
+        _activityDisplayNameByKey
+          ..clear()
+          ..addAll(displayByKey);
+        _visibleActivityKeys = visibleKeys;
+        _activitiesLoadClassroomCode = classroomCode;
+        _activitiesLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final message = ApiErrorHandler.extractErrorMessage(error);
+      CoreUtils.logApiError('StudentActionPanel activity settings: $message');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
+      setState(() {
+        _activitiesLoading = false;
+        _visibleActivityKeys = [];
+        _activitiesLoadClassroomCode = null;
+      });
+    }
+  }
+
+  bool get _isMultipleStudentsSelected =>
+      (widget.activityStudentMaps?.length ?? 0) > 1;
+
+  bool _isActivityDisabled(String activityKey, String activityName) {
+    final normalized = activityName.toLowerCase();
+
+    if (_enabledActivities != null &&
+        !_enabledActivities!.contains(normalized)) {
+      return true;
+    }
+
+    if (_isMultipleStudentsSelected && _multiStudentAllowed != null) {
+      if (!_multiStudentAllowed!.contains(normalized)) {
+        return true;
+      }
+    }
+
+    if (_enabledActivities == null &&
+        activityKey == 'Incident' &&
+        _isMultipleStudentsSelected) {
+      return true;
+    }
+
+    return false;
+  }
+
+  String _disabledActivityMessage(String activityKey, String activityName) {
+    if (activityKey == 'Incident' && _isMultipleStudentsSelected) {
+      return 'Incident can only be recorded for a single student.';
+    }
+    return 'This activity is currently disabled';
+  }
+
+  Future<void> _onActivityItemTapped(String activityKey) async {
+    final maps = widget.activityStudentMaps;
+    if (maps == null || maps.isEmpty) return;
+
+    final activityName =
+        _activityDisplayNameByKey[activityKey] ?? activityKey;
+    if (_isActivityDisabled(activityKey, activityName)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: _disabledActivityMessage(activityKey, activityName),
+        isWarning: true,
+      );
+      return;
+    }
+
+    final selectedApiName = activityName;
+    final code = _activityTypeCodeByName[selectedApiName.toLowerCase()];
+    if (code == null || code.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve activity code.',
+        isWarning: true,
+      );
+      return;
+    }
+
+    setState(() => _pendingNavigationKey = activityKey);
+    try {
+      await _getActivityTypeDetailsUseCase(code: code);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isWarning: true,
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _pendingNavigationKey = null);
+    final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
+    if (destinationBuilder != null) {
+      final nextScreen = destinationBuilder(maps);
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => nextScreen),
+      );
+    }
   }
 
   @override
@@ -91,8 +314,15 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
               onMarkAbsentTap: widget.onMarkAbsentTap,
               isLoading: widget.isAttendanceActionLoading,
               availability: widget.attendanceAvailability,
-              activityIcons: _activityIcons,
-              onAnyActivityTap: widget.onActivitiesTap,
+              activitiesLoading: _activitiesLoading,
+              visibleActivityKeys: _visibleActivityKeys,
+              activityDisplayNameByKey: Map<String, String>.from(
+                _activityDisplayNameByKey,
+              ),
+              pendingNavigationKey: _pendingNavigationKey,
+              onActivityTap: _onActivityItemTapped,
+              isActivityDisabled: _isActivityDisabled,
+              disabledActivityMessage: _disabledActivityMessage,
             ),
           ),
         Stack(
@@ -267,11 +497,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
             ),
             if (isLoading) ...[
               const SizedBox(height: 8),
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              PrimaryCircularLoader(size: 16, strokeWidth: 2),
             ],
           ],
         ),
@@ -289,8 +515,13 @@ class _StudentSidePanel extends StatelessWidget {
     required this.onMarkAbsentTap,
     required this.isLoading,
     required this.availability,
-    required this.activityIcons,
-    this.onAnyActivityTap,
+    required this.activitiesLoading,
+    required this.visibleActivityKeys,
+    required this.activityDisplayNameByKey,
+    required this.pendingNavigationKey,
+    required this.onActivityTap,
+    required this.isActivityDisabled,
+    required this.disabledActivityMessage,
   });
 
   final StudentPanelType panel;
@@ -300,8 +531,14 @@ class _StudentSidePanel extends StatelessWidget {
   final VoidCallback? onMarkAbsentTap;
   final bool isLoading;
   final StudentAttendanceActionAvailability availability;
-  final Map<String, String> activityIcons;
-  final VoidCallback? onAnyActivityTap;
+  final bool activitiesLoading;
+  final List<String> visibleActivityKeys;
+  final Map<String, String> activityDisplayNameByKey;
+  final String? pendingNavigationKey;
+  final Future<void> Function(String activityKey) onActivityTap;
+  final bool Function(String activityKey, String activityName) isActivityDisabled;
+  final String Function(String activityKey, String activityName)
+      disabledActivityMessage;
 
   static const String _validationTooltip =
       'This action is not allowed for current attendance state';
@@ -332,13 +569,14 @@ class _StudentSidePanel extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       elevation: 3,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        constraints: const BoxConstraints(maxHeight: 400, maxWidth: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
         ),
-        child: _buildActivitiesColumn(),
+        child: _buildActivitiesColumn(context),
       ),
     );
   }
@@ -386,31 +624,65 @@ class _StudentSidePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildActivitiesColumn() {
-    final items = activityIcons.entries.toList();
-    return SizedBox(
-      height: 216,
-      width: 70,
-      child: SingleChildScrollView(
-        controller: ScrollController(),
-        child: Column(
-          children: [
-            for (int i = 0; i < items.length; i++) ...[
-              _ActivityPngItem(
-                pngPath: items[i].value,
-                label: _format(items[i].key),
-                onTap: onAnyActivityTap,
-              ),
-              if (i < items.length - 1) const SizedBox(height: 16),
-            ]
-          ],
+  Widget _buildActivitiesColumn(BuildContext context) {
+    if (activitiesLoading) {
+      return const SizedBox(
+        width: 100,
+        height: 120,
+        child: Center(
+          child: PrimaryCircularLoader(size: 32, strokeWidth: 3),
         ),
+      );
+    }
+    if (visibleActivityKeys.isEmpty) {
+      return const SizedBox(
+        width: 100,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'No activities for this class',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < visibleActivityKeys.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                final key = visibleActivityKeys[i];
+                final iconPath = ChooseActivity.activityIcons[key];
+                if (iconPath == null) return const SizedBox.shrink();
+                final displayName =
+                    activityDisplayNameByKey[key] ?? key;
+                final disabled = isActivityDisabled(key, displayName);
+                final pending = pendingNavigationKey == key;
+                return _ActivityPngItem(
+                  pngPath: iconPath,
+                  label: displayName,
+                  disabled: disabled,
+                  busy: pending,
+                  tooltip:
+                      disabled ? disabledActivityMessage(key, displayName) : '',
+                  onTap: () => onActivityTap(key),
+                );
+              },
+            ),
+          ],
+        ],
       ),
     );
   }
-
-  String _format(String upper) =>
-      upper.substring(0, 1) + upper.substring(1).toLowerCase();
 }
 
 /// Matches staff [_AttendanceActionItem] in [StaffActionPanel].
@@ -481,25 +753,56 @@ class _ActivityPngItem extends StatelessWidget {
   const _ActivityPngItem({
     required this.pngPath,
     required this.label,
-    this.onTap,
+    required this.onTap,
+    this.disabled = false,
+    this.busy = false,
+    this.tooltip = '',
   });
   final String pngPath;
   final String label;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
+  final bool disabled;
+  final bool busy;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Image.asset(pngPath, scale: 3.5),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12),
+    final opacity = disabled ? 0.45 : 1.0;
+    return Tooltip(
+      message: disabled && tooltip.isNotEmpty ? tooltip : '',
+      triggerMode: TooltipTriggerMode.tap,
+      child: InkWell(
+        onTap: disabled || busy ? null : onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Opacity(
+          opacity: opacity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 36,
+                child: busy
+                    ? const Center(
+                        child: PrimaryCircularLoader(size: 22, strokeWidth: 2),
+                      )
+                    : Image.asset(pngPath, scale: 3.5),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Manrope',
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

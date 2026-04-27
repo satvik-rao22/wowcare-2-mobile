@@ -39,10 +39,12 @@ List<Map<String, String>> staticSchoolSelectionEntriesForOrg({
 
   // Return in the shape the School Selection UI expects.
   return filtered
-      .map((e) => <String, String>{
-            'schoolCode': (e['schoolCode'] ?? '').trim(),
-            'schoolName': (e['schoolName'] ?? e['schoolCode'] ?? '').trim(),
-          })
+      .map(
+        (e) => <String, String>{
+          'schoolCode': (e['schoolCode'] ?? '').trim(),
+          'schoolName': (e['schoolName'] ?? e['schoolCode'] ?? '').trim(),
+        },
+      )
       .where((e) => e['schoolCode']!.isNotEmpty)
       .toList();
 }
@@ -58,12 +60,3 @@ String? staticSchoolNameForCode(String schoolCode) {
   }
   return null;
 }
-
-
-
-
-
-
-
-
-

@@ -1,56 +1,158 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../core/util/core_utils.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/cache_manager.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
-  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false});
+  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false, this.clickToSignEditable});
   final String staffName;
   final bool isEditable;
   final bool incidentActivity;
   final ValueChanged<bool>? onSigned;
   final bool isAlreadySigned;
+  final bool? clickToSignEditable;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
 }
 
 class _StaffPresentWidgetState extends State<StaffPresentWidget> {
- late List<String> staffList;
- late String? selectedStaff;
+ List<String> staffList = const <String>[];
+ String? selectedStaff;
  bool clickToSign = false;
-
-
-  void _showWarningMessage(String message) {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: message,
-      isWarning: true,
-    );
-  }
+ final List<String> _fetchedStaffNames = [];
+ bool _loadingStaffs = false;
+ late final CacheManager _cacheManager;
 
   @override
   void initState(){
     super.initState();
-    // Build staff list with the logged-in staff name (if provided) at the top,
-    // followed by fallback demo names.
-    const defaultStaff = ['Staff A', 'Staff B', 'Staff C'];
-    final name = widget.staffName.trim();
-    staffList = [
-      if (name.isNotEmpty) name,
-      ...defaultStaff.where((s) => s != name),
-    ];
-
-    selectedStaff = name.isNotEmpty ? name : staffList.first;
+    _cacheManager = CacheManager(serviceLocator<StorageService>());
+    _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
+    _loadStaffNames();
+  }
+
+  @override
+  void didUpdateWidget(StaffPresentWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.staffName.trim() != widget.staffName.trim()) {
+      setState(_rebuildStaffSelection);
+    }
+    if (oldWidget.isAlreadySigned != widget.isAlreadySigned) {
+      setState(() {
+        clickToSign = widget.isAlreadySigned;
+      });
+    }
+  }
+
+  void _rebuildStaffSelection() {
+    final name = widget.staffName.trim();
+    final unique = <String>{};
+    final ordered = <String>[];
+    void addName(String value) {
+      final v = value.trim();
+      if (v.isEmpty) return;
+      if (unique.add(v.toLowerCase())) ordered.add(v);
+    }
+    addName(name);
+    for (final n in _fetchedStaffNames) {
+      addName(n);
+    }
+    if (ordered.isEmpty) {
+      addName('Staff');
+    }
+    staffList = [
+      ...ordered,
+    ];
+    final current = (selectedStaff ?? '').trim();
+    if (current.isNotEmpty &&
+        staffList.any((s) => s.toLowerCase() == current.toLowerCase())) {
+      selectedStaff = staffList.firstWhere(
+        (s) => s.toLowerCase() == current.toLowerCase(),
+      );
+      return;
+    }
+    selectedStaff = staffList.first;
+  }
+
+  Future<void> _loadStaffNames() async {
+    if (_loadingStaffs) return;
+    _loadingStaffs = true;
+    try {
+      final storage = serviceLocator<StorageService>();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) return;
+
+      final cacheKey = CacheManager.buildCacheKey(
+        feature: 'staff',
+        resource: 'list',
+        identifier: '${org}_$school',
+      );
+
+      // Fast path: load cached staff names.
+      try {
+        final cached = await _cacheManager.loadCache(cacheKey);
+        final cachedNames = cached?['names'];
+        if (cachedNames is List && cachedNames.isNotEmpty) {
+          _fetchedStaffNames
+            ..clear()
+            ..addAll(
+              cachedNames
+                  .map((e) => e.toString().trim())
+                  .where((e) => e.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort(),
+            );
+          if (mounted) setState(_rebuildStaffSelection);
+        }
+      } catch (_) {}
+
+      final useCase = serviceLocator<GetStaffPageUseCase>();
+      final page = await useCase(
+        organizationCode: org,
+        schoolCode: school,
+        page: 0,
+        size: 300,
+        status: 'ACTIVE',
+      );
+      _fetchedStaffNames
+        ..clear()
+        ..addAll(
+          page.items
+              .map((e) => e.name.trim())
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort(),
+        );
+      if (!mounted) return;
+      await _cacheManager.saveCache(cacheKey, {
+        'names': List<String>.from(_fetchedStaffNames),
+      });
+      setState(_rebuildStaffSelection);
+    } catch (_) {
+      // Silent fallback to logged-in staff only.
+    } finally {
+      _loadingStaffs = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final signEditable = widget.clickToSignEditable ?? widget.isEditable;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -74,9 +176,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             if (widget.incidentActivity)
               CheckboxWidget(
                 label: 'Click to sign',
-                isEditable: widget.isEditable,
+                isEditable: signEditable,
                 isChecked: clickToSign,
-                onChecked: widget.isEditable
+                onChecked: signEditable
                     ? (newValue) {
                         setState(() {
                           clickToSign = newValue;
@@ -89,11 +191,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
         InkWell(
-          onTap: !widget.isEditable ?(){
-            _showWarningMessage("Can not be edited.");
-          } : null,
+          onTap: null,
           child: Opacity(
-            opacity: widget.isEditable ? 1.0 : widget.incidentActivity ? 1.0 : 0.4,
+            opacity: widget.isEditable ? 1.0 : 0.4,
             child: CustomDropdown(
               hintText: 'Select present staff',
               items: staffList,

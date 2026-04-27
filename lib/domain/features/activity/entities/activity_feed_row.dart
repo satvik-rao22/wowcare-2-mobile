@@ -18,6 +18,10 @@ class ActivityFeedRow extends Equatable {
     required this.createdBy,
     required this.parameterValues,
     required this.attachments,
+    this.students = const [],
+    this.napStart,
+    this.napEnd,
+    this.approvalStatus,
   });
 
   /// Present on feed rows and on `GET /api/v1/activities/code/{code}` — used for edit/PATCH.
@@ -34,8 +38,19 @@ class ActivityFeedRow extends Equatable {
   final String createdBy;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
+  final List<Map<String, String>> students;
+  final bool? napStart;
+  final bool? napEnd;
+  final String? approvalStatus;
 
   factory ActivityFeedRow.fromActivityDetail(ActivityDetail d) {
+    final firstName = d.studentFirstName.trim();
+    final middleName = (d.studentMiddleName ?? '').trim();
+    final lastName = d.studentLastName.trim();
+    final fullName = [firstName, middleName, lastName]
+        .where((p) => p.isNotEmpty)
+        .join(' ')
+        .trim();
     return ActivityFeedRow(
       activityCode: d.code,
       studentCode: d.studentCode,
@@ -50,10 +65,29 @@ class ActivityFeedRow extends Equatable {
       createdBy: d.createdBy,
       parameterValues: d.parameterValues,
       attachments: d.attachments,
+      napStart: null,
+      napEnd: null,
+      approvalStatus: null,
+      students: fullName.isEmpty
+          ? const []
+          : [
+              {
+                'name': fullName,
+                if ((d.studentCode ?? '').trim().isNotEmpty)
+                  'studentCode': d.studentCode!.trim(),
+              },
+            ],
     );
   }
 
   String get studentDisplayName {
+    if (students.isNotEmpty) {
+      final names = students
+          .map((s) => (s['name'] ?? '').trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (names.isNotEmpty) return names.join(', ');
+    }
     final parts = [
       studentFirstName.trim(),
       (studentMiddleName ?? '').trim(),
@@ -77,6 +111,10 @@ class ActivityFeedRow extends Equatable {
         createdBy,
         parameterValues,
         attachments,
+        students,
+        napStart,
+        napEnd,
+        approvalStatus,
       ];
 }
 

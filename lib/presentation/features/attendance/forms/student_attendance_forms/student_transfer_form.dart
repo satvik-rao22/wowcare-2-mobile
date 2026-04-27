@@ -13,6 +13,7 @@ import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -85,6 +86,7 @@ class StudentTransferForm extends StatefulWidget {
 class _StudentTransferFormState extends State<StudentTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  String? _schoolIana;
   bool? _isStaffAdminPersona;
   String? selectedClassroom;
   String currentClassroom = '';
@@ -92,6 +94,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
   Map<String, String> _classroomNameToCode = <String, String>{};
+  bool _hasTransferTargets = true;
 
   @override
   void initState() {
@@ -100,9 +103,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     _classroomNameToCode = Map<String, String>.from(widget.classroomNameToCode);
     if (widget.students.isNotEmpty) {
       currentClassroom = _deriveCurrentClassroomName();
-      availableClassrooms = _filteredClassroomNames(
-        _classroomNameToCode,
-      );
+      availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
+      _hasTransferTargets = availableClassrooms.isNotEmpty;
     }
     _loadAvailableClassroomsFromApi();
     _loadPersonaFlags();
@@ -110,18 +112,30 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   Future<void> _loadPersonaFlags() async {
     try {
+      String? schoolIana;
+      try {
+        schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+          storage: serviceLocator<StorageService>(),
+          apiClient: serviceLocator<ApiClient>(),
+        );
+      } catch (_) {}
+
       final storage = serviceLocator<StorageService>();
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
+      bool isAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
       if (!isAdmin) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
           for (final r in roles) {
-            final roleCode =
-                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+                .toString()
+                .toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN') {
               isAdmin = true;
               break;
             }
@@ -130,8 +144,15 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       }
       if (!mounted) return;
       setState(() {
+        _schoolIana = schoolIana;
         _isStaffAdminPersona = isAdmin;
-        if (!isAdmin) {
+        if (schoolIana != null && schoolIana.isNotEmpty) {
+          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+            schoolIana,
+          );
+          _selectedTransferDate = dt.$1;
+          _selectedTransferTime = dt.$2;
+        } else {
           _selectedTransferDate = DateTime.now();
           _selectedTransferTime = TimeOfDay.now();
         }
@@ -139,18 +160,24 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     } catch (_) {}
   }
 
-  List<String> _filteredClassroomNames(Map<String, String> classroomNameToCode) {
+  List<String> _filteredClassroomNames(
+    Map<String, String> classroomNameToCode,
+  ) {
     // Determine names of classrooms currently occupied by selected students
     final codeToName = _codeToNameMap();
-    final currentRoomNames = currentStudents.map((s) {
-      final code = s.classroomCode.trim();
-      final resolved = code.isNotEmpty ? (codeToName[code] ?? '') : '';
-      final fallback = s.roomName.trim();
-      return (resolved.isNotEmpty ? resolved : fallback);
-    }).where((name) => name.isNotEmpty).toSet();
+    final currentRoomNames = currentStudents
+        .map((s) {
+          final code = s.classroomCode.trim();
+          final resolved = code.isNotEmpty ? (codeToName[code] ?? '') : '';
+          final fallback = s.roomName.trim();
+          return (resolved.isNotEmpty ? resolved : fallback);
+        })
+        .where((name) => name.isNotEmpty)
+        .toSet();
 
     return classroomNameToCode.entries
         .where((entry) => entry.key.trim().isNotEmpty)
+        .where((entry) => isSelectableClassroomName(entry.key))
         .where((entry) => !currentRoomNames.contains(entry.key))
         .map((entry) => entry.key)
         .toList(growable: false);
@@ -162,6 +189,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isEmpty) return;
+      final isScopedStaff = await isAttendanceScopedStaffPersona(
+        storage: storageService,
+      );
+      final allowedCodes = isScopedStaff
+          ? (await resolveAttendanceAllowedClassroomCodes(
+              storage: storageService,
+            )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
+          : const <String>{};
 
       final getActiveClassroomsUseCase =
           serviceLocator<GetActiveClassroomsUseCase>();
@@ -172,7 +207,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
       final apiMap = <String, String>{
         for (final classroom in classrooms)
-          if (classroom.name.trim().isNotEmpty && classroom.code.trim().isNotEmpty)
+          if (classroom.name.trim().isNotEmpty &&
+              classroom.code.trim().isNotEmpty &&
+              (!isScopedStaff || allowedCodes.contains(classroom.code.trim())) &&
+              isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
 
@@ -182,6 +220,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         // Re-derive current classroom once we have a reliable map
         currentClassroom = _deriveCurrentClassroomName();
         availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
+        _hasTransferTargets = availableClassrooms.isNotEmpty;
         if (selectedClassroom != null &&
             !availableClassrooms.contains(selectedClassroom)) {
           selectedClassroom = null;
@@ -206,11 +245,15 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   String _deriveCurrentClassroomName() {
     if (currentStudents.isEmpty) return 'N/A';
-    final first = currentStudents.first;
+    final first = currentStudents.firstWhere(
+      (s) => s.classroomCode.trim().isNotEmpty || s.roomName.trim().isNotEmpty,
+      orElse: () => currentStudents.first,
+    );
     final code = first.classroomCode.trim();
     final roomName = first.roomName.trim();
     // Match daily-view logic: treat API name that equals code / looks like CLS_* as missing label.
-    final apiNameLooksLikeCode = roomName.isNotEmpty &&
+    final apiNameLooksLikeCode =
+        roomName.isNotEmpty &&
         (roomName == code || roomName.startsWith('CLS_'));
     if (roomName.isNotEmpty && !apiNameLooksLikeCode) return roomName;
     if (code.isNotEmpty) {
@@ -233,11 +276,20 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   }
 
   void _handleSubmit() {
+    if (!_hasTransferTargets) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('No other classroom available for transfer.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
     if (selectedClassroom == null) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Please select a classroom to transfer to'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -257,8 +309,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     if (currentStudents.isEmpty || selectedClassroom == null) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No students selected to transfer'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -280,8 +331,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final schoolToday =
-        SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+    final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
+      schoolTimeZone,
+    );
     final isAdmin = _isStaffAdminPersona ?? false;
 
     final DateTime transferredAt;
@@ -291,8 +343,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         _selectedTransferDate.month,
         _selectedTransferDate.day,
       );
-      final safeDay =
-          pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
+      final safeDay = pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
       transferredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
         schoolTimeZone,
         year: safeDay.year,
@@ -304,16 +355,17 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     } else {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
     }
-    final transferDate =
-        SchoolZoneDateTime.yyyyMmDdFromUtcInstant(transferredAt, schoolTimeZone);
+    final transferDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+      transferredAt,
+      schoolTimeZone,
+    );
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -328,8 +380,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     if (studentCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -343,8 +394,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     if (toClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text(
             'Selected classroom is not linked to a classroom code yet.',
           ),
@@ -376,10 +426,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         body,
         serviceLocator<StorageService>(),
       );
-      final response = await client.post<dynamic>(
-        endpoint,
-        data: body,
-      );
+      final response = await client.post<dynamic>(endpoint, data: body);
 
       final data = response.data;
       bool success = false;
@@ -396,11 +443,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
@@ -417,8 +464,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -475,12 +521,24 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                         isDisabled: !(_isStaffAdminPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final pickedDay =
-                                DateTime(date.year, date.month, date.day);
-                            _selectedTransferDate =
-                                pickedDay.isAfter(today) ? today : date;
+                            final iana = _schoolIana;
+                            final today = iana != null && iana.isNotEmpty
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final pickedDay = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
+                            _selectedTransferDate = pickedDay.isAfter(today)
+                                ? today
+                                : date;
                           });
                         },
                       ),
@@ -531,14 +589,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
-                                color:
-                                    const Color.fromRGBO(177, 175, 233, 0.1),
+                                color: const Color.fromRGBO(177, 175, 233, 0.1),
                               ),
                               child: AppText.value(
                                 currentClassroom,
                                 style: TextStyle(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.5),
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                               ),
                             ),
@@ -567,20 +625,27 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                         ),
                         child: DropdownButton<String>(
                           value: selectedClassroom,
-                          hint: const Text('Select classroom'),
+                          hint: Text(
+                            _hasTransferTargets
+                                ? 'Select classroom'
+                                : 'No classroom available',
+                          ),
                           style: TextStyle(
-                            color: AppColors.primaryColor
-                                .withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 15,
                           ),
                           isExpanded: true,
                           icon: SvgPicture.asset(MediaRes.arrow_drop_down),
                           underline: Container(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedClassroom = newValue!;
-                            });
-                          },
+                          onChanged: !_hasTransferTargets
+                              ? null
+                              : (String? newValue) {
+                                  setState(() {
+                                    selectedClassroom = newValue!;
+                                  });
+                                },
                           items: availableClassrooms.map((String classroom) {
                             return DropdownMenuItem<String>(
                               value: classroom,
@@ -620,14 +685,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -663,7 +723,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

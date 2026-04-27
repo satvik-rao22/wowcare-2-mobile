@@ -79,7 +79,9 @@ class _StudentSelectionMarkAbsentFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms();
+    _classroomCubit.loadActiveClassrooms(
+      applyAttendanceStaffScope: true,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -150,6 +152,8 @@ class _StudentSelectionMarkAbsentFormState
         page: 0,
         size: 100,
       );
+
+      if (!mounted) return;
 
       final students = page.items.asMap().entries.map((entry) {
         final index = entry.key;

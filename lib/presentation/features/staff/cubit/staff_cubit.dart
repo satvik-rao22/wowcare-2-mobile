@@ -57,20 +57,19 @@ class StaffCubit extends Cubit<StaffState> {
   Future<void> loadInitial() async {
     final schoolCode = await _resolveSchoolCode();
 
-    // Try cache first
-    final cached =
-        await (_repository is StaffRepositoryWithCache
-            ? (_repository as StaffRepositoryWithCache)
-                .loadCachedStaffPage(
-                  schoolCode,
-                  status: _effectiveStatusFilter(),
-                  designation: state.designationFilter,
-                  search: state.searchQuery,
-                  primaryClassroomCodes: state.primaryClassroomCodes,
-                  classCodes: state.classCodes,
-                  sortBy: state.sortBy,
-                )
-            : Future.value(null));
+    // 1. Try cache first for immediate UI update
+    final cached = await (_repository is StaffRepositoryWithCache
+        ? (_repository as StaffRepositoryWithCache).loadCachedStaffPage(
+            schoolCode,
+            status: _effectiveStatusFilter(),
+            designation: state.designationFilter,
+            search: state.searchQuery,
+            primaryClassroomCodes: state.primaryClassroomCodes,
+            classCodes: state.classCodes,
+            sortBy: state.sortBy,
+          )
+        : Future.value(null));
+
     if (cached != null && !isClosed) {
       emit(
         state.copyWith(
@@ -82,12 +81,10 @@ class StaffCubit extends Cubit<StaffState> {
           isFromCache: true,
         ),
       );
-      // Still load staff count so stat cards are accurate.
-      await _refreshStaffCountOnly();
-      return;
+      // We don't return here anymore; we trigger a background refresh
     }
 
-    // No cache (or expired) – load from API.
+    // 2. Load from API (background refresh if cache was present, or full load if not)
     await refresh();
   }
 

@@ -35,6 +35,7 @@ class StudentAttendanceDailyCubit
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     final dateString = _formatDate(attendanceDate);
@@ -49,6 +50,7 @@ class StudentAttendanceDailyCubit
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
       );
       return;
@@ -108,6 +110,7 @@ class StudentAttendanceDailyCubit
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
     );
   }
@@ -119,6 +122,7 @@ class StudentAttendanceDailyCubit
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -134,6 +138,7 @@ class StudentAttendanceDailyCubit
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
       isSummaryLoading: true,
     ));
@@ -145,6 +150,7 @@ class StudentAttendanceDailyCubit
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         page: 0,
         size: _pageSize,
@@ -164,6 +170,7 @@ class StudentAttendanceDailyCubit
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -201,6 +208,7 @@ class StudentAttendanceDailyCubit
         tagCodes: state.tagCodes,
         signInAtFilter: state.signInAtFilter,
         signOutAtFilter: state.signOutAtFilter,
+        isExpectedNotMarked: state.isExpectedNotMarked,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,

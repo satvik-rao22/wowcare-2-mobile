@@ -157,10 +157,15 @@ class ApiPaths {
     if (ApiConstants.isUat) return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+    if (parts.length < 3 || parts[0] != 'api') {
+      return ApiMicroservices.user;
+    }
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
+    final nextSeg = parts.length > 3 ? parts[3] : '';
     switch (seg) {
       case 'auth':
       case 'users':
@@ -187,8 +192,12 @@ class ApiPaths {
       case 'regular-schedules':
       case 'tags':
       case 'pickup':
+
       /// `GET/POST /api/v1/guardian/...` (student MS — devtunnel **8085**).
       case 'guardian':
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
         return ApiMicroservices.student;
       case 'student-attendance':
       case 'student-absence-records':
@@ -203,8 +212,18 @@ class ApiPaths {
         return ApiMicroservices.classroom;
       case 'classrooms':
       case 'activities':
+      case 'shared-activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'admin':
+        // v2 admin activity moderation endpoints, e.g.
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
+      case 'conversations':
+        return ApiMicroservices.communication;
       default:
         return ApiMicroservices.user;
     }
@@ -249,7 +268,8 @@ class ApiPaths {
   static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
 
   /// GET /api/v1/schools/{schoolCode}/timezone
-  static String schoolTimezone(String schoolCode) => '$schools/$schoolCode/timezone';
+  static String schoolTimezone(String schoolCode) =>
+      '$schools/$schoolCode/timezone';
 
   // —— Staff host ——
   static const String staffList = '/api/v1/staff';
@@ -291,10 +311,8 @@ class ApiPaths {
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';
   static const String schoolUsersStaff = '/api/v1/school-users/staff';
-  static const String schoolUsersDeactivate =
-      '/api/v1/school-users/deactivate';
-  static const String schoolUsersActivate =
-      '/api/v1/school-users/activate';
+  static const String schoolUsersDeactivate = '/api/v1/school-users/deactivate';
+  static const String schoolUsersActivate = '/api/v1/school-users/activate';
 
   // —— Organization admins (user host) ——
   static const String organizationAdminsDeactivate =
@@ -311,12 +329,16 @@ class ApiPaths {
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
-  static const String studentRegularSchedules =
-      '/api/v1/regular-schedules';
+  static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
+
   /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`
-  static String studentSiblings(String code) => '$studentList/student/$code/siblings';
+  static String studentSiblings(String code) =>
+      '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
+  /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
+  static const String studentTagsActivityFilter =
+      '/api/v1/student-tags/activity-filter';
   static String studentDeactivate(String code) =>
       '$studentList/$code/deactivate';
   static String studentReactivate(String code) =>
@@ -328,8 +350,9 @@ class ApiPaths {
   static String studentImmunization(String code) =>
       '$studentList/$code/immunization';
   static String studentImmunizationRecord(
-          String studentCode, String recordCode) =>
-      '$studentList/$studentCode/immunization/$recordCode';
+    String studentCode,
+    String recordCode,
+  ) => '$studentList/$studentCode/immunization/$recordCode';
   static String studentPhysicalExams(String code) =>
       '$studentList/$code/physical-exam';
   static String studentPhysicalExam(String studentCode, String examCode) =>
@@ -362,13 +385,18 @@ class ApiPaths {
       '/api/v1/student-attendance/view/absent';
   static const String studentAttendanceAbsentToggleView =
       '/api/v1/student-attendance/view/absent/toggle';
-  static const String studentAttendanceProfile = '/api/v1/student-attendance/profile';
+
+  static const String studentAttendanceProfile =
+      '/api/v1/student-attendance/profile';
   static const String studentAttendanceProfileAbsentToggle =
       '/api/v1/student-attendance/profile/absent/toggle';
   static const String studentAttendanceSignInStatus =
       '/api/v1/student-attendance/sign-in/status';
+  static const String studentAttendanceSignInStatusAtTime =
+      '/api/v1/student-attendance/sign-in/status/at-time';
   static const String studentAttendanceExpectedSummaryCard =
       '/api/v1/student-attendance/expected/summary/card';
+
   static const String studentAttendanceSignInFormList =
       '/api/v1/student-attendance/sign-in/form/list';
   static const String studentAttendanceSignOutFormList =
@@ -386,13 +414,19 @@ class ApiPaths {
   static String studentAttendanceRecordByCode(String recordCode) =>
       '/api/v1/student-attendance-records/$recordCode';
 
+  /// Daily-row mutation endpoint for student attendance.
+  /// Backend expects the row `code` from daily-view list APIs.
+  static String studentAttendanceDailyRecordByRowCode(String rowCode) =>
+      '/api/v1/student-attendance-records/daily/$rowCode';
+
   static const String studentAbsenceRecordsMarkAbsent =
       '/api/v1/student-absence-records/mark-absent';
 
   /// DELETE a student absence record by record code (override sign-in).
   static String studentAbsenceRecordByCode(String absenceRecordCode) =>
       '/api/v1/student-absence-records/$absenceRecordCode';
-  static const String studentAttendanceRecords = '/api/v1/student-attendance-records';
+  static const String studentAttendanceRecords =
+      '/api/v1/student-attendance-records';
   static const String studentAttendanceRecordsSignIn =
       '/api/v1/student-attendance-records/sign-in';
   static const String studentAttendanceRecordsParentSignIn =
@@ -403,29 +437,42 @@ class ApiPaths {
       '/api/v1/student-attendance-records/parent-sign-out';
   static const String studentAttendanceRecordsTransfer =
       '/api/v1/student-attendance-records/transfer';
-  static const String staffAttendanceDailyView = '/api/v1/staff-attendance/view/daily';
+  static const String staffAttendanceDailyView =
+      '/api/v1/staff-attendance/view/daily';
   static const String staffAttendanceExpectedSummaryCard =
       '/api/v1/staff-attendance/expected/summary/card';
+
   static const String staffAttendanceSignInFormList =
       '/api/v1/staff-attendance/sign-in/form/list';
   static const String staffAttendanceSignOutFormList =
       '/api/v1/staff-attendance/sign-out/form/list';
   static const String staffAttendanceTransferFormList =
       '/api/v1/staff-attendance/transfer/form/list';
+
   static const String staffAbsenceRecordsMarkAbsent =
       '/api/v1/staff-absence-records/mark-absent';
   static const String staffAttendanceSignInStatus =
       '/api/v1/staff-attendance/sign-in/status';
-  static const String staffAttendanceProfile = '/api/v1/staff-attendance/profile';
+  static const String staffAttendanceSignInStatusAtTime =
+      '/api/v1/staff-attendance/sign-in/status/at-time';
+  static const String staffAttendanceProfile =
+      '/api/v1/staff-attendance/profile';
   static const String staffAttendanceProfileAbsentToggle =
       '/api/v1/staff-attendance/profile/absent/toggle';
-  static const String staffAttendanceAbsentView = '/api/v1/staff-attendance/view/absent';
+  static const String staffAttendanceAbsentView =
+      '/api/v1/staff-attendance/view/absent';
   static const String staffAttendanceAbsentFormList =
       '/api/v1/staff-attendance/absent/form/list';
   static const String staffAttendanceAbsentToggleView =
       '/api/v1/staff-attendance/view/absent/toggle';
-  static const String staffAttendanceCustomView = '/api/v1/staff-attendance/view/custom';
-  static const String staffAttendanceRecords = '/api/v1/staff-attendance-records';
+
+  static const String staffAttendanceCustomView =
+      '/api/v1/staff-attendance/view/custom';
+  static const String staffAttendanceRecords =
+      '/api/v1/staff-attendance-records';
+  static String staffAttendanceDailyRecordByRowCode(String rowCode) =>
+      '/api/v1/staff-attendance-records/daily/$rowCode';
+
   static const String staffAttendanceRecordsSignIn =
       '/api/v1/staff-attendance-records/sign-in';
   static const String staffAttendanceRecordsSignInSelf =
@@ -443,13 +490,26 @@ class ApiPaths {
 
   // —— Activity host ——
   static const String activities = '/api/v1/activities';
+  static String activityNapStartStudents(String classroomCode) =>
+      '/api/v1/activities/${classroomCode.trim()}/nap-start-students';
   static const String activitiesUploadSessions =
-      '/api/v1/activities/upload-sessions';
-  static const String activitiesFeedDaily = '/api/v1/activities/feed/daily';
-  static const String activitiesFeedRange = '/api/v1/activities/feed/range';
+      '/api/v2/activities/upload-sessions';
+  static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
+  static const String activitiesFeedRange = '/api/v2/activities/feed/range';
+  static const String guardianActivitiesFeedDaily =
+      '/api/v2/guardian/activities/feed/daily';
+  static const String guardianActivitiesFeedRange =
+      '/api/v2/guardian/activities/feed/range';
+  static String guardianAcknowledgeActivity(String cardGroupCode) =>
+      '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/acknowledge';
+  static String adminApproveActivity(String cardGroupCode) =>
+      '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
+  static String adminRejectActivity(String cardGroupCode) =>
+      '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/reject';
   static const String activityTypesRoot = '/api/v1/activity-types';
 
   // —— Document host (base path returned by upload-session response) ——
+
   static const String documentUploadSessionsRoot = '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
@@ -491,4 +551,8 @@ class ApiPaths {
 
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
+
+  static const String messagingCreateMessage = '/api/v1/conversations';
+  static String messagingMessages(String conversationCode) =>
+      '/api/v1/messages/conversation/$conversationCode';
 }

@@ -38,6 +38,8 @@ import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -65,6 +67,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   String? _statusLegendFilter;
   String? _signInAtFilter;
   String? _signOutAtFilter;
+  bool? _isExpectedNotMarkedFilter;
   FilterData? _staffFilters;
 
   // Total staff summary: same API as StaffScreen "Total Staff" (headline = active + upcoming).
@@ -158,7 +161,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   Future<void> _loadClassroomData() async {
     // Transfers can involve non-CLASSROOM locations; load all types to maximize
     // classroomCode → name resolution across the app.
-    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: false);
+    _classroomCubit.loadActiveClassrooms(
+      onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -254,6 +260,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         tagCodes: tagCodes,
         signInAtFilter: _signInAtFilter,
         signOutAtFilter: _signOutAtFilter,
+        isExpectedNotMarked: _isExpectedNotMarkedFilter,
         search: search,
       );
     } else {
@@ -263,6 +270,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         tagCodes: tagCodes,
         signInAtFilter: _signInAtFilter,
         signOutAtFilter: _signOutAtFilter,
+        isExpectedNotMarked: _isExpectedNotMarkedFilter,
         search: search,
       );
     }
@@ -274,26 +282,31 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       case 'Signed-In':
         _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NULL';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NOT_NULL';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'NULL';
+        _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
         _signInAtFilter = 'NULL';
         _signOutAtFilter = 'IGNORE';
+        _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
+        _isExpectedNotMarkedFilter = null;
     }
   }
 
@@ -433,9 +446,34 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       _statusLegendFilter = null;
       _signInAtFilter = null;
       _signOutAtFilter = null;
+      _isExpectedNotMarkedFilter = null;
       _staffFilters = null;
     });
     _loadAttendanceData(context, reset: true);
+  }
+
+  void _openStaffListWithIncomingFilter(String status) {
+    final normalized = status.trim().toUpperCase();
+    if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>(
+              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+            ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  onlyTypeClassroom: false,
+                ),
+            ),
+          ],
+          child: StaffScreen(incomingStatusFilter: normalized),
+        ),
+      ),
+    );
   }
 
   @override
@@ -527,6 +565,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                                   state.isSummaryLoading) &&
                               !_showAbsentOnly,
                           onLegendTap: (status) {
+                            final normalized = status.trim().toUpperCase();
+                            if (normalized == 'ACTIVE' ||
+                                normalized == 'UPCOMING') {
+                              _openStaffListWithIncomingFilter(normalized);
+                              return;
+                            }
                             setState(() {
                               final normalized =
                                   status == 'Present' ? 'Signed-In' : status;
@@ -725,6 +769,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                     _statusLegendFilter = 'Absent';
                     _signInAtFilter = null;
                     _signOutAtFilter = null;
+                    _isExpectedNotMarkedFilter = null;
                   } else if (_statusLegendFilter == 'Absent') {
                     _statusLegendFilter = null;
                   }
@@ -1073,60 +1118,14 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     }
   }
 
-  String _normalizeAttendanceRecordCodeForMutation(String rawCode) {
-    final trimmed = rawCode.trim();
-    if (trimmed.isEmpty) return trimmed;
-    final tildeIndex = trimmed.indexOf('~');
-    if (tildeIndex <= 0) return trimmed;
-    return trimmed.substring(0, tildeIndex);
-  }
-
-  /// DELETE expects the parent staff attendance record id, not transfer row `SFTR_*`.
-  /// If the expanded row only has a segment id, reuse another loaded row for the same staff.
+  /// Staff daily edit/delete APIs expect rowCode from daily list item `code`.
   String? _resolveStaffDeleteAttendanceRecordCode({
     required StaffAttendanceCardData card,
     required List<StaffAttendanceDailyItem> allItems,
   }) {
-    bool isTransferSegment(String? c) =>
-        c != null && c.toUpperCase().startsWith('SFTR_');
-
-    String norm(String c) => _normalizeAttendanceRecordCodeForMutation(c);
-
-    final fromCard = card.attendanceRecordCode;
-    if (fromCard != null && fromCard.isNotEmpty) {
-      final n = norm(fromCard);
-      if (n.isNotEmpty && !isTransferSegment(n)) return n;
-    }
-
-    final sc = card.id.trim();
-    if (sc.isEmpty) {
-      return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
-    }
-
-    for (final item in allItems) {
-      if (item.staffCode.trim() != sc) continue;
-      final c = item.attendanceRecordCode;
-      if (c == null || c.isEmpty) continue;
-      final n = norm(c);
-      if (n.isEmpty || isTransferSegment(n)) continue;
-      return n;
-    }
-
-    StaffAttendanceDailyItem? lowestSeq;
-    for (final item in allItems) {
-      if (item.staffCode.trim() != sc) continue;
-      final c = item.attendanceRecordCode;
-      if (c == null || c.isEmpty) continue;
-      if (lowestSeq == null ||
-          (item.sequenceNumber ?? 1) < (lowestSeq.sequenceNumber ?? 1)) {
-        lowestSeq = item;
-      }
-    }
-    if (lowestSeq?.attendanceRecordCode != null) {
-      return norm(lowestSeq!.attendanceRecordCode!);
-    }
-
-    return (fromCard != null && fromCard.isNotEmpty) ? norm(fromCard) : null;
+    final fromCard = card.attendanceRecordCode?.trim();
+    if (fromCard == null || fromCard.isEmpty) return null;
+    return fromCard;
   }
 
   Widget _buildAbsentStaffList(

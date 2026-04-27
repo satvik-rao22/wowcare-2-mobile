@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/common/widgets/custom_cancel_button.dart';
-import 'package:schoolerp/core/common/widgets/custom_confirm_button.dart';
+
+import 'custom_cancel_button.dart';
+import 'custom_confirm_button.dart';
 
 class ReusableActionButtons extends StatelessWidget {
   @override
@@ -24,10 +24,8 @@ class ReusableActionButtons extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             Expanded(
-                child: CustomConfirmButton(
-              label: 'Save',
-              onPressed: () {},
-            )),
+              child: CustomConfirmButton(label: 'Save', onPressed: () {}),
+            ),
           ],
         ),
       ),

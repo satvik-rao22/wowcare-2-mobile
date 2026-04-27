@@ -377,7 +377,9 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canMutateStudent =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
@@ -457,13 +459,10 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                       ..sort(
                       (a, b) => a.doseNumber.compareTo(b.doseNumber),
                     ),
-                    onMore: (m) {
-                      if (!canMutateStudent) {
-                        ModuleAccess.showWriteRestricted(context);
-                        return;
-                      }
-                      _openEditImmunizationBottomSheet(model: m);
-                    },
+                    onMore: canMutateStudent
+                        ? (m) => _openEditImmunizationBottomSheet(model: m)
+                        : (_) {},
+                    showActions: canMutateStudent,
                   ),
                   if (i != sortedKeys.length - 1) const SizedBox(height: 20),
                 ],
@@ -482,11 +481,13 @@ class _ImmunizationCard extends StatelessWidget {
     required this.vaccineName,
     required this.doses,
     required this.onMore,
+    this.showActions = true,
   });
 
   final String vaccineName;
   final List<StudentImmunizationModel> doses;
   final ValueChanged<StudentImmunizationModel> onMore;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context) {
@@ -524,24 +525,25 @@ class _ImmunizationCard extends StatelessWidget {
                               ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: doses.isEmpty ? null : () => onMore(doses.first),
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      size: 20,
-                      color: Color(0xFF573353),
-                      ),
-                    visualDensity: VisualDensity.compact,
-                    constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
-                  ),
+                  if (showActions)
+                    IconButton(
+                      onPressed: doses.isEmpty ? null : () => onMore(doses.first),
+                      icon: const Icon(
+                        Icons.more_horiz,
+                        size: 20,
+                        color: Color(0xFF573353),
+                        ),
+                      visualDensity: VisualDensity.compact,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
               for (final dose in doses)
                 _DoseRow(
                   model: dose,
-                  onMore: () => onMore(dose),
+                  onMore: showActions ? () => onMore(dose) : null,
                       ),
                     ],
               ),
@@ -554,7 +556,7 @@ class _ImmunizationCard extends StatelessWidget {
 class _DoseRow extends StatelessWidget {
   const _DoseRow({required this.model, required this.onMore});
   final StudentImmunizationModel model;
-  final VoidCallback onMore;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {

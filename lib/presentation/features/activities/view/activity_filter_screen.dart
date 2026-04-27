@@ -3,8 +3,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
-import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/activities/util/activity_filter_metadata_cache.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -35,7 +35,7 @@ class ActivityFilterScreen extends StatefulWidget {
 
 class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   late final GetTagNameCodeMapForSchoolUseCase _tagMapUseCase;
-  late final GetClassroomActivitySettingsUseCase _settingsUseCase;
+  late final GetActiveActivityTypesForSchoolUseCase _activityTypesUseCase;
   late final CacheManager _cacheManager;
 
   List<String> _tagOptions = const [];
@@ -51,7 +51,8 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   void initState() {
     super.initState();
     _tagMapUseCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _settingsUseCase = serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _activityTypesUseCase =
+        serviceLocator<GetActiveActivityTypesForSchoolUseCase>();
     _cacheManager = CacheManager(serviceLocator<StorageService>());
 
     final initial = widget.initialFilters ?? const {};
@@ -68,26 +69,27 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
       _loadError = null;
     });
     try {
-      // Run tag map + classroom activity settings APIs concurrently.
+      // Run tag map + activity types APIs concurrently.
       final tagMapFuture = ActivityFilterMetadataCache.loadTagNameCodeMap(
         cacheManager: _cacheManager,
         useCase: _tagMapUseCase,
         schoolCode: widget.schoolCode,
       );
-      final settingsFuture = ActivityFilterMetadataCache.loadClassroomActivitySettings(
+      final typesFuture =
+          ActivityFilterMetadataCache.loadActiveActivityTypesForSchool(
         cacheManager: _cacheManager,
-        useCase: _settingsUseCase,
-        classroomCode: widget.classroomCode,
+        useCase: _activityTypesUseCase,
+        schoolCode: widget.schoolCode,
       );
       final tagMap = await tagMapFuture;
-      final settings = await settingsFuture;
+      final types = await typesFuture;
 
       if (!mounted) return;
 
       final tagNames = tagMap.keys.toList()
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      final typeNames = settings
-          .map((ActivitySetting s) => s.activityTypeName.trim())
+      final typeNames = types
+          .map((ActivityTypeSummary s) => s.name.trim())
           .where((n) => n.isNotEmpty)
           .toSet()
           .toList()
@@ -223,6 +225,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             hintText: 'Select tags',
             items: _tagOptions,
             selectedItems: _selectedTags,
+            labelBottomSpacing: 4,
             onChanged: (values) {
               setState(() => _selectedTags = List<String>.from(values));
             },
@@ -233,6 +236,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
           hintText: 'Select activity',
           items: _activityTypeOptions,
           selectedItems: _selectedActivityTypes,
+          labelBottomSpacing: 4,
           onChanged: (values) {
             setState(() => _selectedActivityTypes = List<String>.from(values));
           },

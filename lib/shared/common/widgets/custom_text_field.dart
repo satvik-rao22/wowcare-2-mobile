@@ -22,7 +22,8 @@ class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
   final int? maxLength; // Optional maximum length for input
-  final bool allowDecimal; // Control whether to allow decimal points in numeric mode
+  final bool
+  allowDecimal; // Control whether to allow decimal points in numeric mode
 
   @override
   Widget build(BuildContext context) {
@@ -46,8 +47,8 @@ class CustomTextField extends StatelessWidget {
           maxLines: isTextArea ? 4 : 1,
           keyboardType: isNumeric
               ? (allowDecimal
-                  ? const TextInputType.numberWithOptions(decimal: true)
-                  : TextInputType.number)
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.number)
               : TextInputType.text,
           inputFormatters: isNumeric
               ? [
@@ -59,10 +60,7 @@ class CustomTextField extends StatelessWidget {
               : null,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(
-              color: Colors.grey.shade400,
-              fontSize: 14,
-            ),
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey.shade300),

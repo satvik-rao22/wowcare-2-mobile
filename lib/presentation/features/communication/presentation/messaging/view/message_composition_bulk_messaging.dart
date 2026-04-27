@@ -1,13 +1,13 @@
-
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
-
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rich_field_controller/rich_field_controller.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/bulk_messaging_composition_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -16,13 +16,16 @@ import '../../../../../../app/theme/colors.dart';
 import '../../../../../../app/theme/media_res.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../shared/common/widgets/selected_student_tile.dart';
+import '../../../../../../app/di/di.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
     super.key,
     required this.selectedRecipients,
+    required this.isStaff,
   });
   final List<Map<String, dynamic>> selectedRecipients;
+  final bool isStaff;
 
   @override
   State<MessageCompositionBulkMessaging> createState() =>
@@ -31,17 +34,11 @@ class MessageCompositionBulkMessaging extends StatefulWidget {
 
 class _MessageCompositionBulkMessagingState
     extends State<MessageCompositionBulkMessaging> {
-  late final List<Map<String,dynamic>> _selectedRecipientsData;
-  late final List<String> _selectedRecipientsName;
-  final List<SelectedAttachment> _attachments = [];
-  late final FocusNode _focusNode ;
-  late final RichFieldController _controller ;
-  int get _charCount => _controller.text.length;
-
-
+  late final BulkMessagingCompositionCubit _compositionCubit;
+  late final FocusNode _focusNode;
+  late final RichFieldController _controller;
 
   static const int maxChars = 2000;
-  bool get _canSend => _charCount > 0 || _attachments.isNotEmpty;
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -55,15 +52,14 @@ class _MessageCompositionBulkMessagingState
       return;
     }
 
-    setState(() {
-      _attachments.add(SelectedAttachment.file(file, isImage: true));
-    });
+    if (!mounted) return;
+    _compositionCubit.addAttachment(file, isImage: true);
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'ppt', 'pptx'],
+      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
     );
 
     if (result == null || result.files.isEmpty) return;
@@ -77,48 +73,50 @@ class _MessageCompositionBulkMessagingState
       return;
     }
 
-    setState(() {
-      _attachments.add(SelectedAttachment.file(file, isImage: false));
-    });
+    if (!mounted) return;
+    _compositionCubit.addAttachment(file, isImage: false);
   }
 
   void _removeAttachment(int index) {
-    setState(() {
-      _attachments.removeAt(index);
-    });
+    _compositionCubit.removeAttachmentAt(index);
   }
 
   void _removeRecipient(String name) {
-    setState(() {
-      _selectedRecipientsName.remove(name);
-
-      // If no recipients left, go back to previous screen
-      if (_selectedRecipientsName.isEmpty) {
-        Navigator.of(context).pop();
-      }
-    });
+    _compositionCubit.removeRecipientByName(name);
+    if (_compositionCubit.state.selectedRecipientNames.isEmpty && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
+  void _onTextChanged() {
+    if (!_compositionCubit.isClosed) {
+      _compositionCubit.updateMessageText(_controller.text);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _compositionCubit = BulkMessagingCompositionCubit(
+      initialRecipients: widget.selectedRecipients,
+      isStaff: widget.isStaff,
+      createConversationUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    );
     _focusNode = FocusNode();
     _controller = RichFieldController(focusNode: _focusNode);
 
-    _controller.addListener(() => setState(() {}));
-    _selectedRecipientsData = List.from(widget.selectedRecipients);
-    _selectedRecipientsName = _selectedRecipientsData.map((recipient) => recipient['name'] as String).toList();
-    }
-
-  @override
-  void dispose(){
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
+    _controller.addListener(_onTextChanged);
   }
 
-
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _focusNode.dispose();
+    _compositionCubit.close();
+    super.dispose();
+  }
 
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -154,281 +152,365 @@ class _MessageCompositionBulkMessagingState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const CustomAppBar(hasBackButton: true),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
-          ),
-          Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      SizedBox(height: responsive.verticalSpacing),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: CustomTextWidget(text: 'Create Message'),
-                        ),
+    return BlocProvider.value(
+      value: _compositionCubit,
+      child: BlocBuilder<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
+        builder: (context, compositionState) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: const CustomAppBar(hasBackButton: true),
+            body: BlocListener<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
+              listener: (context, state) {
+                if (!context.mounted) return;
+                if (state.isSuccess) {
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: state.progressMessage.isNotEmpty
+                        ? state.progressMessage
+                        : 'Messages sent successfully!',
+                    isWarning: false,
+                  );
+                  Navigator.of(context).popUntil((route) {
+                    return route.settings.name == MessagingScreen.routeName;
+                  });
+                } else if (state.errorMessage != null) {
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: state.errorMessage!,
+                    isWarning: true,
+                  );
+                }
+              },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildScaffoldGradient(),
                       ),
-                      SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                      Container(
-                        width: responsive.containerWidth,
-                        margin: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        padding: EdgeInsets.all(
-                          responsive.isTablet ? 32.0 : 16.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              padding: const EdgeInsets.all(10),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: responsive.isTablet ? 3 : 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
-                              ),
-                              itemCount: _selectedRecipientsName.length,
-                              itemBuilder: (context, index) {
-                                final String name = _selectedRecipientsName[index];
-
-                                return SelectedStudentTile(
-                                  name: name,
-                                  onTap: () => _removeRecipient(name),
-                                );
-                              },
-                            ),
-                            SizedBox(height: responsive.verticalSpacing,),
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.primaryColor.withOpacity(0.4)),
-                                borderRadius: BorderRadius.circular(12),
-                                color: Colors.white,
-                              ),
-                              child: Column(
-                                children: [
-
-                                  // Container(
-                                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  //   decoration: BoxDecoration(
-                                  //     border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                                  //   ),
-                                  //   child: Row(
-                                  //     children: [
-                                  //       IconButton(
-                                  //         icon: const Icon(Icons.format_bold, size: 20),
-                                  //         onPressed: () {
-                                  //           _controller.updateStyle(TextStyle(fontWeight: FontWeight.bold));
-                                  //         },
-                                  //         tooltip: 'Bold',
-                                  //       ),
-                                  //       IconButton(
-                                  //         icon: const Icon(Icons.format_italic, size: 20),
-                                  //         onPressed: () {
-                                  //           _controller.updateStyle(TextStyle(fontStyle: FontStyle.italic));
-                                  //         },
-                                  //         tooltip: 'Italic',
-                                  //       ),
-                                  //       IconButton(
-                                  //         icon: const Icon(Icons.format_underlined, size: 20),
-                                  //         onPressed: () {
-                                  //           _controller.updateStyle(TextStyle(decoration: TextDecoration.underline));
-                                  //         },
-                                  //         tooltip: 'Underline',
-                                  //       ),
-                                  //       IconButton(
-                                  //         icon: const Icon(Icons.format_strikethrough, size: 20),
-                                  //         onPressed: () {
-                                  //           _controller.updateStyle(TextStyle(decoration: TextDecoration.lineThrough));
-                                  //         },
-                                  //         tooltip: 'Strikethrough',
-                                  //       ),
-                                  //       IconButton(
-                                  //         icon: const Icon(Icons.launch, size: 20),
-                                  //         onPressed: () {
-                                  //           _controller.updateStyle(
-                                  //             const TextStyle(
-                                  //               color: Colors.blue,
-                                  //               decoration: TextDecoration.underline, decorationColor: Colors.blue
-                                  //             ),
-                                  //           );
-                                  //         },
-                                  //         tooltip: 'Format as Link',
-                                  //       ),
-                                  //       const Spacer(),
-                                  //
-                                  //     ],
-                                  //   ),
-                                  // ),
-
-
-                                  TextField(
-                                    controller: _controller,
-                                    focusNode: _focusNode,
-                                    maxLines: null,
-                                    minLines: 5,
-                                    textCapitalization: TextCapitalization.sentences,
-                                    contextMenuBuilder: (context, editableTextState) {
-                                      return AdaptiveTextSelectionToolbar.buttonItems(
-                                        anchors: editableTextState.contextMenuAnchors,
-                                        buttonItems: <ContextMenuButtonItem>[
-                                          ContextMenuButtonItem(
-                                            label: 'Bold',
-                                            onPressed: () {
-                                              _controller.updateStyle(const TextStyle(fontWeight: FontWeight.bold));
-                                              editableTextState.hideToolbar();
-                                            },
-                                          ),
-                                          ContextMenuButtonItem(
-                                            label: 'Italic',
-                                            onPressed: () {
-                                              _controller.updateStyle(const TextStyle(fontStyle: FontStyle.italic));
-                                              editableTextState.hideToolbar();
-                                            },
-                                          ),
-                                          ContextMenuButtonItem(
-                                            label: 'Underline',
-                                            onPressed: () {
-                                              _controller.updateStyle(const TextStyle(decoration: TextDecoration.underline));
-                                              editableTextState.hideToolbar();
-                                            },
-                                          ),
-                                          ContextMenuButtonItem(
-                                            label: 'Strikethrough',
-                                            onPressed: () {
-                                              _controller.updateStyle(const TextStyle(decoration: TextDecoration.lineThrough));
-                                              editableTextState.hideToolbar();
-                                            },
-                                          ),
-                                          ContextMenuButtonItem(
-                                            label: 'Link',
-                                            onPressed: () {
-                                              _controller.updateStyle(
-                                                const TextStyle(
-                                                  color: Colors.blue,
-                                                  decoration: TextDecoration.underline,
-                                                  decorationColor: Colors.blue,
-                                                ),
-                                              );
-                                              editableTextState.hideToolbar();
-                                            },
-                                          ),
-
-
-                                          ...editableTextState.contextMenuButtonItems,
-                                        ],
-                                      );
-                                    },
-                                    maxLength: maxChars,
-                                    decoration: const InputDecoration(
-                                      hintText:
-                                      'Hello Parents, children had a good day today!',
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.all(16),
-                                      counterText: '',
-                                    ),
-                                    onChanged: (_) => setState(() {}),
+                      child: Image.asset(
+                        MediaRes.wowcareMobileBg,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                      ),
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Column(
+                            children: [
+                              SizedBox(height: responsive.verticalSpacing),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: responsive.horizontalSpacing,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: CustomTextWidget(
+                                    text: 'Create Message',
                                   ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                '$_charCount / $maxChars',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _charCount > maxChars
-                                      ? Colors.red
-                                      : Colors.grey[700],
                                 ),
                               ),
-                            ),
-                            Row(
-                               mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.photo_library),
-                                    onPressed: _pickImage,
-                                    tooltip: 'Add Photo',
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.attach_file),
-                                    onPressed: _pickFile,
-                                    tooltip: 'Attach File',
-                                  ),
-
-
-                                ],
-                            ),
-                            const SizedBox(height: 10,),
-                            if (_attachments.isNotEmpty) ...[
-                              const Text('Attachments', style: TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: List.generate(_attachments.length, (index) {
-                                  final att = _attachments[index];
-                                  return _buildAttachmentPreview(att, index);
-                                }),
+                              SizedBox(
+                                height: responsive.isTablet ? 32.0 : 20.0,
                               ),
-                              const SizedBox(height: 16),
+                              Container(
+                                width: responsive.containerWidth,
+                                margin: EdgeInsets.symmetric(
+                                  horizontal: responsive.horizontalSpacing,
+                                ),
+                                padding: EdgeInsets.all(
+                                  responsive.isTablet ? 32.0 : 16.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(
+                                      responsive.isTablet ? 30.0 : 20.0,
+                                    ),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    GridView.builder(
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      shrinkWrap: true,
+                                      padding: const EdgeInsets.all(10),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: responsive.isTablet
+                                                ? 3
+                                                : 2,
+                                            crossAxisSpacing: 12,
+                                            mainAxisSpacing: 12,
+                                            childAspectRatio:
+                                                responsive.isTablet ? 3.8 : 3.0,
+                                          ),
+                                      itemCount: compositionState
+                                          .selectedRecipientNames
+                                          .length,
+                                      itemBuilder: (context, index) {
+                                        final String name = compositionState
+                                            .selectedRecipientNames[index];
+
+                                        return SelectedStudentTile(
+                                          name: name,
+                                          onTap: () => _removeRecipient(name),
+                                        );
+                                      },
+                                    ),
+                                    SizedBox(
+                                      height: responsive.verticalSpacing,
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: AppColors.primaryColor
+                                              .withValues(alpha: 0.4),
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: Colors.white,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          TextField(
+                                            controller: _controller,
+                                            focusNode: _focusNode,
+                                            maxLines: null,
+                                            minLines: 5,
+                                            textCapitalization:
+                                                TextCapitalization.sentences,
+                                            contextMenuBuilder: (context, editableTextState) {
+                                              return AdaptiveTextSelectionToolbar.buttonItems(
+                                                anchors: editableTextState
+                                                    .contextMenuAnchors,
+                                                buttonItems: <ContextMenuButtonItem>[
+                                                  ContextMenuButtonItem(
+                                                    label: 'Bold',
+                                                    onPressed: () {
+                                                      _controller.updateStyle(
+                                                        const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      );
+                                                      editableTextState
+                                                          .hideToolbar();
+                                                    },
+                                                  ),
+                                                  ContextMenuButtonItem(
+                                                    label: 'Italic',
+                                                    onPressed: () {
+                                                      _controller.updateStyle(
+                                                        const TextStyle(
+                                                          fontStyle:
+                                                              FontStyle.italic,
+                                                        ),
+                                                      );
+                                                      editableTextState
+                                                          .hideToolbar();
+                                                    },
+                                                  ),
+                                                  ContextMenuButtonItem(
+                                                    label: 'Underline',
+                                                    onPressed: () {
+                                                      _controller.updateStyle(
+                                                        const TextStyle(
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                        ),
+                                                      );
+                                                      editableTextState
+                                                          .hideToolbar();
+                                                    },
+                                                  ),
+                                                  ContextMenuButtonItem(
+                                                    label: 'Strikethrough',
+                                                    onPressed: () {
+                                                      _controller.updateStyle(
+                                                        const TextStyle(
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .lineThrough,
+                                                        ),
+                                                      );
+                                                      editableTextState
+                                                          .hideToolbar();
+                                                    },
+                                                  ),
+                                                  ContextMenuButtonItem(
+                                                    label: 'Link',
+                                                    onPressed: () {
+                                                      _controller.updateStyle(
+                                                        const TextStyle(
+                                                          color: Colors.blue,
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                          decorationColor:
+                                                              Colors.blue,
+                                                        ),
+                                                      );
+                                                      editableTextState
+                                                          .hideToolbar();
+                                                    },
+                                                  ),
+
+                                                  ...editableTextState
+                                                      .contextMenuButtonItems,
+                                                ],
+                                              );
+                                            },
+                                            maxLength: maxChars,
+                                            decoration: const InputDecoration(
+                                              hintText:
+                                                  'Hello Parents, children had a good day today!',
+                                              border: InputBorder.none,
+                                              contentPadding: EdgeInsets.all(
+                                                16,
+                                              ),
+                                              counterText: '',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 8),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Text(
+                                        '${compositionState.charCount} / $maxChars',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              compositionState.charCount >
+                                                  maxChars
+                                              ? Colors.red
+                                              : Colors.grey[700],
+                                        ),
+                                      ),
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.photo_library),
+                                          onPressed: _pickImage,
+                                          tooltip: 'Add Photo',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.attach_file),
+                                          onPressed: _pickFile,
+                                          tooltip: 'Attach File',
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (compositionState
+                                        .attachments
+                                        .isNotEmpty) ...[
+                                      const Text(
+                                        'Attachments',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 12,
+                                        runSpacing: 12,
+                                        children: List.generate(
+                                          compositionState.attachments.length,
+                                          (index) {
+                                            final att = compositionState
+                                                .attachments[index];
+                                            return _buildAttachmentPreview(
+                                              att,
+                                              index,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ],
-                          ],
+                          ),
                         ),
                       ),
+                      SizedBox(height: responsive.verticalSpacing),
                     ],
                   ),
-                ),
+                  if (compositionState.isLoading)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        child: Center(
+                          child: Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 20,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    compositionState.progressMessage,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              SizedBox(height: responsive.verticalSpacing),
-            ],
-          ),
-        ],
+            ),
+            bottomNavigationBar: _buildBottomBar(
+              context,
+              responsive,
+              compositionState,
+            ),
+          );
+        },
       ),
-      bottomNavigationBar: _buildBottomBar(context, responsive),
     );
   }
 
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildBottomBar(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    BulkMessagingCompositionState compositionState,
+  ) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
@@ -442,7 +524,7 @@ class _MessageCompositionBulkMessagingState
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -511,17 +593,14 @@ class _MessageCompositionBulkMessagingState
               ),
               child: TextButton(
                 onPressed: () {
-                  if(_canSend){
-                    Navigator.of(context).popUntil((route) {
-                      return route.settings.name == MessagingScreen.routeName;
-                    });
-                  } else {
+                  if (compositionState.canSend) {
+                    _compositionCubit.sendMessages();
+                  } else if (!compositionState.isLoading) {
                     CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Please enter your message',
-                        isWarning: true
+                      context: context,
+                      message: 'Please enter your message',
+                      isWarning: true,
                     );
-                    return;
                   }
                 },
                 style: TextButton.styleFrom(overlayColor: Colors.transparent),
@@ -557,7 +636,8 @@ class _MessageCompositionBulkMessagingState
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Thumbnail(
-              mimeType: lookupMimeType(att.file.path) ?? 'application/octet-stream',
+              mimeType:
+                  lookupMimeType(att.file.path) ?? 'application/octet-stream',
               dataResolver: () async {
                 return await att.file.readAsBytes();
               },
@@ -585,7 +665,7 @@ class _MessageCompositionBulkMessagingState
             //   fit: BoxFit.cover,
             //   errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
             // ),
-          )
+          ),
           //     : Center(
           //   child: Column(
           //     mainAxisSize: MainAxisSize.min,
@@ -623,15 +703,4 @@ class _MessageCompositionBulkMessagingState
       ],
     );
   }
-
 }
-
-// Helper class
-class SelectedAttachment {
-  final File file;
-  final bool isImage;
-
-  SelectedAttachment.file(this.file, {required this.isImage});
-}
-
-

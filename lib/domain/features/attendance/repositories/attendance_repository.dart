@@ -8,10 +8,14 @@ import '../entities/student_attendance_expected_summary.dart';
 abstract class AttendanceRepository {
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page,
     int size,
@@ -19,7 +23,7 @@ abstract class AttendanceRepository {
 
   /// Expected attendance summary for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummary>
-      getStudentAttendanceExpectedSummary();
+  getStudentAttendanceExpectedSummary();
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
     required String fromAttendanceDate,
@@ -145,14 +149,14 @@ abstract class AttendanceRepository {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
     int page,
     int size,
   });
 
   /// Staff expected attendance summary for the daily "Expected Staff" card.
-  Future<StudentAttendanceExpectedSummary>
-      getStaffAttendanceExpectedSummary();
+  Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary();
 
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({
     required String fromAttendanceDate,

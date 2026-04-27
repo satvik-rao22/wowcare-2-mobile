@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -23,7 +24,13 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
+import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
+import '../../utils/activity_school_time.dart';
+import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
@@ -50,6 +57,15 @@ class OutdoorActivityScreen extends StatefulWidget {
 class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -59,12 +75,15 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
+  bool _requireAdminApproval = false;
   String? _staffCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
+  final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
   List<File> _newPhotos = [];
@@ -89,6 +108,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   @override
   void initState() {
     super.initState();
+    bootstrapActivitySchoolTimezone();
     final now = DateTime.now();
     _activityDate = DateTime(now.year, now.month, now.day);
     _activityTime = TimeOfDay.fromDateTime(now);
@@ -107,6 +127,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -129,7 +150,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
+          final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
         } catch (_) {}
@@ -149,11 +170,16 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
+      final item = activityItemFromActivityDetail(
+        detail,
+        viewerDisplayName: _staffName,
+      );
       setState(() {
         _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        if ((widget.activityData?.studentList.length ?? 0) <= 1) {
+          _selectedStudents = List<String>.from(item.studentList);
+          _selectedStudentsData = studentDataMapsForActivityEdit(item);
+        }
         _descriptionController.text =
             item.whatHappened ?? item.description ?? '';
         _activityTypeCode = item.activityTypeCode;
@@ -170,7 +196,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
@@ -200,6 +226,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     final storage = serviceLocator<StorageService>();
     final displayName =
         (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
@@ -209,6 +237,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     if (!mounted) return;
     setState(() {
       _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
@@ -260,6 +289,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -274,6 +311,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -363,7 +408,18 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _activityTime!.hour,
       _activityTime!.minute,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+
+    // Ensure the API payload uses the attendance date chosen on student selection.
+    final prefilled = widget.selectedStudents != null
+        ? resolveSelectedAttendanceDate(_selectedStudentsData)
+        : null;
+    if (prefilled != null) {
+      _activityDate = prefilled;
+    }
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
+    );
 
     setState(() {
       _isSubmitting = true;
@@ -425,6 +481,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: attachments,
       );
@@ -482,7 +541,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final ownerCode = studentCodes.first;
     final missing = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
@@ -506,15 +564,18 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
+          final checksumSha256 =
+              await _imageUploadService.computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
             contentType: 'image/jpeg',
             contentLengthBytes: contentLengthBytes,
+            checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
-            ownerType: 'STUDENT',
-            ownerCode: ownerCode,
+            ownerType: 'CLASSROOM',
+            ownerCode: classroomCode,
           );
           await _imageUploadService.uploadFileToPresignedUrl(
             file: photo,
@@ -539,15 +600,21 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       }
     }
 
+    final isShared = studentCodes.length > 1;
+    final ownerCode = studentCodes.first;
     final attachments = <Map<String, dynamic>>[];
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
       if (assetCode != null && assetCode.isNotEmpty) {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': 'SHARED',
-        });
+        if (isShared) {
+          attachments.add({'assetCode': assetCode});
+        } else {
+          attachments.add({
+            'assetCode': assetCode,
+            'studentCode': ownerCode,
+            'bindingMode': 'PER_STUDENT',
+          });
+        }
       }
     }
     return attachments;
@@ -559,6 +626,29 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final videoCount =
+        (video != null ? 1 : 0) +
+        ((remainingExistingVideoUrl != null &&
+                remainingExistingVideoUrl.trim().isNotEmpty)
+            ? 1
+            : 0);
+    if (widget.isEdit && photoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 photo can be attached.',
+        isError: true,
+      );
+      return;
+    }
+    if (widget.isEdit && videoCount > 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Maximum 1 video can be attached.',
+        isError: true,
+      );
+      return;
+    }
     setState(() {
       _newPhotos = photos;
       _remainingExistingPhotoUrls =
@@ -606,6 +696,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         studentCodes: studentCodes,
       );
       if (!mounted) return;
+      setState(() {});
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Photo uploaded successfully',
@@ -682,16 +773,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
 
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
+    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -701,6 +783,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -715,6 +805,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ActivityDescriptionLimits.maxLengthMessage,
         isWarning: true,
       );
       return;
@@ -743,7 +841,11 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       return;
     }
 
-    final studentCodes = _selectedStudentsData
+    final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
+      allStudentMaps: _selectedStudentsData,
+      checkedIndices: _scopedEditStudentIndices,
+    );
+    final studentCodes = scopeMapsForUpload
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
         .where((c) => c.isNotEmpty)
@@ -804,7 +906,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _activityTime!.hour,
       _activityTime!.minute,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
+    );
 
     setState(() => _isSubmitting = true);
     try {
@@ -866,23 +971,56 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachmentsForActivityPatchRequest(mergedRows),
-      );
+      final patchAttachments =
+          attachmentsForActivityPatchRequest(mergedRows);
 
-      try {
-        await _getActivityUseCase(code: activityCode);
-      } catch (_) {}
+      final targets = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
+      );
+      String? lastMessage;
+      for (final m in targets) {
+        final code = (m['activityCode'] as String?)?.trim() ??
+            fallbackActivityCode;
+        if (code == null || code.isEmpty) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Missing activity reference for a student. Refresh the feed and try again.',
+            isError: true,
+          );
+          return;
+        }
+        lastMessage = await _updateActivityUseCase(
+          code: code,
+          studentCodes: _selectedStudentsData
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
+          applyToStudentCodes: targets
+              .map((e) => (e['studentCode'] as String?)?.trim())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList(),
+          staffCode: staffCode,
+          activityDate: activityDateIso,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: patchAttachments,
+        );
+        try {
+          await _getActivityUseCase(code: code);
+        } catch (_) {}
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message,
+        message: lastMessage ?? 'Updated',
         isSuccess: true,
       );
       Navigator.of(context).popUntil((route) {
@@ -928,7 +1066,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            if (_layoutAsEdit)
+            if (_layoutAsEdit &&
+                !(widget.isEdit &&
+                    !widget.readOnly &&
+                    _selectedStudents.length > 1))
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -946,7 +1087,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   );
                 },
               )
-            else
+            else if (!_layoutAsEdit)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -966,13 +1107,27 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   );
                 },
               ),
+            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ActivityEditStudentScopeCheckboxes(
+                  studentNames: _selectedStudents,
+                  checkedIndices: _scopedEditStudentIndices,
+                  onChanged: (next) => setState(() {
+                    _scopedEditStudentIndices
+                      ..clear()
+                      ..addAll(next);
+                  }),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
                 Flexible(
                   child: _layoutAsEdit
                       ? DateWidget(
-                          isEditable: _canInteract,
+                          isEditable: false,
                           isRequired: true,
                           initialDate: _effectiveActivity.date,
                           onDateChanged: (d) {
@@ -982,8 +1137,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          isEditable: true,
+                          isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {
                             setState(() {
                               _activityDate = d;
@@ -1017,11 +1173,26 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? (_effectiveActivity.createdBy)
-                  : _staffName,
-              isEditable: _canInteract,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _isAdminDesignation;
+                final lockToLoggedInStaffOnEdit =
+                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: lockToLoggedInStaffOnEdit
+                      ? _staffName
+                      : staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy:
+                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                          loggedInDisplayName: _staffName,
+                        ),
+                  isEditable: lockToLoggedInStaffOnEdit
+                      ? false
+                      : (_layoutAsEdit ? _canInteract : false),
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
@@ -1030,7 +1201,21 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               hint: 'Enter Description',
               isRequired: true,
               readOnly: !_canInteract,
+              maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              CustomToggle(
+                label: 'Requires Admin Approval',
+                isToggled: _requireAdminApproval,
+                labelOnLeftSide: true,
+                onToggle: (value) {
+                  setState(() {
+                    _requireAdminApproval = value;
+                  });
+                },
+              ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
               IgnorePointer(
@@ -1039,6 +1224,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   isRequired: false,
                   allowVideo: false,
                   allowPhoto: true,
+                  readOnly: widget.readOnly,
                   isPictureBox: false,
                   limit: 2,
                   label: 'Upload Photo',
@@ -1056,6 +1242,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 isRequired: false,
                 allowVideo: false,
                 allowPhoto: true,
+                readOnly: widget.readOnly,
                 isPictureBox: false,
                 limit: 2,
                 label: 'Upload Photo',
@@ -1088,3 +1275,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     );
   }
 }
+
+
+

@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -41,7 +43,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
-  bool? _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
+  bool?
+  _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
 
   @override
   void initState() {
@@ -52,11 +55,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       _selectedStaff = <StaffEntity>[widget.staff!];
     } else {
       _selectedStaff = <StaffEntity>[
-        StaffEntity(
-          id: 1,
-          name: 'Staff Member',
-          primaryRoomId: 1,
-        ),
+        StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1),
       ];
     }
     _loadPersonaFlags();
@@ -76,25 +75,23 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     setState(() {
       _schoolIana = iana;
       _isStaffAdminPersona = isAdmin;
-      // Teachers cannot modify date/time — use school-local "now".
-      if (!_isStaffAdminPersona!) {
-        if (iana != null && iana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-          selectedDate = dt.$1;
-          selectedTime = dt.$2;
-        } else {
-          final n = DateTime.now();
-          selectedDate = n;
-          selectedTime = TimeOfDay.fromDateTime(n);
-        }
+      if (iana != null && iana.isNotEmpty) {
+        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+        selectedDate = dt.$1;
+        selectedTime = dt.$2;
+      } else {
+        final n = DateTime.now();
+        selectedDate = n;
+        selectedTime = TimeOfDay.fromDateTime(n);
       }
     });
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
 
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       return true;
@@ -116,16 +113,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
   }
 
-  Future<String> _resolveStaffCode() =>
-      resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     if (_selectedStaff.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No staff selected to sign out'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -148,8 +143,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -169,8 +163,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     if (targetStaffCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -200,8 +193,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
-          snackBar: 
-          const SnackBar(
+          snackBar: const SnackBar(
             content: Text('Teachers can only sign out for themselves.'),
             backgroundColor: AppColors.warningColor,
           ),
@@ -214,8 +206,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         return;
       }
       occurredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
-      attendanceDate =
-          SchoolZoneDateTime.yyyyMmDdFromUtcInstant(occurredAt, schoolTimeZone);
+      attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+        occurredAt,
+        schoolTimeZone,
+      );
     } else {
       occurredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
         schoolTimeZone,
@@ -225,16 +219,17 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         hour: selectedTime.hour,
         minute: selectedTime.minute,
       );
-      attendanceDate =
-          SchoolZoneDateTime.yyyyMmDdFromUtcInstant(occurredAt, schoolTimeZone);
+      attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+        occurredAt,
+        schoolTimeZone,
+      );
     }
 
     // Admin cannot sign out for future date/time.
     if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('You cannot sign out for future date/time.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -278,10 +273,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         body,
         serviceLocator<StorageService>(),
       );
-      final response = await client.post<dynamic>(
-        endpoint,
-        data: body,
-      );
+      final response = await client.post<dynamic>(endpoint, data: body);
 
       final data = response.data;
       bool success = false;
@@ -298,11 +290,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
@@ -323,8 +315,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -336,6 +327,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         });
       }
     }
+  }
+
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   @override
@@ -358,8 +358,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    _buildStaffCard(_selectedStaff[index]),
+                itemBuilder: (context, index) => _buildStaffCard(
+                  _selectedStaff[index],
+                  canRemove: _selectedStaff.length > 1,
+                ),
               ),
             const SizedBox(height: 20),
             Row(
@@ -381,13 +383,20 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                           setState(() {
                             final iana = _schoolIana;
                             final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
-                            final picked =
-                                DateTime(date.year, date.month, date.day);
-                            selectedDate =
-                                picked.isAfter(today) ? today : date;
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final picked = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
+                            selectedDate = picked.isAfter(today) ? today : date;
                           });
                         },
                       ),
@@ -429,16 +438,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     );
   }
 
-  Widget _buildStaffCard(StaffEntity staff) {
+  Widget _buildStaffCard(
+    StaffEntity staff, {
+    required bool canRemove,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -471,6 +478,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: () => _removeStaff(staff),
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );

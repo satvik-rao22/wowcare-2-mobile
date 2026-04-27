@@ -1,5 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/util/attendance_classroom_scope.dart';
+import '../../../../core/util/classroom_visibility.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/entities/classroom.dart';
@@ -21,13 +23,15 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   Future<void> loadActiveClassrooms({
     bool force = false,
     bool onlyTypeClassroom = true,
+    bool applyAttendanceStaffScope = false,
   }) async {
     if (state.isLoading) return;
     // If we already have classrooms for the same filter mode,
     // avoid reloading unless explicitly forced.
     if (!force &&
         state.classrooms.isNotEmpty &&
-        state.onlyTypeClassroom == onlyTypeClassroom) {
+        state.onlyTypeClassroom == onlyTypeClassroom &&
+        state.applyAttendanceStaffScope == applyAttendanceStaffScope) {
       return;
     }
 
@@ -36,6 +40,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         isLoading: true,
         errorMessage: null,
         onlyTypeClassroom: onlyTypeClassroom,
+        applyAttendanceStaffScope: applyAttendanceStaffScope,
       ),
     );
 
@@ -48,14 +53,31 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         schoolCode: schoolCode,
         onlyTypeClassroom: onlyTypeClassroom,
       );
+      var visibleClassrooms = filterSelectableClassrooms(classrooms);
+
+      if (applyAttendanceStaffScope) {
+        final shouldScope = await isAttendanceScopedStaffPersona(
+          storage: _storageService,
+        );
+        if (shouldScope) {
+          final allowedCodes = await resolveAttendanceAllowedClassroomCodes(
+            storage: _storageService,
+          );
+          final allowedSet = allowedCodes.map((e) => e.trim()).toSet();
+          visibleClassrooms = visibleClassrooms
+              .where((c) => allowedSet.contains(c.code.trim()))
+              .toList(growable: false);
+        }
+      }
 
       if (isClosed) return;
 
       emit(
         state.copyWith(
-          classrooms: classrooms,
+          classrooms: visibleClassrooms,
           isLoading: false,
           onlyTypeClassroom: onlyTypeClassroom,
+          applyAttendanceStaffScope: applyAttendanceStaffScope,
         ),
       );
     } catch (e) {

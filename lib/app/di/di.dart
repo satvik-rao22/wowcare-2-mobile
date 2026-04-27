@@ -2,13 +2,13 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
-import '../../core/network/session_expired_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
+import '../../core/cache/cache_service.dart';
+import '../../core/cache/isar_cache_service.dart';
 import '../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
@@ -56,6 +56,9 @@ import '../../domain/features/staff_classroom/usecases/get_staff_classrooms_usec
 import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
+import '../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
+import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.dart';
+import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
@@ -97,25 +100,34 @@ import '../../domain/features/student/usecases/update_student_document_usecase.d
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
+import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
+import '../../domain/features/activity/usecases/approve_activity_usecase.dart';
+import '../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
+import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
+import '../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
+import '../../presentation/features/staff-scheduling/cubit/classroom_schedule_cubit.dart';
+import '../../presentation/features/staff-scheduling/cubit/schedule_form_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -135,6 +147,16 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_tog
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../domain/features/communication/repositories/communication_repository.dart';
+import '../../domain/features/communication/usecases/get_messages_usecase.dart';
+import '../../domain/features/communication/usecases/send_message_usecase.dart';
+import '../../domain/features/communication/usecases/create_conversation_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversations_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
+import '../../data/features/communication/datasources/communication_remote_data_source.dart';
+import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../presentation/features/communication/cubit/communication_cubit.dart';
+import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
@@ -148,19 +170,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Core
   serviceLocator.registerLazySingleton<Connectivity>(() => Connectivity());
-  serviceLocator.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(serviceLocator()));
-  serviceLocator.registerLazySingleton<SharedPreferences>(() => sharedPreferences);
+  serviceLocator.registerLazySingleton<NetworkInfo>(
+    () => NetworkInfoImpl(serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<SharedPreferences>(
+    () => sharedPreferences,
+  );
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
   );
 
-  serviceLocator.registerLazySingleton<ApiClient>(() => ApiClient(
-        baseUrl: apiBaseUrl,
-        interceptors: <Interceptor>[
-          AuthInterceptor(serviceLocator<StorageService>()),
-          SessionExpiredInterceptor(serviceLocator<StorageService>()),
-        ],
-      ));
+  // Cache
+  final isarCacheService = IsarCacheService();
+  await isarCacheService.init();
+  serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
+
+  serviceLocator.registerLazySingleton<ApiClient>(
+    () => ApiClient(
+      baseUrl: apiBaseUrl,
+      interceptors: <Interceptor>[
+        AuthInterceptor(serviceLocator<StorageService>()),
+      ],
+    ),
+  );
   serviceLocator.registerLazySingleton<ImageUploadService>(
     () => ImageUploadService(serviceLocator<ApiClient>()),
   );
@@ -203,21 +235,26 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Student-Classroom Data Sources
   serviceLocator.registerLazySingleton<StudentClassroomRemoteDataSource>(
-    () =>
-        StudentClassroomRemoteDataSourceImpl(
-          serviceLocator<ApiClient>().client,
-          serviceLocator<StorageService>(),
-        ),
+    () => StudentClassroomRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
+    ),
   );
 
   // Staff-Classroom Data Sources
   serviceLocator.registerLazySingleton<StaffClassroomRemoteDataSource>(
-    () => StaffClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () =>
+        StaffClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
   // Onboarding Data Sources
   serviceLocator.registerLazySingleton<OnboardingRemoteDataSource>(
     () => OnboardingRemoteDataSourceMock(),
+  );
+
+  // Communication Data Sources
+  serviceLocator.registerLazySingleton<CommunicationRemoteDataSource>(
+    () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   // Repositories
@@ -229,27 +266,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<OnboardingRepository>(
-    () => OnboardingRepositoryImpl(
-      serviceLocator(),
-    ),
+    () => OnboardingRepositoryImpl(serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffRepository>(
-    () => StaffRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ClassroomRepository>(
-    () => ClassroomRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => ClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StudentRepository>(
-    () => StudentRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => StudentRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<AttendanceRepository>(
     () => AttendanceRepositoryImpl(
@@ -259,27 +285,25 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
-    () => AvailabilityRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => AvailabilityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StudentClassroomRepository>(
-    () => StudentClassroomRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => StudentClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffClassroomRepository>(
-    () => StaffClassroomRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => StaffClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ActivityRepository>(
-    () => ActivityRepositoryImpl(
-      serviceLocator(),
-      serviceLocator(),
+    () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
+    () => StaffSchedulingRepositoryImpl(),
+  );
+
+  serviceLocator.registerLazySingleton<CommunicationRepository>(
+    () => CommunicationRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      cacheService: serviceLocator(),
     ),
   );
 
@@ -452,6 +476,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetTagNameCodeMapForSchoolUseCase>(
     () => GetTagNameCodeMapForSchoolUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentCodesForActivityTagFilterUseCase>(
+    () => GetStudentCodesForActivityTagFilterUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetGuardianNameCodeMapForSchoolUseCase>(
     () => GetGuardianNameCodeMapForSchoolUseCase(serviceLocator()),
   );
@@ -461,11 +488,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetClassroomActivitySettingsUseCase>(
     () => GetClassroomActivitySettingsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetActiveActivityTypesForSchoolUseCase>(
+    () => GetActiveActivityTypesForSchoolUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
     () => GetActivityTypeDetailsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUseCase>(
     () => CreateActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateSharedActivitiesUseCase>(
+    () => CreateSharedActivitiesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetActivityUseCase>(
     () => GetActivityUseCase(serviceLocator()),
@@ -475,6 +508,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteActivityUseCase>(
     () => DeleteActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ApproveActivityUseCase>(
+    () => ApproveActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RejectActivityUseCase>(
+    () => RejectActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AcknowledgeActivityUseCase>(
+    () => AcknowledgeActivityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
     () => CreateActivityUploadSessionsUseCase(serviceLocator()),
@@ -488,6 +530,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetRangeActivityFeedUseCase>(
     () => GetRangeActivityFeedUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetNapStartStudentsUseCase>(
+    () => GetNapStartStudentsUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentClassroomListUseCase>(
     () => GetStudentClassroomListUseCase(serviceLocator()),
   );
@@ -499,6 +544,25 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<AssignStaffToClassroomUseCase>(
     () => AssignStaffToClassroomUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveScheduleUseCase>(
+    () => SaveScheduleUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<GetMessagesUseCase>(
+    () => GetMessagesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SendMessageUseCase>(
+    () => SendMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateConversationUseCase>(
+    () => CreateConversationUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationsUseCase>(
+    () => GetConversationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedConversationsUseCase>(
+    () => GetCachedConversationsUseCase(serviceLocator()),
   );
 
   // Cubits (factory - new instance each time for UI)
@@ -537,9 +601,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
-    () => ImportantDatesCubit(
-      updateImportantDatesUseCase: serviceLocator(),
-    ),
+    () => ImportantDatesCubit(updateImportantDatesUseCase: serviceLocator()),
   );
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
     () => CreateSchoolUserCubit(
@@ -648,6 +710,22 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStudentImportantDatesUseCase: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<ClassroomScheduleCubit>(
+    () => ClassroomScheduleCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ScheduleFormCubit>(
+    () => ScheduleFormCubit(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<CommunicationCubit>(
+    () => CommunicationCubit(
+      getMessagesUseCase: serviceLocator(),
+      sendMessageUseCase: serviceLocator(),
+      getConversationsUseCase: serviceLocator(),
+      getCachedConversationsUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<CreateConversationCubit>(
+    () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
+  );
 }
-
-

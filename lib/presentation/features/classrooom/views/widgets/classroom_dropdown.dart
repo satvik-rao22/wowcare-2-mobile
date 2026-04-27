@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/classroom_visibility.dart';
 
 class ClassroomDropdown extends StatefulWidget {
   final List<String> items;
@@ -71,6 +72,9 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
     RenderBox renderBox = context.findRenderObject() as RenderBox;
     var size = renderBox.size;
     var offset = renderBox.localToGlobal(Offset.zero);
+    final visibleItems = widget.items
+        .where(isSelectableClassroomName)
+        .toList(growable: false);
 
     return OverlayEntry(
       builder: (context) => Stack(
@@ -99,11 +103,11 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
                   child: ListView.builder(
                     padding: EdgeInsets.zero,
                     shrinkWrap: true,
-                    itemCount: widget.items.length,
+                    itemCount: visibleItems.length,
                     itemBuilder: (context, index) {
                       return ListTile(
                         title: Text(
-                          widget.items[index],
+                          visibleItems[index],
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             color: AppColors.primaryColor,
@@ -111,7 +115,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
                           ),
                         ),
                         onTap: () {
-                          widget.onChanged(widget.items[index]);
+                          widget.onChanged(visibleItems[index]);
                           _toggleDropdown();
                         },
                       );

@@ -23,7 +23,7 @@ class OnboardingViewModel extends ChangeNotifier {
 
     try {
       final result = await _getOnboardingContent();
-      _onboarding = result;
+      _onboarding = result as OnboardingEntity?;
     } catch (e) {
       _error = e;
     } finally {
@@ -32,5 +32,3 @@ class OnboardingViewModel extends ChangeNotifier {
     }
   }
 }
-
-

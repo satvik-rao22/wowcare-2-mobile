@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 class ResponsiveSizing {
   const ResponsiveSizing._();
 
-  static bool isTablet(BuildContext context) => MediaQuery.of(context).size.width >= 600;
+  static bool isTablet(BuildContext context) =>
+      MediaQuery.of(context).size.width >= 600;
 
   static double titleFontSize(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -32,5 +33,3 @@ class ResponsiveSizing {
     return contentPadding(context);
   }
 }
-
-

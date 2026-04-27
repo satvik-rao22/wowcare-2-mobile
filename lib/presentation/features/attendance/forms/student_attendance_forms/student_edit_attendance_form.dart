@@ -36,6 +36,9 @@ class StudentEditAttendanceForm extends StatefulWidget {
 class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   TimeOfDay? _signInTime;
   TimeOfDay? _signOutTime;
+  TimeOfDay? _initialSignInTime;
+  TimeOfDay? _initialSignOutTime;
+  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   late final UpdateStudentAttendanceRecordUseCase _updateUseCase;
   bool _isSubmitting = false;
 
@@ -43,8 +46,28 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   void initState() {
     super.initState();
     _updateUseCase = serviceLocator<UpdateStudentAttendanceRecordUseCase>();
-    _signInTime = _parseTimeOrNull(widget.studentAttendance.signInTime);
-    _signOutTime = _parseTimeOrNull(widget.studentAttendance.signOutTime);
+    _bootstrapInitialTimes();
+  }
+
+  Future<void> _bootstrapInitialTimes() async {
+    final schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _schoolIana = schoolIana;
+      _signInTime = _parseTimeOrNull(widget.studentAttendance.signInTime);
+      _signOutTime = _parseTimeOrNull(widget.studentAttendance.signOutTime);
+      _initialSignInTime = _signInTime;
+      _initialSignOutTime = _signOutTime;
+    });
+  }
+
+  bool _sameTime(TimeOfDay? a, TimeOfDay? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.hour == b.hour && a.minute == b.minute;
   }
 
   TimeOfDay? _parseTimeOrNull(String? timeString) {
@@ -61,8 +84,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     try {
       final iso = DateTime.tryParse(raw);
       if (iso != null) {
-        final local = iso.toLocal();
-        return TimeOfDay(hour: local.hour, minute: local.minute);
+        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(iso, _schoolIana);
       }
     } catch (_) {}
 
@@ -174,26 +196,29 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     );
 
     // Send prefilled/edited times as school-local wall clock on [attendanceDate].
-    final signedInAt = SchoolZoneDateTime.utcFromSchoolWallClock(
-      schoolTimeZone,
-      year: date.year,
-      month: date.month,
-      day: date.day,
-      hour: _signInTime!.hour,
-      minute: _signInTime!.minute,
-    );
-    final signedOutAt = _signOutTime == null
-        ? null
-        : SchoolZoneDateTime.utcFromSchoolWallClock(
+    final signedInChanged = !_sameTime(_signInTime, _initialSignInTime);
+    final signedOutChanged = !_sameTime(_signOutTime, _initialSignOutTime);
+
+    final signedInAt = signedInChanged
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+            schoolTimeZone,
+            year: date.year,
+            month: date.month,
+            day: date.day,
+            hour: _signInTime!.hour,
+            minute: _signInTime!.minute,
+          )
+        : null;
+    final signedOutAt = signedOutChanged && _signOutTime != null
+        ? SchoolZoneDateTime.utcFromSchoolWallClock(
             schoolTimeZone,
             year: date.year,
             month: date.month,
             day: date.day,
             hour: _signOutTime!.hour,
             minute: _signOutTime!.minute,
-          );
-
-    final classroomCode = widget.studentAttendance.classroomCode;
+          )
+        : null;
 
     try {
       final message = await _updateUseCase(
@@ -201,9 +226,6 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
         staffCode: staffCode,
         signedInAt: signedInAt,
         signedOutAt: signedOutAt,
-        originalClassroomCode: classroomCode,
-        currentClassroomCode: classroomCode,
-        notes: null,
         timeZone: schoolTimeZone,
       );
 

@@ -9,6 +9,8 @@ class UpdateActivityUseCase {
 
   Future<String> call({
     required String code,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -18,6 +20,8 @@ class UpdateActivityUseCase {
     try {
       return await _repository.updateActivity(
         code: code,
+        studentCodes: studentCodes,
+        applyToStudentCodes: applyToStudentCodes,
         staffCode: staffCode,
         activityDate: activityDate,
         description: description,

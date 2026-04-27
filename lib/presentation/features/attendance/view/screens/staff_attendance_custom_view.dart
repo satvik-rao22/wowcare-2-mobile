@@ -70,6 +70,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
     );
 
     if (!_classroomCubit.state.isLoading &&
