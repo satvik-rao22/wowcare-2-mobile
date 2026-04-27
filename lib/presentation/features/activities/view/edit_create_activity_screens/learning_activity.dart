@@ -97,6 +97,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
+  int _uploadProgressPercent = 0;
+  int _uploadCompletedCount = 0;
+  int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
@@ -447,7 +450,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         .toList();
 
     if (missing.isNotEmpty) {
-      setState(() => _isUploadingMedia = true);
+      setState(() {
+        _isUploadingMedia = true;
+        _uploadProgressPercent = 0;
+        _uploadCompletedCount = 0;
+        _uploadTotalCount = missing.length;
+      });
       try {
         final uploadSession = await _imageUploadService
             .createActivityUploadSession(
@@ -460,7 +468,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             );
 
         final sessionAssetCodes = <String>[];
-        for (final photo in missing) {
+        for (var i = 0; i < missing.length; i++) {
+          final photo = missing[i];
+          final fileIndex = i + 1;
+          final totalFiles = missing.length;
           final fileName = photo.uri.pathSegments.isNotEmpty
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
@@ -483,12 +494,25 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
             fallbackContentType: 'image/jpeg',
+            onProgress: (_, __, percent) {
+              if (!mounted) return;
+              final overallFraction =
+                  ((fileIndex - 1) + (percent / 100)) / totalFiles;
+              final overallPercent =
+                  (overallFraction * 100).clamp(0, 100).round();
+              final displayPercent =
+                  overallPercent >= 100 ? 99 : overallPercent;
+              setState(() => _uploadProgressPercent = displayPercent);
+            },
           );
           await _imageUploadService.completeAssetUpload(
             sessionCode: uploadSession.sessionCode,
             assetCode: presign.assetCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
           );
+          if (mounted) {
+            setState(() => _uploadCompletedCount = fileIndex);
+          }
           _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
         }
@@ -496,6 +520,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           sessionCode: uploadSession.sessionCode,
           expectedAssetCodes: sessionAssetCodes,
         );
+        if (mounted) {
+          setState(() => _uploadProgressPercent = 100);
+        }
       } finally {
         if (mounted) setState(() => _isUploadingMedia = false);
       }
@@ -1217,19 +1244,41 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   Widget _buildUploadStatus() {
     if (_isUploadingMedia) {
       return Row(
-        children: const [
+        children: [
           SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(
+              value: (_uploadProgressPercent / 100).clamp(0.0, 1.0),
+              strokeWidth: 2,
+            ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Uploading photo...',
-            style: TextStyle(
+            'Uploading photo... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_uploadTotalCount > 0 &&
+        _uploadCompletedCount == _uploadTotalCount &&
+        _uploadProgressPercent == 100) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(
+            'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.green,
             ),
           ),
         ],

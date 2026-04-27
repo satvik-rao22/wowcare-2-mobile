@@ -90,6 +90,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
+  int _uploadProgressPercent = 0;
+  int _uploadCompletedCount = 0;
+  int _uploadTotalCount = 0;
 
   List<File> _photos = [];
   File? _video;
@@ -408,7 +411,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (classroomCode.isEmpty || studentCodes.isEmpty) return;
 
     try {
-      setState(() => _isUploadingMedia = true);
+      setState(() {
+        _isUploadingMedia = true;
+        _uploadProgressPercent = 0;
+        _uploadCompletedCount = 0;
+      });
       final attachments = await _uploadAndBuildAttachments(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
@@ -456,6 +463,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         ? <File>[..._photos]
         : <File>[if (_video != null) _video!];
     if (media.isEmpty) return const [];
+    if (mounted) {
+      setState(() => _uploadTotalCount = media.length);
+    }
     // Asset codes are scoped to a specific upload session. Reusing a previous
     // session's cached assetCode causes polling on a new session with no assets.
     _uploadedAssetCodeByPath.clear();
@@ -468,7 +478,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       studentCodes: studentCodes,
     );
     final uploadedCodes = <String>[];
-    for (final file in media) {
+    for (var i = 0; i < media.length; i++) {
+      final file = media[i];
+      final fileIndex = i + 1;
+      final totalFiles = media.length;
       if (_uploadedAssetCodeByPath.containsKey(file.path)) {
         uploadedCodes.add(_uploadedAssetCodeByPath[file.path]!);
         continue;
@@ -506,12 +519,24 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         presignedPutUrl: presign.presignedPutUrl,
         requiredHeaders: presign.requiredHeaders,
         fallbackContentType: contentType,
+        onProgress: (_, __, percent) {
+          if (!mounted) return;
+          final overallFraction =
+              ((fileIndex - 1) + (percent / 100)) / totalFiles;
+          final overallPercent =
+              (overallFraction * 100).clamp(0, 100).round();
+          final displayPercent = overallPercent >= 100 ? 99 : overallPercent;
+          setState(() => _uploadProgressPercent = displayPercent);
+        },
       );
       await _uploadService.completeAssetUpload(
         sessionCode: uploadSession.sessionCode,
         assetCode: presign.assetCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
       );
+      if (mounted) {
+        setState(() => _uploadCompletedCount = fileIndex);
+      }
       _uploadedAssetCodeByPath[file.path] = presign.assetCode;
       uploadedCodes.add(presign.assetCode);
     }
@@ -520,6 +545,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       sessionCode: uploadSession.sessionCode,
       expectedAssetCodes: uploadedCodes,
     );
+    if (mounted) {
+      setState(() => _uploadProgressPercent = 100);
+    }
     return uploadedCodes.map((code) => <String, dynamic>{'assetCode': code}).toList();
   }
 
@@ -1126,8 +1154,27 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               if (_isUploadingMedia) ...[
                 const SizedBox(height: 8),
                 Text(
-                  widget.isPhoto ? 'Uploading photo...' : 'Uploading video...',
+                  '${widget.isPhoto ? 'Uploading photo' : 'Uploading video'}... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
                   style: const TextStyle(color: AppColors.primaryColor, fontSize: 13),
+                ),
+              ] else if (_uploadTotalCount > 0 &&
+                  _uploadCompletedCount == _uploadTotalCount &&
+                  _uploadProgressPercent == 100) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        size: 16, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
                 ),
               ],
               SizedBox(height: responsive.verticalSpacing),

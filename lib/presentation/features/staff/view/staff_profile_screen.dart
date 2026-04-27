@@ -61,6 +61,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   String? _schoolCode;
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
+  int _profilePhotoUploadPercent = 0;
 
   bool _isResolvingClassroom = false;
 
@@ -241,6 +242,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       }
 
       setState(() => _isUploadingProfilePhoto = true);
+      setState(() => _profilePhotoUploadPercent = 0);
       final uploadService = serviceLocator<ImageUploadService>();
       final file = File(image.path);
       final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
@@ -268,6 +270,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         presignedPutUrl: presign.presignedPutUrl,
         requiredHeaders: presign.requiredHeaders,
         fallbackContentType: contentType,
+        onProgress: (_, __, percent) {
+          if (!mounted) return;
+          final displayPercent = percent >= 100 ? 99 : percent;
+          setState(() => _profilePhotoUploadPercent = displayPercent);
+        },
       );
       await uploadService.completeAssetUpload(
         sessionCode: sessionCode,
@@ -282,6 +289,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         staffCode: staffCode,
         sessionCode: sessionCode,
       );
+      if (mounted) {
+        setState(() => _profilePhotoUploadPercent = 100);
+      }
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
       CoreUtils.showTopSnackBar(
@@ -395,17 +405,33 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                         fontSize: 24,
                       ),
                       if (_isUploadingProfilePhoto)
-                        const Positioned.fill(
+                        Positioned.fill(
                           child: ColoredBox(
-                            color: Color(0x66000000),
+                            color: const Color(0x66000000),
                             child: Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: Colors.white,
-                                ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 34,
+                                    height: 34,
+                                    child: CircularProgressIndicator(
+                                      value: (_profilePhotoUploadPercent / 100)
+                                          .clamp(0.0, 1.0),
+                                      strokeWidth: 3,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${_profilePhotoUploadPercent.clamp(0, 100)}%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

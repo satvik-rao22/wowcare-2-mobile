@@ -48,6 +48,7 @@ import '../util/activity_filter_metadata_cache.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
@@ -104,6 +105,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
+  List<String> _selectedClassrooms = [];
+  List<String> _selectedStudents = [];
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
@@ -117,6 +120,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _classroomNameByCode = {};
   final Map<String, String> _studentCodeByName = {};
+  final Map<String, List<String>> _classroomStudents = {};
   List<ActivityItem> _activities = [];
   static const int _feedPageSize = 10;
   final ScrollController _feedScrollController = ScrollController();
@@ -840,6 +844,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   Future<void> _reloadStudentsAndSettings({bool forceRefreshApis = false}) async {
     _studentCodeByName.clear();
+    _classroomStudents.clear();
     _availableStudents = [];
     _classroomActivitySettings = [];
 
@@ -901,11 +906,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             ..addEntries(
                 list.map((e) => MapEntry(e['fullName']!, e['studentCode']!)));
           setState(() {
-            _availableStudents = list.map((e) => e['fullName']!).toList()..sort();
-            if (_selectedStudent != null &&
-                !_availableStudents.contains(_selectedStudent)) {
-              _selectedStudent = null;
-            }
+            _classroomStudents[classroomName] =
+                list.map((e) => e['fullName']!).toList()..sort();
+            _updateAvailableStudents();
           });
         }
       } catch (_) {}
@@ -923,11 +926,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         students.map((s) => MapEntry(s.fullName, s.studentCode)),
       );
       setState(() {
-        _availableStudents = students.map((s) => s.fullName).toList()..sort();
-        if (_selectedStudent != null &&
-            !_availableStudents.contains(_selectedStudent)) {
-          _selectedStudent = null;
-        }
+        _classroomStudents[classroomName] =
+            students.map((s) => s.fullName).toList()..sort();
+        _updateAvailableStudents();
       });
       await _cacheManager.saveCache(studentsCacheKey, {
         'students': students
@@ -941,6 +942,92 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         });
       }
     }
+  }
+
+  Future<void> _loadAllStudentsForAllowedClassrooms({
+    bool forceRefreshApis = false,
+  }) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty || _classroomOptions.isEmpty) return;
+
+    final mergedByName = <String, String>{};
+    final byClassroom = <String, List<String>>{};
+
+    for (final classroomName in _classroomOptions) {
+      final classroomCode = _classroomCodeByName[classroomName];
+      if (classroomCode == null || classroomCode.trim().isEmpty) continue;
+      try {
+        final students = await _getStudentClassroomListUseCase(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          status: const ['ACTIVE'],
+          refresh: forceRefreshApis,
+        );
+        final names = students.map((s) => s.fullName).toSet().toList()..sort();
+        byClassroom[classroomName] = names;
+        for (final s in students) {
+          mergedByName[s.fullName] = s.studentCode;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _classroomStudents
+        ..clear()
+        ..addAll(byClassroom);
+      _studentCodeByName
+        ..clear()
+        ..addAll(mergedByName);
+      _availableStudents = mergedByName.keys.toSet().toList()..sort();
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
+      if (_selectedStudent != null &&
+          !_availableStudents.contains(_selectedStudent)) {
+        _selectedStudent = null;
+      }
+    });
+  }
+
+  Future<void> _loadStudentsForSelectedClassrooms(
+    List<String> selectedClassroomNames, {
+    bool forceRefreshApis = false,
+  }) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty || selectedClassroomNames.isEmpty) return;
+
+    final mergedByName = Map<String, String>.from(_studentCodeByName);
+    final byClassroom = Map<String, List<String>>.from(_classroomStudents);
+
+    for (final classroomName in selectedClassroomNames) {
+      final classroomCode = _classroomCodeByName[classroomName];
+      if (classroomCode == null || classroomCode.trim().isEmpty) continue;
+      try {
+        final students = await _getStudentClassroomListUseCase(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          status: const ['ACTIVE'],
+          refresh: forceRefreshApis,
+        );
+        final names = students.map((s) => s.fullName).toSet().toList()..sort();
+        byClassroom[classroomName] = names;
+        for (final s in students) {
+          mergedByName[s.fullName] = s.studentCode;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _classroomStudents
+        ..clear()
+        ..addAll(byClassroom);
+      _studentCodeByName
+        ..clear()
+        ..addAll(mergedByName);
+      _updateAvailableStudents();
+    });
   }
 
   Future<void> _reloadStudentsAndSettingsThenFeed({
@@ -1013,11 +1100,39 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         return <String>[sc.trim()];
       }
     }
-    final selected = _selectedStudent?.trim();
-    if (selected == null || selected.isEmpty) return null;
-    final code = _studentCodeByName[selected]?.trim();
-    if (code == null || code.isEmpty) return null;
-    return <String>[code];
+    final selectedNames = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+        : ((_selectedStudent?.trim().isNotEmpty ?? false)
+              ? <String>[_selectedStudent!.trim()]
+              : const <String>[]);
+    String codeForName(String name) {
+      final exact = _studentCodeByName[name]?.trim() ?? '';
+      if (exact.isNotEmpty) return exact;
+      final needle = name.trim().toLowerCase();
+      for (final entry in _studentCodeByName.entries) {
+        if (entry.key.trim().toLowerCase() == needle) {
+          final code = entry.value.trim();
+          if (code.isNotEmpty) return code;
+        }
+      }
+      return '';
+    }
+
+    final codes = selectedNames
+        .map(codeForName)
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
+  List<String> _selectedClassroomCodesForFeed() {
+    final selectedNames = _selectedClassrooms;
+    return selectedNames
+        .map((name) => _classroomCodeByName[name]?.trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   String _displayClassroomName({
@@ -1289,13 +1404,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
+      final classroomCodes = _selectedClassroomCodesForFeed();
       final typeCodes = _activityTypeCodesForApiFilter();
       final pageIndex = _feedNextPage;
 
       final results = await Future.wait([
         _getStudentAttendanceDailyUseCase(
           attendanceDate: dateStr,
-          classroomCodes: <String>[classroomCode],
+          classroomCodes: classroomCodes.isNotEmpty
+              ? classroomCodes
+              : <String>[classroomCode],
           studentCodes: studentCodes,
           signInAtFilter: signInAtFilter,
           signOutAtFilter: signOutAtFilter,
@@ -1306,6 +1424,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           classroomCode: classroomCode,
           date: dateStr,
           studentCode: selectedStudentCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
           activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: pageIndex,
@@ -1618,14 +1738,20 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       return _loadParentHomeDailyFeed(refresh: refresh);
     }
 
-    final classroomName = _selectdClassroom;
     final school = _schoolCode;
     final date = _selectedDate;
-    if (classroomName == null ||
-        school == null ||
+    final classroomCodes = _selectedClassroomCodesForFeed().isNotEmpty
+        ? _selectedClassroomCodesForFeed()
+        : _classroomOptions
+              .map((name) => _classroomCodeByName[name]?.trim() ?? '')
+              .where((code) => code.isNotEmpty)
+              .toSet()
+              .toList();
+    final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
+    if (school == null ||
         school.isEmpty ||
         date == null ||
-        !_classroomCodeByName.containsKey(classroomName)) {
+        classroomCode == null) {
       if (mounted) {
         setState(() {
           _activities = [];
@@ -1637,7 +1763,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       return;
     }
 
-    final classroomCode = _classroomCodeByName[classroomName]!;
     final dateStr = _dateQueryParam(date);
 
     final studentCodes = _selectedStudentCodesForAttendanceFilter();
@@ -1693,7 +1818,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final results = await Future.wait([
         _getStudentAttendanceDailyUseCase(
           attendanceDate: dateStr,
-          classroomCodes: <String>[classroomCode],
+          classroomCodes: classroomCodes,
           studentCodes: studentCodes,
           signInAtFilter: signInAtFilter,
           signOutAtFilter: signOutAtFilter,
@@ -1704,6 +1829,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           classroomCode: classroomCode,
           date: dateStr,
           studentCode: selectedStudentCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
           activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: 0,
@@ -1834,14 +1961,33 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   void _updateAvailableStudents() {
-    if (_selectdClassroom != null) {
+    if (_selectedClassrooms.isNotEmpty) {
+      final selectedClassroomNames = _selectedClassrooms;
+      final mergedStudents = selectedClassroomNames
+          .expand((name) => _classroomStudents[name] ?? const <String>[])
+          .toSet()
+          .toList()
+        ..sort();
+      _availableStudents = mergedStudents;
       if (_selectedStudent != null &&
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
     } else {
-      _availableStudents = [];
-      _selectedStudent = null;
+      _availableStudents = _classroomStudents.values
+          .expand((students) => students)
+          .toSet()
+          .toList()
+        ..sort();
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
+      _selectedStudent = _selectedStudents.isNotEmpty
+          ? _selectedStudents.first
+          : null;
     }
   }
 
@@ -2108,7 +2254,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         borderRadius: BorderRadius.circular(12),
                         color: Colors.white,
                       ),
-                      child: widget.fromStudentProfile
+                      child: widget.fromStudentProfile && !isNotParent
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -2149,16 +2295,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: _buildCustomDropdown(
+                                      child: _buildCustomMultiDropdown(
                                         'Select Classroom',
                                         _classroomOptions,
-                                        _selectdClassroom,
-                                        (v) {
+                                        _selectedClassrooms,
+                                        (values) async {
                                           setState(() {
-                                            _selectdClassroom = v;
+                                            _selectedClassrooms = values;
+                                            _selectdClassroom = values.isNotEmpty
+                                                ? values.first
+                                                : null;
                                             _updateAvailableStudents();
                                           });
-                                          _reloadStudentsAndSettingsThenFeed();
+                                          if (values.isEmpty && isNotParent) {
+                                            await _loadAllStudentsForAllowedClassrooms();
+                                            await _loadDailyFeed(refresh: true);
+                                          } else if (values.length > 1 && isNotParent) {
+                                            await _loadStudentsForSelectedClassrooms(values);
+                                            await _loadDailyFeed(refresh: true);
+                                          } else {
+                                            await _reloadStudentsAndSettingsThenFeed();
+                                          }
                                         },
                                       ),
                                     ),
@@ -2172,19 +2329,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                       //     _selectedStudent = v;
                                       //   }),
                                       // ),
-                                      child: _buildCustomDropdown(
-                                        _selectdClassroom == null
-                                            ? 'Select Classroom First'
-                                            : 'Select Student',
+                                      child: _buildCustomMultiDropdown(
+                                        'Select Student',
                                         _availableStudents,
-                                        _selectedStudent,
-                                        (value) {
-                                          if (_selectdClassroom != null) {
-                                            setState(() {
-                                              _selectedStudent = value;
-                                            });
-                                            _loadDailyFeed();
-                                          }
+                                        _selectedStudents,
+                                        (values) {
+                                          setState(() {
+                                            _selectedStudents = values;
+                                            _selectedStudent =
+                                                values.isNotEmpty
+                                                ? values.first
+                                                : null;
+                                          });
+                                          _loadDailyFeed();
                                         },
                                       ),
                                     ),
@@ -2282,7 +2439,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   if (_classroomOptions.isNotEmpty) {
                                     _selectdClassroom = _classroomOptions.first;
                                   }
+                                  _selectedClassrooms = _selectdClassroom == null
+                                      ? <String>[]
+                                      : <String>[_selectdClassroom!];
                                   _selectedStudent = null;
+                                  _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
@@ -3672,7 +3833,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.white,
                     ),
-                    child: widget.fromStudentProfile
+                    child: widget.fromStudentProfile && !isNotParent
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -3713,16 +3874,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               Row(
                                 children: [
                                   Expanded(
-                                    child: _buildCustomDropdown(
+                                    child: _buildCustomMultiDropdown(
                                       'Select Classroom',
                                       _classroomOptions,
-                                      _selectdClassroom,
-                                      (v) {
+                                      _selectedClassrooms,
+                                      (values) async {
                                         setState(() {
-                                          _selectdClassroom = v;
+                                          _selectedClassrooms = values;
+                                          _selectdClassroom = values.isNotEmpty
+                                              ? values.first
+                                              : null;
                                           _updateAvailableStudents();
                                         });
-                                        _reloadStudentsAndSettingsThenFeed();
+                                        if (values.isEmpty && isNotParent) {
+                                          await _loadAllStudentsForAllowedClassrooms();
+                                          await _loadDailyFeed(refresh: true);
+                                        } else if (values.length > 1 && isNotParent) {
+                                          await _loadStudentsForSelectedClassrooms(values);
+                                          await _loadDailyFeed(refresh: true);
+                                        } else {
+                                          await _reloadStudentsAndSettingsThenFeed();
+                                        }
                                       },
                                     ),
                                   ),
@@ -3736,19 +3908,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     //     _selectedStudent = v;
                                     //   }),
                                     // ),
-                                    child: _buildCustomDropdown(
-                                      _selectdClassroom == null
-                                          ? 'Select Classroom First'
-                                          : 'Select Student',
+                                    child: _buildCustomMultiDropdown(
+                                      'Select Student',
                                       _availableStudents,
-                                      _selectedStudent,
-                                      (value) {
-                                        if (_selectdClassroom != null) {
-                                          setState(() {
-                                            _selectedStudent = value;
-                                          });
-                                          _loadDailyFeed();
-                                        }
+                                      _selectedStudents,
+                                      (values) {
+                                        setState(() {
+                                          _selectedStudents = values;
+                                          _selectedStudent = values.isNotEmpty
+                                              ? values.first
+                                              : null;
+                                        });
+                                        _loadDailyFeed();
                                       },
                                     ),
                                   ),
@@ -3844,7 +4015,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   if (_classroomOptions.isNotEmpty) {
                                     _selectdClassroom = _classroomOptions.first;
                                   }
+                                  _selectedClassrooms = _selectdClassroom == null
+                                      ? <String>[]
+                                      : <String>[_selectdClassroom!];
                                   _selectedStudent = null;
+                                  _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
@@ -4646,6 +4821,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         color: Colors.black87,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
+  }
+
+  Widget _buildCustomMultiDropdown(
+    String hintText,
+    List<String> items,
+    List<String> selectedItems,
+    ValueChanged<List<String>> onChanged, {
+    double? height,
+  }) {
+    return SizedBox(
+      height: height ?? 40,
+      child: CustomMultiSelectDropdown(
+        hintText: hintText,
+        items: items,
+        selectedItems: selectedItems,
+        onChanged: onChanged,
+        gapHeight: 8,
+        maxDropdownHeight: 280,
+      ),
     );
   }
 }

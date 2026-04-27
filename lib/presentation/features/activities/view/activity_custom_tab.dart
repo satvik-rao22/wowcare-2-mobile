@@ -46,6 +46,7 @@ import '../util/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
@@ -105,6 +106,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
+  List<String> _selectedClassrooms = [];
+  List<String> _selectedStudents = [];
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
@@ -388,11 +391,39 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<String>? _selectedStudentCodesForAttendanceFilter() {
-    final selected = _selectedStudent?.trim();
-    if (selected == null || selected.isEmpty) return null;
-    final code = _studentCodeByName[selected]?.trim();
-    if (code == null || code.isEmpty) return null;
-    return <String>[code];
+    final selectedNames = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+        : ((_selectedStudent?.trim().isNotEmpty ?? false)
+              ? <String>[_selectedStudent!.trim()]
+              : const <String>[]);
+    String codeForName(String name) {
+      final exact = _studentCodeByName[name]?.trim() ?? '';
+      if (exact.isNotEmpty) return exact;
+      final needle = name.trim().toLowerCase();
+      for (final entry in _studentCodeByName.entries) {
+        if (entry.key.trim().toLowerCase() == needle) {
+          final code = entry.value.trim();
+          if (code.isNotEmpty) return code;
+        }
+      }
+      return '';
+    }
+
+    final codes = selectedNames
+        .map(codeForName)
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
+  List<String> _selectedClassroomCodesForFeed() {
+    final selectedNames = _selectedClassrooms;
+    return selectedNames
+        .map((name) => _classroomCodeByName[name]?.trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   String _displayClassroomName({
@@ -625,10 +656,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       return _loadNextParentHomeRangeFeedPage();
     }
 
-    final classroomName = _selectdClassroom;
-    if (classroomName == null) return;
-
-    final classroomCode = _classroomCodeByName[classroomName];
+    final classroomCodes = _selectedClassroomCodesForFeed().isNotEmpty
+        ? _selectedClassroomCodesForFeed()
+        : _classroomOptions
+              .map((name) => _classroomCodeByName[name]?.trim() ?? '')
+              .where((code) => code.isNotEmpty)
+              .toSet()
+              .toList();
+    final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
     if (classroomCode == null || classroomCode.trim().isEmpty) return;
 
     final start = _selectedStartDate;
@@ -637,7 +672,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     await _rebuildStudentCodesForTagFilter();
     if (!mounted) return;
 
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    var studentCodes = _selectedStudentCodesForAttendanceFilter();
+    if ((studentCodes == null || studentCodes.isEmpty) &&
+        _selectedStudents.isNotEmpty &&
+        isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms();
+      if (!mounted) return;
+      studentCodes = _selectedStudentCodesForAttendanceFilter();
+    }
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
     final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
@@ -658,7 +700,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendanceDate: _dateQueryParam(start),
           fromAttendanceDate: _dateQueryParam(start),
           toAttendanceDate: _dateQueryParam(end),
-          classroomCodes: <String>[classroomCode],
+          classroomCodes: classroomCodes,
           studentCodes: studentCodes,
           signInAtFilter: signInAtFilter,
           signOutAtFilter: signOutAtFilter,
@@ -670,6 +712,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           startDate: _dateQueryParam(start),
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
           activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: pageIndex,
@@ -976,16 +1020,33 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   void _updateAvailableStudents() {
-    if (_selectdClassroom != null) {
-      _availableStudents = classroomStudents[_selectdClassroom] ?? [];
+    if (_selectedClassrooms.isNotEmpty) {
+      final selectedClassroomNames = _selectedClassrooms;
+      _availableStudents = selectedClassroomNames
+          .expand((name) => classroomStudents[name] ?? const <String>[])
+          .toSet()
+          .toList()
+        ..sort();
       // If current selected student is not in the new list, clear it
       if (_selectedStudent != null &&
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
     } else {
-      _availableStudents = [];
-      _selectedStudent = null;
+      _availableStudents = classroomStudents.values
+          .expand((students) => students)
+          .toSet()
+          .toList()
+        ..sort();
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
+      _selectedStudent = _selectedStudents.isNotEmpty
+          ? _selectedStudents.first
+          : null;
     }
   }
 
@@ -1025,6 +1086,92 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
     });
     await _loadRangeFeed(refresh: true);
+  }
+
+  Future<void> _loadAllStudentsForAllowedClassrooms({
+    bool refresh = false,
+  }) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty || _classroomOptions.isEmpty) return;
+
+    final mergedByName = <String, String>{};
+    final byClassroom = <String, List<String>>{};
+
+    for (final classroomName in _classroomOptions) {
+      final classroomCode = _classroomCodeByName[classroomName];
+      if (classroomCode == null || classroomCode.trim().isEmpty) continue;
+      try {
+        final students = await _getStudentClassroomListUseCase(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          status: const ['ACTIVE'],
+          refresh: refresh,
+        );
+        final names = students.map((s) => s.fullName).toSet().toList()..sort();
+        byClassroom[classroomName] = names;
+        for (final s in students) {
+          mergedByName[s.fullName] = s.studentCode;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      classroomStudents
+        ..clear()
+        ..addAll(byClassroom);
+      _studentCodeByName
+        ..clear()
+        ..addAll(mergedByName);
+      _availableStudents = mergedByName.keys.toSet().toList()..sort();
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
+      if (_selectedStudent != null &&
+          !_availableStudents.contains(_selectedStudent)) {
+        _selectedStudent = null;
+      }
+    });
+  }
+
+  Future<void> _loadStudentsForSelectedClassrooms(
+    List<String> selectedClassroomNames, {
+    bool refresh = false,
+  }) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty || selectedClassroomNames.isEmpty) return;
+
+    final mergedByName = Map<String, String>.from(_studentCodeByName);
+    final byClassroom = Map<String, List<String>>.from(classroomStudents);
+
+    for (final classroomName in selectedClassroomNames) {
+      final classroomCode = _classroomCodeByName[classroomName];
+      if (classroomCode == null || classroomCode.trim().isEmpty) continue;
+      try {
+        final students = await _getStudentClassroomListUseCase(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          status: const ['ACTIVE'],
+          refresh: refresh,
+        );
+        final names = students.map((s) => s.fullName).toSet().toList()..sort();
+        byClassroom[classroomName] = names;
+        for (final s in students) {
+          mergedByName[s.fullName] = s.studentCode;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      classroomStudents
+        ..clear()
+        ..addAll(byClassroom);
+      _studentCodeByName
+        ..clear()
+        ..addAll(mergedByName);
+      _updateAvailableStudents();
+    });
   }
 
   /// Refreshes tag map from the network, then reloads the range feed (bypassing caches).
@@ -1704,10 +1851,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       return _loadParentHomeRangeFeed(refresh: refresh);
     }
 
-    final classroomName = _selectdClassroom;
-    if (classroomName == null) return;
-
-    final classroomCode = _classroomCodeByName[classroomName];
+    final classroomCodes = _selectedClassroomCodesForFeed().isNotEmpty
+        ? _selectedClassroomCodesForFeed()
+        : _classroomOptions
+              .map((name) => _classroomCodeByName[name]?.trim() ?? '')
+              .where((code) => code.isNotEmpty)
+              .toSet()
+              .toList();
+    final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
+    final classroomName = _selectdClassroom ?? (classroomCode == null
+        ? null
+        : _classroomNameByCode[classroomCode]);
+    final classroomNameKey = classroomName ?? (classroomCode ?? '');
     if (classroomCode == null || classroomCode.trim().isEmpty) {
       if (!mounted) return;
       const msg = 'Classroom is not mapped to a valid code.';
@@ -1723,7 +1878,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (start == null || end == null) return;
     await _rebuildStudentCodesForTagFilter();
     if (!mounted) return;
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    var studentCodes = _selectedStudentCodesForAttendanceFilter();
+    if ((studentCodes == null || studentCodes.isEmpty) &&
+        _selectedStudents.isNotEmpty &&
+        isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms();
+      if (!mounted) return;
+      studentCodes = _selectedStudentCodesForAttendanceFilter();
+    }
     final selectedEvent = _selectedAttendanceEventFilter();
     final requestKey = [
       classroomCode,
@@ -1764,7 +1926,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendanceDate: _dateQueryParam(start),
           fromAttendanceDate: _dateQueryParam(start),
           toAttendanceDate: _dateQueryParam(end),
-          classroomCodes: <String>[classroomCode],
+          classroomCodes: classroomCodes,
           studentCodes: studentCodes,
           signInAtFilter: signInAtFilter,
           signOutAtFilter: signOutAtFilter,
@@ -1776,6 +1938,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           startDate: _dateQueryParam(start),
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
           activityTypeCodes: typeCodes,
           guardianPersona: _parentHome,
           page: 0,
@@ -1873,7 +2037,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   MapEntry(s['name'] ?? '', s['code'] ?? ''),
                             ),
                           );
-                        classroomStudents[classroomName] =
+                        classroomStudents[classroomNameKey] =
                             cachedList.map((s) => s['name'] ?? '').toList();
                         _updateAvailableStudents();
                       });
@@ -1896,7 +2060,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                   ..addEntries(
                     students.map((s) => MapEntry(s.fullName, s.studentCode)),
                   );
-                classroomStudents[classroomName] =
+                classroomStudents[classroomNameKey] =
                     students.map((s) => s.fullName).toList();
                 _updateAvailableStudents();
               });
@@ -2178,7 +2342,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   if (_classroomOptions.isNotEmpty) {
                                     _selectdClassroom = _classroomOptions.first;
                                   }
+                                  _selectedClassrooms = _selectdClassroom == null
+                                      ? <String>[]
+                                      : <String>[_selectdClassroom!];
                                   _selectedStudent = null;
+                                  _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
                                 });
@@ -2194,16 +2362,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             Row(
                               children: [
                                 Expanded(
-                                  child: _buildCustomDropdown(
+                                  child: _buildCustomMultiDropdown(
                                     'Select Classroom',
                                     _classroomOptions,
-                                    _selectdClassroom,
-                                    (v) {
+                                    _selectedClassrooms,
+                                    (values) async {
                                       setState(() {
-                                        _selectdClassroom = v;
+                                        _selectedClassrooms = values;
+                                        _selectdClassroom = values.isNotEmpty
+                                            ? values.first
+                                            : null;
                                         _updateAvailableStudents();
                                       });
-                                      _loadRangeFeed(refresh: true);
+                                      if (values.isEmpty && isNotParent) {
+                                        await _loadAllStudentsForAllowedClassrooms();
+                                      } else if (values.isNotEmpty && isNotParent) {
+                                        await _loadStudentsForSelectedClassrooms(values);
+                                      }
+                                      await _loadRangeFeed(refresh: true);
                                     },
                                   ),
                                 ),
@@ -2217,19 +2393,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   //     _selectedStudent = v;
                                   //   }),
                                   // ),
-                                  child: _buildCustomDropdown(
-                                    _selectdClassroom == null
-                                        ? 'Select Classroom First'
-                                        : 'Select Student',
+                                  child: _buildCustomMultiDropdown(
+                                    'Select Student',
                                     _availableStudents,
-                                    _selectedStudent,
-                                    (value) {
-                                      if (_selectdClassroom != null) {
-                                        setState(() {
-                                          _selectedStudent = value;
-                                        });
-                                        _loadRangeFeed(refresh: true);
-                                      }
+                                    _selectedStudents,
+                                    (values) {
+                                      setState(() {
+                                        _selectedStudents = values;
+                                        _selectedStudent = values.isNotEmpty
+                                            ? values.first
+                                            : null;
+                                      });
+                                      _loadRangeFeed(refresh: true);
                                     },
                                   ),
                                 ),
@@ -2310,7 +2485,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   onTap: () {
                                     setState(() {
                                       _selectdClassroom = _classroomOptions[0];
+                                      _selectedClassrooms = <String>[
+                                        _classroomOptions[0],
+                                      ];
                                       _selectedStudent = null;
+                                      _selectedStudents = [];
                                       _filterActivityTypes.clear();
                                       _filterTags.clear();
                                     });
@@ -3770,6 +3949,26 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         color: Colors.black87,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
+  }
+
+  Widget _buildCustomMultiDropdown(
+    String hintText,
+    List<String> items,
+    List<String> selectedItems,
+    ValueChanged<List<String>> onChanged, {
+    double? height,
+  }) {
+    return SizedBox(
+      height: height ?? 40,
+      child: CustomMultiSelectDropdown(
+        hintText: hintText,
+        items: items,
+        selectedItems: selectedItems,
+        onChanged: onChanged,
+        gapHeight: 8,
+        maxDropdownHeight: 280,
+      ),
     );
   }
 }

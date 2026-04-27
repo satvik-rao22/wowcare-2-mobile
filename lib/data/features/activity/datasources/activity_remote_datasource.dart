@@ -99,23 +99,29 @@ abstract class ActivityRemoteDataSource {
     required String ownerCode,
   });
 
-  /// Daily classroom feed: `GET /api/v2/activities/feed/daily`.
+  /// Daily classroom feed:
+  /// `POST /api/v2/activities/feed/daily/search`.
   Future<ActivityFeedPageModel> getDailyActivityFeed({
     required String classroomCode,
     required String date,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
 
-  /// Date range classroom feed: `GET /api/v1/activities/feed/range`.
+  /// Date range classroom feed:
+  /// `POST /api/v2/activities/feed/range/search`.
   Future<ActivityFeedPageModel> getRangeActivityFeed({
     required String classroomCode,
     required String startDate,
     required String endDate,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
@@ -568,38 +574,51 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String classroomCode,
     required String date,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
-    final base = ApiPaths.urlWithBase(
-      guardianPersona
-          ? ApiPaths.guardianActivitiesFeedDaily
-          : ApiPaths.activitiesFeedDaily,
-      ApiConstants.activityBaseUrl,
-    );
-    final qp = <String, List<String>>{
-      'classroomCode': <String>[classroomCode.trim()],
-      'date': <String>[date.trim()],
-      'page': <String>['$page'],
-      'size': <String>['$size'],
-      'sort': <String>['activityDate,desc'],
-    };
-    final sc = studentCode?.trim();
-    if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = <String>[sc];
-    }
     final ats = (activityTypeCodes ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
         .toList();
-    if (ats.isNotEmpty) {
-      qp['activityTypeCode'] = ats;
-    }
+    final selectedClassroomCodes = _normalizedCodes(<String>[
+      ...?classroomCodes,
+      classroomCode,
+    ]);
+    final sc = studentCode?.trim();
+    final selectedStudentCodes = _normalizedCodes(<String>[
+      ...?studentCodes,
+      if (sc != null) sc,
+    ]);
 
-    final response = await _client.get<dynamic>(base, queryParameters: qp);
+    final base = ApiPaths.urlWithBase(
+      guardianPersona
+          ? ApiPaths.guardianActivitiesFeedDailySearch
+          : ApiPaths.activitiesFeedDailySearch,
+      ApiConstants.activityBaseUrl,
+    );
+    final qp = <String, dynamic>{
+      'page': page,
+      'size': size,
+      'sort': <String>['activityDate,desc'],
+    };
+    final payload = <String, dynamic>{
+      'date': date.trim(),
+      'classroomCodes': selectedClassroomCodes,
+      'studentCodes': selectedStudentCodes,
+      'activityTypeCodes': ats,
+    };
+
+    final response = await _client.post<dynamic>(
+      base,
+      queryParameters: qp,
+      data: payload,
+    );
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
@@ -615,42 +634,52 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String startDate,
     required String endDate,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
-    final base = ApiPaths.urlWithBase(
-      guardianPersona
-          ? ApiPaths.guardianActivitiesFeedRange
-          : ApiPaths.activitiesFeedRange,
-      ApiConstants.activityBaseUrl,
-    );
-
-    final qp = <String, List<String>>{
-      'classroomCode': <String>[classroomCode.trim()],
-      'startDate': <String>[startDate.trim()],
-      'endDate': <String>[endDate.trim()],
-      'page': <String>['$page'],
-      'size': <String>['$size'],
-      'sort': <String>['activityDate,desc'],
-    };
-
-    final sc = studentCode?.trim();
-    if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = <String>[sc];
-    }
-
     final ats = (activityTypeCodes ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
         .toList();
-    if (ats.isNotEmpty) {
-      qp['activityTypeCode'] = ats;
-    }
+    final selectedClassroomCodes = _normalizedCodes(<String>[
+      ...?classroomCodes,
+      classroomCode,
+    ]);
+    final sc = studentCode?.trim();
+    final selectedStudentCodes = _normalizedCodes(<String>[
+      ...?studentCodes,
+      if (sc != null) sc,
+    ]);
 
-    final response = await _client.get<dynamic>(base, queryParameters: qp);
+    final base = ApiPaths.urlWithBase(
+      guardianPersona
+          ? ApiPaths.guardianActivitiesFeedRangeSearch
+          : ApiPaths.activitiesFeedRangeSearch,
+      ApiConstants.activityBaseUrl,
+    );
+    final qp = <String, dynamic>{
+      'page': page,
+      'size': size,
+      'sort': <String>['activityDate,desc'],
+    };
+    final payload = <String, dynamic>{
+      'startDate': startDate.trim(),
+      'endDate': endDate.trim(),
+      'classroomCodes': selectedClassroomCodes,
+      'studentCodes': selectedStudentCodes,
+      'activityTypeCodes': ats,
+    };
+
+    final response = await _client.post<dynamic>(
+      base,
+      queryParameters: qp,
+      data: payload,
+    );
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
