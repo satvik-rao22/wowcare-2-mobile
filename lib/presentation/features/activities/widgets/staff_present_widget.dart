@@ -11,13 +11,23 @@ import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
-  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false, this.clickToSignEditable});
+  const StaffPresentWidget({
+    super.key,
+    required this.staffName,
+    this.isEditable = true,
+    this.incidentActivity = false,
+    this.onSigned,
+    this.isAlreadySigned = false,
+    this.clickToSignEditable,
+    this.fieldLabel = 'Staff Present',
+  });
   final String staffName;
   final bool isEditable;
   final bool incidentActivity;
   final ValueChanged<bool>? onSigned;
   final bool isAlreadySigned;
   final bool? clickToSignEditable;
+  final String fieldLabel;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -168,7 +178,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   fontFamily: 'Manrope',
                 ),
                 children: [
-                  TextSpan(text: 'Staff Present'),
+                  TextSpan(text: widget.fieldLabel),
                   const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
                 ],
               ),

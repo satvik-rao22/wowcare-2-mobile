@@ -19,10 +19,12 @@ import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
+import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -38,6 +40,7 @@ import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class IncidentActivityScreen extends StatefulWidget {
   const IncidentActivityScreen({
@@ -87,6 +90,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String? _organizationCode;
   bool _isSubmitting = false;
   bool _isAcknowledging = false;
+  bool _isApprovingOrRejecting = false;
+  bool _isAdminSigned = false;
   bool _loadingActivityDetail = false;
   bool _isGuardianPersona = false;
   bool _hasGuardianAcknowledgedLocally = false;
@@ -112,6 +117,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
@@ -122,6 +129,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
   bool get _isAcknowledged =>
       _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
+  bool get _isPendingAcknowledgementStatus {
+    final status = _approvalStatus;
+    return status == 'PARENT_ACKNOWLEDGEMENT_PENDING' ||
+        status == 'PENDING_ACKNOWLEDGEMENT' ||
+        status.contains('ACKNOWLEDGEMENT_PENDING');
+  }
+  bool get _requiresAdminPresentSignOnEdit =>
+      widget.isEdit &&
+      _isPendingAcknowledgementStatus;
   bool get _showGuardianAcknowledgeButton {
     if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
@@ -250,6 +266,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -295,6 +313,73 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       });
     }
     _loadStaffContext();
+  }
+
+  bool get _showAdminApproveRejectActions {
+    if (!widget.isEdit || widget.readOnly) return false;
+    if (!_isAdminDesignation) return false;
+    return canAdminApproveOrRejectActivityItem(
+      _effectiveActivity,
+      isAdminPersona: true,
+    );
+  }
+
+  Future<void> _approvePendingActivity() async {
+    if (_isAdminDesignation && !_isAdminSigned) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before approving.',
+        isWarning: true,
+      );
+      return;
+    }
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      final msg = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
+  }
+
+  Future<void> _rejectPendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      final msg = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
   }
 
   Future<void> _prefetchActivityForEdit() async {
@@ -480,6 +565,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: ActivityDescriptionLimits.maxLengthMessage,
+        isWarning: true,
+      );
+      return;
+    }
+
+    if (_requiresAdminPresentSignOnEdit && !_isAdminSigned) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please click to sign in for Admin Present',
         isWarning: true,
       );
       return;
@@ -1527,6 +1621,21 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 );
               },
             ),
+            if (_requiresAdminPresentSignOnEdit) const SizedBox(height: 16),
+            if (_requiresAdminPresentSignOnEdit)
+              StaffPresentWidget(
+                fieldLabel: 'Admin Present',
+                staffName: _staffName.trim().isEmpty ? 'Admin' : _staffName,
+                isEditable: false,
+                isAlreadySigned: _isAdminSigned,
+                clickToSignEditable: _canInteract,
+                incidentActivity: true,
+                onSigned: (value) {
+                  setState(() {
+                    _isAdminSigned = value;
+                  });
+                },
+              ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _addNotesController,
@@ -1612,15 +1721,29 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onSaveOrAddPressed,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading:
-                      _isSubmitting ||
-                      _isUploadingMedia ||
-                      _loadingActivityDetail,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ActivityAdminApproveRejectBar(
+                      visible: _showAdminApproveRejectActions,
+                      isLoading: _isApprovingOrRejecting ||
+                          _isSubmitting ||
+                          _isUploadingMedia ||
+                          _loadingActivityDetail,
+                      onApprove: _approvePendingActivity,
+                      onReject: _rejectPendingActivity,
+                    ),
+                    CustomButtonLayout(
+                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                      onPressedConfirm: _onSaveOrAddPressed,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSubmitting ||
+                          _isApprovingOrRejecting ||
+                          _isUploadingMedia ||
+                          _loadingActivityDetail,
+                    ),
+                  ],
                 ),
               ),
             ),

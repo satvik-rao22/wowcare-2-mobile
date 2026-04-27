@@ -426,6 +426,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         .toList();
     if (fromSelectedDropdown.isNotEmpty) return fromSelectedDropdown;
 
+    final selectedSingle = (_selectdClassroom ?? '').trim();
+    final singleCode = _classroomCodeByName[selectedSingle]?.trim() ?? '';
+    if (singleCode.isNotEmpty) return <String>[singleCode];
+
     final selectedStudentNames = _selectedStudents.isNotEmpty
         ? _selectedStudents
         : ((_selectedStudent?.trim().isNotEmpty ?? false)
@@ -1490,6 +1494,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                     : null;
                 _selectdClassroom = primaryName ?? _classroomOptions.first;
               }
+              // Keep multi-select UI in sync with default classroom.
+              if (_selectdClassroom != null &&
+                  _selectdClassroom!.trim().isNotEmpty) {
+                _selectedClassrooms = <String>[_selectdClassroom!];
+              }
             });
             hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
           }
@@ -1498,10 +1507,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     } catch (_) {}
 
     if (hydratedClassroomsFromCache && mounted) {
-      await Future.wait<void>([
-        _loadRangeFeed(refresh: false),
-        _loadTagFilterOptions(forceRefresh: false),
-      ]);
+      await _loadRangeFeed(refresh: false);
+      unawaited(_loadTagFilterOptions(forceRefresh: false).catchError((_) {}));
       return;
     }
 
@@ -1549,13 +1556,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
         _selectdClassroom = primaryName ?? _classroomOptions.first;
       }
+      // Keep multi-select UI in sync with default classroom.
+      if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
+        _selectedClassrooms = <String>[_selectdClassroom!];
+      }
       await _cacheManager.saveCache(classroomCacheKey, {
         'classrooms': scoped
             .map((c) => {'name': c.name, 'code': c.code})
             .toList(),
       });
 
-      await Future.wait<void>([_loadRangeFeed(), _loadTagFilterOptions()]);
+      await _loadRangeFeed();
+      unawaited(_loadTagFilterOptions().catchError((_) {}));
     } catch (e) {
       if (!mounted) return;
       final msg = ApiErrorHandler.extractErrorMessage(e);
@@ -1872,12 +1884,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         : _classroomNameByCode[classroomCode]);
     final classroomNameKey = classroomName ?? (classroomCode ?? '');
     if (classroomCode == null || classroomCode.trim().isEmpty) {
-      if (!mounted) return;
-      const msg = 'Classroom is not mapped to a valid code.';
-      setState(() {
-        _feedError = msg;
-      });
-      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+      if (mounted) {
+        setState(() {
+          activities.clear();
+          _feedError = null;
+          _feedHasMore = false;
+          _loadingMoreFeed = false;
+        });
+      }
       return;
     }
 
@@ -2371,16 +2385,27 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                     _classroomOptions,
                                     _selectedClassrooms,
                                     (values) async {
+                                      if (values.isEmpty) {
+                                        setState(() {
+                                          _selectdClassroom = null;
+                                          _selectedClassrooms = <String>[];
+                                          _selectedStudent = null;
+                                          _selectedStudents = [];
+                                          _filterActivityTypes.clear();
+                                          _filterTags.clear();
+                                          _updateAvailableStudents();
+                                        });
+                                        await _refreshApisAfterClearAll();
+                                        await _loadRangeFeed(refresh: true);
+                                        return;
+                                      }
+
                                       setState(() {
                                         _selectedClassrooms = values;
-                                        _selectdClassroom = values.isNotEmpty
-                                            ? values.first
-                                            : null;
+                                        _selectdClassroom = values.first;
                                         _updateAvailableStudents();
                                       });
-                                      if (values.isEmpty && isNotParent) {
-                                        await _loadAllStudentsForAllowedClassrooms();
-                                      } else if (values.isNotEmpty && isNotParent) {
+                                      if (isNotParent) {
                                         await _loadStudentsForSelectedClassrooms(values);
                                       }
                                       await _loadRangeFeed(refresh: true);
@@ -2664,8 +2689,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                       Expanded(
                                         child: InkWell(
                                           onTap: () async {
+                                            final hasStatusBadge =
+                                                activityApprovalStatusBadgeLabel(
+                                                  activity.approvalStatus,
+                                                ) !=
+                                                null;
                                             final destinationBuilder =
-                                                activityRoutes[activity.name];
+                                                hasStatusBadge
+                                                ? editActivityRoutes[activity.name]
+                                                : activityRoutes[activity.name];
                                             if (destinationBuilder != null) {
                                               final nextScreen =
                                                   destinationBuilder(activity);
@@ -2988,7 +3020,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                       activity,
                                                                       isAdminPersona:
                                                                           _isAdminPersona,
-                                                                    )) ...[
+                                                                    ) &&
+                                                                        !isIncidentActivityItem(
+                                                                          activity,
+                                                                        )) ...[
                                                                       PopupMenuItem<
                                                                         String
                                                                       >(

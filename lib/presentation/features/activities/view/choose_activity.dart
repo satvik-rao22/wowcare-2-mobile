@@ -236,14 +236,18 @@ class _ChooseActivityState extends State<ChooseActivity> {
   void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {
     final RenderBox renderBox = tileContext.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
+    final screenWidth = MediaQuery.of(context).size.width;
 
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
 
+    final maxWidth = (screenWidth - 16).clamp(160.0, 320.0);
+    final left = position.dx.clamp(8.0, screenWidth - maxWidth - 8.0);
+
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: position.dy - 60,
-        left: position.dx,
+        left: left,
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -252,15 +256,19 @@ class _ChooseActivityState extends State<ChooseActivity> {
               color: Colors.black87,
               borderRadius: BorderRadius.circular(6),
             ),
-                child: Text(
-              _getDisabledActivityTooltip(activityName),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                  ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Text(
+                _getDisabledActivityTooltip(activityName),
+                softWrap: true,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
                 ),
               ),
             ),
+          ),
+        ),
       ),
     );
 

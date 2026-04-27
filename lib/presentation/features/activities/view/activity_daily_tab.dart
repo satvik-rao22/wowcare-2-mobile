@@ -550,8 +550,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
                 _selectdClassroom = primaryName ?? _classroomOptions.first;
               }
+              // Keep multi-select UI in sync with default classroom.
+              if (_selectdClassroom != null &&
+                  _selectdClassroom!.trim().isNotEmpty) {
+                _selectedClassrooms = <String>[_selectdClassroom!];
+              }
             } else {
               _selectdClassroom = null;
+              _selectedClassrooms = <String>[];
             }
           });
           hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
@@ -560,11 +566,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     } catch (_) {}
 
     if (hydratedClassroomsFromCache && mounted) {
-      await Future.wait<void>([
-        _loadDailyFeed(refresh: false),
-        _reloadStudentsAndSettings(forceRefreshApis: false),
-        _loadTagFilterOptions(forceRefresh: false),
-      ]);
+      await _loadDailyFeed(refresh: false);
+      unawaited(
+        _reloadStudentsAndSettings(forceRefreshApis: false).catchError((_) {}),
+      );
+      unawaited(_loadTagFilterOptions(forceRefresh: false).catchError((_) {}));
       return;
     }
 
@@ -624,8 +630,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
             _selectdClassroom = primaryName ?? _classroomOptions.first;
           }
+          // Keep multi-select UI in sync with default classroom.
+          if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
+            _selectedClassrooms = <String>[_selectdClassroom!];
+          }
         } else {
           _selectdClassroom = null;
+          _selectedClassrooms = <String>[];
         }
       });
       await _cacheManager.saveCache(classroomCacheKey, {
@@ -633,11 +644,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             .map((c) => {'name': c.name, 'code': c.code})
             .toList(),
       });
-      await Future.wait<void>([
-        _loadDailyFeed(refresh: true),
-        _reloadStudentsAndSettings(),
-        _loadTagFilterOptions(),
-      ]);
+      await _loadDailyFeed(refresh: true);
+      unawaited(_reloadStudentsAndSettings().catchError((_) {}));
+      unawaited(_loadTagFilterOptions().catchError((_) {}));
     } catch (e) {
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -1141,6 +1150,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toSet()
         .toList();
     if (fromSelectedDropdown.isNotEmpty) return fromSelectedDropdown;
+
+    final selectedSingle = (_selectdClassroom ?? '').trim();
+    final singleCode = _classroomCodeByName[selectedSingle]?.trim() ?? '';
+    if (singleCode.isNotEmpty) return <String>[singleCode];
 
     final selectedStudentNames = _selectedStudents.isNotEmpty
         ? _selectedStudents
@@ -2319,17 +2332,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                         _classroomOptions,
                                         _selectedClassrooms,
                                         (values) async {
+                                          if (values.isEmpty) {
+                                            setState(() {
+                                              _selectdClassroom = null;
+                                              _selectedClassrooms = <String>[];
+                                              _selectedStudent = null;
+                                              _selectedStudents = [];
+                                              _filterActivityTypes.clear();
+                                              _filterTags.clear();
+                                              _updateAvailableStudents();
+                                            });
+                                            await _refreshDropdownsAfterClearAll();
+                                            await _loadDailyFeed(refresh: true);
+                                            return;
+                                          }
+
                                           setState(() {
                                             _selectedClassrooms = values;
-                                            _selectdClassroom = values.isNotEmpty
-                                                ? values.first
-                                                : null;
+                                            _selectdClassroom = values.first;
                                             _updateAvailableStudents();
                                           });
-                                          if (values.isEmpty && isNotParent) {
-                                            await _loadAllStudentsForAllowedClassrooms();
-                                            await _loadDailyFeed(refresh: true);
-                                          } else if (values.length > 1 && isNotParent) {
+                                          if (values.length > 1 && isNotParent) {
                                             await _loadStudentsForSelectedClassrooms(values);
                                             await _loadDailyFeed(refresh: true);
                                           } else {
@@ -2649,8 +2672,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                         const SizedBox(height: 15),
                                         InkWell(
                                           onTap: () async {
+                                            final hasStatusBadge =
+                                                activityApprovalStatusBadgeLabel(
+                                                  activity.approvalStatus,
+                                                ) !=
+                                                null;
                                             final destinationBuilder =
-                                                activityRoutes[activity.name];
+                                                hasStatusBadge
+                                                ? editActivityRoutes[activity.name]
+                                                : activityRoutes[activity.name];
                                             if (destinationBuilder != null) {
                                               final nextScreen =
                                                   destinationBuilder(activity);
@@ -2946,7 +2976,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                   activity,
                                                                   isAdminPersona:
                                                                       _isAdminPersona,
-                                                                )) ...[
+                                                                ) &&
+                                                                    !isIncidentActivityItem(
+                                                                      activity,
+                                                                    )) ...[
                                                                   PopupMenuItem<
                                                                     String
                                                                   >(
@@ -4198,9 +4231,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                               const SizedBox(height: 15),
                                               InkWell(
                                                 onTap: () async {
+                                                  final hasStatusBadge =
+                                                      activityApprovalStatusBadgeLabel(
+                                                        activity.approvalStatus,
+                                                      ) !=
+                                                      null;
                                                   final destinationBuilder =
-                                                      activityRoutes[activity
-                                                          .name];
+                                                      hasStatusBadge
+                                                      ? editActivityRoutes[activity
+                                                            .name]
+                                                      : activityRoutes[activity
+                                                            .name];
                                                   if (destinationBuilder !=
                                                       null) {
                                                     final nextScreen =
@@ -4535,7 +4576,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         activity,
                                                                         isAdminPersona:
                                                                             _isAdminPersona,
-                                                                      )) ...[
+                                                                      ) &&
+                                                                          !isIncidentActivityItem(
+                                                                            activity,
+                                                                          )) ...[
                                                                         PopupMenuItem<
                                                                           String
                                                                         >(
@@ -5467,6 +5511,12 @@ bool isAttendanceCardActivityItem(ActivityItem activity) {
 bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (status == 'REJECTED') return false;
+
+  if (isAdminPersona) {
+    // Admin personas can always edit activities (even if approved/rejected),
+    // except attendance pseudo-activities which are not editable via activity forms.
+    return !isAttendanceCardActivityItem(activity);
+  }
   if (status == 'PARENT_ACKNOWLEDGEMENT_PENDING') return false;
   if (status == 'ACKNOWLEDGED') {
     return isAdminPersona && isIncidentActivityItem(activity);
@@ -5489,7 +5539,7 @@ bool canAdminApproveOrRejectActivityItem(
 }) {
   if (!isAdminPersona) return false;
   final status = normalizeApprovalStatus(activity.approvalStatus);
-  return status == 'PENDING_ADMIN_APPROVAL';
+  return status == 'PENDING_ADMIN_APPROVAL' || status == 'PENDING';
 }
 
 /// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.

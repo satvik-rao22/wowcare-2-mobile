@@ -19,6 +19,7 @@ class ActivityDetail extends Equatable {
     this.studentFirstName = '',
     this.studentMiddleName,
     this.studentLastName = '',
+    this.approvalStatus,
   });
 
   final String code;
@@ -37,6 +38,7 @@ class ActivityDetail extends Equatable {
   final String studentFirstName;
   final String? studentMiddleName;
   final String studentLastName;
+  final String? approvalStatus;
 
   factory ActivityDetail.fromApiData(Map<String, dynamic> json) {
     final params = <Map<String, dynamic>>[];
@@ -75,6 +77,10 @@ class ActivityDetail extends Equatable {
       }
     }
 
+    final rawApprovalStatus = (json['approvalStatus'] ?? json['status'])
+        ?.toString()
+        .trim();
+
     return ActivityDetail(
       code: (json['code'] ?? '').toString(),
       activityTypeCode: (json['activityTypeCode'] ?? '').toString(),
@@ -101,6 +107,9 @@ class ActivityDetail extends Equatable {
       studentLastName: studentLastName.isNotEmpty
           ? studentLastName
           : (json['studentLastName'] ?? '').toString(),
+      approvalStatus: (rawApprovalStatus == null || rawApprovalStatus.isEmpty)
+          ? null
+          : rawApprovalStatus.toUpperCase(),
     );
   }
 
@@ -117,5 +126,6 @@ class ActivityDetail extends Equatable {
         staffCode,
         studentCode,
         classroomCode,
+        approvalStatus,
       ];
 }
