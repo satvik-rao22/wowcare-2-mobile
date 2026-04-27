@@ -129,15 +129,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
   bool get _isAcknowledged =>
       _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
-  bool get _isPendingAcknowledgementStatus {
-    final status = _approvalStatus;
-    return status == 'PARENT_ACKNOWLEDGEMENT_PENDING' ||
-        status == 'PENDING_ACKNOWLEDGEMENT' ||
-        status.contains('ACKNOWLEDGEMENT_PENDING');
-  }
-  bool get _requiresAdminPresentSignOnEdit =>
-      widget.isEdit &&
-      _isPendingAcknowledgementStatus;
   bool get _showGuardianAcknowledgeButton {
     if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
@@ -570,19 +561,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (_requiresAdminPresentSignOnEdit && !_isAdminSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please click to sign in for Admin Present',
-        isWarning: true,
-      );
-      return;
-    }
-
     if (!_isSigned) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please click to sign',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_isAdminDesignation && !_isAdminSigned) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before saving.',
         isWarning: true,
       );
       return;
@@ -1621,8 +1611,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 );
               },
             ),
-            if (_requiresAdminPresentSignOnEdit) const SizedBox(height: 16),
-            if (_requiresAdminPresentSignOnEdit)
+            if (widget.isEdit && _isAdminDesignation) const SizedBox(height: 16),
+            if (widget.isEdit && _isAdminDesignation)
               StaffPresentWidget(
                 fieldLabel: 'Admin Present',
                 staffName: _staffName.trim().isEmpty ? 'Admin' : _staffName,
