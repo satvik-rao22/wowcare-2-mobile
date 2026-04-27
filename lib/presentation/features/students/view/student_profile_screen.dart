@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,9 +18,11 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
@@ -72,6 +76,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late List<String> _profileSchedule;
   late Map<String, dynamic> _profileSibling;
   ParentChildProvider? _parentChildProvider;
+  String? _profilePhotoUrl;
+  String? _schoolCode;
+  String? _organizationCode;
+  bool _isUploadingProfilePhoto = false;
 
   @override
   void initState() {
@@ -86,6 +94,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _displayClassroom = widget.classroom;
     _profileStatusUpper =
         widget.initialEnrollmentStatus?.trim().toUpperCase();
+    _loadUploadContext();
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,6 +116,22 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom =
           nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
       _profileStatusUpper = profile.status.trim().toUpperCase();
+      _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
+          ? null
+          : profile.profilePhotoUrl!.trim();
+    });
+  }
+
+  Future<void> _loadUploadContext() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final organizationCode =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    if (!mounted) return;
+    setState(() {
+      _schoolCode = schoolCode.isEmpty ? null : schoolCode;
+      _organizationCode = organizationCode.isEmpty ? null : organizationCode;
     });
   }
 
@@ -235,9 +260,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (code == null || code.isEmpty) {
       return null;
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final dataSource = serviceLocator<StudentRemoteDataSource>();
     try {
-      return await repo.getStudentHealth(studentCode: code);
+      return await dataSource.getStudentHealth(code: code);
     } catch (e) {
       CoreUtils.logApiError(e.toString());
       return null;
@@ -303,18 +328,103 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
-      // TODO: wire this to upload/update avatar in your backend/state
+      final studentCode = (_activeStudentCode ?? '').trim();
+      final schoolCode = (_schoolCode ?? '').trim();
+      final organizationCode = (_organizationCode ?? '').trim();
+      if (studentCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Student code is required to upload profile photo.',
+          isError: true,
+        );
+        return;
+      }
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        await _loadUploadContext();
+      }
+      final resolvedSchoolCode = (_schoolCode ?? '').trim();
+      final resolvedOrganizationCode = (_organizationCode ?? '').trim();
+      if (resolvedSchoolCode.isEmpty ||
+          resolvedOrganizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing school context for photo upload.',
+          isError: true,
+        );
+        return;
+      }
+
+      setState(() => _isUploadingProfilePhoto = true);
+      final uploadService = serviceLocator<ImageUploadService>();
+      final file = File(image.path);
+      final sessionCode = await uploadService.createStudentProfilePhotoUploadSession(
+        studentCode: studentCode,
+        schoolCode: resolvedSchoolCode,
+        organizationCode: resolvedOrganizationCode,
+      );
+      final lowerPath = image.path.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'student-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'STUDENT',
+        ownerCode: studentCode,
+      );
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+      );
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      final finalizedUrl = await uploadService.finalizeStudentProfilePhoto(
+        studentCode: studentCode,
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+      );
+
+      DocumentImageWidget.clearProfilePhotoCache(
+        studentCode: studentCode,
+      );
+
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final refreshed = await dataSource.getStudentProfile(studentCode);
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected profile image',
+        message: 'Profile photo updated successfully',
         isSuccess: true,
       );
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = (refreshed.profilePhotoUrl ?? '').trim().isNotEmpty
+            ? refreshed.profilePhotoUrl!.trim()
+            : finalizedUrl;
+      });
     } catch (e) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to pick image: $e',
+        message: 'Failed to update profile photo: $e',
         isError: true,
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingProfilePhoto = false);
+      }
     }
   }
 
@@ -468,12 +578,29 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                       children: [
                         DocumentImageWidget(
                           fileUuid: _activeStudentCode ?? _displayName,
+                          imageUrl: _profilePhotoUrl,
                           name: _displayName,
                           studentCode: _activeStudentCode,
                           studentEnrollmentStatus: _profileStatusUpper,
                           size: 90,
                           fontSize: 24,
                         ),
+                        if (_isUploadingProfilePhoto)
+                          const Positioned.fill(
+                            child: ColoredBox(
+                              color: Color(0x66000000),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         if (canChangePhoto)
                           Positioned(
                             right: -2,
