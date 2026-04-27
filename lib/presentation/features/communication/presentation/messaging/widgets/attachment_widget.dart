@@ -168,7 +168,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   }
 
   Future<void> _pickSingleDocument() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx'],
       allowMultiple: false,

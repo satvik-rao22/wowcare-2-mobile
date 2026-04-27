@@ -243,7 +243,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
           'pdf',

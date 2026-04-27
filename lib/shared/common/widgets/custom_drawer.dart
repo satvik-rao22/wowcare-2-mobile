@@ -901,7 +901,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         // Staff Schudling
                         if (showAdminAttendanceMenu)
                           _CustomExpansionTile(
-                            title: 'Staff-Schudling',
+                            title: 'Schedule',
                             icon: MediaRes.staffs_drawer_icon,
                             isCurrentRoute:
                                 _currentRoute == StaffScreen.routeName,
