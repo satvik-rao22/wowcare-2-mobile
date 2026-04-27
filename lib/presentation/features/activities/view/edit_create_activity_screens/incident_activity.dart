@@ -89,6 +89,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool _isAcknowledging = false;
   bool _loadingActivityDetail = false;
   bool _isGuardianPersona = false;
+  bool _hasGuardianAcknowledgedLocally = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
@@ -112,7 +113,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
-  bool get _isAcknowledged => _approvalStatus == 'ACKNOWLEDGED';
+  bool get _isAcknowledged =>
+      _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
   bool get _showGuardianAcknowledgeButton {
     if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
@@ -369,13 +371,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     setState(() => _isAcknowledging = true);
     try {
-      final message = await _acknowledgeActivityUseCase(code: code);
+      await _acknowledgeActivityUseCase(code: code);
       if (!mounted) return;
+      setState(() => _hasGuardianAcknowledgedLocally = true);
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message.isNotEmpty ? message : 'Activity acknowledged',
+        message: 'Acknowledged successfully',
+        isSuccess: true,
       );
-      await _prefetchActivityForEdit();
     } catch (e) {
       if (!mounted) return;
       CoreUtils.logApiError(
@@ -571,14 +574,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       return;
     }
-
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
 
     // Ensure the API payload uses the attendance date chosen on student selection.
     final prefilled = widget.selectedStudents != null
@@ -879,13 +874,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -1481,10 +1469,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               builder: (context) {
                 final isAdminPersona =
                     _isAdminDesignation;
-                final lockToLoggedInStaffOnEdit =
-                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaffOnEdit
+                  staffName: lockToLoggedInStaff
                       ? _staffName
                       : staffPresentLabelForActivity(
                           layoutAsEdit: _layoutAsEdit,
@@ -1495,7 +1482,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           loggedInDisplayName: _staffName,
                         ),
                   isEditable:
-                      lockToLoggedInStaffOnEdit ? false : _canInteract,
+                      lockToLoggedInStaff ? false : _canInteract,
                   isAlreadySigned: _layoutAsEdit,
                   clickToSignEditable: _canInteract || _isGuardianPersona,
                   incidentActivity: true,
@@ -1580,7 +1567,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                         onPressedConfirm: _isAcknowledged ? null : _onAcknowledgePressed,
                         showCancelButton: false,
                         isForm: false,
-                        isLoading: _isAcknowledging || _loadingActivityDetail,
+                        isLoading: _isAcknowledging,
                       ),
                     )
                   : const SizedBox.shrink(),

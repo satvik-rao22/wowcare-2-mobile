@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -143,7 +144,8 @@ class ImageUploadService {
 
   Future<String> computeFileChecksumSha256(File file) async {
     final bytes = await file.readAsBytes();
-    return sha256.convert(bytes).toString();
+    // S3 `x-amz-checksum-sha256` must be base64-encoded raw SHA-256 bytes.
+    return base64Encode(sha256.convert(bytes).bytes);
   }
 
   Future<void> completeAssetUpload({
@@ -170,7 +172,14 @@ class ImageUploadService {
   }) async {
     final uploadClient = Dio();
     final bytes = await file.readAsBytes();
-    final headers = <String, dynamic>{...requiredHeaders};
+    final headers = <String, dynamic>{};
+    requiredHeaders.forEach((key, value) {
+      final k = key.trim();
+      final v = value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) {
+        headers[k] = v;
+      }
+    });
     headers.putIfAbsent('Content-Type', () => fallbackContentType);
 
     final putUri = Uri.parse(presignedPutUrl);
