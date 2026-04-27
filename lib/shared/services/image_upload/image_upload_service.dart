@@ -404,6 +404,7 @@ class ImageUploadService {
     required String studentCode,
     required String sessionCode,
     required String assetCode,
+    required String schoolCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentProfilePhotoFinalizePath(studentCode),
@@ -430,11 +431,186 @@ class ImageUploadService {
     if (data is! Map<String, dynamic>) {
       throw Exception('Missing finalize response data');
     }
+    final finalizedAssetCode =
+        (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
+            .toString()
+            .trim();
+    final effectiveAssetCode =
+        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
     final url = (data['url'] ?? '').toString().trim();
     if (url.isEmpty) {
-      throw Exception('Profile photo URL missing after finalize');
+      final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
+        assetCode: effectiveAssetCode,
+      );
+      if (mediaAssetUrl.isNotEmpty) {
+        return mediaAssetUrl;
+      }
+      await _waitForStudentAssetMappingAfterFinalize(
+        studentCode: studentCode,
+        schoolCode: schoolCode,
+        expectedAssetCode: effectiveAssetCode,
+      );
+      final resolvedUrl = await _waitForStudentProfilePhotoUrl(
+        studentCode: studentCode,
+      );
+      if (resolvedUrl.isEmpty) {
+        throw Exception('Profile photo URL missing after finalize');
+      }
+      return resolvedUrl;
     }
     return url;
+  }
+
+  Future<String> _waitForDocumentAssetUrlByCode({
+    required String assetCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final normalizedAssetCode = assetCode.trim();
+    if (normalizedAssetCode.isEmpty) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      try {
+        final endpoint =
+            '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
+            '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
+        final response = await _apiClient.client.get<dynamic>(endpoint);
+        final body = response.data;
+        final resolved = _extractDocumentAssetUrl(body);
+        if (resolved.isNotEmpty) return resolved;
+      } catch (_) {
+        // Keep retrying for eventual consistency after finalize.
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  String _extractDocumentAssetUrl(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+
+    String pickFromMap(Map map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+        map['thumbnailUrl'],
+        map['originalDownloadUrl'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final direct = pickFromMap(data);
+    if (direct.isNotEmpty) return direct;
+
+    final variants = data['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final defaultVariant =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!defaultVariant) continue;
+        final fromDefault = pickFromMap(row);
+        if (fromDefault.isNotEmpty) return fromDefault;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final any = pickFromMap(row);
+        if (any.isNotEmpty) return any;
+      }
+    }
+    return '';
+  }
+
+  Future<void> _waitForStudentAssetMappingAfterFinalize({
+    required String studentCode,
+    required String schoolCode,
+    required String expectedAssetCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentProfilePhotoAssetCodes,
+      ApiConstants.studentBaseUrl,
+    );
+    final deadline = DateTime.now().add(timeout);
+    final normalizedStudent = studentCode.trim().toUpperCase();
+    final normalizedExpectedAsset = expectedAssetCode.trim().toUpperCase();
+    while (true) {
+      try {
+        final response = await _apiClient.client.get<dynamic>(
+          endpoint,
+          queryParameters: <String, dynamic>{
+            'schoolCode': schoolCode.trim(),
+            'studentCode': studentCode.trim(),
+          },
+        );
+        final body = response.data;
+        if (body is Map<String, dynamic> && body['success'] != false) {
+          final data = body['data'];
+          if (data is List) {
+            final matched = data.cast<dynamic>().whereType<Map>().firstWhere(
+              (row) =>
+                  (row['studentCode'] ?? '').toString().trim().toUpperCase() ==
+                  normalizedStudent,
+              orElse: () => <String, dynamic>{},
+            );
+            final mappedAssetCode =
+                (matched['assetCode'] ?? '').toString().trim().toUpperCase();
+            if (mappedAssetCode.isNotEmpty &&
+                (normalizedExpectedAsset.isEmpty ||
+                    mappedAssetCode == normalizedExpectedAsset)) {
+              return;
+            }
+          }
+        }
+      } catch (_) {
+        // Do not fail fast on transient read-after-write lag or temporary fetch issues.
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        // Mapping can be eventually consistent; continue and let profile URL polling decide readiness.
+        return;
+      }
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> _waitForStudentProfilePhotoUrl({
+    required String studentCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.studentProfile(studentCode),
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await _apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          final candidates = <dynamic>[
+            data['profilePhotoUrl'],
+            data['photoUrl'],
+            data['profileImageUrl'],
+            data['imageUrl'],
+            data['url'],
+          ];
+          for (final raw in candidates) {
+            final value = (raw ?? '').toString().trim();
+            if (value.isNotEmpty) return value;
+          }
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
   }
 }
 

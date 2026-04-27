@@ -396,6 +396,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         studentCode: studentCode,
         sessionCode: sessionCode,
         assetCode: presign.assetCode,
+        schoolCode: resolvedSchoolCode,
       );
 
       DocumentImageWidget.clearProfilePhotoCache(
@@ -586,16 +587,64 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           fontSize: 24,
                         ),
                         if (_isUploadingProfilePhoto)
-                          const Positioned.fill(
-                            child: ColoredBox(
-                              color: Color(0x66000000),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xB3241631),
+                                borderRadius: BorderRadius.circular(45),
+                              ),
                               child: Center(
-                                child: SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
+                                child: Container(
+                                  width: 72,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.16),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.22),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${_profilePhotoUploadPercent.clamp(0, 100)}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(999),
+                                        child: LinearProgressIndicator(
+                                          value: (_profilePhotoUploadPercent / 100)
+                                              .clamp(0.0, 1.0),
+                                          minHeight: 4,
+                                          backgroundColor:
+                                              Colors.white.withOpacity(0.22),
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                            AppColors.mustardProgressBar,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _profilePhotoUploadPercent >= 100
+                                            ? 'Finalizing'
+                                            : 'Uploading',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.92),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

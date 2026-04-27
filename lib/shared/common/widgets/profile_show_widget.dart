@@ -236,7 +236,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       );
       final response = await apiClient.client.get<dynamic>(endpoint);
       final data = _extractDataMap(response.data);
-      return _extractPhotoUrl(data);
+      final directUrl = _extractPhotoUrl(data);
+      if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
+
+      String assetCode = _extractAssetCode(data);
+      if (assetCode.isEmpty) {
+        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        assetCode = await _fetchStudentProfilePhotoAssetCode(
+          studentCode: studentCode,
+          schoolCode: schoolCode,
+        );
+      }
+      if (assetCode.isEmpty) return null;
+      final documentUrl = await _fetchDocumentAssetUrl(assetCode);
+      return documentUrl.isEmpty ? null : documentUrl;
     }
     if (staffCode.isNotEmpty) {
       final endpoint = ApiPaths.urlWithBase(
@@ -245,7 +258,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       );
       final response = await apiClient.client.get<dynamic>(endpoint);
       final data = _extractDataMap(response.data);
-      return _extractPhotoUrl(data);
+      final directUrl = _extractPhotoUrl(data);
+      if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
+
+      final assetCode = _extractAssetCode(data);
+      if (assetCode.isEmpty) return null;
+      final documentUrl = await _fetchDocumentAssetUrl(assetCode);
+      return documentUrl.isEmpty ? null : documentUrl;
     }
     return null;
   }
@@ -272,6 +291,112 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (value.isNotEmpty) return value;
     }
     return null;
+  }
+
+  String _extractAssetCode(Map<String, dynamic>? data) {
+    if (data == null) return '';
+    final candidates = <dynamic>[
+      data['profilePhotoAssetCode'],
+      data['photoAssetCode'],
+      data['assetCode'],
+    ];
+    for (final raw in candidates) {
+      final value = (raw ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  Future<String> _fetchStudentProfilePhotoAssetCode({
+    required String studentCode,
+    required String schoolCode,
+  }) async {
+    final normalizedStudent = studentCode.trim();
+    final normalizedSchool = schoolCode.trim();
+    if (normalizedStudent.isEmpty || normalizedSchool.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.studentProfilePhotoAssetCodes,
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'schoolCode': normalizedSchool,
+          'studentCode': normalizedStudent,
+        },
+      );
+      final body = response.data;
+      if (body is! Map) return '';
+      final data = body['data'];
+      if (data is! List) return '';
+      final match = data.whereType<Map>().firstWhere(
+        (row) =>
+            (row['studentCode'] ?? '').toString().trim().toUpperCase() ==
+            normalizedStudent.toUpperCase(),
+        orElse: () => <String, dynamic>{},
+      );
+      return (match['assetCode'] ?? '').toString().trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<String> _fetchDocumentAssetUrl(String assetCode) async {
+    final normalizedAssetCode = assetCode.trim();
+    if (normalizedAssetCode.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint =
+          '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
+          '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
+      final response = await apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      return _extractDocumentAssetUrl(body);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _extractDocumentAssetUrl(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+
+    String pickUrl(Map map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+        map['thumbnailUrl'],
+        map['originalDownloadUrl'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final direct = pickUrl(data);
+    if (direct.isNotEmpty) return direct;
+
+    final variants = data['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final defaultVariant =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!defaultVariant) continue;
+        final url = pickUrl(row);
+        if (url.isNotEmpty) return url;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final url = pickUrl(row);
+        if (url.isNotEmpty) return url;
+      }
+    }
+    return '';
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {

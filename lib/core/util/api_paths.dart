@@ -341,6 +341,8 @@ class ApiPaths {
       '$studentList/$studentCode/profile-photo/upload-session';
   static String studentProfilePhotoFinalizePath(String studentCode) =>
       '$studentList/$studentCode/profile-photo/finalize';
+  static const String studentProfilePhotoAssetCodes =
+      '/api/v1/student/profile-photo/asset-codes';
   static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
 
@@ -563,6 +565,8 @@ class ApiPaths {
 
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
+  static String documentMediaAssetByCodePath(String assetCode) =>
+      '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>
