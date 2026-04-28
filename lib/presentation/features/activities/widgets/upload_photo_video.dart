@@ -1188,10 +1188,16 @@ class _MediaUploaderState extends State<MediaUploader> {
     if (remaining <= 0 && widget.autoReplaceFirstPhotoWhenMaxReached) {
       final replacement = candidates.first;
       setState(() {
-        _newPhotos
-          ..clear()
-          ..add(replacement);
-        _existingPhotoUrls.clear();
+        // Replace the first photo in the current list (keep others).
+        // Prefer replacing a newly selected photo; otherwise replace the first existing URL.
+        if (_newPhotos.isNotEmpty) {
+          _newPhotos[0] = replacement;
+        } else if (_existingPhotoUrls.isNotEmpty) {
+          _existingPhotoUrls.removeAt(0);
+          _newPhotos.insert(0, replacement);
+        } else {
+          _newPhotos.add(replacement);
+        }
         _currentType = MediaType.photos;
       });
       _notifyParent();

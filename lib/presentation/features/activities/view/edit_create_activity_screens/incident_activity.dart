@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -28,6 +29,8 @@ import '../../../../../domain/features/activity/usecases/get_classroom_activity_
 import '../../../../../domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
 import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../../../../domain/features/activity/repositories/activity_repository.dart';
+import '../../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -103,6 +106,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String _staffSignerRawValue = '';
   String _adminSignerRawValue = '';
   String _parentSignerRawValue = '';
+  final Map<String, String> _guardianNameByCode = {};
   bool _loadingActivityDetail = false;
   bool _isGuardianPersona = false;
   bool _hasGuardianAcknowledgedLocally = false;
@@ -131,6 +135,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final ApproveActivityUseCase _approveActivityUseCase;
   late final RejectActivityUseCase _rejectActivityUseCase;
   late final ImageUploadService _imageUploadService;
+  late final GetGuardianNameCodeMapForSchoolUseCase
+      _getGuardianNameCodeMapForSchoolUseCase;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -212,6 +218,46 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return fallback;
     }
     return v;
+  }
+
+  String _guardianDisplayNameForCode(String raw, {String fallback = ''}) {
+    final code = raw.trim();
+    if (code.isEmpty) return fallback;
+    final mapped = _guardianNameByCode[code];
+    if (mapped != null && mapped.trim().isNotEmpty) return mapped.trim();
+    return fallback.isNotEmpty ? fallback : code;
+  }
+
+  Future<void> _primeGuardianNamesFromCodes(Iterable<String> codes) async {
+    // Needed for rendering "Parent Present" in view-only mode for any persona
+    // (guardian/staff/admin). Do not gate this by _isGuardianPersona.
+    final school = (_schoolCode ?? '').trim();
+    if (school.isEmpty) return;
+    final wanted = codes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (wanted.isEmpty) return;
+    if (wanted.every(_guardianNameByCode.containsKey)) return;
+    try {
+      final nameToCode = await _getGuardianNameCodeMapForSchoolUseCase(
+        schoolCode: school,
+      );
+      if (!mounted) return;
+      _guardianNameByCode
+        ..clear();
+      for (final entry in nameToCode.entries) {
+        final name = entry.key.trim();
+        final code = entry.value.trim();
+        if (name.isNotEmpty && code.isNotEmpty) {
+          _guardianNameByCode[code] = name;
+        }
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Non-blocking; fallback to showing code.
+    }
   }
 
   List<Map<String, dynamic>> _incidentSignerParameterValuesForPatch({
@@ -398,14 +444,19 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
+    // Note: hot-reload doesn't rerun DI setup; avoid crashing if not registered yet.
     _guardianParentSignatureUseCase =
-        serviceLocator<GuardianParentSignatureUseCase>();
+        serviceLocator.isRegistered<GuardianParentSignatureUseCase>()
+            ? serviceLocator<GuardianParentSignatureUseCase>()
+            : GuardianParentSignatureUseCase(serviceLocator<ActivityRepository>());
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
     _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _imageUploadService = serviceLocator<ImageUploadService>();
+    _getGuardianNameCodeMapForSchoolUseCase =
+        serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -770,6 +821,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           } catch (_) {}
         }
       });
+      unawaited(_primeGuardianNamesFromCodes([parentSignRaw]).catchError((_) {}));
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -800,6 +852,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
+    unawaited(
+      _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
+    );
   }
 
   Future<void> _onAcknowledgePressed() async {
@@ -846,6 +901,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _isParentSigned = true;
         _parentSignerRawValue = parentSignerCode;
       });
+      unawaited(
+        _primeGuardianNamesFromCodes([parentSignerCode]).catchError((_) {}),
+      );
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Acknowledged successfully',
@@ -2038,9 +2096,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
-                final isParentAcknowledgementView =
-                    _isGuardianPersona && widget.readOnly;
-                if (isParentAcknowledgementView) {
+                // View-only layout: show the same signer blocks for all personas
+                // (guardian/staff/admin) with interactions disabled.
+                final isReadOnlyView = widget.readOnly;
+                if (isReadOnlyView) {
                   final staffDisplayCode = _staffPresentRawValue.trim().isNotEmpty
                       ? _staffPresentRawValue.trim()
                       : (_staffSignerRawValue.trim().isNotEmpty
@@ -2081,25 +2140,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                       StaffPresentWidget(
                         key: const ValueKey('incident_parent_sign_only'),
                         fieldLabel: 'Parent Present',
+                        // Never show logged-in staff/admin name here.
                         staffName: _parentSignerRawValue.trim().isNotEmpty
-                            ? _parentSignerRawValue.trim()
-                            : (_staffName.trim().isEmpty
-                                  ? 'Parent'
-                                  : _staffName),
+                            ? _guardianDisplayNameForCode(
+                                _parentSignerRawValue.trim(),
+                                fallback: 'Parent',
+                              )
+                            : 'Parent',
                         isEditable: false,
                         isAlreadySigned: _hasParentSignedForAction,
-                        clickToSignEditable: !_isAcknowledged,
+                        clickToSignEditable: false,
                         showSignCheckbox: true,
-                        prefillWithStaffName: true,
                         incidentActivity: true,
-                        onSigned: (value) {
-                          setState(() {
-                            _isParentSigned = value;
-                            if (value) {
-                              _parentSignerRawValue = _staffName.trim();
-                            }
-                          });
-                        },
                       ),
                     ],
                   );
@@ -2137,9 +2189,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 );
               },
             ),
-            if (widget.isEdit && _isAdminDesignation)
+            if (widget.isEdit && _isAdminDesignation && !widget.readOnly)
               const SizedBox(height: 16),
-            if (widget.isEdit && _isAdminDesignation)
+            if (widget.isEdit && _isAdminDesignation && !widget.readOnly)
               StaffPresentWidget(
                 key: const ValueKey('incident_admin_present'),
                 fieldLabel: 'Admin Present',
