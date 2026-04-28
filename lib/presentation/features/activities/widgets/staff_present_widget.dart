@@ -20,6 +20,9 @@ class StaffPresentWidget extends StatefulWidget {
     this.isAlreadySigned = false,
     this.clickToSignEditable,
     this.fieldLabel = 'Staff Present',
+    this.showSignCheckbox = true,
+    this.signActionLabel = 'Click to sign',
+    this.prefillWithStaffName = false,
   });
   final String staffName;
   final bool isEditable;
@@ -28,6 +31,9 @@ class StaffPresentWidget extends StatefulWidget {
   final bool isAlreadySigned;
   final bool? clickToSignEditable;
   final String fieldLabel;
+  final bool showSignCheckbox;
+  final String signActionLabel;
+  final bool prefillWithStaffName;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -82,6 +88,16 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     staffList = [
       ...ordered,
     ];
+    if (widget.prefillWithStaffName && name.isNotEmpty) {
+      selectedStaff = staffList.firstWhere(
+        (s) => s.toLowerCase() == name.toLowerCase(),
+        orElse: () => name,
+      );
+      if (!staffList.any((s) => s.toLowerCase() == selectedStaff!.toLowerCase())) {
+        staffList = [selectedStaff!, ...staffList];
+      }
+      return;
+    }
     final current = (selectedStaff ?? '').trim();
     if (current.isNotEmpty &&
         staffList.any((s) => s.toLowerCase() == current.toLowerCase())) {
@@ -184,19 +200,21 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
               ),
             ),
             if (widget.incidentActivity)
-              CheckboxWidget(
-                label: 'Click to sign',
-                isEditable: signEditable,
-                isChecked: clickToSign,
-                onChecked: signEditable
-                    ? (newValue) {
-                        setState(() {
-                          clickToSign = newValue;
-                        });
-                        widget.onSigned?.call(newValue);
-                      }
-                    : null,
-              ),
+              widget.showSignCheckbox
+                  ? CheckboxWidget(
+                      label: widget.signActionLabel,
+                      isEditable: signEditable,
+                      isChecked: clickToSign,
+                      onChecked: signEditable
+                          ? (newValue) {
+                              setState(() {
+                                clickToSign = newValue;
+                              });
+                              widget.onSigned?.call(newValue);
+                            }
+                          : null,
+                    )
+                  : const SizedBox.shrink(),
           ],
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),

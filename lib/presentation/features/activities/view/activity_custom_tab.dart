@@ -390,6 +390,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return null;
   }
 
+  bool _isAttendanceEventLabel(String value) {
+    return value == 'Sign-in' || value == 'Sign-out' || value == 'Transfer';
+  }
+
+  bool _shouldIncludeAttendanceEntries() {
+    if (_filterActivityTypes.isNotEmpty) {
+      return _filterActivityTypes
+          .map((e) => e.trim())
+          .any(_isAttendanceEventLabel);
+    }
+    final single = _selectedActivityType?.trim();
+    if (single == null || single.isEmpty) return true;
+    return _isAttendanceEventLabel(single);
+  }
+
   List<String>? _selectedStudentCodesForAttendanceFilter() {
     final selectedNames = _selectedStudents.isNotEmpty
         ? _selectedStudents
@@ -470,6 +485,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<ActivityItem> _itemsFromAttendancePage(StudentAttendanceDailyPage page) {
+    if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
     final eventFilter = _selectedAttendanceEventFilter();
     final selectedClassroomName = _selectdClassroom;
     final selectedClassroomCode = selectedClassroomName != null
@@ -2694,8 +2710,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                   activity.approvalStatus,
                                                 ) !=
                                                 null;
+                                            final canOpenEdit =
+                                                hasStatusBadge &&
+                                                isNotParent &&
+                                                widget.allowActivityWrite &&
+                                                canEditActivityItem(
+                                                  activity,
+                                                  isAdminPersona: _isAdminPersona,
+                                                );
                                             final destinationBuilder =
-                                                hasStatusBadge
+                                                canOpenEdit
                                                 ? editActivityRoutes[activity.name]
                                                 : activityRoutes[activity.name];
                                             if (destinationBuilder != null) {
@@ -2969,7 +2993,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                         }
                                                                       },
                                                                     ),
-                                                                    if (widget
+                                                                    if (isNotParent &&
+                                                                            widget
                                                                             .allowActivityWrite &&
                                                                         canEditActivityItem(
                                                                           activity,
@@ -3071,7 +3096,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                         },
                                                                       ),
                                                                     ],
-                                                                    if (widget
+                                                                    if (isNotParent &&
+                                                                            widget
                                                                             .allowActivityWrite &&
                                                                         canDeleteActivityItem(
                                                                           activity,
