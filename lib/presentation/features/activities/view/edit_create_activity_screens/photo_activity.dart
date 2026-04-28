@@ -1209,6 +1209,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
                   readOnly: widget.readOnly,
+                  autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
                   onMediaChanged:
                       _layoutAsEdit && !_canInteract ? null : _onMediaChanged,
                   initialPhotoUrls:
@@ -1304,7 +1305,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                       onApprove: _approvePendingActivity,
                       onReject: _rejectPendingActivity,
                     ),
-                    CustomButtonLayout(
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
                       confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
                       onPressedConfirm: _onSaveOrAddPressed,
                       showCancelButton: false,

@@ -1228,6 +1228,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   readOnly: widget.readOnly,
                   isPictureBox: false,
                   limit: 2,
+                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
                   label: 'Upload Photo',
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
@@ -1274,7 +1275,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                       onApprove: _approvePendingActivity,
                       onReject: _rejectPendingActivity,
                     ),
-                    CustomButtonLayout(
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
                       confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
                       onPressedConfirm: _onSaveOrAddPressed,
                       showCancelButton: false,

@@ -978,6 +978,7 @@ class MediaUploader extends StatefulWidget {
     this.isPictureBox = true,
     this.photoSizeLimit,
     this.readOnly = false,
+    this.autoReplaceFirstPhotoWhenMaxReached = false,
   });
 
   final List<File>? initialPhotos;
@@ -1003,6 +1004,7 @@ class MediaUploader extends StatefulWidget {
   final bool isPictureBox;
   final int? photoSizeLimit;
   final bool readOnly;
+  final bool autoReplaceFirstPhotoWhenMaxReached;
 
   @override
   State<MediaUploader> createState() => _MediaUploaderState();
@@ -1157,10 +1159,6 @@ class _MediaUploaderState extends State<MediaUploader> {
 
     final totalCurrentPhotos = _newPhotos.length + _existingPhotoUrls.length;
     final remaining = maxPhotos - totalCurrentPhotos;
-    if (remaining <= 0) {
-      _showWarning('Maximum $maxPhotos photos allowed.');
-      return;
-    }
 
     List<File> candidates = [];
     if (source == ImageSource.camera) {
@@ -1186,6 +1184,24 @@ class _MediaUploaderState extends State<MediaUploader> {
     }
 
     if (candidates.isEmpty) return;
+
+    if (remaining <= 0 && widget.autoReplaceFirstPhotoWhenMaxReached) {
+      final replacement = candidates.first;
+      setState(() {
+        _newPhotos
+          ..clear()
+          ..add(replacement);
+        _existingPhotoUrls.clear();
+        _currentType = MediaType.photos;
+      });
+      _notifyParent();
+      return;
+    }
+
+    if (remaining <= 0) {
+      _showWarning('Maximum $maxPhotos photos allowed.');
+      return;
+    }
 
     if (source == ImageSource.gallery && candidates.length > remaining) {
       _showWarning('You can only select up to $maxPhotos photos.');

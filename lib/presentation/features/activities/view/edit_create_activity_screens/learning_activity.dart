@@ -1578,6 +1578,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   readOnly: widget.readOnly,
                   isPictureBox: false,
                   limit: 2,
+                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
                       : (_effectiveActivity.photoUrl != null &&
@@ -1625,7 +1626,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                       onApprove: _approvePendingActivity,
                       onReject: _rejectPendingActivity,
                     ),
-                    CustomButtonLayout(
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
                       confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
                       onPressedConfirm: _onPressedBottom,
                       showCancelButton: false,

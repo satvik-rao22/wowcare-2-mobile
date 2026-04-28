@@ -1043,7 +1043,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                       onApprove: _approvePendingActivity,
                       onReject: _rejectPendingActivity,
                     ),
-                    CustomButtonLayout(
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
                       confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
                       onPressedConfirm: _onSaveOrAddPressed,
                       showCancelButton: false,

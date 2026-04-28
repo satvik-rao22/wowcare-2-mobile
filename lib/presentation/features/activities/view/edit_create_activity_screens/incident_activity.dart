@@ -20,12 +20,12 @@ import '../../../../../core/util/guardian_code_resolver.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
 import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -97,6 +97,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool _isAcknowledging = false;
   bool _isApprovingOrRejecting = false;
   bool _isAdminSigned = false;
+  bool _adminSignedThisSession = false;
   bool _isParentSigned = false;
   String _staffPresentRawValue = '';
   String _staffSignerRawValue = '';
@@ -123,7 +124,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final AcknowledgeActivityUseCase _acknowledgeActivityUseCase;
+  late final GuardianParentSignatureUseCase _guardianParentSignatureUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
@@ -140,18 +141,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _isAcknowledged =>
       _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
   bool get _hasParentSignedForAction => _isAcknowledged || _isParentSigned;
-  bool get _isIncidentAuthoredByCurrentAdmin {
-    if (!_layoutAsEdit || !_isAdminDesignation) return false;
-    final present = _staffPresentRawValue.trim().toUpperCase();
-    final me = (_staffCode ?? '').trim().toUpperCase();
-    return present.isNotEmpty && me.isNotEmpty && present == me;
-  }
-
-  bool get _needsSeparateAdminSign =>
-      _isAdminDesignation && !_isIncidentAuthoredByCurrentAdmin;
 
   bool get _showGuardianAcknowledgeButton {
-    if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
+    if (!widget.readOnly || !_isGuardianPersona) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
     if (code.isEmpty) return false;
     return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
@@ -406,7 +398,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
-    _acknowledgeActivityUseCase = serviceLocator<AcknowledgeActivityUseCase>();
+    _guardianParentSignatureUseCase =
+        serviceLocator<GuardianParentSignatureUseCase>();
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
@@ -469,7 +462,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _approvePendingActivity() async {
-    if (_needsSeparateAdminSign && !_isAdminSigned) {
+    if (!_isAdminSigned || !_adminSignedThisSession) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please sign in Admin Present before approving.',
@@ -503,6 +496,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _rejectPendingActivity() async {
+    if (!_isAdminSigned || !_adminSignedThisSession) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before rejecting.',
+        isWarning: true,
+      );
+      return;
+    }
     final code = _effectiveActivity.activityCode?.trim();
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
@@ -739,6 +740,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _addNotesController.text = item.additionalNotes ?? '';
         _isSigned = staffSigned ?? _isSigned;
         _isAdminSigned = adminSigned ?? _isAdminSigned;
+        // Force explicit click-to-sign in this screen session for admin actions.
+        _adminSignedThisSession = false;
         _isParentSigned = parentSigned ?? _isParentSigned;
         _staffPresentRawValue = staffPresentRaw;
         _staffSignerRawValue = staffSignRaw;
@@ -814,10 +817,35 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     setState(() => _isAcknowledging = true);
     try {
-      await _patchParentSignBeforeAcknowledge();
-      await _acknowledgeActivityUseCase(code: code);
+      if (!_isGuardianPersona) return;
+      final parentSignerCode = await _resolveParentSignerCode();
+      if (parentSignerCode.isEmpty) {
+        throw Exception('Unable to resolve guardian code');
+      }
+      final activityTypeCode = (_activityTypeCode ?? '').trim();
+      if (activityTypeCode.isEmpty) {
+        throw Exception('Unable to resolve activity type for parent signature');
+      }
+      final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final parentSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Parent'],
+        contains: const ['click to sign - parent'],
+      );
+      if (parentSignParamCode == null || parentSignParamCode.trim().isEmpty) {
+        throw Exception('Parent signature parameter is not configured');
+      }
+      await _guardianParentSignatureUseCase(
+        code: code,
+        parameterCode: parentSignParamCode.trim(),
+        guardianCode: parentSignerCode,
+      );
       if (!mounted) return;
-      setState(() => _hasGuardianAcknowledgedLocally = true);
+      setState(() {
+        _hasGuardianAcknowledgedLocally = true;
+        _isParentSigned = true;
+        _parentSignerRawValue = parentSignerCode;
+      });
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Acknowledged successfully',
@@ -834,96 +862,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (mounted) {
         setState(() => _isAcknowledging = false);
       }
-    }
-  }
-
-  Future<void> _patchParentSignBeforeAcknowledge() async {
-    final code = (_effectiveActivity.activityCode ?? '').trim();
-    if (code.isEmpty) return;
-    if (!_isGuardianPersona) return;
-    if (_isAcknowledged) return;
-
-    final activityTypeCode = (_activityTypeCode ?? '').trim();
-    if (activityTypeCode.isEmpty) return;
-
-    final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
-    DateTime? d = _activityDate;
-    TimeOfDay? t = _activityTime;
-    if ((d == null || t == null) &&
-        (_effectiveActivity.activityDateIso ?? '').trim().isNotEmpty) {
-      try {
-        final dt = activityDateTimeForDisplayFromIso(
-          _effectiveActivity.activityDateIso!.trim(),
-        );
-        d ??= DateTime(dt.year, dt.month, dt.day);
-        t ??= TimeOfDay(hour: dt.hour, minute: dt.minute);
-      } catch (_) {}
-    }
-    if (d == null || t == null) return;
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: d,
-      time: t,
-    );
-    final staffCodeForPatch = _staffPresentRawValue.trim().isNotEmpty
-        ? _staffPresentRawValue.trim()
-        : (_staffCode ?? '').trim();
-    if (staffCodeForPatch.isEmpty) return;
-
-    final description =
-        _descriptionController.text.trim().isNotEmpty
-        ? _descriptionController.text.trim()
-        : ((_effectiveActivity.whatHappened ??
-              _effectiveActivity.description ??
-              '')
-              .trim());
-    if (description.isEmpty) return;
-
-    final studentCodes = _selectedStudentsData
-        .map((e) => (e['studentCode'] ?? e['code'] ?? '').toString().trim())
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-    if (studentCodes.isEmpty) {
-      final sc = (_effectiveActivity.studentCode ?? '').trim();
-      if (sc.isNotEmpty) studentCodes.add(sc);
-    }
-
-    final parentSignerCode = await _resolveParentSignerCode();
-    if (parentSignerCode.isEmpty) return;
-    final creatorStaffCodeForIncident = _staffPresentRawValue.trim().isNotEmpty
-        ? _staffPresentRawValue.trim()
-        : staffCodeForPatch;
-    final parameterValues = _incidentSignerParameterValuesForPatch(
-      parameters: details.parameters,
-      staffPresentCode: creatorStaffCodeForIncident,
-      staffSignerCode:
-          _staffSignerRawValue.trim().isNotEmpty
-          ? _staffSignerRawValue
-          : (_isSigned ? creatorStaffCodeForIncident : null),
-      adminSignerCode:
-          _adminSignerRawValue.trim().isNotEmpty ? _adminSignerRawValue : null,
-      parentSignerCode: parentSignerCode,
-    );
-    if (parameterValues.isEmpty) return;
-    _debugIncidentParameterValues('parentAcknowledgePatch', parameterValues);
-
-    await _updateActivityUseCase(
-      code: code,
-      studentCodes: studentCodes,
-      applyToStudentCodes: studentCodes,
-      staffCode: staffCodeForPatch,
-      activityDate: activityDateIso,
-      description: description,
-      parameterValues: parameterValues,
-      attachments: const [],
-    );
-
-    if (mounted) {
-      setState(() {
-        _isParentSigned = true;
-        _parentSignerRawValue = parentSignerCode;
-      });
     }
   }
 
@@ -1331,6 +1269,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please click to sign',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_isAdminDesignation && !_isAdminSigned) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before saving.',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_isAdminDesignation && !_adminSignedThisSession) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before saving.',
         isWarning: true,
       );
       return;
@@ -1798,10 +1752,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 2) {
+    if (photoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 2 photos can be attached.',
+        message: 'Maximum 1 photo can be attached.',
         isError: true,
       );
       return;
@@ -2183,9 +2137,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 );
               },
             ),
-            if (widget.isEdit && _needsSeparateAdminSign)
+            if (widget.isEdit && _isAdminDesignation)
               const SizedBox(height: 16),
-            if (widget.isEdit && _needsSeparateAdminSign)
+            if (widget.isEdit && _isAdminDesignation)
               StaffPresentWidget(
                 key: const ValueKey('incident_admin_present'),
                 fieldLabel: 'Admin Present',
@@ -2198,6 +2152,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 onSigned: (value) {
                   setState(() {
                     _isAdminSigned = value;
+                    _adminSignedThisSession = value;
                     if (value) {
                       _adminSignerRawValue = (_staffCode ?? '').trim();
                     }
@@ -2239,7 +2194,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   allowPhoto: true,
                   readOnly: widget.readOnly,
                   isPictureBox: false,
-                  limit: 2,
+                  limit: 1,
+                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
                   photoSizeLimit: 20,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
@@ -2258,7 +2214,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: 2,
+                limit: 1,
                 photoSizeLimit: 20,
                 label: 'Photos',
                 onMediaChanged: _onMediaChanged,
@@ -2303,7 +2259,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                       onApprove: _approvePendingActivity,
                       onReject: _rejectPendingActivity,
                     ),
-                    CustomButtonLayout(
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
                       confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
                       onPressedConfirm: _onSaveOrAddPressed,
                       showCancelButton: false,

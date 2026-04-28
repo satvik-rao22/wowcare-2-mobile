@@ -271,6 +271,21 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<String> guardianParentSignature({
+    required String code,
+    required String parameterCode,
+    required String guardianCode,
+  }) async {
+    final message = await _remoteDataSource.guardianParentSignature(
+      cardGroupCode: code,
+      parameterCode: parameterCode,
+      guardianCode: guardianCode,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
   Future<String> createActivity({
     required String activityTypeCode,
     required String classroomCode,

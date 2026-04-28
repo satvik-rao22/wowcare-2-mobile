@@ -85,6 +85,13 @@ abstract class ActivityRepository {
   /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
   Future<String> acknowledgeActivity({required String code});
 
+  /// `PATCH /api/v2/guardian/activities/{cardGroupCode}/parent-signature`.
+  Future<String> guardianParentSignature({
+    required String code,
+    required String parameterCode,
+    required String guardianCode,
+  });
+
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required String activityTypeCode,

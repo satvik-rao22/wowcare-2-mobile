@@ -565,7 +565,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
     } catch (_) {}
 
-    if (hydratedClassroomsFromCache && mounted) {
+    // For unrestricted personas (admin), continue to API refresh so stale
+    // staff-scoped cache cannot lock the dropdown.
+    if (hydratedClassroomsFromCache &&
+        mounted &&
+        _allowedClassroomCodes.isNotEmpty) {
       await _loadDailyFeed(refresh: false);
       unawaited(
         _reloadStudentsAndSettings(forceRefreshApis: false).catchError((_) {}),
@@ -640,7 +644,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         }
       });
       await _cacheManager.saveCache(classroomCacheKey, {
-        'classrooms': scoped
+        // Persist full school classrooms; apply staff scope only at runtime.
+        'classrooms': classrooms
             .map((c) => {'name': c.name, 'code': c.code})
             .toList(),
       });

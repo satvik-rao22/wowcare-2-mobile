@@ -39,6 +39,13 @@ abstract class ActivityRemoteDataSource {
   /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
   Future<String> acknowledgeActivity({required String cardGroupCode});
 
+  /// `PATCH /api/v2/guardian/activities/{cardGroupCode}/parent-signature`.
+  Future<String> guardianParentSignature({
+    required String cardGroupCode,
+    required String parameterCode,
+    required String guardianCode,
+  });
+
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
@@ -302,6 +309,34 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       return message.trim();
     }
     return 'Activity acknowledged successfully';
+  }
+
+  @override
+  Future<String> guardianParentSignature({
+    required String cardGroupCode,
+    required String parameterCode,
+    required String guardianCode,
+  }) async {
+    final endpoint = ApiPaths.url(
+      ApiPaths.guardianParentSignatureActivity(cardGroupCode),
+    );
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'parameterCode': parameterCode.trim(),
+        'value': guardianCode.trim(),
+        'valueText': guardianCode.trim(),
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian-parent-signature API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity signed successfully';
   }
 
   @override
