@@ -102,6 +102,27 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<List<StaffMember>> getStaffListBySchool({
+    required String schoolCode,
+  }) async {
+    final models = await _remoteDataSource.getStaffListBySchool(
+      schoolCode: schoolCode,
+    );
+    return models
+        .map((m) => StaffMember(
+              code: m.staffCode,
+              name: m.fullName,
+              primaryClassroomCode: '',
+              allowedClassroomCodes: const [],
+              designation: '',
+              phoneNumber: '',
+              status: 'ACTIVE',
+              email: '',
+            ))
+        .toList();
+  }
+
+  @override
   Future<StaffPage> getStaffPage({
     required String organizationCode,
     required String schoolCode,
@@ -507,6 +528,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       clockPin: model.clockPin,
       primaryClassroomCode: model.primaryClassroomCode,
       allowedClassroomCodes: model.allowedClassroomCodes,
+      allowedClassrooms: model.allowedClassrooms
+          .map((m) => AllowedClassroom(code: m.code, name: m.name))
+          .toList(),
       address: StaffProfileAddress(
         street: model.address.street,
         line2: model.address.line2,

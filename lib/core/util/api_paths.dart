@@ -183,6 +183,7 @@ class ApiPaths {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
@@ -266,6 +267,7 @@ class ApiPaths {
   static const String staffClassroomsAssignStaff =
       '/api/v1/staff-classrooms/assign-staff';
   static const String staffCount = '/api/v1/staff/count';
+  static String staffListBySchool(String schoolCode) => '/api/v1/staff/$schoolCode/list';
   static String get staffProfile => staffList;
 
   static const String staffMyProfile = '/api/v1/staff/my-profile';
@@ -296,6 +298,7 @@ class ApiPaths {
       '$staffClassrooms/$staffCode/primary-classroom';
 
   static const String staffSchedules = '/api/v1/staff-schedules';
+  static const String staffShifts = '/api/v1/staff-shifts';
 
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';

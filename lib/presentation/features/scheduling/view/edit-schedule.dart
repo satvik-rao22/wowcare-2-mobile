@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -13,52 +12,41 @@ import '../../../../shared/common/widgets/custom_repeat_on_days_selector.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../cubit/schedule_form_cubit.dart';
 import '../cubit/schedule_form_state.dart';
-import 'publish-shift-schedule.dart';
+import 'edit-shift-permission.dart';
 
-class AddShiftScreen extends StatelessWidget {
-  const AddShiftScreen({super.key});
+class EditShiftScreen extends StatelessWidget {
+  const EditShiftScreen({super.key});
 
-  static const String routeName = '/add-shift';
+  static const String routeName = '/edit-shift';
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => serviceLocator<ScheduleFormCubit>(),
-      child: const AddShiftForm(),
+      child: const EditShiftForm(),
     );
   }
 }
 
-class AddShiftForm extends StatefulWidget {
-  const AddShiftForm({super.key});
+class EditShiftForm extends StatefulWidget {
+  const EditShiftForm({super.key});
 
   @override
-  State<AddShiftForm> createState() => _AddShiftFormState();
+  State<EditShiftForm> createState() => _EditShiftFormState();
 }
 
-class _AddShiftFormState extends State<AddShiftForm> {
-  bool _isSubmitting = false;
-
-  void _onNext() {
-    setState(() {
-      Navigator.pushNamed(context, PublishShiftScheduleScreen.routeName);
-      _isSubmitting = false;
-    });
-  }
-
+class _EditShiftFormState extends State<EditShiftForm> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocListener<ScheduleFormCubit, ScheduleFormState>(
       listener: (context, state) {
         if (state is ScheduleFormSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Shift added successfully')),
+            const SnackBar(content: Text('Shift updated successfully')),
           );
-          Navigator.pop(context);
+          Navigator.pushNamed(context, EditShiftScheduleScreen.routeName);
         } else if (state is ScheduleFormError) {
           ScaffoldMessenger.of(
             context,
@@ -69,35 +57,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
         builder: (context, state) {
           return GlobalScaffold(
             hasBackButton: true,
-            customButtonLayout: Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
-              child: CustomButtonLayout(
-                confirmButtonLabel: 'Confirm',
-                onPressedConfirm: _isSubmitting ? null : _onNext,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: _isSubmitting,
-              ),
-            ),
+            customButtonLayout: _buildBottomButton(context, state, responsive),
             showCustomNavigationBar: false,
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -105,7 +65,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppText.body(
-                    'Add Shift',
+                    'Edit Shift',
                     style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
                       fontWeight: FontWeight.w600,
@@ -203,7 +163,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
                             isRequired: true,
                           ),
                           const SizedBox(height: 16),
-                          CustomAddNoteButton(onTap: () {}),
+                          CustomAddNoteButton(onSubmitted: (value) {}),
                         ],
                       ),
                     ),
@@ -250,7 +210,8 @@ class _AddShiftFormState extends State<AddShiftForm> {
         confirmButtonLabel: 'Confirm',
         onPressedConfirm: () {
           context.read<ScheduleFormCubit>().saveSchedule(
-            data: {}, // In a real app, collect form data here
+            id: '123', // In a real app, use actual ID
+            data: {},
           );
         },
         showCancelButton: false,

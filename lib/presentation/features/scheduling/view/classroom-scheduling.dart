@@ -9,21 +9,29 @@ import '../cubit/staff_scheduling_state.dart';
 import '../widgets/schedule_card.dart';
 import '../widgets/expandable_schedule_card.dart';
 import 'add-schedule.dart';
+import '../../../../app/di/di.dart';
+import '../../classroom/cubit/classroom_cubit.dart';
 
-class StaffSchedulingScreen extends StatefulWidget {
-  const StaffSchedulingScreen({super.key});
+class SchedulingScreen extends StatefulWidget {
+  const SchedulingScreen({super.key});
 
-  static const String routeName = '/staff-scheduling';
+  static const String routeName = '/scheduling';
 
   @override
-  State<StaffSchedulingScreen> createState() => _StaffSchedulingScreenState();
+  State<SchedulingScreen> createState() => _SchedulingScreenState();
 }
 
-class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
+class _SchedulingScreenState extends State<SchedulingScreen> {
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => StaffSchedulingCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => StaffSchedulingCubit()),
+        BlocProvider(
+          create: (context) =>
+              serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        ),
+      ],
       child: GlobalScaffold(
         hasBackButton: true,
         body: BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
@@ -75,37 +83,21 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                     //   staffList: state.staffList,
                     //   showWarning: true,
                     // ),
-                    ExpandableScheduleCard(
-                      title: "Tue Dec 30",
-
-                      isInitiallyExpanded: state.expandAll,
-                      classrooms: [
-                        ClassroomSchedule(
-                          title: "1-Blue-D",
-                          staffList: state.staffList,
-                          showWarning: true,
-                        ),
-                        ClassroomSchedule(
-                          title: "2-Yellow-C",
-                          staffList: state.staffList,
-                          showWarning: false,
-                        ),
-                        ClassroomSchedule(
-                          title: "1-Red-B",
-                          staffList: state.staffList,
-                          showWarning: false,
-                        ),
-                        ClassroomSchedule(
-                          title: "1-Green-A",
-                          staffList: state.staffList,
-                          showWarning: false,
-                        ),
-                        ClassroomSchedule(
-                          title: "1-Orange-A",
-                          staffList: state.staffList,
-                          showWarning: false,
-                        ),
-                      ],
+                    BlocBuilder<ClassroomCubit, ClassroomState>(
+                      builder: (context, classroomState) {
+                        return ExpandableScheduleCard(
+                          title: "Tue Dec 30",
+                          isInitiallyExpanded: state.expandAll,
+                          classrooms: classroomState.classrooms.map((c) {
+                            return ClassroomSchedule(
+                              title: c.name,
+                              classroomCode: c.code,
+                              staffList: state.staffList,
+                              showWarning: false,
+                            );
+                          }).toList(),
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -8,6 +8,7 @@ import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
+import '../../../../domain/features/staff/usecases/get_staff_list_by_school_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
 part 'staff_state.dart';
@@ -16,16 +17,19 @@ class StaffCubit extends Cubit<StaffState> {
   StaffCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
     required GetStaffCountUseCase getStaffCountUseCase,
+    required GetStaffListBySchoolUseCase getStaffListBySchoolUseCase,
     required StaffRepository repository,
     required StorageService storageService,
   })  : _getStaffPageUseCase = getStaffPageUseCase,
         _getStaffCountUseCase = getStaffCountUseCase,
+        _getStaffListBySchoolUseCase = getStaffListBySchoolUseCase,
         _repository = repository,
         _storageService = storageService,
         super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
+  final GetStaffListBySchoolUseCase _getStaffListBySchoolUseCase;
   final StaffRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
@@ -52,6 +56,44 @@ class StaffCubit extends Cubit<StaffState> {
     _organizationCode =
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     return _organizationCode!;
+  }
+
+  Future<void> loadStaffBySchool(String schoolCode) async {
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+      ),
+    );
+
+    try {
+      final staffList = await _getStaffListBySchoolUseCase(
+        schoolCode: schoolCode,
+      );
+
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          items: staffList,
+          currentPage: 0,
+          hasMore: false,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
   }
 
   Future<void> loadInitial() async {

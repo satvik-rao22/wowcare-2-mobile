@@ -13,12 +13,12 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 
 import '../presentation/features/activities/view/activity_feed_screen.dart';
-import '../presentation/features/staff-scheduling/view/add-schedule.dart';
-import '../presentation/features/staff-scheduling/view/classroom/classroom-view.dart';
-import '../presentation/features/staff-scheduling/view/edit-schedule.dart';
-import '../presentation/features/staff-scheduling/view/edit-shift-permission.dart';
-import '../presentation/features/staff-scheduling/view/publish-shift-schedule.dart';
-import '../presentation/features/staff-scheduling/view/staff-scheduling.dart';
+import '../presentation/features/scheduling/view/add-schedule.dart';
+import '../presentation/features/scheduling/view/classroom/classroom-view.dart';
+import '../presentation/features/scheduling/view/edit-schedule.dart';
+import '../presentation/features/scheduling/view/edit-shift-permission.dart';
+import '../presentation/features/scheduling/view/publish-shift-schedule.dart';
+import '../presentation/features/scheduling/view/classroom-scheduling.dart';
 import '../presentation/features/students/view/student_screen.dart';
 import '../app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -64,9 +64,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         ),
         settings: settings,
       );
-    case StaffSchedulingScreen.routeName:
+    case SchedulingScreen.routeName:
       return MaterialPageRoute(
-        builder: (_) => const StaffSchedulingScreen(),
+        builder: (_) => const SchedulingScreen(),
         settings: settings,
       );
 

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:http/http.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../classroom/cubit/classroom_cubit.dart';
 
 class ScheduleCard extends StatefulWidget {
   const ScheduleCard({super.key});
@@ -15,6 +18,13 @@ class ScheduleCard extends StatefulWidget {
 class _ScheduleCardState extends State<ScheduleCard> {
   String? selectedClassroom;
   String? selectedPublishStatus;
+  String? _selectedClassroomCode;
+
+  List<Map<String, dynamic>> get classroomList {
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    return classrooms.map((c) => {'code': c.code, 'name': c.name}).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(children: [_staffScheduleCard()]);
@@ -36,14 +46,28 @@ class _ScheduleCardState extends State<ScheduleCard> {
           Row(
             children: [
               Expanded(
+                // child: CustomDropdown(
+                //   // label: "Select Classroom",
+                //   hintText: "Select Classroom",
+                //   items: const ["Class A", "Class B", "Class C"],
+                //   selectedItem: selectedClassroom,
+                //   onSelect: (value) {
+                //     setState(() {
+                //       selectedClassroom = value;
+                //     });
+                //   },
+                // ),
                 child: CustomDropdown(
-                  // label: "Select Classroom",
-                  hintText: "Select Classroom",
-                  items: const ["Class A", "Class B", "Class C"],
-                  selectedItem: selectedClassroom,
-                  onSelect: (value) {
+                  hintText: 'Select Classroom',
+
+                  items: classroomList.map((e) => e['name'] as String).toList(),
+                  onSelect: (val) {
+                    final found = classroomList.firstWhere(
+                      (e) => e['name'] == val,
+                      orElse: () => {},
+                    );
                     setState(() {
-                      selectedClassroom = value;
+                      _selectedClassroomCode = found['code'];
                     });
                   },
                 ),

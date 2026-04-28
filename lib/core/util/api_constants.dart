@@ -56,7 +56,7 @@ class ApiConstants {
   /// Staff MS (LOCAL devtunnel) or UAT base host.
   static String get staffBaseUrl => isUat
       ? ApiConstantsUat.staffBaseUrl
-      : 'https://$_localTunnelId-8088.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8083.inc1.devtunnels.ms';
 
   /// School / organization MS (LOCAL devtunnel) or UAT base host.
   static String get schoolMs => isUat

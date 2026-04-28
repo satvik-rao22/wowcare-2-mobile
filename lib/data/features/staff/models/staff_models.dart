@@ -116,6 +116,43 @@ class StaffListItemModel extends Equatable {
       ];
 }
 
+class SimpleStaffMemberModel extends Equatable {
+  const SimpleStaffMemberModel({
+    required this.staffCode,
+    required this.firstName,
+    required this.lastName,
+    required this.schoolCode,
+  });
+
+  final String staffCode;
+  final String firstName;
+  final String lastName;
+  final String schoolCode;
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory SimpleStaffMemberModel.fromJson(Map<String, dynamic> json) {
+    return SimpleStaffMemberModel(
+      staffCode: json['staffCode'] as String? ?? '',
+      firstName: json['firstName'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
+      schoolCode: json['schoolCode'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'staffCode': staffCode,
+      'firstName': firstName,
+      'lastName': lastName,
+      'schoolCode': schoolCode,
+    };
+  }
+
+  @override
+  List<Object?> get props => [staffCode, firstName, lastName, schoolCode];
+}
+
 class StaffPageModel extends Equatable {
   const StaffPageModel({
     required this.items,
@@ -419,6 +456,7 @@ class StaffProfileModel extends Equatable {
     this.clockPin = '',
     this.primaryClassroomCode = '',
     required this.allowedClassroomCodes,
+    this.allowedClassrooms = const <AllowedClassroomModel>[],
     required this.address,
     required this.workSchedules,
     required this.breakSchedules,
@@ -444,6 +482,7 @@ class StaffProfileModel extends Equatable {
   final String clockPin;
   final String primaryClassroomCode;
   final List<String> allowedClassroomCodes;
+  final List<AllowedClassroomModel> allowedClassrooms;
   final StaffProfileAddressModel address;
   final List<StaffProfileWorkScheduleModel> workSchedules;
   final List<StaffProfileBreakScheduleModel> breakSchedules;
@@ -496,6 +535,11 @@ class StaffProfileModel extends Equatable {
             .toList() ??
         const <String>[];
 
+    final allowedClassrooms = (data['allowedClassrooms'] as List<dynamic>?)
+            ?.map((e) => AllowedClassroomModel.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const <AllowedClassroomModel>[];
+
     return StaffProfileModel(
       staffCode: (data['staffCode'] ?? data['code'] ?? '').toString(),
       userCode: data['userCode'] as String? ?? '',
@@ -517,6 +561,7 @@ class StaffProfileModel extends Equatable {
       clockPin: data['clockPin'] as String? ?? '',
       primaryClassroomCode: primaryClassroomCode,
       allowedClassroomCodes: allowedCodes,
+      allowedClassrooms: allowedClassrooms,
       address: StaffProfileAddressModel.fromJson(addressJson),
       workSchedules: workSchedulesJson
           .map((e) => StaffProfileWorkScheduleModel.fromJson(e as Map<String, dynamic>))
@@ -563,6 +608,11 @@ class StaffProfileModel extends Equatable {
             .toList() ??
         const <String>[];
 
+    final allowedClassrooms = (json['allowedClassrooms'] as List<dynamic>?)
+            ?.map((e) => AllowedClassroomModel.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const <AllowedClassroomModel>[];
+
     return StaffProfileModel(
       staffCode: (json['staffCode'] ?? json['code'] ?? '').toString(),
       userCode: json['userCode'] as String? ?? '',
@@ -584,6 +634,7 @@ class StaffProfileModel extends Equatable {
       clockPin: json['clockPin'] as String? ?? '',
       primaryClassroomCode: json['primaryClassroomCode'] as String? ?? '',
       allowedClassroomCodes: allowedCodes,
+      allowedClassrooms: allowedClassrooms,
       address: StaffProfileAddressModel.fromJson(addressJson),
       workSchedules: workSchedulesJson
           .map((e) => StaffProfileWorkScheduleModel.fromJson(e as Map<String, dynamic>))
@@ -616,6 +667,7 @@ class StaffProfileModel extends Equatable {
       'clockPin': clockPin,
       'primaryClassroomCode': primaryClassroomCode,
       'allowedClassroomCodes': allowedClassroomCodes,
+      'allowedClassrooms': allowedClassrooms.map((e) => e.toJson()).toList(),
       'address': address.toJson(),
       'workSchedules': workSchedules.map((e) => e.toJson()).toList(),
       'breakSchedules': breakSchedules.map((e) => e.toJson()).toList(),
@@ -644,12 +696,40 @@ class StaffProfileModel extends Equatable {
         clockPin,
         primaryClassroomCode,
         allowedClassroomCodes,
+        allowedClassrooms,
         address,
         workSchedules,
         breakSchedules,
         createdAt,
         updatedAt,
       ];
+}
+
+class AllowedClassroomModel extends Equatable {
+  const AllowedClassroomModel({
+    required this.code,
+    required this.name,
+  });
+
+  final String code;
+  final String name;
+
+  factory AllowedClassroomModel.fromJson(Map<String, dynamic> json) {
+    return AllowedClassroomModel(
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'name': name,
+    };
+  }
+
+  @override
+  List<Object?> get props => [code, name];
 }
 
 

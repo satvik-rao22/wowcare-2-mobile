@@ -76,7 +76,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                   children: [
                     _buildClassroomRow(classroom: classroom, index: index),
                     if (isExpanded && classroom.isExpanded)
-                      _buildStaffList(classroom.staffList),
+                      _buildStaffList(classroom),
                     const Divider(height: 1, color: Color(0xFFE5E5E5)),
                   ],
                 );
@@ -222,7 +222,8 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
     );
   }
 
-  Widget _buildStaffList(List<StaffModel> staffList) {
+  Widget _buildStaffList(ClassroomSchedule classroom) {
+    final staffList = classroom.staffList;
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
@@ -256,6 +257,13 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                       Navigator.pushNamed(
                                         context,
                                         ClassroomViewScreen.routeName,
+                                        arguments: ClassroomViewArgs(
+                                          classroomCode:
+                                              classroom.classroomCode,
+                                          classroomName: classroom.title,
+                                          date:
+                                              '2026-04-24', // Use actual date if available
+                                        ),
                                       );
                                     },
                                     child: Text(
@@ -449,12 +457,14 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
 
 class ClassroomSchedule {
   final String title;
+  final String classroomCode;
   final bool showWarning;
   final List<StaffModel> staffList;
   bool isExpanded;
 
   ClassroomSchedule({
     required this.title,
+    required this.classroomCode,
     required this.showWarning,
     required this.staffList,
     this.isExpanded = false,

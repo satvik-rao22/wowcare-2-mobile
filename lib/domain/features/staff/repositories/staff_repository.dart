@@ -12,6 +12,10 @@ abstract class StaffRepository {
     required String schoolCode,
   });
 
+  Future<List<StaffMember>> getStaffListBySchool({
+    required String schoolCode,
+  });
+
   Future<StaffPage> getStaffPage({
     required String organizationCode,
     required String schoolCode,

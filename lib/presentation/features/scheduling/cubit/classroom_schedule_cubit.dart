@@ -7,14 +7,23 @@ class ClassroomScheduleCubit extends Cubit<ClassroomScheduleState> {
 
   ClassroomScheduleCubit(this._repository) : super(ClassroomScheduleInitial());
 
-  Future<void> fetchSchedules() async {
+  Future<void> fetchSchedules({
+    required String classroomCode,
+    required String date,
+  }) async {
     emit(ClassroomScheduleLoading());
     try {
-      final schedules = await _repository.getClassroomSchedules();
+      // Fetching for a single day based on the UI requirement
+      final shifts = await _repository.getStaffShifts(
+        classroomCode: classroomCode,
+        dateFrom: date,
+        dateTo: date,
+      );
+      
       emit(
         ClassroomScheduleLoaded(
-          entries: schedules,
-          date: 'Dec 27', // This could be passed as a parameter
+          shifts: shifts,
+          date: date,
         ),
       );
     } catch (e) {
