@@ -168,6 +168,7 @@ class ImageUploadService {
     required String presignedPutUrl,
     Map<String, String> requiredHeaders = const {},
     String fallbackContentType = 'image/jpeg',
+    void Function(int sent, int total)? onSendProgress,
   }) async {
     final uploadClient = Dio();
     final bytes = await file.readAsBytes();
@@ -187,6 +188,7 @@ class ImageUploadService {
       final response = await uploadClient.putUri<dynamic>(
         putUri,
         data: bytes,
+        onSendProgress: onSendProgress,
         options: Options(
           headers: headers,
           responseType: ResponseType.plain,
@@ -400,6 +402,43 @@ class ImageUploadService {
     return sessionCode;
   }
 
+  Future<String> createGuardianProfilePhotoUploadSession({
+    required String guardianCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianProfilePhotoUploadSessionPath(guardianCode),
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create profile photo session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    return sessionCode;
+  }
+
   Future<String> finalizeStudentProfilePhoto({
     required String studentCode,
     required String sessionCode,
@@ -459,6 +498,58 @@ class ImageUploadService {
       return resolvedUrl;
     }
     return url;
+  }
+
+  Future<String> finalizeGuardianProfilePhoto({
+    required String guardianCode,
+    required String assetCode,
+    required String schoolCode,
+    required String userCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianProfilePhotoFinalizePath(guardianCode),
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'assetCode': assetCode.trim(),
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected finalize response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to finalize profile photo',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing finalize response data');
+    }
+    final finalizedAssetCode =
+        (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
+            .toString()
+            .trim();
+    final effectiveAssetCode =
+        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final directUrl = (data['url'] ?? '').toString().trim();
+    if (directUrl.isNotEmpty) return directUrl;
+
+    final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
+      assetCode: effectiveAssetCode,
+    );
+    if (mediaAssetUrl.isNotEmpty) return mediaAssetUrl;
+
+    final profileUrl = await _waitForGuardianProfilePhotoUrl(
+      schoolCode: schoolCode,
+      userCode: userCode,
+    );
+    if (profileUrl.isNotEmpty) return profileUrl;
+    throw Exception('Profile photo URL missing after finalize');
   }
 
   Future<String> _waitForDocumentAssetUrlByCode({
@@ -605,6 +696,59 @@ class ImageUploadService {
           for (final raw in candidates) {
             final value = (raw ?? '').toString().trim();
             if (value.isNotEmpty) return value;
+          }
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> _waitForGuardianProfilePhotoUrl({
+    required String schoolCode,
+    required String userCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final normalizedSchoolCode = schoolCode.trim();
+    final normalizedUserCode = userCode.trim();
+    if (normalizedSchoolCode.isEmpty || normalizedUserCode.isEmpty) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.guardianProfile,
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await _apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'schoolCode': normalizedSchoolCode,
+          'userCode': normalizedUserCode,
+        },
+      );
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          final candidates = <dynamic>[
+            data['profilePhotoUrl'],
+            data['photoUrl'],
+            data['profileImageUrl'],
+            data['imageUrl'],
+            data['url'],
+          ];
+          for (final raw in candidates) {
+            final value = (raw ?? '').toString().trim();
+            if (value.isNotEmpty) return value;
+          }
+          final profilePhotoAssetCode =
+              (data['profilePhotoAssetCode'] ?? '').toString().trim();
+          if (profilePhotoAssetCode.isNotEmpty) {
+            final resolved = await _waitForDocumentAssetUrlByCode(
+              assetCode: profilePhotoAssetCode,
+              timeout: const Duration(seconds: 6),
+            );
+            if (resolved.isNotEmpty) return resolved;
           }
         }
       }

@@ -61,6 +61,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   String? _schoolCode;
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
+  double _profilePhotoUploadPercent = 0;
 
   bool _isResolvingClassroom = false;
 
@@ -240,7 +241,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         return;
       }
 
-      setState(() => _isUploadingProfilePhoto = true);
+      setState(() {
+        _isUploadingProfilePhoto = true;
+        _profilePhotoUploadPercent = 5;
+      });
       final uploadService = serviceLocator<ImageUploadService>();
       final file = File(image.path);
       final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
@@ -248,6 +252,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         schoolCode: schoolCode,
         organizationCode: organizationCode,
       );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
       final lowerPath = image.path.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
       final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
@@ -263,21 +268,32 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         ownerType: 'STAFF',
         ownerCode: staffCode,
       );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
       await uploadService.uploadFileToPresignedUrl(
         file: file,
         presignedPutUrl: presign.presignedPutUrl,
         requiredHeaders: presign.requiredHeaders,
         fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (!mounted || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          setState(() {
+            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
+          });
+        },
       );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
       await uploadService.completeAssetUpload(
         sessionCode: sessionCode,
         assetCode: presign.assetCode,
         documentApiBasePath: '/api/v1',
       );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
       await uploadService.waitUntilAssetsReady(
         sessionCode: sessionCode,
         expectedAssetCodes: <String>[presign.assetCode],
       );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
       final finalizedUrl = await uploadService.finalizeStaffProfilePhoto(
         staffCode: staffCode,
         sessionCode: sessionCode,
@@ -298,7 +314,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         isError: true,
       );
     } finally {
-      if (mounted) setState(() => _isUploadingProfilePhoto = false);
+      if (mounted) {
+        setState(() {
+          _isUploadingProfilePhoto = false;
+          _profilePhotoUploadPercent = 0;
+        });
+      }
     }
   }
 
@@ -409,7 +430,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                   vertical: 7,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.16),
+                                  color: AppColors.primaryColor.withOpacity(0.25),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.22),
@@ -437,20 +458,35 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                             Colors.white.withOpacity(0.22),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
-                                          AppColors.mustardProgressBar,
+                                          AppColors.themeColor,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      _profilePhotoUploadPercent >= 100
-                                          ? 'Finalizing'
-                                          : 'Uploading',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.92),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SvgPicture.asset(
+                                          MediaRes.uploadIcon,
+                                          height: 10,
+                                          width: 10,
+                                          colorFilter: ColorFilter.mode(
+                                            Colors.white.withOpacity(0.92),
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _profilePhotoUploadPercent >= 100
+                                              ? 'Finalizing'
+                                              : 'Uploading',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.92),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

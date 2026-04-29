@@ -14,6 +14,7 @@ class DocumentImageWidget extends StatefulWidget {
   static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
   final String fileUuid;
   final String? imageUrl;
+  final String? mediaAssetCode;
   final String? name;
 
   /// Optional staff code for attendance status dot.
@@ -47,6 +48,7 @@ class DocumentImageWidget extends StatefulWidget {
     Key? key,
     required this.fileUuid,
     this.imageUrl,
+    this.mediaAssetCode,
     this.name,
     this.staffCode,
     this.staffEmploymentStatus,
@@ -134,6 +136,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     }
 
     if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.mediaAssetCode != widget.mediaAssetCode ||
         oldWidget.studentCode != widget.studentCode ||
         oldWidget.staffCode != widget.staffCode) {
       _resolvedImageUrl = _seedImageUrl();
@@ -151,6 +154,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   String? _seedImageUrl() {
     final explicit = widget.imageUrl?.trim() ?? '';
     if (explicit.isNotEmpty) return explicit;
+    final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
+    if (mediaAssetCode.isNotEmpty) {
+      final key = 'asset:$mediaAssetCode';
+      final cached = _cachedUrlIfFresh(key);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
     final studentCode = widget.studentCode?.trim() ?? '';
     if (studentCode.isNotEmpty) {
       final key = 'student:$studentCode';
@@ -183,10 +192,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
     final studentCode = widget.studentCode?.trim() ?? '';
     final staffCode = widget.staffCode?.trim() ?? '';
-    if (studentCode.isEmpty && staffCode.isEmpty) return;
+    final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
+    if (studentCode.isEmpty && staffCode.isEmpty && mediaAssetCode.isEmpty) {
+      return;
+    }
 
-    final cacheKey =
-        studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode';
+    final cacheKey = mediaAssetCode.isNotEmpty
+        ? 'asset:$mediaAssetCode'
+        : (studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode');
     final cached = _cachedUrlIfFresh(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       if (!mounted) return;
@@ -207,6 +220,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final future = _fetchProfilePhotoUrl(
       studentCode: studentCode,
       staffCode: staffCode,
+      mediaAssetCode: mediaAssetCode,
     );
     _profilePhotoInFlight[cacheKey] = future;
     try {
@@ -227,8 +241,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   Future<String?> _fetchProfilePhotoUrl({
     required String studentCode,
     required String staffCode,
+    required String mediaAssetCode,
   }) async {
     final apiClient = serviceLocator<ApiClient>();
+    if (mediaAssetCode.isNotEmpty) {
+      final documentUrl = await _fetchDocumentAssetUrl(mediaAssetCode);
+      return documentUrl.isEmpty ? null : documentUrl;
+    }
     if (studentCode.isNotEmpty) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.studentProfile(studentCode),

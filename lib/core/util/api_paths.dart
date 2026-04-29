@@ -382,6 +382,10 @@ class ApiPaths {
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
+  static String guardianProfilePhotoUploadSessionPath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
+  static String guardianProfilePhotoFinalizePath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String futureAvailability = '/api/v1/future-availability';

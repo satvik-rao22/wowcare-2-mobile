@@ -82,6 +82,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final bool hasTabs =
         tabs != null && tabController != null && tabs!.isNotEmpty;
+    final bool isParentPersona = context.read<RoleProvider>().isParent;
 
     // Determine whether the logged-in user has access to multiple organizations.
     // If there's only one organization, we hide the "Switch Organisation" menu item.
@@ -213,7 +214,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       top: 8,
                       bottom: 8,
                     ),
-                    child: ProfileMenuHeader(),
+                    child: ProfileMenuHeader(
+                      isParentPersona: isParentPersona,
+                    ),
                   ),
                 ),
               ),
