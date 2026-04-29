@@ -115,6 +115,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -130,6 +131,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -612,11 +614,17 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final statuses = (approvalStatuses ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
@@ -646,6 +654,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'date': date.trim(),
       'studentCodes': selectedStudentCodes,
       'activityTypeCodes': ats,
+      'approvalStatuses': statuses,
     };
     if (!guardianPersona) {
       payload['classroomCodes'] = selectedClassroomCodes;
@@ -674,11 +683,17 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final statuses = (approvalStatuses ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
@@ -709,6 +724,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'endDate': endDate.trim(),
       'studentCodes': selectedStudentCodes,
       'activityTypeCodes': ats,
+      'approvalStatuses': statuses,
     };
     if (!guardianPersona) {
       payload['classroomCodes'] = selectedClassroomCodes;

@@ -110,6 +110,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
+  List<String> _filterApprovalStatuses = [];
   String? _selectedActivityType;
   final List<String> activityType = [
     'Sign-in',
@@ -370,10 +371,53 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return null;
   }
 
+  List<String>? _approvalStatusesForApiFilter() {
+    if (_filterApprovalStatuses.isEmpty) return null;
+    const statusCodeByLabel = <String, String>{
+      'pending admin approval': 'PENDING_ADMIN_APPROVAL',
+      'approved': 'APPROVED',
+      'rejected': 'REJECTED',
+      'parent acknowledgement pending': 'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'parent acknowledgment pending': 'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'acknowledged': 'ACKNOWLEDGED',
+    };
+    const allowedEnums = <String>{
+      'PENDING_ADMIN_APPROVAL',
+      'APPROVED',
+      'REJECTED',
+      'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'ACKNOWLEDGED',
+    };
+    final out = <String>{};
+    for (final label in _filterApprovalStatuses) {
+      final normalizedLabel = label.trim().toLowerCase();
+      final fromLabel = statusCodeByLabel[normalizedLabel];
+      if (fromLabel != null && fromLabel.isNotEmpty) {
+        out.add(fromLabel);
+        continue;
+      }
+      final enumLike = label.trim().toUpperCase().replaceAll(' ', '_');
+      if (allowedEnums.contains(enumLike)) {
+        out.add(enumLike);
+      }
+    }
+    return out.isEmpty ? null : out.toList();
+  }
+
+  Set<String> _selectedApprovalStatusCodesForUi() {
+    return (_approvalStatusesForApiFilter() ?? const <String>[])
+        .map((e) => e.trim().toUpperCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+  }
+
   int _appliedFilterBadgeCount() {
     final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
     final hasTagFilter = _filterTags.isNotEmpty;
-    return (hasActivityTypeFilter ? 1 : 0) + (hasTagFilter ? 1 : 0);
+    final hasStatusFilter = _filterApprovalStatuses.isNotEmpty;
+    return (hasActivityTypeFilter ? 1 : 0) +
+        (hasTagFilter ? 1 : 0) +
+        (hasStatusFilter ? 1 : 0);
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -400,6 +444,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 _studentCodesForTagFilter.contains(a.studentCode),
           )
           .toList();
+    }
+    if (_filterApprovalStatuses.isNotEmpty) {
+      final selected = _selectedApprovalStatusCodesForUi();
+      list = list.where((a) {
+        final status = (a.approvalStatus ?? '').trim().toUpperCase();
+        if (status.isEmpty) return false;
+        return selected.contains(status);
+      }).toList();
     }
     return list;
   }
@@ -1564,6 +1616,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final codes = _parentAllowedStudentCodes.toList()..sort();
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
+    final approvalStatuses = _approvalStatusesForApiFilter();
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
     final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
@@ -1576,6 +1629,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       (typeCodes ?? const <String>[]).join(','),
       _filterActivityTypes.join(','),
       _filterTags.join(','),
+      _filterApprovalStatuses.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -1629,6 +1683,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             date: dateStr,
             studentCode: sc,
             activityTypeCodes: typeCodes,
+            approvalStatuses: approvalStatuses,
             guardianPersona: true,
             page: 0,
             size: _feedPageSize,
@@ -1706,6 +1761,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
+    final approvalStatuses = _approvalStatusesForApiFilter();
     final pageIndex = _feedNextPage;
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
@@ -1740,6 +1796,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             date: dateStr,
             studentCode: sc,
             activityTypeCodes: typeCodes,
+            approvalStatuses: approvalStatuses,
             guardianPersona: true,
             page: pageIndex,
             size: _feedPageSize,
@@ -1831,6 +1888,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
+      _filterApprovalStatuses.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -1869,6 +1927,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               ? studentCodes.first
               : null;
       final typeCodes = _activityTypeCodesForApiFilter();
+      final approvalStatuses = _approvalStatusesForApiFilter();
 
       final results = await Future.wait([
         _getStudentAttendanceDailyUseCase(
@@ -1887,6 +1946,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           classroomCodes: classroomCodes,
           studentCodes: studentCodes,
           activityTypeCodes: typeCodes,
+          approvalStatuses: approvalStatuses,
           guardianPersona: _parentHome,
           page: 0,
           size: _feedPageSize,
@@ -2068,6 +2128,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           initialFilters: {
             'Tags': List<String>.from(_filterTags),
             'Activity Type': List<String>.from(_filterActivityTypes),
+            'Status': List<String>.from(_filterApprovalStatuses),
           },
         ),
       ),
@@ -2078,6 +2139,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       _filterActivityTypes = List<String>.from(
         result['Activity Type'] ?? const [],
       );
+      _filterApprovalStatuses = List<String>.from(result['Status'] ?? const []);
     });
     await _loadDailyFeed(refresh: true);
   }
@@ -2361,6 +2423,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                               _selectedStudents = [];
                                               _filterActivityTypes.clear();
                                               _filterTags.clear();
+                                              _filterApprovalStatuses.clear();
                                               _updateAvailableStudents();
                                             });
                                             await _refreshDropdownsAfterClearAll();
@@ -2505,6 +2568,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _filterApprovalStatuses.clear();
                                 });
                                 await _refreshDropdownsAfterClearAll();
                               },
@@ -4095,6 +4159,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _filterApprovalStatuses.clear();
                                 });
                                 await _refreshDropdownsAfterClearAll();
                               },
