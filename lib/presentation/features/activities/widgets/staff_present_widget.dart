@@ -23,6 +23,7 @@ class StaffPresentWidget extends StatefulWidget {
     this.showSignCheckbox = true,
     this.signActionLabel = 'Click to sign',
     this.prefillWithStaffName = false,
+    this.showStaffDropdown = true,
   });
   final String staffName;
   final bool isEditable;
@@ -34,6 +35,7 @@ class StaffPresentWidget extends StatefulWidget {
   final bool showSignCheckbox;
   final String signActionLabel;
   final bool prefillWithStaffName;
+  final bool showStaffDropdown;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -218,24 +220,47 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
           ],
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
-        InkWell(
-          onTap: null,
-          child: Opacity(
-            opacity: widget.isEditable ? 1.0 : 0.4,
-            child: CustomDropdown(
-              hintText: 'Select present staff',
-              items: staffList,
-              selectedItem: selectedStaff,
-              isEnabled: widget.isEditable,
-              onSelect: widget.isEditable?
-              (String? value) {
-                setState(() {
-                  selectedStaff = value;
-                });
-              }: null,
+        if (widget.showStaffDropdown)
+          InkWell(
+            onTap: null,
+            child: Opacity(
+              opacity: widget.isEditable ? 1.0 : 0.4,
+              child: CustomDropdown(
+                hintText: 'Select present staff',
+                items: staffList,
+                selectedItem: selectedStaff,
+                isEnabled: widget.isEditable,
+                onSelect: widget.isEditable?
+                (String? value) {
+                  setState(() {
+                    selectedStaff = value;
+                  });
+                }: null,
+              ),
+            ),
+          )
+        else
+          Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0x1AB1AFE9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0x66573353)),
+            ),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              selectedStaff ?? widget.staffName,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff573353),
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ),
         SizedBox(height: responsive.verticalSpacing,),
         if (widget.incidentActivity && clickToSign)
           Container(

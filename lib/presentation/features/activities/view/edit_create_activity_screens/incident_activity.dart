@@ -645,6 +645,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     );
     if (parameterValues.isEmpty) return;
     _debugIncidentParameterValues('adminDecisionPatch', parameterValues);
+    final remainingNorm = _remainingExistingPhotoUrls
+        .map(normalizeActivityDeliveryUrl)
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    for (final u in videoDeliveryUrlsFromAttachmentRows(_detailAttachmentRows)) {
+      final n = normalizeActivityDeliveryUrl(u);
+      if (n.isNotEmpty) remainingNorm.add(n);
+    }
+    final mergedRows = mergeAttachmentRowsForEditPatch(
+      existingRows: _detailAttachmentRows
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      newUploadRows: const <Map<String, dynamic>>[],
+      remainingNormalizedDeliveryUrls: remainingNorm,
+    );
+    final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
     await _updateActivityUseCase(
       code: code,
       studentCodes: studentCodes,
@@ -653,7 +669,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       activityDate: activityDateIso,
       description: description,
       parameterValues: parameterValues,
-      attachments: const [],
+      attachments: patchAttachments,
     );
     _adminSignerRawValue = staffCode;
   }
@@ -1006,13 +1022,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (!_isSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please click to sign',
-        isWarning: true,
-      );
-      return;
+    if (_isAdminDesignation) {
+      if (!_isAdminSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please sign in Admin Present.',
+          isWarning: true,
+        );
+        return;
+      }
+    } else {
+      if (!_isSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please click to sign',
+          isWarning: true,
+        );
+        return;
+      }
     }
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
@@ -1213,14 +1240,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': staffSignParamCode,
-            'value': _isSigned ? staffCode.trim() : '',
+            'value': (_isSigned && !_isAdminDesignation) ? staffCode.trim() : '',
           },
         if (_isAdminDesignation &&
             adminSignParamCode != null &&
             adminSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': adminSignParamCode,
-            'value': _isAdminSigned ? staffCode.trim() : '',
+            'value': (_isAdminSigned && _isAdminDesignation) ? staffCode.trim() : '',
           },
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
@@ -1551,6 +1578,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           : whatHappened;
 
       final parentSignerCode = await _resolveParentSignerCode();
+      final creatorStaffCodeForIncident = _staffPresentRawValue.trim().isNotEmpty
+          ? _staffPresentRawValue.trim()
+          : staffCode.trim();
+      final resolvedStaffSignerCode = _isSigned
+          ? (_staffSignerRawValue.trim().isNotEmpty
+                ? _staffSignerRawValue.trim()
+                : creatorStaffCodeForIncident)
+          : '';
+      final resolvedAdminSignerCode = _isAdminDesignation
+          ? (_isAdminSigned
+                ? (_adminSignerRawValue.trim().isNotEmpty
+                      ? _adminSignerRawValue.trim()
+                      : staffCode.trim())
+                : '')
+          : _adminSignerRawValue.trim();
+      final resolvedParentSignerCode = _isGuardianPersona
+          ? (_isParentSigned ? parentSignerCode.trim() : '')
+          : _parentSignerRawValue.trim();
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
           {'parameterCode': dateParamCode, 'value': localDate},
@@ -1558,8 +1603,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            creatorStaffCodeForIncident.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': creatorStaffCodeForIncident},
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           {'parameterCode': whatParamCode, 'value': whatValueForParam},
         if (firstAidEntry != null) firstAidEntry,
@@ -1570,20 +1615,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': staffSignParamCode,
-            'value': _isSigned ? staffCode.trim() : '',
+            'value': resolvedStaffSignerCode,
           },
-        if (_isAdminDesignation &&
-            adminSignParamCode != null &&
-            adminSignParamCode.trim().isNotEmpty)
+        if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': adminSignParamCode,
-            'value': _isAdminSigned ? staffCode.trim() : '',
+            'value': resolvedAdminSignerCode,
           },
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': parentSignParamCode,
-            'value': _isParentSigned ? parentSignerCode : '',
+            'value': resolvedParentSignerCode,
           },
       ];
       _debugIncidentParameterValues('update', parameterValues);
@@ -1810,10 +1853,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (photoCount > 1) {
+    if (photoCount > 1 &&
+        !(widget.isEdit &&
+            photos.isNotEmpty &&
+            remainingExistingPhotoUrls.isNotEmpty)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Only 1 photo can be selected.',
         isError: true,
       );
       return;
@@ -1828,8 +1874,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
     setState(() {
       _newPhotos = photos;
-      _remainingExistingPhotoUrls =
-          List<String>.from(remainingExistingPhotoUrls);
+      _remainingExistingPhotoUrls = (widget.isEdit &&
+              photos.isNotEmpty &&
+              remainingExistingPhotoUrls.isNotEmpty)
+          ? const []
+          : List<String>.from(remainingExistingPhotoUrls);
       _uploadedAssetCodeByPath.removeWhere((path, _) {
         final stillPhoto = _newPhotos.any((f) => f.path == path);
         return !stillPhoto;
@@ -2100,29 +2149,34 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 // (guardian/staff/admin) with interactions disabled.
                 final isReadOnlyView = widget.readOnly;
                 if (isReadOnlyView) {
-                  final staffDisplayCode = _staffPresentRawValue.trim().isNotEmpty
-                      ? _staffPresentRawValue.trim()
-                      : (_staffSignerRawValue.trim().isNotEmpty
-                            ? _staffSignerRawValue.trim()
-                            : '');
-                  final staffDisplayName = _displaySignerLabel(
-                    staffDisplayCode,
-                    fallback: 'Staff',
-                  );
+                  final staffSignerCode = _staffSignerRawValue.trim();
+                  final adminSignerCode = _adminSignerRawValue.trim();
+                  final parentSignerCode = _parentSignerRawValue.trim();
+                  final showStaffSignedBlock = staffSignerCode.isNotEmpty;
+                  final showAdminSignedBlock = adminSignerCode.isNotEmpty;
+                  final showParentSignedBlock = parentSignerCode.isNotEmpty ||
+                      (_isGuardianPersona &&
+                          _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING');
                   return Column(
                     children: [
-                      StaffPresentWidget(
-                        key: const ValueKey('incident_parent_view_staff_present'),
-                        fieldLabel: 'Staff Present',
-                        staffName: staffDisplayName,
-                        isEditable: false,
-                        isAlreadySigned: _isSigned,
-                        clickToSignEditable: false,
-                        showSignCheckbox: true,
-                        incidentActivity: true,
-                      ),
-                      if (_isAdminSigned) const SizedBox(height: 16),
-                      if (_isAdminSigned)
+                      if (showStaffSignedBlock)
+                        StaffPresentWidget(
+                          key: const ValueKey('incident_parent_view_staff_present'),
+                          fieldLabel: 'Staff Present',
+                          staffName: _displaySignerLabel(
+                            staffSignerCode,
+                            fallback: 'Staff',
+                          ),
+                          isEditable: false,
+                          isAlreadySigned: true,
+                          clickToSignEditable: false,
+                          showSignCheckbox: true,
+                          showStaffDropdown: false,
+                          incidentActivity: true,
+                        ),
+                      if (showStaffSignedBlock && showAdminSignedBlock)
+                        const SizedBox(height: 16),
+                      if (showAdminSignedBlock)
                         StaffPresentWidget(
                           key: const ValueKey('incident_parent_view_admin_present'),
                           fieldLabel: 'Admin Present',
@@ -2131,51 +2185,80 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                             fallback: 'Admin',
                           ),
                           isEditable: false,
-                          isAlreadySigned: _isAdminSigned,
+                          isAlreadySigned: true,
                           clickToSignEditable: false,
                           showSignCheckbox: true,
+                          showStaffDropdown: false,
                           incidentActivity: true,
                         ),
-                      const SizedBox(height: 16),
-                      StaffPresentWidget(
-                        key: const ValueKey('incident_parent_sign_only'),
-                        fieldLabel: 'Parent Present',
-                        // Never show logged-in staff/admin name here.
-                        staffName: _parentSignerRawValue.trim().isNotEmpty
-                            ? _guardianDisplayNameForCode(
-                                _parentSignerRawValue.trim(),
-                                fallback: 'Parent',
-                              )
-                            : 'Parent',
-                        isEditable: false,
-                        isAlreadySigned: _hasParentSignedForAction,
-                        clickToSignEditable: false,
-                        showSignCheckbox: true,
-                        incidentActivity: true,
-                      ),
+                      if ((showStaffSignedBlock || showAdminSignedBlock) &&
+                          showParentSignedBlock)
+                        const SizedBox(height: 16),
+                      if (showParentSignedBlock)
+                        StaffPresentWidget(
+                          key: const ValueKey('incident_parent_sign_only'),
+                          fieldLabel: 'Parent Present',
+                          // Never show logged-in staff/admin name here.
+                          staffName: parentSignerCode.isNotEmpty
+                              ? _guardianDisplayNameForCode(
+                                  parentSignerCode,
+                                  fallback: 'Parent',
+                                )
+                              : (_staffName.trim().isNotEmpty ? _staffName : 'Parent'),
+                          isEditable: false,
+                          isAlreadySigned: _hasParentSignedForAction,
+                          clickToSignEditable: !_isAcknowledged,
+                          showStaffDropdown: false,
+                          showSignCheckbox: true,
+                          incidentActivity: true,
+                          onSigned: (value) {
+                            setState(() {
+                              _isParentSigned = value;
+                            });
+                          },
+                        ),
                     ],
                   );
                 }
                 final isAdminPersona =
                     _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                final showStaffPresentBlock = !(_layoutAsEdit &&
+                    _isAdminDesignation &&
+                    _staffSignerRawValue.trim().isEmpty);
+                if (!showStaffPresentBlock) {
+                  return const SizedBox.shrink();
+                }
                 return StaffPresentWidget(
                   key: const ValueKey('incident_staff_present'),
-                  staffName: lockToLoggedInStaff
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy: _layoutAsEdit
-                              ? (_effectiveActivity.staffPresent ??
-                                  _effectiveActivity.createdBy)
-                              : '',
-                          loggedInDisplayName: _staffName,
-                        ),
+                  staffName: _layoutAsEdit
+                      ? _displaySignerLabel(
+                          _staffPresentRawValue,
+                          fallback: staffPresentLabelForActivity(
+                            layoutAsEdit: _layoutAsEdit,
+                            activityCreatedBy: _layoutAsEdit
+                                ? (_effectiveActivity.staffPresent ??
+                                    _effectiveActivity.createdBy)
+                                : '',
+                            loggedInDisplayName: _staffName,
+                          ),
+                        )
+                      : (lockToLoggedInStaff
+                            ? _staffName
+                            : staffPresentLabelForActivity(
+                                layoutAsEdit: _layoutAsEdit,
+                                activityCreatedBy: _layoutAsEdit
+                                    ? (_effectiveActivity.staffPresent ??
+                                        _effectiveActivity.createdBy)
+                                    : '',
+                                loggedInDisplayName: _staffName,
+                              )),
                   isEditable:
                       lockToLoggedInStaff ? false : _canInteract,
                   isAlreadySigned: _isSigned,
                   clickToSignEditable: _canInteract,
-                  showSignCheckbox: !_isGuardianPersona,
+                  showSignCheckbox: !_isGuardianPersona && !_isAdminDesignation,
+                  showStaffDropdown: !_isAdminDesignation,
                   prefillWithStaffName: !_layoutAsEdit && _isAdminDesignation,
                   incidentActivity: true,
                   onSigned: (value) {
@@ -2189,9 +2272,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 );
               },
             ),
-            if (widget.isEdit && _isAdminDesignation && !widget.readOnly)
+            if (_isAdminDesignation && !widget.readOnly)
               const SizedBox(height: 16),
-            if (widget.isEdit && _isAdminDesignation && !widget.readOnly)
+            if (_isAdminDesignation && !widget.readOnly)
               StaffPresentWidget(
                 key: const ValueKey('incident_admin_present'),
                 fieldLabel: 'Admin Present',

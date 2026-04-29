@@ -644,10 +644,12 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     };
     final payload = <String, dynamic>{
       'date': date.trim(),
-      'classroomCodes': selectedClassroomCodes,
       'studentCodes': selectedStudentCodes,
       'activityTypeCodes': ats,
     };
+    if (!guardianPersona) {
+      payload['classroomCodes'] = selectedClassroomCodes;
+    }
 
     final response = await _client.post<dynamic>(
       base,
@@ -705,10 +707,12 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final payload = <String, dynamic>{
       'startDate': startDate.trim(),
       'endDate': endDate.trim(),
-      'classroomCodes': selectedClassroomCodes,
       'studentCodes': selectedStudentCodes,
       'activityTypeCodes': ats,
     };
+    if (!guardianPersona) {
+      payload['classroomCodes'] = selectedClassroomCodes;
+    }
 
     final response = await _client.post<dynamic>(
       base,

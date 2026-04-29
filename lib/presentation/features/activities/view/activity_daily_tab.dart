@@ -5572,7 +5572,29 @@ bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) 
 bool canDeleteActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (status == 'REJECTED' && !isAdminPersona) return false;
+  if (!isAdminPersona &&
+      isIncidentActivityItem(activity) &&
+      isLikelyAdminDesignationLabel(activity.createdBy)) {
+    return false;
+  }
   return true;
+}
+
+bool isLikelyAdminDesignationLabel(String raw) {
+  final v = raw.trim().toUpperCase();
+  if (v.isEmpty) return false;
+  const directMatches = <String>{
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  };
+  if (directMatches.contains(v)) return true;
+  return v.contains('ADMIN') ||
+      v.contains('DIRECTOR') ||
+      v.contains('OWNER');
 }
 
 bool canAdminApproveOrRejectActivityItem(
