@@ -1729,16 +1729,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final hasSharedAttachmentInEdit = widget.isEdit &&
-        _detailAttachmentRows.any((row) {
-          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
-          final student = (row['studentCode'] ?? '').toString().trim();
-          return binding == 'SHARED' || student.isEmpty;
-        });
-    final isShared = hasSharedAttachmentInEdit || studentCodes.length > 1;
-    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
-    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
-    final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
+    // Incident activity backend can reject SHARED attachments for some activity
+    // type configs, so always upload as PER_STUDENT.
+    const isShared = false;
+    const bindingMode = 'PER_STUDENT';
+    const ownerType = 'STUDENT';
+    final ownerCode = studentCodes.first;
     final missingPhotos = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
@@ -1846,7 +1842,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final normalizedPhotos = widget.isEdit && photos.length > 1
+        ? <File>[photos.last]
+        : photos;
+    final photoCount =
+        normalizedPhotos.length + remainingExistingPhotoUrls.length;
     final videoCount =
         (video != null ? 1 : 0) +
         ((remainingExistingVideoUrl != null &&
@@ -1873,10 +1873,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
     setState(() {
-      _newPhotos = photos;
+      _newPhotos = normalizedPhotos;
       _remainingExistingPhotoUrls = (widget.isEdit &&
-              photos.isNotEmpty &&
-              remainingExistingPhotoUrls.isNotEmpty)
+              normalizedPhotos.isNotEmpty)
           ? const []
           : List<String>.from(remainingExistingPhotoUrls);
       _uploadedAssetCodeByPath.removeWhere((path, _) {
@@ -1891,6 +1890,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (widget.readOnly || _newPhotos.isEmpty || _isUploadingMedia) {
       return;
     }
+    if (_selectedStudentsData.isEmpty) return;
 
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;

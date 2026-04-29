@@ -1366,38 +1366,33 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
 
+    final tagNameToCodeLower = <String, String>{
+      for (final e in _tagNameToCode.entries) e.key.trim().toLowerCase(): e.value,
+    };
     final tagCodes = _filterTags
-        .map((name) => _tagNameToCode[name]?.trim())
+        .map((name) {
+          final key = name.trim();
+          if (key.isEmpty) return null;
+          return (_tagNameToCode[key] ?? tagNameToCodeLower[key.toLowerCase()])?.trim();
+        })
         .whereType<String>()
         .where((c) => c.isNotEmpty)
+        .toSet()
         .toList();
     if (tagCodes.isEmpty) return;
 
     try {
-      if (_parentHome) {
-        final classroomCodes = _parentStudentClassroomByCode.values
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList();
-        for (final cc in classroomCodes) {
-          final students = await _getStudentCodesForActivityTagFilterUseCase(
-            schoolCode: school,
-            classroomCode: cc,
-            tagCodes: tagCodes,
-          );
-          if (!mounted) return;
-          _studentCodesForTagFilter.addAll(students);
-        }
-        return;
-      }
+      final classroomCodes = _parentHome
+          ? _parentStudentClassroomByCode.values
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+          : _selectedClassroomCodesForFeed();
+      if (classroomCodes.isEmpty) return;
 
-      final classroomName = _selectdClassroom;
-      if (classroomName == null ||
-          !_classroomCodeByName.containsKey(classroomName)) {
-        return;
-      }
-      final cc = _classroomCodeByName[classroomName]!;
+      for (final cc in classroomCodes) {
+        if (cc.trim().isEmpty) continue;
       final students = await _getStudentCodesForActivityTagFilterUseCase(
         schoolCode: school,
         classroomCode: cc,
@@ -1405,6 +1400,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       if (!mounted) return;
       _studentCodesForTagFilter.addAll(students);
+      }
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }

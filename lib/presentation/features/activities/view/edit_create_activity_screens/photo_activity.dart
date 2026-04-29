@@ -1208,6 +1208,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   isRequired: true,
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
+                  limit: widget.isPhoto ? 1 : 10,
                   readOnly: widget.readOnly,
                   autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
                   onMediaChanged:
