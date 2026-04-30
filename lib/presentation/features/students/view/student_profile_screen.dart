@@ -414,6 +414,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         assetCode: presign.assetCode,
         schoolCode: resolvedSchoolCode,
       );
+      if (mounted) {
+        setState(() => _profilePhotoUploadPercent = 100);
+      }
 
       DocumentImageWidget.clearProfilePhotoCache(
         studentCode: studentCode,

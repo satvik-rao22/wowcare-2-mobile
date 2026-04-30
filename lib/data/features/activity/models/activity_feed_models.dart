@@ -120,7 +120,9 @@ class ActivityFeedPageModel {
       final activityTypeName = (json['activityTypeName'] ?? '').toString();
       final description = (json['description'] ?? '').toString();
       final createdBy = (json['createdBy'] ?? '').toString();
-      final approvalStatus = (json['status'] ?? '').toString().trim();
+      final staffCode = (json['staffCode'] ?? '').toString().trim();
+      final approvalStatus =
+          (json['approvalStatus'] ?? json['status'] ?? '').toString().trim();
       final napStart = asNullableBool(json['napStart']);
       final napEnd = asNullableBool(json['napEnd']);
 
@@ -171,6 +173,7 @@ class ActivityFeedPageModel {
             studentMiddleName: null,
             studentLastName: '',
             createdBy: createdBy,
+            staffCode: staffCode.isEmpty ? null : staffCode,
             parameterValues: params,
             attachments: atts,
             students: students,
@@ -197,6 +200,7 @@ class ActivityFeedPageModel {
           studentMiddleName: (json['studentMiddleName'] as String?)?.trim(),
           studentLastName: (json['studentLastName'] ?? '').toString(),
           createdBy: createdBy,
+          staffCode: staffCode.isEmpty ? null : staffCode,
           parameterValues: params,
           attachments: atts,
           students: const [],

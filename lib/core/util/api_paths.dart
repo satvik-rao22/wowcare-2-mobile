@@ -399,6 +399,8 @@ class ApiPaths {
       '/api/v1/student-attendance/view/daily';
   static const String studentAttendanceCustomView =
       '/api/v1/student-attendance/view/custom';
+  static const String studentAttendanceMarkActivityStudentList =
+      '/api/v1/student-attendance/view/mark-activity/student-list';
   static const String studentAttendanceAbsentView =
       '/api/v1/student-attendance/view/absent';
   static const String studentAttendanceAbsentToggleView =
@@ -514,12 +516,22 @@ class ApiPaths {
       '/api/v2/activities/upload-sessions';
   static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
   static const String activitiesFeedRange = '/api/v2/activities/feed/range';
+  static const String activitiesFeedDailySearch =
+      '/api/v2/activities/feed/daily/search';
+  static const String activitiesFeedRangeSearch =
+      '/api/v2/activities/feed/range/search';
   static const String guardianActivitiesFeedDaily =
       '/api/v2/guardian/activities/feed/daily';
   static const String guardianActivitiesFeedRange =
       '/api/v2/guardian/activities/feed/range';
+  static const String guardianActivitiesFeedDailySearch =
+      '/api/v2/guardian/activities/feed/daily/search';
+  static const String guardianActivitiesFeedRangeSearch =
+      '/api/v2/guardian/activities/feed/range/search';
   static String guardianAcknowledgeActivity(String cardGroupCode) =>
       '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/acknowledge';
+  static String guardianParentSignatureActivity(String cardGroupCode) =>
+      '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/parent-signature';
   static String adminApproveActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
   static String adminRejectActivity(String cardGroupCode) =>

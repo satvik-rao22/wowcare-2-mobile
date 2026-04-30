@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,15 +17,21 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
+import '../../../../../core/util/guardian_code_resolver.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
+import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
+import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../../../../domain/features/activity/repositories/activity_repository.dart';
+import '../../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import '../../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
@@ -38,6 +46,7 @@ import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class IncidentActivityScreen extends StatefulWidget {
   const IncidentActivityScreen({
@@ -67,7 +76,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         'ASSISTANT_DIRECTOR',
         'OWNER',
       }.contains(_staffType.trim().toUpperCase());
-  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
+  bool get _showRequireAdminApprovalToggle =>
+      !_isAdminDesignation && !widget.readOnly;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
@@ -80,6 +90,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  final Map<String, String> _staffDisplayNameByCode = {};
   String _staffType = '';
   bool _requireAdminApproval = true;
   String? _staffCode;
@@ -87,12 +98,25 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String? _organizationCode;
   bool _isSubmitting = false;
   bool _isAcknowledging = false;
+  bool _isApprovingOrRejecting = false;
+  bool _isAdminSigned = false;
+  bool _adminSignedThisSession = false;
+  bool _isParentSigned = false;
+  String _staffPresentRawValue = '';
+  String _staffSignerRawValue = '';
+  String _adminSignerRawValue = '';
+  String _parentSignerRawValue = '';
+  final Map<String, String> _guardianNameByCode = {};
   bool _loadingActivityDetail = false;
   bool _isGuardianPersona = false;
+  bool _hasGuardianAcknowledgedLocally = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
+  int _uploadProgressPercent = 0;
+  int _uploadCompletedCount = 0;
+  int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
@@ -104,20 +128,177 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final AcknowledgeActivityUseCase _acknowledgeActivityUseCase;
+  late final GuardianParentSignatureUseCase _guardianParentSignatureUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
   late final ImageUploadService _imageUploadService;
+  late final GetGuardianNameCodeMapForSchoolUseCase
+      _getGuardianNameCodeMapForSchoolUseCase;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
   String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
-  bool get _isAcknowledged => _approvalStatus == 'ACKNOWLEDGED';
+  bool get _isAcknowledged =>
+      _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
+  bool get _hasParentSignedForAction => _isAcknowledged || _isParentSigned;
+
   bool get _showGuardianAcknowledgeButton {
-    if (!widget.readOnly || !_isGuardianPersona || _isAcknowledging) return false;
+    if (!widget.readOnly || !_isGuardianPersona) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
     if (code.isEmpty) return false;
     return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
+  }
+
+  Future<String> _resolveParentSignerCode() async {
+    final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+    if (guardianCode.isNotEmpty) return guardianCode;
+    return (_staffCode ?? '').trim();
+  }
+
+  void _debugIncidentParameterValues(
+    String source,
+    List<Map<String, dynamic>> parameterValues,
+  ) {
+    debugPrint(
+      '[Incident][$source] parameterValues=${jsonEncode(parameterValues)}',
+    );
+  }
+
+  bool _looksLikeStaffCode(String value) {
+    final v = value.trim().toUpperCase();
+    return v.startsWith('STF_') || v.startsWith('STAFF_');
+  }
+
+  Future<void> _primeStaffDisplayNamesFromCodes(Iterable<String> rawCodes) async {
+    final codes = rawCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && _looksLikeStaffCode(e))
+        .toSet()
+        .toList();
+    if (codes.isEmpty) return;
+    final repo = serviceLocator<StaffRepository>();
+    await Future.wait(
+      codes.map((code) async {
+        if (_staffDisplayNameByCode.containsKey(code)) return;
+        try {
+          final profile = await repo.getStaffProfile(staffCode: code);
+          final full = profile.fullName.trim();
+          final composed = '${profile.firstName} ${profile.lastName}'.trim();
+          final resolved = full.isNotEmpty ? full : composed;
+          if (resolved.isNotEmpty) {
+            _staffDisplayNameByCode[code] = resolved;
+          }
+        } catch (_) {}
+      }),
+    );
+  }
+
+  String _displayNameForSignerRaw(String raw, {String fallback = ''}) {
+    final v = raw.trim();
+    if (v.isEmpty) return fallback;
+    if (_looksLikeStaffCode(v)) {
+      final mapped = _staffDisplayNameByCode[v];
+      if (mapped != null && mapped.trim().isNotEmpty) return mapped.trim();
+    }
+    return v;
+  }
+
+  String _displaySignerLabel(String raw, {String fallback = ''}) {
+    final v = raw.trim();
+    if (v.isEmpty) return fallback;
+    if (_looksLikeStaffCode(v)) {
+      final name = _displayNameForSignerRaw(v, fallback: '');
+      if (name.trim().isNotEmpty) return name.trim();
+      return fallback;
+    }
+    return v;
+  }
+
+  String _guardianDisplayNameForCode(String raw, {String fallback = ''}) {
+    final code = raw.trim();
+    if (code.isEmpty) return fallback;
+    final mapped = _guardianNameByCode[code];
+    if (mapped != null && mapped.trim().isNotEmpty) return mapped.trim();
+    return fallback.isNotEmpty ? fallback : code;
+  }
+
+  Future<void> _primeGuardianNamesFromCodes(Iterable<String> codes) async {
+    // Needed for rendering "Parent Present" in view-only mode for any persona
+    // (guardian/staff/admin). Do not gate this by _isGuardianPersona.
+    final school = (_schoolCode ?? '').trim();
+    if (school.isEmpty) return;
+    final wanted = codes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (wanted.isEmpty) return;
+    if (wanted.every(_guardianNameByCode.containsKey)) return;
+    try {
+      final nameToCode = await _getGuardianNameCodeMapForSchoolUseCase(
+        schoolCode: school,
+      );
+      if (!mounted) return;
+      _guardianNameByCode
+        ..clear();
+      for (final entry in nameToCode.entries) {
+        final name = entry.key.trim();
+        final code = entry.value.trim();
+        if (name.isNotEmpty && code.isNotEmpty) {
+          _guardianNameByCode[code] = name;
+        }
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Non-blocking; fallback to showing code.
+    }
+  }
+
+  List<Map<String, dynamic>> _incidentSignerParameterValuesForPatch({
+    required List<ActivityTypeParameter> parameters,
+    required String staffPresentCode,
+    String? staffSignerCode,
+    String? adminSignerCode,
+    String? parentSignerCode,
+  }) {
+    final staffPresentParamCode = _findIncidentParamCodeByName(
+      parameters,
+      const ['Staff Present'],
+      contains: const ['staff present'],
+    );
+    final staffSignParamCode = _findIncidentParamCodeByName(
+      parameters,
+      const ['Click to Sign - Staff'],
+      contains: const ['click to sign - staff'],
+    );
+    final adminSignParamCode = _findIncidentParamCodeByName(
+      parameters,
+      const ['Click to Sign - Admin'],
+      contains: const ['click to sign - admin'],
+    );
+    final parentSignParamCode = _findIncidentParamCodeByName(
+      parameters,
+      const ['Click to Sign - Parent'],
+      contains: const ['click to sign - parent'],
+    );
+    return <Map<String, dynamic>>[
+      if (staffPresentParamCode != null &&
+          staffPresentParamCode.trim().isNotEmpty &&
+          staffPresentCode.trim().isNotEmpty)
+        {'parameterCode': staffPresentParamCode.trim(), 'value': staffPresentCode.trim()},
+      if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
+        {'parameterCode': staffSignParamCode.trim(), 'value': (staffSignerCode ?? '').trim()},
+      if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
+        {'parameterCode': adminSignParamCode.trim(), 'value': (adminSignerCode ?? '').trim()},
+      if (parentSignParamCode != null && parentSignParamCode.trim().isNotEmpty)
+        {'parameterCode': parentSignParamCode.trim(), 'value': (parentSignerCode ?? '').trim()},
+    ];
   }
 
   List<Map<String, dynamic>> _scopedStudentsForCreate() {
@@ -146,6 +327,32 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     for (final p in parameters) {
       final n = p.parameterName.toLowerCase();
       if (n.contains('first') && n.contains('aid')) return p;
+    }
+    return null;
+  }
+
+  String? _findIncidentParamCodeByName(
+    List<ActivityTypeParameter> parameters,
+    List<String> exactNames, {
+    List<String> contains = const <String>[],
+  }) {
+    for (final p in parameters) {
+      final n = p.parameterName.trim().toLowerCase();
+      if (exactNames.any((name) => n == name.trim().toLowerCase())) {
+        final code = p.code.trim();
+        if (code.isNotEmpty) return code;
+      }
+    }
+    for (final part in contains) {
+      final target = part.trim().toLowerCase();
+      if (target.isEmpty) continue;
+      for (final p in parameters) {
+        final n = p.parameterName.trim().toLowerCase();
+        if (n.contains(target)) {
+          final code = p.code.trim();
+          if (code.isNotEmpty) return code;
+        }
+      }
     }
     return null;
   }
@@ -237,11 +444,19 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
-    _acknowledgeActivityUseCase = serviceLocator<AcknowledgeActivityUseCase>();
+    // Note: hot-reload doesn't rerun DI setup; avoid crashing if not registered yet.
+    _guardianParentSignatureUseCase =
+        serviceLocator.isRegistered<GuardianParentSignatureUseCase>()
+            ? serviceLocator<GuardianParentSignatureUseCase>()
+            : GuardianParentSignatureUseCase(serviceLocator<ActivityRepository>());
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _imageUploadService = serviceLocator<ImageUploadService>();
+    _getGuardianNameCodeMapForSchoolUseCase =
+        serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -253,6 +468,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
@@ -287,6 +503,177 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     _loadStaffContext();
   }
 
+  bool get _showAdminApproveRejectActions {
+    if (!widget.isEdit || widget.readOnly) return false;
+    if (!_isAdminDesignation) return false;
+    return canAdminApproveOrRejectActivityItem(
+      _effectiveActivity,
+      isAdminPersona: true,
+    );
+  }
+
+  Future<void> _approvePendingActivity() async {
+    if (!_isAdminSigned || !_adminSignedThisSession) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before approving.',
+        isWarning: true,
+      );
+      return;
+    }
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      await _patchAdminSignBeforeDecision();
+      final msg = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
+  }
+
+  Future<void> _rejectPendingActivity() async {
+    if (!_isAdminSigned || !_adminSignedThisSession) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before rejecting.',
+        isWarning: true,
+      );
+      return;
+    }
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      await _patchAdminSignBeforeDecision();
+      final msg = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
+  }
+
+  Future<void> _patchAdminSignBeforeDecision() async {
+    if (!_isAdminDesignation || !_isAdminSigned) return;
+    if (!_layoutAsEdit || widget.readOnly) return;
+    final code = (_effectiveActivity.activityCode ?? '').trim();
+    if (code.isEmpty) return;
+
+    final activityTypeCode = (_activityTypeCode ?? '').trim();
+    if (activityTypeCode.isEmpty) return;
+    final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+    staffCode = (staffCode ?? '').trim();
+    if (staffCode.isEmpty) return;
+
+    DateTime? d = _activityDate;
+    TimeOfDay? t = _activityTime;
+    if ((d == null || t == null) &&
+        (_effectiveActivity.activityDateIso ?? '').trim().isNotEmpty) {
+      try {
+        final dt = activityDateTimeForDisplayFromIso(
+          _effectiveActivity.activityDateIso!.trim(),
+        );
+        d ??= DateTime(dt.year, dt.month, dt.day);
+        t ??= TimeOfDay(hour: dt.hour, minute: dt.minute);
+      } catch (_) {}
+    }
+    if (d == null || t == null) return;
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: d,
+      time: t,
+    );
+
+    final description =
+        _descriptionController.text.trim().isNotEmpty
+        ? _descriptionController.text.trim()
+        : ((_effectiveActivity.whatHappened ??
+              _effectiveActivity.description ??
+              '')
+              .trim());
+    if (description.isEmpty) return;
+
+    final studentCodes = _selectedStudentsData
+        .map((e) => (e['studentCode'] ?? e['code'] ?? '').toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (studentCodes.isEmpty) {
+      final sc = (_effectiveActivity.studentCode ?? '').trim();
+      if (sc.isNotEmpty) studentCodes.add(sc);
+    }
+    final creatorStaffCodeForIncident = _staffPresentRawValue.trim().isNotEmpty
+        ? _staffPresentRawValue.trim()
+        : staffCode;
+    final parameterValues = _incidentSignerParameterValuesForPatch(
+      parameters: details.parameters,
+      staffPresentCode: creatorStaffCodeForIncident,
+      // Keep original staff signer code; fallback to creator staff code when signed.
+      staffSignerCode: _staffSignerRawValue.trim().isNotEmpty
+          ? _staffSignerRawValue.trim()
+          : (_isSigned ? creatorStaffCodeForIncident : null),
+      adminSignerCode: _isAdminSigned ? staffCode : null,
+      parentSignerCode:
+          _parentSignerRawValue.trim().isNotEmpty ? _parentSignerRawValue : null,
+    );
+    if (parameterValues.isEmpty) return;
+    _debugIncidentParameterValues('adminDecisionPatch', parameterValues);
+    final remainingNorm = _remainingExistingPhotoUrls
+        .map(normalizeActivityDeliveryUrl)
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    for (final u in videoDeliveryUrlsFromAttachmentRows(_detailAttachmentRows)) {
+      final n = normalizeActivityDeliveryUrl(u);
+      if (n.isNotEmpty) remainingNorm.add(n);
+    }
+    final mergedRows = mergeAttachmentRowsForEditPatch(
+      existingRows: _detailAttachmentRows
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      newUploadRows: const <Map<String, dynamic>>[],
+      remainingNormalizedDeliveryUrls: remainingNorm,
+    );
+    final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
+    await _updateActivityUseCase(
+      code: code,
+      studentCodes: studentCodes,
+      applyToStudentCodes: studentCodes,
+      staffCode: staffCode,
+      activityDate: activityDateIso,
+      description: description,
+      parameterValues: parameterValues,
+      attachments: patchAttachments,
+    );
+    _adminSignerRawValue = staffCode;
+  }
+
   Future<void> _prefetchActivityForEdit() async {
     if (!_layoutAsEdit || !mounted) return;
     final code = widget.activityData?.activityCode?.trim();
@@ -299,8 +686,118 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         detail,
         viewerDisplayName: _staffName,
       );
+      bool? pickBoolSign({
+        required String code,
+        required String labelContains,
+      }) {
+        bool? fromRaw(dynamic raw) {
+          if (raw is bool) return raw;
+          final text = (raw ?? '').toString().trim().toLowerCase();
+          if (text == 'true') return true;
+          if (text == 'false') return false;
+          return null;
+        }
+
+        for (final p in detail.parameterValues) {
+          final pCode = (p['parameterCode'] ?? p['code'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
+          final pName = (p['parameterName'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
+          final matchesCode = pCode == code.toUpperCase();
+          final matchesName = pName.contains(labelContains.toLowerCase());
+          if (!matchesCode && !matchesName) continue;
+          for (final key in const <String>[
+            'valueBool',
+            'valueBoolean',
+            'value',
+            'valueText',
+            'selectedOptionLabel',
+          ]) {
+            final parsed = fromRaw(p[key]);
+            if (parsed != null) return parsed;
+            if ((key == 'valueText' || key == 'value') &&
+                (p[key] ?? '').toString().trim().isNotEmpty) {
+              return true;
+            }
+          }
+        }
+        return null;
+      }
+
+      final staffSigned = pickBoolSign(
+        code: 'PM_047',
+        labelContains: 'click to sign - staff',
+      );
+      final adminSigned = pickBoolSign(
+        code: 'PM_061',
+        labelContains: 'click to sign - admin',
+      );
+      final parentSigned = pickBoolSign(
+        code: 'PM_062',
+        labelContains: 'click to sign - parent',
+      );
+      String pickStaffPresentRawValue() {
+        for (final p in detail.parameterValues) {
+          final pCode = (p['parameterCode'] ?? p['code'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
+          final pName = (p['parameterName'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
+          if (pCode != 'PM_045' && !pName.contains('staff present')) continue;
+          final raw = (p['valueText'] ?? p['value'] ?? '').toString().trim();
+          if (raw.isNotEmpty) return raw;
+        }
+        return '';
+      }
+      String pickSignRawValue({
+        required String code,
+        required String labelContains,
+      }) {
+        for (final p in detail.parameterValues) {
+          final pCode = (p['parameterCode'] ?? p['code'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
+          final pName = (p['parameterName'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
+          final matchesCode = pCode == code.toUpperCase();
+          final matchesName = pName.contains(labelContains.toLowerCase());
+          if (!matchesCode && !matchesName) continue;
+          final raw = (p['valueText'] ?? p['value'] ?? '').toString().trim();
+          if (raw.isNotEmpty) return raw;
+        }
+        return '';
+      }
+      final staffPresentRaw = pickStaffPresentRawValue();
+      final staffSignRaw = pickSignRawValue(
+        code: 'PM_047',
+        labelContains: 'click to sign - staff',
+      );
+      final adminSignRaw = pickSignRawValue(
+        code: 'PM_061',
+        labelContains: 'click to sign - admin',
+      );
+      final parentSignRaw = pickSignRawValue(
+        code: 'PM_062',
+        labelContains: 'click to sign - parent',
+      );
+      await _primeStaffDisplayNamesFromCodes([
+        staffPresentRaw,
+        staffSignRaw,
+        adminSignRaw,
+      ]);
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -308,6 +805,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _descriptionController.text =
             item.whatHappened ?? item.description ?? '';
         _addNotesController.text = item.additionalNotes ?? '';
+        _isSigned = staffSigned ?? _isSigned;
+        _isAdminSigned = adminSigned ?? _isAdminSigned;
+        // Force explicit click-to-sign in this screen session for admin actions.
+        _adminSignedThisSession = false;
+        _isParentSigned = parentSigned ?? _isParentSigned;
+        _staffPresentRawValue = staffPresentRaw;
+        _staffSignerRawValue = staffSignRaw;
+        _adminSignerRawValue = adminSignRaw;
+        _parentSignerRawValue = parentSignRaw;
+        _hasGuardianAcknowledgedLocally = parentSigned == true;
         _firstAidGiven = item.firstAidAdministered ?? false;
         _activityTypeCode = item.activityTypeCode;
         _detailAttachmentRows = detail.attachments
@@ -330,6 +837,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           } catch (_) {}
         }
       });
+      unawaited(_primeGuardianNamesFromCodes([parentSignRaw]).catchError((_) {}));
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -360,22 +868,63 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
+    unawaited(
+      _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
+    );
   }
 
   Future<void> _onAcknowledgePressed() async {
     if (_isAcknowledging || !_showGuardianAcknowledgeButton) return;
     final code = (_effectiveActivity.activityCode ?? '').trim();
     if (code.isEmpty) return;
+    if (!_hasParentSignedForAction) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please click to sign',
+        isWarning: true,
+      );
+      return;
+    }
 
     setState(() => _isAcknowledging = true);
     try {
-      final message = await _acknowledgeActivityUseCase(code: code);
+      if (!_isGuardianPersona) return;
+      final parentSignerCode = await _resolveParentSignerCode();
+      if (parentSignerCode.isEmpty) {
+        throw Exception('Unable to resolve guardian code');
+      }
+      final activityTypeCode = (_activityTypeCode ?? '').trim();
+      if (activityTypeCode.isEmpty) {
+        throw Exception('Unable to resolve activity type for parent signature');
+      }
+      final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final parentSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Parent'],
+        contains: const ['click to sign - parent'],
+      );
+      if (parentSignParamCode == null || parentSignParamCode.trim().isEmpty) {
+        throw Exception('Parent signature parameter is not configured');
+      }
+      await _guardianParentSignatureUseCase(
+        code: code,
+        parameterCode: parentSignParamCode.trim(),
+        guardianCode: parentSignerCode,
+      );
       if (!mounted) return;
+      setState(() {
+        _hasGuardianAcknowledgedLocally = true;
+        _isParentSigned = true;
+        _parentSignerRawValue = parentSignerCode;
+      });
+      unawaited(
+        _primeGuardianNamesFromCodes([parentSignerCode]).catchError((_) {}),
+      );
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message.isNotEmpty ? message : 'Activity acknowledged',
+        message: 'Acknowledged successfully',
+        isSuccess: true,
       );
-      await _prefetchActivityForEdit();
     } catch (e) {
       if (!mounted) return;
       CoreUtils.logApiError(
@@ -473,15 +1022,25 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    if (!_isSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please click to sign',
-        isWarning: true,
-      );
-      return;
+    if (_isAdminDesignation) {
+      if (!_isAdminSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please sign in Admin Present.',
+          isWarning: true,
+        );
+        return;
+      }
+    } else {
+      if (!_isSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please click to sign',
+          isWarning: true,
+        );
+        return;
+      }
     }
-
     if (_activityDate == null || _activityTime == null) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -572,14 +1131,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
-
     // Ensure the API payload uses the attendance date chosen on student selection.
     final prefilled = widget.selectedStudents != null
         ? resolveSelectedAttendanceDate(_selectedStudentsData)
@@ -609,36 +1160,46 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         code: activityTypeCode,
       );
 
-      String? findParamCode(String contains) {
-        final target = contains.toLowerCase();
-        for (final p in details.parameters) {
-          final name = p.parameterName.toLowerCase();
-          if (name.contains(target)) return p.code;
-        }
-        return null;
-      }
-
-      String? findWhatHappenedParamCode() {
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          if (n.contains('what') && n.contains('happ')) return p.code;
-        }
-        return findParamCode('description');
-      }
-
-      String? findAdditionalNotesParamCode() {
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          if (n.contains('additional')) return p.code;
-        }
-        return null;
-      }
-
-      final dateParamCode = findParamCode('date');
-      final timeParamCode = findParamCode('time');
-      final staffParamCode = findParamCode('staff');
-      final whatParamCode = findWhatHappenedParamCode();
-      final notesParamCode = findAdditionalNotesParamCode();
+      final dateParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Date'],
+        contains: const ['date'],
+      );
+      final timeParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Time'],
+        contains: const ['time'],
+      );
+      final staffParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Staff Present'],
+        contains: const ['staff present'],
+      );
+      final whatParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['What happened?'],
+        contains: const ['what happened', 'description'],
+      );
+      final notesParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Additional Notes'],
+        contains: const ['additional'],
+      );
+      final staffSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Staff'],
+        contains: const ['click to sign - staff'],
+      );
+      final adminSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Admin'],
+        contains: const ['click to sign - admin'],
+      );
+      final parentSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Parent'],
+        contains: const ['click to sign - parent'],
+      );
       final firstAidParam = _findFirstAidParameter(details.parameters);
       final firstAidEntry = firstAidParam == null
           ? null
@@ -659,6 +1220,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           ? '$whatHappened\n\n$additionalNotes'
           : whatHappened;
 
+      final parentSignerCode = await _resolveParentSignerCode();
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
           {'parameterCode': dateParamCode, 'value': localDate},
@@ -675,7 +1237,26 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
           {'parameterCode': notesParamCode, 'value': additionalNotes},
+        if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
+          {
+            'parameterCode': staffSignParamCode,
+            'value': (_isSigned && !_isAdminDesignation) ? staffCode.trim() : '',
+          },
+        if (_isAdminDesignation &&
+            adminSignParamCode != null &&
+            adminSignParamCode.trim().isNotEmpty)
+          {
+            'parameterCode': adminSignParamCode,
+            'value': (_isAdminSigned && _isAdminDesignation) ? staffCode.trim() : '',
+          },
+        if (parentSignParamCode != null &&
+            parentSignParamCode.trim().isNotEmpty)
+          {
+            'parameterCode': parentSignParamCode,
+            'value': _isParentSigned ? parentSignerCode : '',
+          },
       ];
+      _debugIncidentParameterValues('create', parameterValues);
 
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
@@ -773,6 +1354,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please click to sign',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_isAdminDesignation && !_isAdminSigned) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before saving.',
+        isWarning: true,
+      );
+      return;
+    }
+    if (_isAdminDesignation && !_adminSignedThisSession) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please sign in Admin Present before saving.',
         isWarning: true,
       );
       return;
@@ -879,13 +1476,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -927,36 +1517,46 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         code: activityTypeCode,
       );
 
-      String? findParamCode(String contains) {
-        final target = contains.toLowerCase();
-        for (final p in details.parameters) {
-          final name = p.parameterName.toLowerCase();
-          if (name.contains(target)) return p.code;
-        }
-        return null;
-      }
-
-      String? findWhatHappenedParamCode() {
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          if (n.contains('what') && n.contains('happ')) return p.code;
-        }
-        return findParamCode('description');
-      }
-
-      String? findAdditionalNotesParamCode() {
-        for (final p in details.parameters) {
-          final n = p.parameterName.toLowerCase();
-          if (n.contains('additional')) return p.code;
-        }
-        return null;
-      }
-
-      final dateParamCode = findParamCode('date');
-      final timeParamCode = findParamCode('time');
-      final staffParamCode = findParamCode('staff');
-      final whatParamCode = findWhatHappenedParamCode();
-      final notesParamCode = findAdditionalNotesParamCode();
+      final dateParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Date'],
+        contains: const ['date'],
+      );
+      final timeParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Time'],
+        contains: const ['time'],
+      );
+      final staffParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Staff Present'],
+        contains: const ['staff present'],
+      );
+      final whatParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['What happened?'],
+        contains: const ['what happened', 'description'],
+      );
+      final notesParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Additional Notes'],
+        contains: const ['additional'],
+      );
+      final staffSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Staff'],
+        contains: const ['click to sign - staff'],
+      );
+      final adminSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Admin'],
+        contains: const ['click to sign - admin'],
+      );
+      final parentSignParamCode = _findIncidentParamCodeByName(
+        details.parameters,
+        const ['Click to Sign - Parent'],
+        contains: const ['click to sign - parent'],
+      );
       final firstAidParam = _findFirstAidParameter(details.parameters);
       final firstAidEntry = firstAidParam == null
           ? null
@@ -977,6 +1577,25 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           ? '$whatHappened\n\n$additionalNotes'
           : whatHappened;
 
+      final parentSignerCode = await _resolveParentSignerCode();
+      final creatorStaffCodeForIncident = _staffPresentRawValue.trim().isNotEmpty
+          ? _staffPresentRawValue.trim()
+          : staffCode.trim();
+      final resolvedStaffSignerCode = _isSigned
+          ? (_staffSignerRawValue.trim().isNotEmpty
+                ? _staffSignerRawValue.trim()
+                : creatorStaffCodeForIncident)
+          : '';
+      final resolvedAdminSignerCode = _isAdminDesignation
+          ? (_isAdminSigned
+                ? (_adminSignerRawValue.trim().isNotEmpty
+                      ? _adminSignerRawValue.trim()
+                      : staffCode.trim())
+                : '')
+          : _adminSignerRawValue.trim();
+      final resolvedParentSignerCode = _isGuardianPersona
+          ? (_isParentSigned ? parentSignerCode.trim() : '')
+          : _parentSignerRawValue.trim();
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
           {'parameterCode': dateParamCode, 'value': localDate},
@@ -984,8 +1603,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            creatorStaffCodeForIncident.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': creatorStaffCodeForIncident},
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           {'parameterCode': whatParamCode, 'value': whatValueForParam},
         if (firstAidEntry != null) firstAidEntry,
@@ -993,7 +1612,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
           {'parameterCode': notesParamCode, 'value': additionalNotes},
+        if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
+          {
+            'parameterCode': staffSignParamCode,
+            'value': resolvedStaffSignerCode,
+          },
+        if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
+          {
+            'parameterCode': adminSignParamCode,
+            'value': resolvedAdminSignerCode,
+          },
+        if (parentSignParamCode != null &&
+            parentSignParamCode.trim().isNotEmpty)
+          {
+            'parameterCode': parentSignParamCode,
+            'value': resolvedParentSignerCode,
+          },
       ];
+      _debugIncidentParameterValues('update', parameterValues);
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: _selectedStudentsData,
@@ -1093,22 +1729,23 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final hasSharedAttachmentInEdit = widget.isEdit &&
-        _detailAttachmentRows.any((row) {
-          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
-          final student = (row['studentCode'] ?? '').toString().trim();
-          return binding == 'SHARED' || student.isEmpty;
-        });
-    final isShared = hasSharedAttachmentInEdit || studentCodes.length > 1;
-    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
-    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
-    final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
+    // Incident activity backend can reject SHARED attachments for some activity
+    // type configs, so always upload as PER_STUDENT.
+    const isShared = false;
+    const bindingMode = 'PER_STUDENT';
+    const ownerType = 'STUDENT';
+    final ownerCode = studentCodes.first;
     final missingPhotos = _newPhotos
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
 
     if (missingPhotos.isNotEmpty) {
-      setState(() => _isUploadingMedia = true);
+      setState(() {
+        _isUploadingMedia = true;
+        _uploadProgressPercent = 0;
+        _uploadCompletedCount = 0;
+        _uploadTotalCount = missingPhotos.length;
+      });
       try {
         final uploadSession = await _imageUploadService
             .createActivityUploadSession(
@@ -1121,7 +1758,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             );
 
         final sessionAssetCodes = <String>[];
-        for (final photo in missingPhotos) {
+        for (var i = 0; i < missingPhotos.length; i++) {
+          final photo = missingPhotos[i];
+          final fileIndex = i + 1;
+          final totalFiles = missingPhotos.length;
           final fileName = photo.uri.pathSegments.isNotEmpty
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
@@ -1144,12 +1784,25 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
             fallbackContentType: 'image/jpeg',
+            onProgress: (_, __, percent) {
+              if (!mounted) return;
+              final overallFraction =
+                  ((fileIndex - 1) + (percent / 100)) / totalFiles;
+              final overallPercent =
+                  (overallFraction * 100).clamp(0, 100).round();
+              final displayPercent =
+                  overallPercent >= 100 ? 99 : overallPercent;
+              setState(() => _uploadProgressPercent = displayPercent);
+            },
           );
           await _imageUploadService.completeAssetUpload(
             sessionCode: uploadSession.sessionCode,
             assetCode: presign.assetCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
           );
+          if (mounted) {
+            setState(() => _uploadCompletedCount = fileIndex);
+          }
           _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
         }
@@ -1157,6 +1810,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           sessionCode: uploadSession.sessionCode,
           expectedAssetCodes: sessionAssetCodes,
         );
+        if (mounted) {
+          setState(() => _uploadProgressPercent = 100);
+        }
       } finally {
         if (mounted) setState(() => _isUploadingMedia = false);
       }
@@ -1186,17 +1842,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final normalizedPhotos = widget.isEdit && photos.length > 1
+        ? <File>[photos.last]
+        : photos;
+    final photoCount =
+        normalizedPhotos.length + remainingExistingPhotoUrls.length;
     final videoCount =
         (video != null ? 1 : 0) +
         ((remainingExistingVideoUrl != null &&
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    if (photoCount > 1 &&
+        !(widget.isEdit &&
+            photos.isNotEmpty &&
+            remainingExistingPhotoUrls.isNotEmpty)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Only 1 photo can be selected.',
         isError: true,
       );
       return;
@@ -1210,9 +1873,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       return;
     }
     setState(() {
-      _newPhotos = photos;
-      _remainingExistingPhotoUrls =
-          List<String>.from(remainingExistingPhotoUrls);
+      _newPhotos = normalizedPhotos;
+      _remainingExistingPhotoUrls = (widget.isEdit &&
+              normalizedPhotos.isNotEmpty)
+          ? const []
+          : List<String>.from(remainingExistingPhotoUrls);
       _uploadedAssetCodeByPath.removeWhere((path, _) {
         final stillPhoto = _newPhotos.any((f) => f.path == path);
         return !stillPhoto;
@@ -1225,6 +1890,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (widget.readOnly || _newPhotos.isEmpty || _isUploadingMedia) {
       return;
     }
+    if (_selectedStudentsData.isEmpty) return;
 
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
@@ -1479,34 +2145,155 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
+                // View-only layout: show the same signer blocks for all personas
+                // (guardian/staff/admin) with interactions disabled.
+                final isReadOnlyView = widget.readOnly;
+                if (isReadOnlyView) {
+                  final staffSignerCode = _staffSignerRawValue.trim();
+                  final adminSignerCode = _adminSignerRawValue.trim();
+                  final parentSignerCode = _parentSignerRawValue.trim();
+                  final showStaffSignedBlock = staffSignerCode.isNotEmpty;
+                  final showAdminSignedBlock = adminSignerCode.isNotEmpty;
+                  final showParentSignedBlock = parentSignerCode.isNotEmpty ||
+                      (_isGuardianPersona &&
+                          _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING');
+                  return Column(
+                    children: [
+                      if (showStaffSignedBlock)
+                        StaffPresentWidget(
+                          key: const ValueKey('incident_parent_view_staff_present'),
+                          fieldLabel: 'Staff Present',
+                          staffName: _displaySignerLabel(
+                            staffSignerCode,
+                            fallback: 'Staff',
+                          ),
+                          isEditable: false,
+                          isAlreadySigned: true,
+                          clickToSignEditable: false,
+                          showSignCheckbox: true,
+                          showStaffDropdown: false,
+                          incidentActivity: true,
+                        ),
+                      if (showStaffSignedBlock && showAdminSignedBlock)
+                        const SizedBox(height: 16),
+                      if (showAdminSignedBlock)
+                        StaffPresentWidget(
+                          key: const ValueKey('incident_parent_view_admin_present'),
+                          fieldLabel: 'Admin Present',
+                          staffName: _displaySignerLabel(
+                            _adminSignerRawValue,
+                            fallback: 'Admin',
+                          ),
+                          isEditable: false,
+                          isAlreadySigned: true,
+                          clickToSignEditable: false,
+                          showSignCheckbox: true,
+                          showStaffDropdown: false,
+                          incidentActivity: true,
+                        ),
+                      if ((showStaffSignedBlock || showAdminSignedBlock) &&
+                          showParentSignedBlock)
+                        const SizedBox(height: 16),
+                      if (showParentSignedBlock)
+                        StaffPresentWidget(
+                          key: const ValueKey('incident_parent_sign_only'),
+                          fieldLabel: 'Parent Present',
+                          // Never show logged-in staff/admin name here.
+                          staffName: parentSignerCode.isNotEmpty
+                              ? _guardianDisplayNameForCode(
+                                  parentSignerCode,
+                                  fallback: 'Parent',
+                                )
+                              : (_staffName.trim().isNotEmpty ? _staffName : 'Parent'),
+                          isEditable: false,
+                          isAlreadySigned: _hasParentSignedForAction,
+                          clickToSignEditable: !_isAcknowledged,
+                          showStaffDropdown: false,
+                          showSignCheckbox: true,
+                          incidentActivity: true,
+                          onSigned: (value) {
+                            setState(() {
+                              _isParentSigned = value;
+                            });
+                          },
+                        ),
+                    ],
+                  );
+                }
                 final isAdminPersona =
                     _isAdminDesignation;
-                final lockToLoggedInStaffOnEdit =
-                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                final showStaffPresentBlock = !(_layoutAsEdit &&
+                    _isAdminDesignation &&
+                    _staffSignerRawValue.trim().isEmpty);
+                if (!showStaffPresentBlock) {
+                  return const SizedBox.shrink();
+                }
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaffOnEdit
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy: _layoutAsEdit
-                              ? (_effectiveActivity.staffPresent ??
-                                  _effectiveActivity.createdBy)
-                              : '',
-                          loggedInDisplayName: _staffName,
-                        ),
+                  key: const ValueKey('incident_staff_present'),
+                  staffName: _layoutAsEdit
+                      ? _displaySignerLabel(
+                          _staffPresentRawValue,
+                          fallback: staffPresentLabelForActivity(
+                            layoutAsEdit: _layoutAsEdit,
+                            activityCreatedBy: _layoutAsEdit
+                                ? (_effectiveActivity.staffPresent ??
+                                    _effectiveActivity.createdBy)
+                                : '',
+                            loggedInDisplayName: _staffName,
+                          ),
+                        )
+                      : (lockToLoggedInStaff
+                            ? _staffName
+                            : staffPresentLabelForActivity(
+                                layoutAsEdit: _layoutAsEdit,
+                                activityCreatedBy: _layoutAsEdit
+                                    ? (_effectiveActivity.staffPresent ??
+                                        _effectiveActivity.createdBy)
+                                    : '',
+                                loggedInDisplayName: _staffName,
+                              )),
                   isEditable:
-                      lockToLoggedInStaffOnEdit ? false : _canInteract,
-                  isAlreadySigned: _layoutAsEdit,
-                  clickToSignEditable: _canInteract || _isGuardianPersona,
+                      lockToLoggedInStaff ? false : _canInteract,
+                  isAlreadySigned: _isSigned,
+                  clickToSignEditable: _canInteract,
+                  showSignCheckbox: !_isGuardianPersona && !_isAdminDesignation,
+                  showStaffDropdown: !_isAdminDesignation,
+                  prefillWithStaffName: !_layoutAsEdit && _isAdminDesignation,
                   incidentActivity: true,
                   onSigned: (value) {
                     setState(() {
                       _isSigned = value;
+                      if (value) {
+                        _staffSignerRawValue = (_staffCode ?? '').trim();
+                      }
                     });
                   },
                 );
               },
             ),
+            if (_isAdminDesignation && !widget.readOnly)
+              const SizedBox(height: 16),
+            if (_isAdminDesignation && !widget.readOnly)
+              StaffPresentWidget(
+                key: const ValueKey('incident_admin_present'),
+                fieldLabel: 'Admin Present',
+                staffName: _staffName.trim().isEmpty ? 'Admin' : _staffName,
+                isEditable: false,
+                isAlreadySigned: _isAdminSigned,
+                clickToSignEditable: _canInteract,
+                showSignCheckbox: !_isGuardianPersona,
+                incidentActivity: true,
+                onSigned: (value) {
+                  setState(() {
+                    _isAdminSigned = value;
+                    _adminSignedThisSession = value;
+                    if (value) {
+                      _adminSignerRawValue = (_staffCode ?? '').trim();
+                    }
+                  });
+                },
+              ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _addNotesController,
@@ -1523,9 +2310,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 absorbing: true,
                 child: CustomToggle(
                   label: 'Requires Admin Approval',
-                  isToggled: true,
+                  isToggled: _requireAdminApproval,
                   labelOnLeftSide: true,
-                  onToggle: (_) {},
+                  onToggle: (value) {
+                    setState(() {
+                      _requireAdminApproval = value;
+                    });
+                  },
                 ),
               ),
             SizedBox(height: responsive.verticalSpacing),
@@ -1538,7 +2329,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   allowPhoto: true,
                   readOnly: widget.readOnly,
                   isPictureBox: false,
-                  limit: 10,
+                  limit: 1,
+                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
                   photoSizeLimit: 20,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)
@@ -1557,7 +2349,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: 10,
+                limit: 1,
                 photoSizeLimit: 20,
                 label: 'Photos',
                 onMediaChanged: _onMediaChanged,
@@ -1577,10 +2369,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: CustomButtonLayout(
                         confirmButtonLabel: _isAcknowledged ? 'Acknowledged' : 'Acknowledge',
-                        onPressedConfirm: _isAcknowledged ? null : _onAcknowledgePressed,
+                        onPressedConfirm: _isAcknowledged
+                            ? null
+                            : _onAcknowledgePressed,
                         showCancelButton: false,
                         isForm: false,
-                        isLoading: _isAcknowledging || _loadingActivityDetail,
+                        isLoading: _isAcknowledging,
                       ),
                     )
                   : const SizedBox.shrink(),
@@ -1588,15 +2382,30 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onSaveOrAddPressed,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading:
-                      _isSubmitting ||
-                      _isUploadingMedia ||
-                      _loadingActivityDetail,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ActivityAdminApproveRejectBar(
+                      visible: _showAdminApproveRejectActions,
+                      isLoading: _isApprovingOrRejecting ||
+                          _isSubmitting ||
+                          _isUploadingMedia ||
+                          _loadingActivityDetail,
+                      onApprove: _approvePendingActivity,
+                      onReject: _rejectPendingActivity,
+                    ),
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
+                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                      onPressedConfirm: _onSaveOrAddPressed,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSubmitting ||
+                          _isApprovingOrRejecting ||
+                          _isUploadingMedia ||
+                          _loadingActivityDetail,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1606,19 +2415,43 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Widget _buildUploadStatus() {
     if (_isUploadingMedia) {
       return Row(
-        children: const [
+        children: [
           SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(
+              value: (_uploadProgressPercent / 100).clamp(0.0, 1.0),
+              strokeWidth: 2,
+            ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Uploading photos...',
-            style: TextStyle(
+            'Uploading photos... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_uploadTotalCount > 0 &&
+        _uploadCompletedCount == _uploadTotalCount &&
+        _uploadProgressPercent == 100) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.green,
+              ),
             ),
           ),
         ],

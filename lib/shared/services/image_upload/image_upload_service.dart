@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -144,7 +145,8 @@ class ImageUploadService {
 
   Future<String> computeFileChecksumSha256(File file) async {
     final bytes = await file.readAsBytes();
-    return sha256.convert(bytes).toString();
+    // S3 `x-amz-checksum-sha256` must be base64-encoded raw SHA-256 bytes.
+    return base64Encode(sha256.convert(bytes).bytes);
   }
 
   Future<void> completeAssetUpload({
@@ -169,10 +171,18 @@ class ImageUploadService {
     Map<String, String> requiredHeaders = const {},
     String fallbackContentType = 'image/jpeg',
     void Function(int sent, int total)? onSendProgress,
+    void Function(int sentBytes, int totalBytes, int percent)? onProgress,
   }) async {
     final uploadClient = Dio();
     final bytes = await file.readAsBytes();
-    final headers = <String, dynamic>{...requiredHeaders};
+    final headers = <String, dynamic>{};
+    requiredHeaders.forEach((key, value) {
+      final k = key.trim();
+      final v = value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) {
+        headers[k] = v;
+      }
+    });
     headers.putIfAbsent('Content-Type', () => fallbackContentType);
 
     final putUri = Uri.parse(presignedPutUrl);
@@ -195,6 +205,14 @@ class ImageUploadService {
           validateStatus: (status) =>
               status != null && status >= 200 && status < 300,
         ),
+        onSendProgress: (sent, total) {
+          final effectiveTotal =
+              (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+          if (effectiveTotal <= 0) return;
+          final fraction = sent / effectiveTotal;
+          final percent = (fraction * 100).clamp(0, 100).round();
+          onProgress?.call(sent, effectiveTotal, percent);
+        },
       );
       ApiLogger.logResponse(
         url: logUrl,

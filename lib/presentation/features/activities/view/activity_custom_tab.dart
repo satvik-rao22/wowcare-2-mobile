@@ -42,9 +42,11 @@ import '../../../../domain/features/student_classroom/usecases/get_student_class
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../util/activity_filter_metadata_cache.dart';
+import '../util/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
@@ -104,13 +106,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
+  List<String> _selectedClassrooms = [];
+  List<String> _selectedStudents = [];
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
+  List<String> _filterApprovalStatuses = [];
   String? _selectedActivityType;
   String? _feedError;
   String? _schoolCode;
   String _viewerStaffDisplayName = '';
+  final Map<String, String> _staffDisplayNameByCode = {};
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _classroomNameByCode = {};
   final Map<String, String> _studentCodeByName = {};
@@ -385,12 +391,79 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return null;
   }
 
+  bool _isAttendanceEventLabel(String value) {
+    return value == 'Sign-in' || value == 'Sign-out' || value == 'Transfer';
+  }
+
+  bool _shouldIncludeAttendanceEntries() {
+    if (_filterActivityTypes.isNotEmpty) {
+      return _filterActivityTypes
+          .map((e) => e.trim())
+          .any(_isAttendanceEventLabel);
+    }
+    final single = _selectedActivityType?.trim();
+    if (single == null || single.isEmpty) return true;
+    return _isAttendanceEventLabel(single);
+  }
+
   List<String>? _selectedStudentCodesForAttendanceFilter() {
-    final selected = _selectedStudent?.trim();
-    if (selected == null || selected.isEmpty) return null;
-    final code = _studentCodeByName[selected]?.trim();
-    if (code == null || code.isEmpty) return null;
-    return <String>[code];
+    final selectedNames = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+        : ((_selectedStudent?.trim().isNotEmpty ?? false)
+              ? <String>[_selectedStudent!.trim()]
+              : const <String>[]);
+    String codeForName(String name) {
+      final exact = _studentCodeByName[name]?.trim() ?? '';
+      if (exact.isNotEmpty) return exact;
+      final needle = name.trim().toLowerCase();
+      for (final entry in _studentCodeByName.entries) {
+        if (entry.key.trim().toLowerCase() == needle) {
+          final code = entry.value.trim();
+          if (code.isNotEmpty) return code;
+        }
+      }
+      return '';
+    }
+
+    final codes = selectedNames
+        .map(codeForName)
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    return codes.isEmpty ? null : codes;
+  }
+
+  List<String> _selectedClassroomCodesForFeed() {
+    final selectedNames = _selectedClassrooms;
+    final fromSelectedDropdown = selectedNames
+        .map((name) => _classroomCodeByName[name]?.trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    if (fromSelectedDropdown.isNotEmpty) return fromSelectedDropdown;
+
+    final selectedSingle = (_selectdClassroom ?? '').trim();
+    final singleCode = _classroomCodeByName[selectedSingle]?.trim() ?? '';
+    if (singleCode.isNotEmpty) return <String>[singleCode];
+
+    final selectedStudentNames = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+        : ((_selectedStudent?.trim().isNotEmpty ?? false)
+              ? <String>[_selectedStudent!.trim()]
+              : const <String>[]);
+    final fromSelectedStudents = classroomStudents.entries
+        .where(
+          (entry) => selectedStudentNames.any(
+            (studentName) => entry.value.contains(studentName),
+          ),
+        )
+        .map((entry) => _classroomCodeByName[entry.key]?.trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    return const <String>[];
   }
 
   String _displayClassroomName({
@@ -413,6 +486,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<ActivityItem> _itemsFromAttendancePage(StudentAttendanceDailyPage page) {
+    if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
     final eventFilter = _selectedAttendanceEventFilter();
     final selectedClassroomName = _selectdClassroom;
     final selectedClassroomCode = selectedClassroomName != null
@@ -623,10 +697,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       return _loadNextParentHomeRangeFeedPage();
     }
 
-    final classroomName = _selectdClassroom;
-    if (classroomName == null) return;
-
-    final classroomCode = _classroomCodeByName[classroomName];
+    final classroomCodes = _selectedClassroomCodesForFeed();
+    final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
     if (classroomCode == null || classroomCode.trim().isEmpty) return;
 
     final start = _selectedStartDate;
@@ -635,7 +707,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     await _rebuildStudentCodesForTagFilter();
     if (!mounted) return;
 
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    var studentCodes = _selectedStudentCodesForAttendanceFilter();
+    if ((studentCodes == null || studentCodes.isEmpty) &&
+        _selectedStudents.isNotEmpty &&
+        isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms();
+      if (!mounted) return;
+      studentCodes = _selectedStudentCodesForAttendanceFilter();
+    }
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
     final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
@@ -648,7 +727,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
-      final typeCode = _activityTypeCodeForApiFilter();
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final approvalStatuses = _approvalStatusesForApiFilter();
       final pageIndex = _feedNextPage;
 
       final results = await Future.wait([
@@ -656,7 +736,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendanceDate: _dateQueryParam(start),
           fromAttendanceDate: _dateQueryParam(start),
           toAttendanceDate: _dateQueryParam(end),
-          classroomCodes: <String>[classroomCode],
+          classroomCodes: classroomCodes,
           studentCodes: studentCodes,
           signInAtFilter: signInAtFilter,
           signOutAtFilter: signOutAtFilter,
@@ -668,7 +748,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           startDate: _dateQueryParam(start),
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
+          activityTypeCodes: typeCodes,
+          approvalStatuses: approvalStatuses,
           guardianPersona: _parentHome,
           page: pageIndex,
           size: _feedPageSize,
@@ -677,6 +760,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
       final activityFeedPage = results[1] as ActivityFeedPage;
+      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
@@ -755,6 +839,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
+      _filterApprovalStatuses.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -773,7 +858,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final page = await _getStudentAttendanceDailyUseCase(
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
         attendanceDate: _dateQueryParam(start),
         fromAttendanceDate: _dateQueryParam(start),
         toAttendanceDate: _dateQueryParam(end),
@@ -783,7 +868,53 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         page: 0,
         size: _feedPageSize,
       );
-      final items = _itemsFromAttendancePage(page);
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final approvalStatuses = _approvalStatusesForApiFilter();
+      final activityPages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return const ActivityFeedPage(
+              content: [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: 0,
+              last: true,
+            );
+          }
+          return _getRangeActivityFeedUseCase(
+            classroomCode: cc,
+            startDate: _dateQueryParam(start),
+            endDate: _dateQueryParam(end),
+            studentCode: sc,
+            activityTypeCodes: typeCodes,
+            approvalStatuses: approvalStatuses,
+            guardianPersona: true,
+            page: 0,
+            size: _feedPageSize,
+          );
+        }),
+      );
+      final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(mergedActivityPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -794,8 +925,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
@@ -846,7 +977,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final page = await _getStudentAttendanceDailyUseCase(
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
         attendanceDate: _dateQueryParam(start),
         fromAttendanceDate: _dateQueryParam(start),
         toAttendanceDate: _dateQueryParam(end),
@@ -856,13 +987,59 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         page: pageIndex,
         size: _feedPageSize,
       );
-      final items = _itemsFromAttendancePage(page);
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final approvalStatuses = _approvalStatusesForApiFilter();
+      final activityPages = await Future.wait(
+        _parentAllowedStudentCodes.map((sc) async {
+          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
+          if (cc.isEmpty) {
+            return ActivityFeedPage(
+              content: const [],
+              totalElements: 0,
+              totalPages: 0,
+              pageNumber: pageIndex,
+              last: true,
+            );
+          }
+          return _getRangeActivityFeedUseCase(
+            classroomCode: cc,
+            startDate: _dateQueryParam(start),
+            endDate: _dateQueryParam(end),
+            studentCode: sc,
+            activityTypeCodes: typeCodes,
+            approvalStatuses: approvalStatuses,
+            guardianPersona: true,
+            page: pageIndex,
+            size: _feedPageSize,
+          );
+        }),
+      );
+      final mergedActivityPage = mergeActivityFeedPages(activityPages);
+      await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
+      final items = <ActivityItem>[
+        ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromActivityFeedPage(mergedActivityPage),
+      ]..sort((a, b) {
+          DateTime aDt;
+          DateTime bDt;
+          try {
+            aDt = DateTime.parse(a.activityDateIso!);
+          } catch (_) {
+            aDt = DateTime(1970);
+          }
+          try {
+            bDt = DateTime.parse(b.activityDateIso!);
+          } catch (_) {
+            bDt = DateTime(1970);
+          }
+          return bDt.compareTo(aDt);
+        });
 
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = page.hasMore;
-        _feedNextPage = page.hasMore ? page.page + 1 : 0;
+        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
       if (mounted) {
@@ -885,15 +1062,30 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   void _updateAvailableStudents() {
-    if (_selectdClassroom != null) {
-      _availableStudents = classroomStudents[_selectdClassroom] ?? [];
+    if (_selectedClassrooms.isNotEmpty) {
+      final selectedClassroomNames = _selectedClassrooms;
+      _availableStudents = selectedClassroomNames
+          .expand((name) => classroomStudents[name] ?? const <String>[])
+          .toSet()
+          .toList()
+        ..sort();
       // If current selected student is not in the new list, clear it
       if (_selectedStudent != null &&
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
     } else {
-      _availableStudents = [];
+      _availableStudents = classroomStudents.values
+          .expand((students) => students)
+          .toSet()
+          .toList()
+        ..sort();
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
       _selectedStudent = null;
     }
   }
@@ -922,6 +1114,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           initialFilters: {
             'Tags': List<String>.from(_filterTags),
             'Activity Type': List<String>.from(_filterActivityTypes),
+            'Status': List<String>.from(_filterApprovalStatuses),
           },
         ),
       ),
@@ -932,14 +1125,103 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _filterActivityTypes = List<String>.from(
         result['Activity Type'] ?? const [],
       );
+      _filterApprovalStatuses = List<String>.from(result['Status'] ?? const []);
     });
     await _loadRangeFeed(refresh: true);
   }
 
-  /// Refreshes tag map from the network, then reloads the range feed (bypassing caches).
+  Future<void> _loadAllStudentsForAllowedClassrooms({
+    bool refresh = false,
+  }) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty || _classroomOptions.isEmpty) return;
+
+    final mergedByName = <String, String>{};
+    final byClassroom = <String, List<String>>{};
+
+    for (final classroomName in _classroomOptions) {
+      final classroomCode = _classroomCodeByName[classroomName];
+      if (classroomCode == null || classroomCode.trim().isEmpty) continue;
+      try {
+        final students = await _getStudentClassroomListUseCase(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          status: const ['ACTIVE'],
+          refresh: refresh,
+        );
+        final names = students.map((s) => s.fullName).toSet().toList()..sort();
+        byClassroom[classroomName] = names;
+        for (final s in students) {
+          mergedByName[s.fullName] = s.studentCode;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      classroomStudents
+        ..clear()
+        ..addAll(byClassroom);
+      _studentCodeByName
+        ..clear()
+        ..addAll(mergedByName);
+      _availableStudents = mergedByName.keys.toSet().toList()..sort();
+      _selectedStudents = _selectedStudents
+          .where((name) => _availableStudents.contains(name))
+          .toList();
+      if (_selectedStudent != null &&
+          !_availableStudents.contains(_selectedStudent)) {
+        _selectedStudent = null;
+      }
+    });
+  }
+
+  Future<void> _loadStudentsForSelectedClassrooms(
+    List<String> selectedClassroomNames, {
+    bool refresh = false,
+  }) async {
+    final school = _schoolCode;
+    if (school == null || school.isEmpty || selectedClassroomNames.isEmpty) return;
+
+    final mergedByName = Map<String, String>.from(_studentCodeByName);
+    final byClassroom = Map<String, List<String>>.from(classroomStudents);
+
+    for (final classroomName in selectedClassroomNames) {
+      final classroomCode = _classroomCodeByName[classroomName];
+      if (classroomCode == null || classroomCode.trim().isEmpty) continue;
+      try {
+        final students = await _getStudentClassroomListUseCase(
+          schoolCode: school,
+          classroomCode: classroomCode,
+          status: const ['ACTIVE'],
+          refresh: refresh,
+        );
+        final names = students.map((s) => s.fullName).toSet().toList()..sort();
+        byClassroom[classroomName] = names;
+        for (final s in students) {
+          mergedByName[s.fullName] = s.studentCode;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() {
+      classroomStudents
+        ..clear()
+        ..addAll(byClassroom);
+      _studentCodeByName
+        ..clear()
+        ..addAll(mergedByName);
+      _updateAvailableStudents();
+    });
+  }
+
+  /// Refreshes dropdown dependencies from the network without triggering feed.
   Future<void> _refreshApisAfterClearAll() async {
     await _loadTagFilterOptions(forceRefresh: true);
-    await _loadRangeFeed(refresh: true);
+    if (isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms(refresh: true);
+    }
   }
 
   Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
@@ -997,15 +1279,67 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return null;
   }
 
-  String? _activityTypeCodeForApiFilter() {
+  List<String>? _approvalStatusesForApiFilter() {
+    if (_filterApprovalStatuses.isEmpty) return null;
+    const statusCodeByLabel = <String, String>{
+      'pending admin approval': 'PENDING_ADMIN_APPROVAL',
+      'approved': 'APPROVED',
+      'rejected': 'REJECTED',
+      'parent acknowledgement pending': 'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'parent acknowledgment pending': 'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'acknowledged': 'ACKNOWLEDGED',
+    };
+    const allowedEnums = <String>{
+      'PENDING_ADMIN_APPROVAL',
+      'APPROVED',
+      'REJECTED',
+      'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'ACKNOWLEDGED',
+    };
+    final out = <String>{};
+    for (final label in _filterApprovalStatuses) {
+      final normalizedLabel = label.trim().toLowerCase();
+      final fromLabel = statusCodeByLabel[normalizedLabel];
+      if (fromLabel != null && fromLabel.isNotEmpty) {
+        out.add(fromLabel);
+        continue;
+      }
+      final enumLike = label.trim().toUpperCase().replaceAll(' ', '_');
+      if (allowedEnums.contains(enumLike)) {
+        out.add(enumLike);
+      }
+    }
+    return out.isEmpty ? null : out.toList();
+  }
+
+  Set<String> _selectedApprovalStatusCodesForUi() {
+    return (_approvalStatusesForApiFilter() ?? const <String>[])
+        .map((e) => e.trim().toUpperCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+  }
+
+  List<String>? _activityTypeCodesForApiFilter() {
     // Attendance events are handled via attendance APIs.
     final event = _selectedAttendanceEventFilter();
     if (event != null) return null;
-    if (_filterActivityTypes.length == 1) {
-      final code = _activityTypeCodeForLabel(_filterActivityTypes.first);
-      if (code != null && code.trim().isNotEmpty) return code.trim();
+    final codes = <String>{};
+    for (final label in _filterActivityTypes) {
+      final code = _activityTypeCodeForLabel(label);
+      if (code != null && code.trim().isNotEmpty) {
+        codes.add(code.trim());
+      }
     }
-    return null;
+    return codes.isEmpty ? null : codes.toList();
+  }
+
+  int _appliedFilterBadgeCount() {
+    final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
+    final hasTagFilter = _filterTags.isNotEmpty;
+    final hasStatusFilter = _filterApprovalStatuses.isNotEmpty;
+    return (hasActivityTypeFilter ? 1 : 0) +
+        (hasTagFilter ? 1 : 0) +
+        (hasStatusFilter ? 1 : 0);
   }
 
   List<ActivityItem> _itemsFromActivityFeedPage(ActivityFeedPage page) {
@@ -1013,12 +1347,42 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         .map(
           (row) => activityItemFromFeedRow(
             row,
-            viewerDisplayName: _viewerStaffDisplayName,
+            // Guardian feed should not fallback to guardian display name as
+            // "created by" when API returns system/staff-code placeholders.
+            viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
             schoolIana: _schoolIana,
+            staffDisplayNameByCode: _staffDisplayNameByCode,
           ),
         )
         .toList();
     return _withClientFilters(raw);
+  }
+
+  Future<void> _primeStaffDisplayNamesFromFeedRows(
+    Iterable<ActivityFeedRow> rows,
+  ) async {
+    final missingCodes = <String>{};
+    for (final row in rows) {
+      final code = (row.staffCode ?? '').trim();
+      if (code.isEmpty) continue;
+      if (_staffDisplayNameByCode.containsKey(code)) continue;
+      missingCodes.add(code);
+    }
+    if (missingCodes.isEmpty) return;
+    final repo = serviceLocator<StaffRepository>();
+    await Future.wait(
+      missingCodes.map((code) async {
+        try {
+          final profile = await repo.getStaffProfile(staffCode: code);
+          final full = profile.fullName.trim();
+          final composed = '${profile.firstName} ${profile.lastName}'.trim();
+          final resolved = full.isNotEmpty ? full : composed;
+          if (resolved.isNotEmpty) {
+            _staffDisplayNameByCode[code] = resolved;
+          }
+        } catch (_) {}
+      }),
+    );
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -1046,6 +1410,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           )
           .toList();
     }
+    if (_filterApprovalStatuses.isNotEmpty) {
+      final selected = _selectedApprovalStatusCodesForUi();
+      list = list.where((a) {
+        final status = (a.approvalStatus ?? '').trim().toUpperCase();
+        if (status.isEmpty) return false;
+        return selected.contains(status);
+      }).toList();
+    }
     return list;
   }
 
@@ -1055,38 +1427,33 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
 
+    final tagNameToCodeLower = <String, String>{
+      for (final e in _tagNameToCode.entries) e.key.trim().toLowerCase(): e.value,
+    };
     final tagCodes = _filterTags
-        .map((name) => _tagNameToCode[name]?.trim())
+        .map((name) {
+          final key = name.trim();
+          if (key.isEmpty) return null;
+          return (_tagNameToCode[key] ?? tagNameToCodeLower[key.toLowerCase()])?.trim();
+        })
         .whereType<String>()
         .where((c) => c.isNotEmpty)
+        .toSet()
         .toList();
     if (tagCodes.isEmpty) return;
 
     try {
-      if (_parentHome) {
-        final classroomCodes = _parentStudentClassroomByCode.values
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList();
-        for (final cc in classroomCodes) {
-          final students = await _getStudentCodesForActivityTagFilterUseCase(
-            schoolCode: school,
-            classroomCode: cc,
-            tagCodes: tagCodes,
-          );
-          if (!mounted) return;
-          _studentCodesForTagFilter.addAll(students);
-        }
-        return;
-      }
+      final classroomCodes = _parentHome
+          ? _parentStudentClassroomByCode.values
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+          : _selectedClassroomCodesForFeed();
+      if (classroomCodes.isEmpty) return;
 
-      final classroomName = _selectdClassroom;
-      if (classroomName == null ||
-          !_classroomCodeByName.containsKey(classroomName)) {
-        return;
-      }
-      final cc = _classroomCodeByName[classroomName]!;
+      for (final cc in classroomCodes) {
+        if (cc.trim().isEmpty) continue;
       final students = await _getStudentCodesForActivityTagFilterUseCase(
         schoolCode: school,
         classroomCode: cc,
@@ -1094,6 +1461,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       if (!mounted) return;
       _studentCodesForTagFilter.addAll(students);
+      }
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }
@@ -1199,6 +1567,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                     : null;
                 _selectdClassroom = primaryName ?? _classroomOptions.first;
               }
+              // Keep multi-select UI in sync with default classroom.
+              if (_selectdClassroom != null &&
+                  _selectdClassroom!.trim().isNotEmpty) {
+                _selectedClassrooms = <String>[_selectdClassroom!];
+              }
             });
             hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
           }
@@ -1206,11 +1579,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
     } catch (_) {}
 
-    if (hydratedClassroomsFromCache && mounted) {
-      await Future.wait<void>([
-        _loadRangeFeed(refresh: false),
-        _loadTagFilterOptions(forceRefresh: false),
-      ]);
+    // For unrestricted personas (admin), continue to API refresh so stale
+    // staff-scoped cache cannot lock the dropdown.
+    if (hydratedClassroomsFromCache &&
+        mounted &&
+        _allowedClassroomCodes.isNotEmpty) {
+      await _loadRangeFeed(refresh: false);
+      unawaited(_loadTagFilterOptions(forceRefresh: false).catchError((_) {}));
       return;
     }
 
@@ -1258,13 +1633,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
         _selectdClassroom = primaryName ?? _classroomOptions.first;
       }
+      // Keep multi-select UI in sync with default classroom.
+      if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
+        _selectedClassrooms = <String>[_selectdClassroom!];
+      }
       await _cacheManager.saveCache(classroomCacheKey, {
-        'classrooms': scoped
+        // Persist full school classrooms; apply staff scope only at runtime.
+        'classrooms': classrooms
             .map((c) => {'name': c.name, 'code': c.code})
             .toList(),
       });
 
-      await Future.wait<void>([_loadRangeFeed(), _loadTagFilterOptions()]);
+      await _loadRangeFeed();
+      unawaited(_loadTagFilterOptions().catchError((_) {}));
     } catch (e) {
       if (!mounted) return;
       final msg = ApiErrorHandler.extractErrorMessage(e);
@@ -1398,15 +1779,22 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
             _parentStudentClassroomByCode[globalSelectedCode];
-        _parentAllowedStudentCodes
-          ..clear()
-          ..add(globalSelectedCode);
-        _parentStudentClassroomByCode..clear();
         if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
+          _parentAllowedStudentCodes
+            ..clear()
+            ..add(globalSelectedCode);
+          _parentStudentClassroomByCode.clear();
           _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
               .trim();
+          _lastGlobalSelectedStudentCode = globalSelectedCode;
+        } else {
+          // Keep the full guardian student->classroom map when the globally
+          // selected child has no classroom mapping yet. Otherwise range-feed
+          // API calls are skipped due to missing classroomCode.
+          CoreUtils.logApiError(
+            'Parent selected child has no classroom mapping; using all mapped guardian students for custom feed.',
+          );
         }
-        _lastGlobalSelectedStudentCode = globalSelectedCode;
       }
 
       if (_parentAllowedStudentCodes.isEmpty) {
@@ -1567,17 +1955,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       return _loadParentHomeRangeFeed(refresh: refresh);
     }
 
-    final classroomName = _selectdClassroom;
-    if (classroomName == null) return;
-
-    final classroomCode = _classroomCodeByName[classroomName];
+    final classroomCodes = _selectedClassroomCodesForFeed();
+    final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
+    final classroomName = _selectdClassroom ?? (classroomCode == null
+        ? null
+        : _classroomNameByCode[classroomCode]);
+    final classroomNameKey = classroomName ?? (classroomCode ?? '');
     if (classroomCode == null || classroomCode.trim().isEmpty) {
-      if (!mounted) return;
-      const msg = 'Classroom is not mapped to a valid code.';
-      setState(() {
-        _feedError = msg;
-      });
-      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+      if (mounted) {
+        setState(() {
+          activities.clear();
+          _feedError = null;
+          _feedHasMore = false;
+          _loadingMoreFeed = false;
+        });
+      }
       return;
     }
 
@@ -1586,7 +1978,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (start == null || end == null) return;
     await _rebuildStudentCodesForTagFilter();
     if (!mounted) return;
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    var studentCodes = _selectedStudentCodesForAttendanceFilter();
+    if ((studentCodes == null || studentCodes.isEmpty) &&
+        _selectedStudents.isNotEmpty &&
+        isNotParent) {
+      await _loadAllStudentsForAllowedClassrooms();
+      if (!mounted) return;
+      studentCodes = _selectedStudentCodesForAttendanceFilter();
+    }
     final selectedEvent = _selectedAttendanceEventFilter();
     final requestKey = [
       classroomCode,
@@ -1596,6 +1995,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
+      _filterApprovalStatuses.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -1620,14 +2020,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           (studentCodes != null && studentCodes.isNotEmpty)
               ? studentCodes.first
               : null;
-      final typeCode = _activityTypeCodeForApiFilter();
+      final typeCodes = _activityTypeCodesForApiFilter();
+      final approvalStatuses = _approvalStatusesForApiFilter();
 
       final results = await Future.wait([
         _getStudentAttendanceDailyUseCase(
           attendanceDate: _dateQueryParam(start),
           fromAttendanceDate: _dateQueryParam(start),
           toAttendanceDate: _dateQueryParam(end),
-          classroomCodes: <String>[classroomCode],
+          classroomCodes: classroomCodes,
           studentCodes: studentCodes,
           signInAtFilter: signInAtFilter,
           signOutAtFilter: signOutAtFilter,
@@ -1639,7 +2040,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           startDate: _dateQueryParam(start),
           endDate: _dateQueryParam(end),
           studentCode: selectedStudentCode,
-          activityTypeCode: typeCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
+          activityTypeCodes: typeCodes,
+          approvalStatuses: approvalStatuses,
           guardianPersona: _parentHome,
           page: 0,
           size: _feedPageSize,
@@ -1648,6 +2052,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
       final activityFeedPage = results[1] as ActivityFeedPage;
+      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
@@ -1735,7 +2140,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   MapEntry(s['name'] ?? '', s['code'] ?? ''),
                             ),
                           );
-                        classroomStudents[classroomName] =
+                        classroomStudents[classroomNameKey] =
                             cachedList.map((s) => s['name'] ?? '').toList();
                         _updateAvailableStudents();
                       });
@@ -1758,7 +2163,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                   ..addEntries(
                     students.map((s) => MapEntry(s.fullName, s.studentCode)),
                   );
-                classroomStudents[classroomName] =
+                classroomStudents[classroomNameKey] =
                     students.map((s) => s.fullName).toList();
                 _updateAvailableStudents();
               });
@@ -1877,6 +2282,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   Future<void> _onRefresh() async {
+    // Hard-reset de-dupe guards so manual refresh always re-fetches.
+    _lastFeedRequestKey = null;
+    _lastFeedCompletedAt = null;
+    _lastFeedCompletedWithError = true;
+
     // Force refresh of tag map + feed. Also bust staff dropdown cache.
     try {
       final org =
@@ -1893,6 +2303,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         await _cacheManager.invalidateCache(staffKey);
       }
     } catch (_) {}
+    if (_parentHome) {
+      await _bootstrapParentHome();
+      // Parent bootstrap already calls _loadRangeFeed(refresh: true).
+      await _loadTagFilterOptions(forceRefresh: true);
+      return;
+    } else {
+      // Force classroom metadata refresh for staff/admin personas too.
+      final school = (_schoolCode ?? '').trim();
+      if (school.isNotEmpty) {
+        final classroomCacheKey = CacheManager.buildCacheKey(
+          feature: 'activity',
+          resource: 'classrooms',
+          identifier: school,
+        );
+        await _cacheManager.invalidateCache(classroomCacheKey);
+      }
+      await _bootstrapRangeFeed();
+    }
     await _loadTagFilterOptions(forceRefresh: true);
     await _loadRangeFeed(refresh: true);
   }
@@ -2014,12 +2442,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                       DateTime(now.year, now.month, 1);
                                   _selectedEndDate =
                                       DateTime(now.year, now.month + 1, 0);
-                                  if (_classroomOptions.isNotEmpty) {
-                                    _selectdClassroom = _classroomOptions.first;
-                                  }
+                                  _selectdClassroom = null;
+                                  _selectedClassrooms = <String>[];
                                   _selectedStudent = null;
+                                  _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _filterApprovalStatuses.clear();
                                 });
                                 _refreshApisAfterClearAll();
                               },
@@ -2033,16 +2462,36 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             Row(
                               children: [
                                 Expanded(
-                                  child: _buildCustomDropdown(
+                                  child: _buildCustomMultiDropdown(
                                     'Select Classroom',
                                     _classroomOptions,
-                                    _selectdClassroom,
-                                    (v) {
+                                    _selectedClassrooms,
+                                    (values) async {
+                                      if (values.isEmpty) {
+                                        setState(() {
+                                          _selectdClassroom = null;
+                                          _selectedClassrooms = <String>[];
+                                          _selectedStudent = null;
+                                          _selectedStudents = [];
+                                          _filterActivityTypes.clear();
+                                          _filterTags.clear();
+                                          _filterApprovalStatuses.clear();
+                                          _updateAvailableStudents();
+                                        });
+                                        await _refreshApisAfterClearAll();
+                                        await _loadRangeFeed(refresh: true);
+                                        return;
+                                      }
+
                                       setState(() {
-                                        _selectdClassroom = v;
+                                        _selectedClassrooms = values;
+                                        _selectdClassroom = values.first;
                                         _updateAvailableStudents();
                                       });
-                                      _loadRangeFeed(refresh: true);
+                                      if (isNotParent) {
+                                        await _loadStudentsForSelectedClassrooms(values);
+                                      }
+                                      await _loadRangeFeed(refresh: true);
                                     },
                                   ),
                                 ),
@@ -2056,19 +2505,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   //     _selectedStudent = v;
                                   //   }),
                                   // ),
-                                  child: _buildCustomDropdown(
-                                    _selectdClassroom == null
-                                        ? 'Select Classroom First'
-                                        : 'Select Student',
+                                  child: _buildCustomMultiDropdown(
+                                    'Select Student',
                                     _availableStudents,
-                                    _selectedStudent,
-                                    (value) {
-                                      if (_selectdClassroom != null) {
-                                        setState(() {
-                                          _selectedStudent = value;
-                                        });
-                                        _loadRangeFeed(refresh: true);
-                                      }
+                                    _selectedStudents,
+                                    (values) {
+                                      setState(() {
+                                        _selectedStudents = values;
+                                        _selectedStudent = values.isNotEmpty
+                                            ? values.first
+                                            : null;
+                                      });
+                                      _loadRangeFeed(refresh: true);
                                     },
                                   ),
                                 ),
@@ -2078,12 +2526,57 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(100),
                                     onTap: _openActivityFilter,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: SvgPicture.asset(
-                                        MediaRes.filterIcon,
-                                        height: 20,
-                                      ),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: SvgPicture.asset(
+                                            MediaRes.filterIcon,
+                                            height: 20,
+                                          ),
+                                        ),
+                                        Builder(
+                                          builder: (context) {
+                                            final badgeCount =
+                                                _appliedFilterBadgeCount();
+                                            if (badgeCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 2,
+                                              top: 2,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color.fromRGBO(
+                                                    179,
+                                                    38,
+                                                    30,
+                                                    1,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  badgeCount > 99
+                                                      ? '99+'
+                                                      : '$badgeCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -2101,14 +2594,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                 ),
                                 const SizedBox(width: 8),
                                 CustomClearAllChip(
-                                  onTap: () {
+                                  onTap: () async {
                                     setState(() {
-                                      _selectdClassroom = _classroomOptions[0];
+                                      _selectdClassroom = null;
+                                      _selectedClassrooms = <String>[];
                                       _selectedStudent = null;
+                                      _selectedStudents = [];
                                       _filterActivityTypes.clear();
                                       _filterTags.clear();
+                                      _filterApprovalStatuses.clear();
                                     });
-                                    _loadRangeFeed(refresh: true);
+                                    await _refreshApisAfterClearAll();
                                   },
                                   label: 'Clear All',
                                 ),
@@ -2277,8 +2773,23 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                       Expanded(
                                         child: InkWell(
                                           onTap: () async {
+                                            final hasStatusBadge =
+                                                activityApprovalStatusBadgeLabel(
+                                                  activity.approvalStatus,
+                                                ) !=
+                                                null;
+                                            final canOpenEdit =
+                                                hasStatusBadge &&
+                                                isNotParent &&
+                                                widget.allowActivityWrite &&
+                                                canEditActivityItem(
+                                                  activity,
+                                                  isAdminPersona: _isAdminPersona,
+                                                );
                                             final destinationBuilder =
-                                                activityRoutes[activity.name];
+                                                canOpenEdit
+                                                ? editActivityRoutes[activity.name]
+                                                : activityRoutes[activity.name];
                                             if (destinationBuilder != null) {
                                               final nextScreen =
                                                   destinationBuilder(activity);
@@ -2497,7 +3008,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                   ],
                                                                 ),
                                                               ),
-                                                              if (true)
+                                                              if (!isAttendanceCardActivityItem(activity))
                                                                 PopupMenuButton<
                                                                   String
                                                                 >(
@@ -2550,7 +3061,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                         }
                                                                       },
                                                                     ),
-                                                                    if (widget
+                                                                    if (isNotParent &&
+                                                                            widget
                                                                             .allowActivityWrite &&
                                                                         canEditActivityItem(
                                                                           activity,
@@ -2601,7 +3113,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                       activity,
                                                                       isAdminPersona:
                                                                           _isAdminPersona,
-                                                                    )) ...[
+                                                                    ) &&
+                                                                        !isIncidentActivityItem(
+                                                                          activity,
+                                                                        )) ...[
                                                                       PopupMenuItem<
                                                                         String
                                                                       >(
@@ -2649,7 +3164,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                         },
                                                                       ),
                                                                     ],
-                                                                    if (widget
+                                                                    if (isNotParent &&
+                                                                            widget
                                                                             .allowActivityWrite &&
                                                                         canDeleteActivityItem(
                                                                           activity,
@@ -3564,6 +4080,26 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         color: Colors.black87,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
+  }
+
+  Widget _buildCustomMultiDropdown(
+    String hintText,
+    List<String> items,
+    List<String> selectedItems,
+    ValueChanged<List<String>> onChanged, {
+    double? height,
+  }) {
+    return SizedBox(
+      height: height ?? 40,
+      child: CustomMultiSelectDropdown(
+        hintText: hintText,
+        items: items,
+        selectedItems: selectedItems,
+        onChanged: onChanged,
+        gapHeight: 8,
+        maxDropdownHeight: 280,
+      ),
     );
   }
 }

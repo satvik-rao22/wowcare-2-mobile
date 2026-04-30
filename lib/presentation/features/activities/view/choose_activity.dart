@@ -188,6 +188,14 @@ class _ChooseActivityState extends State<ChooseActivity> {
       }
     }
 
+    // Nap should be disabled only for a mixed multi-selection where
+    // some students are already napping and some are not.
+    if (_isMultipleStudentsSelected &&
+        normalized == 'nap' &&
+        _hasMixedNappingSelection()) {
+      return true;
+    }
+
     // Fallback rule for Incident if settings are not yet loaded.
     if (_enabledActivities == null && activityName == 'Incident' && _isMultipleStudentsSelected) {
       return true;
@@ -197,23 +205,49 @@ class _ChooseActivityState extends State<ChooseActivity> {
   }
 
   String _getDisabledActivityTooltip(String activityName) {
+    final normalized = activityName.toLowerCase();
+    if (_isMultipleStudentsSelected &&
+        normalized == 'nap' &&
+        _hasMixedNappingSelection()) {
+      return 'Nap is disabled for mixed selection. Select either all currently napping students or all not-napping students.';
+    }
     if (activityName == 'Incident' && _isMultipleStudentsSelected) {
       return 'Incident can only be recorded for a single student.';
     }
     return 'This activity is currently disabled';
   }
 
+  bool _isStudentCurrentlyNapping(Map<String, dynamic> student) {
+    final dynamic status = student['nappingStatus'] ?? student['isNapping'];
+    if (status == true) return true;
+    if (status is String && status.toLowerCase() == 'true') return true;
+    return false;
+  }
+
+  bool _hasMixedNappingSelection() {
+    if (widget.selectedStudents.isEmpty) return false;
+    final hasNapping = widget.selectedStudents.any(_isStudentCurrentlyNapping);
+    final hasNotNapping = widget.selectedStudents.any(
+      (student) => !_isStudentCurrentlyNapping(student),
+    );
+    return hasNapping && hasNotNapping;
+  }
+
   void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {
     final RenderBox renderBox = tileContext.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
+    final screenWidth = MediaQuery.of(context).size.width;
 
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
 
+    final maxWidth = (screenWidth - 16).clamp(160.0, 320.0);
+    final left = position.dx.clamp(8.0, screenWidth - maxWidth - 8.0);
+
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: position.dy - 60,
-        left: position.dx,
+        left: left,
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -222,15 +256,19 @@ class _ChooseActivityState extends State<ChooseActivity> {
               color: Colors.black87,
               borderRadius: BorderRadius.circular(6),
             ),
-                child: Text(
-              _getDisabledActivityTooltip(activityName),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                  ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Text(
+                _getDisabledActivityTooltip(activityName),
+                softWrap: true,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
                 ),
               ),
             ),
+          ),
+        ),
       ),
     );
 

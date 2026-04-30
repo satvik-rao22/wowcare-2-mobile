@@ -75,10 +75,15 @@ class ApiPathsUat {
   static String microserviceKeyFromPath(String path) {
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+    if (parts.length < 3 || parts[0] != 'api') {
+      return ApiMicroservices.user;
+    }
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
+    final nextSeg = parts.length > 3 ? parts[3] : '';
 
     // If the UAT path already includes the microservice segment
     // (/api/v1/<ms>/...), use it as-is.
@@ -110,6 +115,10 @@ class ApiPathsUat {
       case 'physicians':
       case 'tags':
       case 'guardian':
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.student;
       case 'pickup':
         return ApiMicroservices.student;
       case 'student-attendance':
@@ -155,7 +164,9 @@ class ApiPathsUat {
     if (p.startsWith('/document-ms/')) return p;
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') return p;
+    if (parts.length < 3 || parts[0] != 'api') return p;
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') return p;
 
     final seg = parts[2];
     if (_microservicePathSegments.contains(seg)) {
@@ -164,15 +175,15 @@ class ApiPathsUat {
       final ms = seg;
       final roots = _resourceRootsByMicroservice[ms];
       if (parts.length >= 4 && roots != null && roots.contains(parts[3])) {
-        return p; // already `/api/v1/<ms>/<resource>/...`
+        return p; // already `/api/<version>/<ms>/<resource>/...`
       }
       final rest = parts.sublist(2).join('/');
-      return '/api/v1/$ms/$rest';
+      return '/api/$version/$ms/$rest';
     }
 
     final ms = microserviceKeyFromPath(p);
     final rest = parts.sublist(2).join('/');
-    return '/api/v1/$ms/$rest';
+    return '/api/$version/$ms/$rest';
   }
 
   static String url(String path) {

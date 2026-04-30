@@ -241,10 +241,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         return;
       }
 
-      setState(() {
-        _isUploadingProfilePhoto = true;
-        _profilePhotoUploadPercent = 5;
-      });
+      setState(() => _isUploadingProfilePhoto = true);
+      setState(() => _profilePhotoUploadPercent = 0);
       final uploadService = serviceLocator<ImageUploadService>();
       final file = File(image.path);
       final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
@@ -280,6 +278,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           setState(() {
             _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
           });
+        onProgress: (_, __, percent) {
+          if (!mounted) return;
+          final displayPercent = percent >= 100 ? 99 : percent;
+          setState(() => _profilePhotoUploadPercent = displayPercent);
         },
       );
       if (mounted) setState(() => _profilePhotoUploadPercent = 84);
@@ -298,6 +300,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         staffCode: staffCode,
         sessionCode: sessionCode,
       );
+      if (mounted) {
+        setState(() => _profilePhotoUploadPercent = 100);
+      }
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
       CoreUtils.showTopSnackBar(

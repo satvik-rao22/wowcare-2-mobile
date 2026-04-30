@@ -33,6 +33,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   required void Function(VoidCallback) setState,
   required bool Function() mounted,
   required void Function(bool uploading) setUploading,
+  void Function(int percent)? onOverallProgressPercent,
 }) async {
   if (files.isEmpty) return const [];
 
@@ -64,6 +65,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   if (missing.isNotEmpty) {
     setState(() => setUploading(true));
     try {
+      onOverallProgressPercent?.call(0);
       final uploadSession = await uploadService.createActivityUploadSession(
         organizationCode: organizationCode,
         schoolCode: schoolCode,
@@ -74,7 +76,10 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
       );
 
       final sessionAssetCodes = <String>[];
-      for (final photo in missing) {
+      for (var i = 0; i < missing.length; i++) {
+        final photo = missing[i];
+        final fileIndex = i + 1;
+        final totalFiles = missing.length;
         final fileName = photo.uri.pathSegments.isNotEmpty
             ? photo.uri.pathSegments.last
             : 'photo.jpg';
@@ -97,6 +102,17 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           presignedPutUrl: presign.presignedPutUrl,
           requiredHeaders: presign.requiredHeaders,
           fallbackContentType: 'image/jpeg',
+          onProgress: (_, __, percent) {
+            final overallFraction =
+                ((fileIndex - 1) + (percent / 100)) / totalFiles;
+            final overallPercent =
+                (overallFraction * 100).clamp(0, 100).round();
+            final displayPercent =
+                overallPercent >= 100 ? 99 : overallPercent;
+            if (mounted()) {
+              setState(() => onOverallProgressPercent?.call(displayPercent));
+            }
+          },
         );
         await uploadService.completeAssetUpload(
           sessionCode: uploadSession.sessionCode,
@@ -110,6 +126,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
         sessionCode: uploadSession.sessionCode,
         expectedAssetCodes: sessionAssetCodes,
       );
+      onOverallProgressPercent?.call(100);
     } finally {
       if (mounted()) {
         setState(() => setUploading(false));

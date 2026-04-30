@@ -11,13 +11,31 @@ import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
-  const StaffPresentWidget({super.key, required this.staffName, this.isEditable = true, this.incidentActivity = false, this.onSigned, this.isAlreadySigned = false, this.clickToSignEditable});
+  const StaffPresentWidget({
+    super.key,
+    required this.staffName,
+    this.isEditable = true,
+    this.incidentActivity = false,
+    this.onSigned,
+    this.isAlreadySigned = false,
+    this.clickToSignEditable,
+    this.fieldLabel = 'Staff Present',
+    this.showSignCheckbox = true,
+    this.signActionLabel = 'Click to sign',
+    this.prefillWithStaffName = false,
+    this.showStaffDropdown = true,
+  });
   final String staffName;
   final bool isEditable;
   final bool incidentActivity;
   final ValueChanged<bool>? onSigned;
   final bool isAlreadySigned;
   final bool? clickToSignEditable;
+  final String fieldLabel;
+  final bool showSignCheckbox;
+  final String signActionLabel;
+  final bool prefillWithStaffName;
+  final bool showStaffDropdown;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -72,6 +90,16 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     staffList = [
       ...ordered,
     ];
+    if (widget.prefillWithStaffName && name.isNotEmpty) {
+      selectedStaff = staffList.firstWhere(
+        (s) => s.toLowerCase() == name.toLowerCase(),
+        orElse: () => name,
+      );
+      if (!staffList.any((s) => s.toLowerCase() == selectedStaff!.toLowerCase())) {
+        staffList = [selectedStaff!, ...staffList];
+      }
+      return;
+    }
     final current = (selectedStaff ?? '').trim();
     if (current.isNotEmpty &&
         staffList.any((s) => s.toLowerCase() == current.toLowerCase())) {
@@ -168,46 +196,71 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   fontFamily: 'Manrope',
                 ),
                 children: [
-                  TextSpan(text: 'Staff Present'),
+                  TextSpan(text: widget.fieldLabel),
                   const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
                 ],
               ),
             ),
             if (widget.incidentActivity)
-              CheckboxWidget(
-                label: 'Click to sign',
-                isEditable: signEditable,
-                isChecked: clickToSign,
-                onChecked: signEditable
-                    ? (newValue) {
-                        setState(() {
-                          clickToSign = newValue;
-                        });
-                        widget.onSigned?.call(newValue);
-                      }
-                    : null,
-              ),
+              widget.showSignCheckbox
+                  ? CheckboxWidget(
+                      label: widget.signActionLabel,
+                      isEditable: signEditable,
+                      isChecked: clickToSign,
+                      onChecked: signEditable
+                          ? (newValue) {
+                              setState(() {
+                                clickToSign = newValue;
+                              });
+                              widget.onSigned?.call(newValue);
+                            }
+                          : null,
+                    )
+                  : const SizedBox.shrink(),
           ],
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
-        InkWell(
-          onTap: null,
-          child: Opacity(
-            opacity: widget.isEditable ? 1.0 : 0.4,
-            child: CustomDropdown(
-              hintText: 'Select present staff',
-              items: staffList,
-              selectedItem: selectedStaff,
-              isEnabled: widget.isEditable,
-              onSelect: widget.isEditable?
-              (String? value) {
-                setState(() {
-                  selectedStaff = value;
-                });
-              }: null,
+        if (widget.showStaffDropdown)
+          InkWell(
+            onTap: null,
+            child: Opacity(
+              opacity: widget.isEditable ? 1.0 : 0.4,
+              child: CustomDropdown(
+                hintText: 'Select present staff',
+                items: staffList,
+                selectedItem: selectedStaff,
+                isEnabled: widget.isEditable,
+                onSelect: widget.isEditable?
+                (String? value) {
+                  setState(() {
+                    selectedStaff = value;
+                  });
+                }: null,
+              ),
+            ),
+          )
+        else
+          Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0x1AB1AFE9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0x66573353)),
+            ),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              selectedStaff ?? widget.staffName,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff573353),
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ),
         SizedBox(height: responsive.verticalSpacing,),
         if (widget.incidentActivity && clickToSign)
           Container(

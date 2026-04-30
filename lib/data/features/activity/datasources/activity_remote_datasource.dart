@@ -39,6 +39,13 @@ abstract class ActivityRemoteDataSource {
   /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
   Future<String> acknowledgeActivity({required String cardGroupCode});
 
+  /// `PATCH /api/v2/guardian/activities/{cardGroupCode}/parent-signature`.
+  Future<String> guardianParentSignature({
+    required String cardGroupCode,
+    required String parameterCode,
+    required String guardianCode,
+  });
+
   /// Fetches activity settings for a classroom via
   /// `GET /api/v1/classrooms/{classroomCode}/activity-settings`.
   Future<List<ActivitySettingModel>> getClassroomActivitySettings({
@@ -99,24 +106,32 @@ abstract class ActivityRemoteDataSource {
     required String ownerCode,
   });
 
-  /// Daily classroom feed: `GET /api/v2/activities/feed/daily`.
+  /// Daily classroom feed:
+  /// `POST /api/v2/activities/feed/daily/search`.
   Future<ActivityFeedPageModel> getDailyActivityFeed({
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
 
-  /// Date range classroom feed: `GET /api/v1/activities/feed/range`.
+  /// Date range classroom feed:
+  /// `POST /api/v2/activities/feed/range/search`.
   Future<ActivityFeedPageModel> getRangeActivityFeed({
     required String classroomCode,
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -296,6 +311,34 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       return message.trim();
     }
     return 'Activity acknowledged successfully';
+  }
+
+  @override
+  Future<String> guardianParentSignature({
+    required String cardGroupCode,
+    required String parameterCode,
+    required String guardianCode,
+  }) async {
+    final endpoint = ApiPaths.url(
+      ApiPaths.guardianParentSignatureActivity(cardGroupCode),
+    );
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'parameterCode': parameterCode.trim(),
+        'value': guardianCode.trim(),
+        'valueText': guardianCode.trim(),
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian-parent-signature API response format');
+    }
+    final message = body['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+    return 'Activity signed successfully';
   }
 
   @override
@@ -568,35 +611,60 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
+    final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final statuses = (approvalStatuses ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final selectedClassroomCodes = _normalizedCodes(<String>[
+      ...?classroomCodes,
+      classroomCode,
+    ]);
+    final sc = studentCode?.trim();
+    final selectedStudentCodes = _normalizedCodes(<String>[
+      ...?studentCodes,
+      if (sc != null) sc,
+    ]);
+
     final base = ApiPaths.urlWithBase(
       guardianPersona
-          ? ApiPaths.guardianActivitiesFeedDaily
-          : ApiPaths.activitiesFeedDaily,
+          ? ApiPaths.guardianActivitiesFeedDailySearch
+          : ApiPaths.activitiesFeedDailySearch,
       ApiConstants.activityBaseUrl,
     );
-    final qp = <String, String>{
-      'classroomCode': classroomCode.trim(),
-      'date': date.trim(),
-      'page': '$page',
-      'size': '$size',
-      'sort': 'activityDate,desc',
+    final qp = <String, dynamic>{
+      'page': page,
+      'size': size,
+      'sort': <String>['activityDate,desc'],
     };
-    final sc = studentCode?.trim();
-    if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = sc;
-    }
-    final at = activityTypeCode?.trim();
-    if (at != null && at.isNotEmpty) {
-      qp['activityTypeCode'] = at;
+    final payload = <String, dynamic>{
+      'date': date.trim(),
+      'studentCodes': selectedStudentCodes,
+      'activityTypeCodes': ats,
+      'approvalStatuses': statuses,
+    };
+    if (!guardianPersona) {
+      payload['classroomCodes'] = selectedClassroomCodes;
     }
 
-    final uri = Uri.parse(base).replace(queryParameters: qp);
-    final response = await _client.getUri<dynamic>(uri);
+    final response = await _client.post<dynamic>(
+      base,
+      queryParameters: qp,
+      data: payload,
+    );
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
@@ -612,39 +680,61 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
+    final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final statuses = (approvalStatuses ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final selectedClassroomCodes = _normalizedCodes(<String>[
+      ...?classroomCodes,
+      classroomCode,
+    ]);
+    final sc = studentCode?.trim();
+    final selectedStudentCodes = _normalizedCodes(<String>[
+      ...?studentCodes,
+      if (sc != null) sc,
+    ]);
+
     final base = ApiPaths.urlWithBase(
       guardianPersona
-          ? ApiPaths.guardianActivitiesFeedRange
-          : ApiPaths.activitiesFeedRange,
+          ? ApiPaths.guardianActivitiesFeedRangeSearch
+          : ApiPaths.activitiesFeedRangeSearch,
       ApiConstants.activityBaseUrl,
     );
-
-    final qp = <String, String>{
-      'classroomCode': classroomCode.trim(),
+    final qp = <String, dynamic>{
+      'page': page,
+      'size': size,
+      'sort': <String>['activityDate,desc'],
+    };
+    final payload = <String, dynamic>{
       'startDate': startDate.trim(),
       'endDate': endDate.trim(),
-      'page': '$page',
-      'size': '$size',
-      'sort': 'activityDate,desc',
+      'studentCodes': selectedStudentCodes,
+      'activityTypeCodes': ats,
+      'approvalStatuses': statuses,
     };
-
-    final sc = studentCode?.trim();
-    if (sc != null && sc.isNotEmpty) {
-      qp['studentCode'] = sc;
+    if (!guardianPersona) {
+      payload['classroomCodes'] = selectedClassroomCodes;
     }
 
-    final at = activityTypeCode?.trim();
-    if (at != null && at.isNotEmpty) {
-      qp['activityTypeCode'] = at;
-    }
-
-    final uri = Uri.parse(base).replace(queryParameters: qp);
-    final response = await _client.getUri<dynamic>(uri);
+    final response = await _client.post<dynamic>(
+      base,
+      queryParameters: qp,
+      data: payload,
+    );
     final body = response.data;
 
     if (body is! Map<String, dynamic>) {
