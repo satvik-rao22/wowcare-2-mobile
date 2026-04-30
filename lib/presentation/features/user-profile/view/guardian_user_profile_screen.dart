@@ -22,6 +22,7 @@ import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class GuardianUserProfileScreen extends StatefulWidget {
   const GuardianUserProfileScreen({super.key});
@@ -42,15 +43,18 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
   String _phoneRaw = '';
   String _relation = '';
   String _photoUuid = '';
+  String? _guardianCode;
+  String? _profilePhotoUrl;
 
   File? _previewFile;
+  bool _isUploadingProfilePhoto = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSwitchProfileFlag();
-      _loadGuardianFromChildrenApi();
+      _loadGuardianProfile();
     });
   }
 
@@ -84,7 +88,7 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
     }
   }
 
-  Future<void> _loadGuardianFromChildrenApi() async {
+  Future<void> _loadGuardianProfile() async {
     setState(() => _loading = true);
 
     final storage = serviceLocator<StorageService>();
@@ -113,21 +117,41 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
       }
 
       final remote = serviceLocator<StudentRemoteDataSource>();
-      final rows = await remote.getGuardianChildren(
-        guardianCode: guardianCode,
+      final guardianProfile = await remote.getGuardianProfile(
         schoolCode: schoolCode,
         userCode: userCode,
       );
-
-      final parsed = _guardianFromChildrenRows(rows);
+      final firstName =
+          (guardianProfile['firstName'] ?? '').toString().trim();
+      final lastName = (guardianProfile['lastName'] ?? '').toString().trim();
+      final profileName = _firstNonEmptyString(<String>[
+        (guardianProfile['fullName'] ?? '').toString(),
+        '$firstName $lastName',
+      ]);
+      final profileEmail =
+          (guardianProfile['email'] ?? '').toString().trim();
+      final profilePhone = _firstNonEmptyString(<String>[
+        (guardianProfile['mobile'] ?? '').toString(),
+        (guardianProfile['phone'] ?? '').toString(),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _fullName = parsed.fullName.isNotEmpty ? parsed.fullName : displayName;
-        _email = parsed.email.isNotEmpty ? parsed.email : loginEmail;
-        _phoneRaw = parsed.phone;
-        _relation = parsed.relation;
-        _photoUuid = parsed.photoUuid;
+        _fullName = profileName.isNotEmpty ? profileName : displayName;
+        _email = profileEmail.isNotEmpty ? profileEmail : loginEmail;
+        _phoneRaw = profilePhone;
+        _relation = 'Guardian';
+        _guardianCode = guardianCode;
+        _photoUuid = _firstNonEmptyString(<String>[
+          (guardianProfile['profilePhotoAssetCode'] ?? '').toString(),
+          (guardianProfile['photoAssetCode'] ?? '').toString(),
+        ]);
+        _profilePhotoUrl = _firstNonEmptyString(<String>[
+          (guardianProfile['profilePhotoUrl'] ?? '').toString(),
+          (guardianProfile['photoUrl'] ?? '').toString(),
+          (guardianProfile['profileImageUrl'] ?? '').toString(),
+          (guardianProfile['imageUrl'] ?? '').toString(),
+        ]);
         _loading = false;
       });
     } catch (e) {
@@ -410,14 +434,7 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                       label: 'Save',
                       onPressed: () {
                         Navigator.pop(ctx);
-                        setState(() => _previewFile = null);
-                        final name = p.basename(file.path);
-                        CoreUtils.showTopSnackBar(
-                          context: context,
-                          message:
-                              'Selected profile image ($name). Upload is not wired yet.',
-                          isSuccess: true,
-                        );
+                        _uploadGuardianProfilePhoto(file);
                       },
                     ),
                   ),
@@ -443,7 +460,7 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
       hasBackButton: true,
       body: CustomRefreshIndicator(
         onRefresh: () async {
-          await _loadGuardianFromChildrenApi();
+          await _loadGuardianProfile();
           await _loadSwitchProfileFlag();
           if (mounted) {
             await context.read<ParentChildProvider>().ensureLoaded(force: true);
@@ -492,6 +509,8 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                                           fileUuid: _photoUuid.isNotEmpty
                                               ? _photoUuid
                                               : name,
+                                          imageUrl: _profilePhotoUrl,
+                                          mediaAssetCode: _photoUuid,
                                           name: name != '-' ? name : 'Guardian',
                                           size: 90,
                                           shape: BoxShape.circle,
@@ -532,6 +551,25 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                                         ),
                                       ),
                                     ),
+                                    if (_isUploadingProfilePhoto)
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.3),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Center(
+                                            child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 const SizedBox(width: 16),
@@ -653,139 +691,109 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
       ],
     );
   }
-}
 
-class _GuardianProfileFromChildren {
-  const _GuardianProfileFromChildren({
-    required this.fullName,
-    required this.email,
-    required this.phone,
-    required this.relation,
-    required this.photoUuid,
-  });
+  Future<void> _uploadGuardianProfilePhoto(File file) async {
+    if (_isUploadingProfilePhoto) return;
+    setState(() {
+      _previewFile = null;
+      _isUploadingProfilePhoto = true;
+    });
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final organizationCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final guardianCode = (_guardianCode ?? '').trim().isNotEmpty
+          ? (_guardianCode ?? '').trim()
+          : (await resolveGuardianCodeForLoggedInUser()).trim();
+      if (guardianCode.isEmpty) {
+        throw Exception('Guardian code is required to upload profile photo.');
+      }
+      if (schoolCode.isEmpty || organizationCode.isEmpty || userCode.isEmpty) {
+        throw Exception('Missing school or organization context.');
+      }
 
-  final String fullName;
-  final String email;
-  final String phone;
-  final String relation;
-  final String photoUuid;
-}
+      final uploadService = serviceLocator<ImageUploadService>();
+      final sessionCode = await uploadService.createGuardianProfilePhotoUploadSession(
+        guardianCode: guardianCode,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+      );
 
-_GuardianProfileFromChildren _guardianFromChildrenRows(
-  List<Map<String, dynamic>> rows,
-) {
-  if (rows.isEmpty) {
-    return const _GuardianProfileFromChildren(
-      fullName: '',
-      email: '',
-      phone: '',
-      relation: '',
-      photoUuid: '',
-    );
+      final lowerPath = file.path.toLowerCase();
+      final fileName = p.basename(file.path);
+      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'guardian-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'GUARDIAN',
+        ownerCode: guardianCode,
+      );
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+      );
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      final finalizedUrl = await uploadService.finalizeGuardianProfilePhoto(
+        guardianCode: guardianCode,
+        assetCode: presign.assetCode,
+        schoolCode: schoolCode,
+        userCode: userCode,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _guardianCode = guardianCode;
+        _photoUuid = presign.assetCode;
+        _profilePhotoUrl = finalizedUrl;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Profile photo updated successfully',
+        isSuccess: true,
+      );
+      await _loadGuardianProfile();
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to update profile photo: $e',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingProfilePhoto = false;
+        });
+      }
+    }
   }
-
-  String fullName = '';
-  String email = '';
-  String phone = '';
-  String relation = '';
-  String photoUuid = '';
-
-  for (final row in rows) {
-    final merged = _mergeNestedGuardian(row);
-    if (fullName.isEmpty) {
-      fullName = _fullNameFromMap(merged);
-    }
-    if (email.isEmpty) {
-      email = _pickString(merged, const [
-        'guardianEmail',
-        'email',
-        'contactEmail',
-        'primaryEmail',
-      ]);
-    }
-    if (phone.isEmpty) {
-      phone = _pickString(merged, const [
-        'guardianPhone',
-        'guardianPhoneNumber',
-        'phoneNumber',
-        'phone',
-        'mobilePhone',
-        'mobile',
-      ]);
-    }
-    if (relation.isEmpty) {
-      relation = _pickString(merged, const [
-        'relation',
-        'relationship',
-        'guardianRelation',
-        'relationDescription',
-        'relationshipDescription',
-      ]);
-    }
-    if (photoUuid.isEmpty) {
-      photoUuid = _pickString(merged, const [
-        'photoUuid',
-        'profilePhotoUuid',
-        'guardianPhotoUuid',
-        'photoFileUuid',
-        'guardianProfilePhotoUuid',
-      ]);
-    }
-    if (fullName.isNotEmpty &&
-        email.isNotEmpty &&
-        phone.isNotEmpty &&
-        relation.isNotEmpty &&
-        photoUuid.isNotEmpty) {
-      break;
-    }
-  }
-
-  return _GuardianProfileFromChildren(
-    fullName: fullName,
-    email: email,
-    phone: phone,
-    relation: relation,
-    photoUuid: photoUuid,
-  );
 }
 
-Map<String, dynamic> _mergeNestedGuardian(Map<String, dynamic> row) {
-  final out = Map<String, dynamic>.from(row);
-  final nested = row['guardian'];
-  if (nested is Map<String, dynamic>) {
-    out.addAll(nested);
-  } else if (nested is Map) {
-    out.addAll(Map<String, dynamic>.from(nested));
-  }
-  return out;
-}
-
-String _pickString(Map<String, dynamic> m, List<String> keys) {
-  for (final k in keys) {
-    final v = m[k];
-    if (v == null) continue;
-    final s = v.toString().trim();
-    if (s.isNotEmpty && s != 'null') return s;
+String _firstNonEmptyString(List<String> values) {
+  for (final value in values) {
+    final normalized = value.trim();
+    if (normalized.isNotEmpty && normalized.toLowerCase() != 'null') {
+      return normalized;
+    }
   }
   return '';
-}
-
-String _fullNameFromMap(Map<String, dynamic> m) {
-  final direct = _pickString(m, const [
-    'guardianFullName',
-    'fullName',
-    'name',
-    'guardianName',
-  ]);
-  if (direct.isNotEmpty) return direct;
-
-  final gf = _pickString(m, const [
-    'guardianFirstName',
-    'firstName',
-  ]);
-  final gl = _pickString(m, const [
-    'guardianLastName',
-    'lastName',
-  ]);
-  return '$gf $gl'.trim();
 }

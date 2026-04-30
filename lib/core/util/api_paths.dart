@@ -341,6 +341,8 @@ class ApiPaths {
       '$studentList/$studentCode/profile-photo/upload-session';
   static String studentProfilePhotoFinalizePath(String studentCode) =>
       '$studentList/$studentCode/profile-photo/finalize';
+  static const String studentProfilePhotoAssetCodes =
+      '/api/v1/student/profile-photo/asset-codes';
   static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
 
@@ -380,6 +382,10 @@ class ApiPaths {
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
+  static String guardianProfilePhotoUploadSessionPath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
+  static String guardianProfilePhotoFinalizePath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String futureAvailability = '/api/v1/future-availability';
@@ -575,6 +581,8 @@ class ApiPaths {
 
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
+  static String documentMediaAssetByCodePath(String assetCode) =>
+      '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>
