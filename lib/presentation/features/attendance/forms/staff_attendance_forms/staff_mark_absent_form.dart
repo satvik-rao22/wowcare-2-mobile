@@ -37,7 +37,6 @@ class StaffMarkAbsentForm extends StatefulWidget {
 class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
-  String? _schoolIana;
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _typeController = TextEditingController();
@@ -73,7 +72,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     final isAdmin = await _resolveIsStaffAdminPersona();
     if (!mounted) return;
     setState(() {
-      _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
       if (schoolIana != null && schoolIana.isNotEmpty) {
         startDate = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana);
@@ -353,14 +351,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final iana = _schoolIana;
-                            final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
                             final picked = DateTime(date.year, date.month, date.day);
-                            startDate = picked.isAfter(today) ? today : picked;
-                            if (endDate.isBefore(startDate)) {
+                            startDate = picked;
+                            if (startDate.isAfter(endDate)) {
                               endDate = startDate;
                             }
                           });
@@ -385,15 +378,10 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isDisabled: _isStaffAdminPersona == false,
                         onDateSelected: (date) {
                           setState(() {
-                            final iana = _schoolIana;
-                            final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
                             final picked = DateTime(date.year, date.month, date.day);
-                            endDate = picked.isAfter(today) ? today : picked;
+                            endDate = picked;
                             if (endDate.isBefore(startDate)) {
-                              endDate = startDate;
+                              startDate = endDate;
                             }
                           });
                         },

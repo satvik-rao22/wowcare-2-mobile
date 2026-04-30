@@ -39,7 +39,10 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
+    hide StudentAttendanceTime;
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../util/activity_filter_metadata_cache.dart';
 import '../util/activity_parent_feed_merge.dart';
@@ -150,6 +153,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   late final GetStudentCodesForActivityTagFilterUseCase
       _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
+  late final GetStudentAttendanceAbsentToggleViewUseCase
+      _getStudentAttendanceAbsentToggleViewUseCase;
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
@@ -164,6 +169,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     'Sign-in',
     'Sign-out',
     'Transfer',
+    'Absent',
   ];
   final Map<String, List<String>> classroomStudents = {};
   final List<Color> _colorPalette = [
@@ -297,6 +303,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     'Sign-in': MediaRes.dailyActivitySignInIcon,
     'Sign-out': MediaRes.dailyActivitySignOutIcon,
     'Transfer': MediaRes.dailyActivityTransferIcon,
+    'Absent': MediaRes.dailyActivityAbsentIcon,
   };
 
   @override
@@ -312,6 +319,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _getStudentCodesForActivityTagFilterUseCase =
         serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+    _getStudentAttendanceAbsentToggleViewUseCase =
+        serviceLocator<GetStudentAttendanceAbsentToggleViewUseCase>();
     _getStudentAttendanceDailyUseCase =
         serviceLocator<GetStudentAttendanceDailyUseCase>();
     _getRangeActivityFeedUseCase = serviceLocator<GetRangeActivityFeedUseCase>();
@@ -383,15 +392,25 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String? _selectedAttendanceEventFilter() {
     if (_filterActivityTypes.length == 1) {
       final v = _filterActivityTypes.first.trim();
-      if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+      if (v == 'Sign-in' ||
+          v == 'Sign-out' ||
+          v == 'Transfer' ||
+          v == 'Absent') {
+        return v;
+      }
     }
     final v = _selectedActivityType?.trim();
-    if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+    if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer' || v == 'Absent') {
+      return v;
+    }
     return null;
   }
 
   bool _isAttendanceEventLabel(String value) {
-    return value == 'Sign-in' || value == 'Sign-out' || value == 'Transfer';
+    return value == 'Sign-in' ||
+        value == 'Sign-out' ||
+        value == 'Transfer' ||
+        value == 'Absent';
   }
 
   bool _shouldIncludeAttendanceEntries() {
@@ -476,12 +495,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return _classroomNameByCode[c] ?? c;
   }
 
-  DateTime? _attendanceClockToDateTime(
-    StudentAttendanceTime? t,
-    DateTime day,
-  ) {
+  DateTime? _attendanceClockToDateTime(dynamic t, DateTime day) {
     if (t == null) return null;
-    return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
+    final hour = (t.hour is int) ? t.hour as int : int.tryParse('${t.hour}');
+    final minute =
+        (t.minute is int) ? t.minute as int : int.tryParse('${t.minute}');
+    final second =
+        (t.second is int) ? t.second as int : int.tryParse('${t.second}');
+    if (hour == null || minute == null) return null;
+    return DateTime(day.year, day.month, day.day, hour, minute, second ?? 0);
   }
 
   List<ActivityItem> _itemsFromAttendancePage(StudentAttendanceDailyPage page) {
@@ -689,6 +711,81 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return _withClientFilters(out);
   }
 
+  List<ActivityItem> _itemsFromAbsentAttendancePage(
+    StudentAttendanceAbsentFormPage page,
+  ) {
+    if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
+    final eventFilter = _selectedAttendanceEventFilter();
+    if (eventFilter != null && eventFilter != 'Absent') {
+      return const <ActivityItem>[];
+    }
+    final out = <ActivityItem>[];
+    for (final row in page.items) {
+      DateTime rowDay;
+      try {
+        final src = row.absenceDate.trim();
+        rowDay = src.isEmpty
+            ? (_selectedStartDate ?? DateTime.now())
+            : DateTime.parse(src);
+      } catch (_) {
+        rowDay = _selectedStartDate ?? DateTime.now();
+      }
+      final studentName = row.studentName.trim().isEmpty
+          ? 'Student'
+          : row.studentName.trim();
+      final studentCode = row.studentCode.trim().isEmpty
+          ? null
+          : row.studentCode.trim();
+      final at = _attendanceClockToDateTime(row.markedAbsentTime, rowDay) ?? rowDay;
+      final className = _displayClassroomName(
+        classroomCode: row.classroomCode,
+        classroomName: row.classroomName,
+      );
+      final markedBy = (row.markedAbsentByName ?? '').trim();
+      final note = (row.absenceNote ?? '').trim();
+      final markLine = markedBy.isEmpty
+          ? 'Marked absent from ${className.isEmpty ? 'classroom' : className}'
+          : 'Marked absent by $markedBy from ${className.isEmpty ? 'classroom' : className}';
+      final description = note.isEmpty ? markLine : '$markLine\n$note';
+      out.add(
+        ActivityItem(
+          time: DateFormat.jm().format(at),
+          date: DateFormat('MMMM d, yyyy').format(at),
+          name: 'Absent',
+          description: description,
+          studentList: <String>[studentName],
+          createdBy: markedBy.isEmpty ? _viewerStaffDisplayName : markedBy,
+          studentCode: studentCode,
+          classroomCode: row.classroomCode.trim(),
+          activityDateIso: at.toIso8601String(),
+          studentActivityRefs: <Map<String, String>>[
+            {
+              'name': studentName,
+              if (studentCode != null && studentCode.isNotEmpty)
+                'studentCode': studentCode,
+            },
+          ],
+        ),
+      );
+    }
+    out.sort((a, b) {
+      DateTime aDt;
+      DateTime bDt;
+      try {
+        aDt = DateTime.parse(a.activityDateIso!);
+      } catch (_) {
+        aDt = DateTime(1970);
+      }
+      try {
+        bDt = DateTime.parse(b.activityDateIso!);
+      } catch (_) {
+        bDt = DateTime(1970);
+      }
+      return bDt.compareTo(aDt);
+    });
+    return _withClientFilters(out);
+  }
+
   Future<void> _loadNextRangeFeedPage() async {
     if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) return;
 
@@ -741,6 +838,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           page: pageIndex,
           size: _feedPageSize,
         ),
+        _getStudentAttendanceAbsentToggleViewUseCase(
+          fromAbsenceDate: _dateQueryParam(start),
+          toAbsenceDate: _dateQueryParam(end),
+          classroomCodes: classroomCodes,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
         _getRangeActivityFeedUseCase(
           classroomCode: classroomCode,
           startDate: _dateQueryParam(start),
@@ -756,11 +860,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       ]);
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+      final absentPage = results[1] as StudentAttendanceAbsentFormPage;
+      final activityFeedPage = results[2] as ActivityFeedPage;
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromAbsentAttendancePage(absentPage),
         ..._itemsFromActivityFeedPage(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -781,7 +887,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedHasMore =
+            attendancePage.hasMore || absentPage.hasMore || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
@@ -864,6 +971,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         page: 0,
         size: _feedPageSize,
       );
+      final absentPage = await _getStudentAttendanceAbsentToggleViewUseCase(
+        fromAbsenceDate: _dateQueryParam(start),
+        toAbsenceDate: _dateQueryParam(end),
+        classroomCodes: _parentStudentClassroomByCode.values
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList(),
+        page: 0,
+        size: _feedPageSize,
+      );
       final typeCodes = _activityTypeCodesForApiFilter();
       final activityPages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
@@ -893,6 +1011,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromAbsentAttendancePage(absentPage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -919,7 +1038,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedHasMore =
+            attendancePage.hasMore || absentPage.hasMore || !mergedActivityPage.last;
         _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
@@ -981,6 +1101,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         page: pageIndex,
         size: _feedPageSize,
       );
+      final absentPage = await _getStudentAttendanceAbsentToggleViewUseCase(
+        fromAbsenceDate: _dateQueryParam(start),
+        toAbsenceDate: _dateQueryParam(end),
+        classroomCodes: _parentStudentClassroomByCode.values
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList(),
+        page: pageIndex,
+        size: _feedPageSize,
+      );
       final typeCodes = _activityTypeCodesForApiFilter();
       final activityPages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
@@ -1010,6 +1141,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromAbsentAttendancePage(absentPage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1030,7 +1162,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedHasMore =
+            attendancePage.hasMore || absentPage.hasMore || !mergedActivityPage.last;
         _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
@@ -1976,6 +2109,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           page: 0,
           size: _feedPageSize,
         ),
+        _getStudentAttendanceAbsentToggleViewUseCase(
+          fromAbsenceDate: _dateQueryParam(start),
+          toAbsenceDate: _dateQueryParam(end),
+          classroomCodes: classroomCodes,
+          page: 0,
+          size: _feedPageSize,
+        ),
         _getRangeActivityFeedUseCase(
           classroomCode: classroomCode,
           startDate: _dateQueryParam(start),
@@ -1991,11 +2131,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       ]);
 
       final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+      final absentPage = results[1] as StudentAttendanceAbsentFormPage;
+      final activityFeedPage = results[2] as ActivityFeedPage;
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         ..._itemsFromAttendancePage(attendancePage),
+        ..._itemsFromAbsentAttendancePage(absentPage),
         ..._itemsFromActivityFeedPage(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -2022,7 +2164,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedHasMore =
+            attendancePage.hasMore || absentPage.hasMore || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
