@@ -278,10 +278,6 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           setState(() {
             _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
           });
-        onProgress: (_, __, percent) {
-          if (!mounted) return;
-          final displayPercent = percent >= 100 ? 99 : percent;
-          setState(() => _profilePhotoUploadPercent = displayPercent);
         },
       );
       if (mounted) setState(() => _profilePhotoUploadPercent = 84);

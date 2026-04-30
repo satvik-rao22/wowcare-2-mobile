@@ -198,7 +198,6 @@ class ImageUploadService {
       final response = await uploadClient.putUri<dynamic>(
         putUri,
         data: bytes,
-        onSendProgress: onSendProgress,
         options: Options(
           headers: headers,
           responseType: ResponseType.plain,
