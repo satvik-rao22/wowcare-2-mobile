@@ -383,6 +383,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   String? _selectedAttendanceEventFilter() {
+    // Status filters apply to activity feed approvals only.
+    // Attendance rows don't carry approval status, so exclude attendance API
+    // when a status filter is active.
+    if (_filterApprovalStatuses.isNotEmpty) return null;
     if (_filterActivityTypes.length == 1) {
       final v = _filterActivityTypes.first.trim();
       if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
@@ -732,8 +736,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final approvalStatuses = _approvalStatusesForApiFilter();
       final pageIndex = _feedNextPage;
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
+      final includeAttendance =
+          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+      final activityFeedPage = await _getRangeActivityFeedUseCase(
+        classroomCode: classroomCode,
+        startDate: _dateQueryParam(start),
+        endDate: _dateQueryParam(end),
+        studentCode: selectedStudentCode,
+        classroomCodes: classroomCodes,
+        studentCodes: studentCodes,
+        activityTypeCodes: typeCodes,
+        approvalStatuses: approvalStatuses,
+        guardianPersona: _parentHome,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (includeAttendance) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
           attendanceDate: _dateQueryParam(start),
           fromAttendanceDate: _dateQueryParam(start),
           toAttendanceDate: _dateQueryParam(end),
@@ -743,28 +763,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           signOutAtFilter: signOutAtFilter,
           page: pageIndex,
           size: _feedPageSize,
-        ),
-        _getRangeActivityFeedUseCase(
-          classroomCode: classroomCode,
-          startDate: _dateQueryParam(start),
-          endDate: _dateQueryParam(end),
-          studentCode: selectedStudentCode,
-          classroomCodes: classroomCodes,
-          studentCodes: studentCodes,
-          activityTypeCodes: typeCodes,
-          approvalStatuses: approvalStatuses,
-          guardianPersona: _parentHome,
-          page: pageIndex,
-          size: _feedPageSize,
-        ),
-      ]);
-
-      final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+        );
+      }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
-        ..._itemsFromAttendancePage(attendancePage),
+        if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         ..._itemsFromActivityFeedPage(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -785,7 +789,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedHasMore =
+            (attendancePage?.hasMore ?? false) || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
@@ -859,16 +864,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final attendancePage = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: _dateQueryParam(start),
-        fromAttendanceDate: _dateQueryParam(start),
-        toAttendanceDate: _dateQueryParam(end),
-        studentCodes: codes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: 0,
-        size: _feedPageSize,
-      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          studentCodes: codes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: 0,
+          size: _feedPageSize,
+        );
+      }
       final typeCodes = _activityTypeCodesForApiFilter();
       final approvalStatuses = _approvalStatusesForApiFilter();
       final activityPages = await Future.wait(
@@ -899,7 +907,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final mergedActivityPage = mergeActivityFeedPages(activityPages);
       await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
       final items = <ActivityItem>[
-        ..._itemsFromAttendancePage(attendancePage),
+        if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -926,7 +934,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedHasMore =
+            (attendancePage?.hasMore ?? false) || !mergedActivityPage.last;
         _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
@@ -978,16 +987,19 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
       final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
-      final attendancePage = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: _dateQueryParam(start),
-        fromAttendanceDate: _dateQueryParam(start),
-        toAttendanceDate: _dateQueryParam(end),
-        studentCodes: _parentAllowedStudentCodes.toList(),
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: pageIndex,
-        size: _feedPageSize,
-      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendanceDate: _dateQueryParam(start),
+          fromAttendanceDate: _dateQueryParam(start),
+          toAttendanceDate: _dateQueryParam(end),
+          studentCodes: _parentAllowedStudentCodes.toList(),
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: pageIndex,
+          size: _feedPageSize,
+        );
+      }
       final typeCodes = _activityTypeCodesForApiFilter();
       final approvalStatuses = _approvalStatusesForApiFilter();
       final activityPages = await Future.wait(
@@ -1018,7 +1030,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final mergedActivityPage = mergeActivityFeedPages(activityPages);
       await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
       final items = <ActivityItem>[
-        ..._itemsFromAttendancePage(attendancePage),
+        if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1039,7 +1051,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
-        _feedHasMore = attendancePage.hasMore || !mergedActivityPage.last;
+        _feedHasMore =
+            (attendancePage?.hasMore ?? false) || !mergedActivityPage.last;
         _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
@@ -1223,6 +1236,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (isNotParent) {
       await _loadAllStudentsForAllowedClassrooms(refresh: true);
     }
+  }
+
+  void _resetDateRangeToCurrentMonth() {
+    final today = SchoolZoneDateTime.schoolCalendarTodayOnly(_schoolIana);
+    _selectedStartDate = DateTime(today.year, today.month, 1);
+    _selectedEndDate = DateTime(today.year, today.month + 1, 0);
   }
 
   Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
@@ -2045,8 +2064,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final typeCodes = _activityTypeCodesForApiFilter();
       final approvalStatuses = _approvalStatusesForApiFilter();
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
+      final includeAttendance =
+          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+      final activityFeedPage = await _getRangeActivityFeedUseCase(
+        classroomCode: classroomCode,
+        startDate: _dateQueryParam(start),
+        endDate: _dateQueryParam(end),
+        studentCode: selectedStudentCode,
+        classroomCodes: classroomCodes,
+        studentCodes: studentCodes,
+        activityTypeCodes: typeCodes,
+        approvalStatuses: approvalStatuses,
+        guardianPersona: _parentHome,
+        page: 0,
+        size: _feedPageSize,
+      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (includeAttendance) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
           attendanceDate: _dateQueryParam(start),
           fromAttendanceDate: _dateQueryParam(start),
           toAttendanceDate: _dateQueryParam(end),
@@ -2056,28 +2091,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           signOutAtFilter: signOutAtFilter,
           page: 0,
           size: _feedPageSize,
-        ),
-        _getRangeActivityFeedUseCase(
-          classroomCode: classroomCode,
-          startDate: _dateQueryParam(start),
-          endDate: _dateQueryParam(end),
-          studentCode: selectedStudentCode,
-          classroomCodes: classroomCodes,
-          studentCodes: studentCodes,
-          activityTypeCodes: typeCodes,
-          approvalStatuses: approvalStatuses,
-          guardianPersona: _parentHome,
-          page: 0,
-          size: _feedPageSize,
-        ),
-      ]);
-
-      final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+        );
+      }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
-        ..._itemsFromAttendancePage(attendancePage),
+        if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         ..._itemsFromActivityFeedPage(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -2104,7 +2123,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           ..clear()
           ..addAll(items);
         _feedError = null;
-        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedHasMore =
+            (attendancePage?.hasMore ?? false) || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? 1 : 0;
         _loadingMoreFeed = false;
       });
@@ -2457,13 +2477,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             ),
                             const SizedBox(width: 8),
                             CustomClearAllChip(
-                              onTap: () {
+                              onTap: () async {
                                 setState(() {
-                                  final now = DateTime.now();
-                                  _selectedStartDate =
-                                      DateTime(now.year, now.month, 1);
-                                  _selectedEndDate =
-                                      DateTime(now.year, now.month + 1, 0);
+                                  _resetDateRangeToCurrentMonth();
                                   _selectdClassroom = null;
                                   _selectedClassrooms = <String>[];
                                   _selectedStudent = null;
@@ -2472,7 +2488,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   _filterTags.clear();
                                   _filterApprovalStatuses.clear();
                                 });
-                                _refreshApisAfterClearAll();
+                                await _refreshApisAfterClearAll();
+                                await _loadRangeFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
@@ -2491,6 +2508,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                     (values) async {
                                       if (values.isEmpty) {
                                         setState(() {
+                                          _resetDateRangeToCurrentMonth();
                                           _selectdClassroom = null;
                                           _selectedClassrooms = <String>[];
                                           _selectedStudent = null;
@@ -2618,6 +2636,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                 CustomClearAllChip(
                                   onTap: () async {
                                     setState(() {
+                                      _resetDateRangeToCurrentMonth();
                                       _selectdClassroom = null;
                                       _selectedClassrooms = <String>[];
                                       _selectedStudent = null;
@@ -2627,6 +2646,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                       _filterApprovalStatuses.clear();
                                     });
                                     await _refreshApisAfterClearAll();
+                                    await _loadRangeFeed(refresh: true);
                                   },
                                   label: 'Clear All',
                                 ),

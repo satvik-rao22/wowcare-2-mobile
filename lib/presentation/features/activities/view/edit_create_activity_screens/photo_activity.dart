@@ -438,10 +438,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       return;
     }
-    if (videoCount > 1) {
+    const maxVideoCount = 2;
+    if (videoCount > maxVideoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 video can be attached.',
+        message: 'Maximum $maxVideoCount videos can be attached.',
         isError: true,
       );
       return;
@@ -1227,7 +1228,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   isRequired: true,
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
-                  limit: widget.isPhoto ? 10 : 1,
+                  limit: widget.isPhoto ? 10 : 2,
                   readOnly: widget.readOnly,
                   autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
                   onMediaChanged:

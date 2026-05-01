@@ -1179,6 +1179,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   String? _selectedAttendanceEventFilter() {
+    // Status filters apply to activity feed approvals only.
+    // Attendance rows don't carry approval status, so exclude attendance API
+    // when a status filter is active.
+    if (_filterApprovalStatuses.isNotEmpty) return null;
     if (_filterActivityTypes.length == 1) {
       final v = _filterActivityTypes.first.trim();
       if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
@@ -1543,8 +1547,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final typeCodes = _activityTypeCodesForApiFilter();
       final pageIndex = _feedNextPage;
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
+      final includeAttendance =
+          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+      final activityFeedPage = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: selectedStudentCode,
+        classroomCodes: classroomCodes,
+        studentCodes: studentCodes,
+        activityTypeCodes: typeCodes,
+        guardianPersona: _parentHome,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (includeAttendance) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
           attendanceDate: dateStr,
           classroomCodes: classroomCodes.isNotEmpty
               ? classroomCodes
@@ -1554,26 +1572,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           signOutAtFilter: signOutAtFilter,
           page: pageIndex,
           size: _feedPageSize,
-        ),
-        _getDailyActivityFeedUseCase(
-          classroomCode: classroomCode,
-          date: dateStr,
-          studentCode: selectedStudentCode,
-          classroomCodes: classroomCodes,
-          studentCodes: studentCodes,
-          activityTypeCodes: typeCodes,
-          guardianPersona: _parentHome,
-          page: pageIndex,
-          size: _feedPageSize,
-        ),
-      ]);
-
-      final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+        );
+      }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
-        ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1594,7 +1598,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedHasMore =
+            (attendancePage?.hasMore ?? false) || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
@@ -1680,14 +1685,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      final attendancePage = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: dateStr,
-        studentCodes: codes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: 0,
-        size: _feedPageSize,
-      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendanceDate: dateStr,
+          studentCodes: codes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: 0,
+          size: _feedPageSize,
+        );
+      }
       final pages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
@@ -1716,7 +1724,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
       final items = <ActivityItem>[
-        ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1742,7 +1750,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
-        _feedHasMore = attendancePage.hasMore || !merged.last;
+        _feedHasMore = (attendancePage?.hasMore ?? false) || !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
@@ -1793,14 +1801,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (mounted) setState(() {});
 
     try {
-      final attendancePage = await _getStudentAttendanceDailyUseCase(
-        attendanceDate: dateStr,
-        studentCodes: _parentAllowedStudentCodes.toList(),
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        page: pageIndex,
-        size: _feedPageSize,
-      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendanceDate: dateStr,
+          studentCodes: _parentAllowedStudentCodes.toList(),
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          page: pageIndex,
+          size: _feedPageSize,
+        );
+      }
       final pages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
@@ -1829,7 +1840,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
       final items = <ActivityItem>[
-        ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1850,7 +1861,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _feedHasMore = attendancePage.hasMore || !merged.last;
+        _feedHasMore = (attendancePage?.hasMore ?? false) || !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
     } catch (e) {
@@ -1951,8 +1962,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final typeCodes = _activityTypeCodesForApiFilter();
       final approvalStatuses = _approvalStatusesForApiFilter();
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
+      final includeAttendance =
+          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+      final activityFeedPage = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: selectedStudentCode,
+        classroomCodes: classroomCodes,
+        studentCodes: studentCodes,
+        activityTypeCodes: typeCodes,
+        approvalStatuses: approvalStatuses,
+        guardianPersona: _parentHome,
+        page: 0,
+        size: _feedPageSize,
+      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (includeAttendance) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
           attendanceDate: dateStr,
           classroomCodes: classroomCodes,
           studentCodes: studentCodes,
@@ -1960,27 +1986,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           signOutAtFilter: signOutAtFilter,
           page: 0,
           size: _feedPageSize,
-        ),
-        _getDailyActivityFeedUseCase(
-          classroomCode: classroomCode,
-          date: dateStr,
-          studentCode: selectedStudentCode,
-          classroomCodes: classroomCodes,
-          studentCodes: studentCodes,
-          activityTypeCodes: typeCodes,
-          approvalStatuses: approvalStatuses,
-          guardianPersona: _parentHome,
-          page: 0,
-          size: _feedPageSize,
-        ),
-      ]);
-
-      final attendancePage = results[0] as StudentAttendanceDailyPage;
-      final activityFeedPage = results[1] as ActivityFeedPage;
+        );
+      }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
-        ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -2006,7 +2017,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
-        _feedHasMore = attendancePage.hasMore || !activityFeedPage.last;
+        _feedHasMore =
+            (attendancePage?.hasMore ?? false) || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? 1 : 0;
       });
       _isFeedRequestInFlight = false;
@@ -2593,6 +2605,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _filterApprovalStatuses.clear();
                                 });
                                 await _refreshDropdownsAfterClearAll();
+                                await _loadDailyFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
@@ -4187,6 +4200,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _filterApprovalStatuses.clear();
                                 });
                                 await _refreshDropdownsAfterClearAll();
+                                await _loadDailyFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
