@@ -79,6 +79,21 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Student Absent records for activities feed (daily/custom tabs).
+  ///
+  /// Backend endpoint:
+  /// `/api/v1/student-attendance/view/absent/records/activity`.
+  /// Response shape matches [StudentAttendanceAbsentFormPage].
+  Future<StudentAttendanceAbsentFormPage> getStudentAbsentRecordsActivity({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
   /// Removes a student absence record (e.g. before override sign-in).
   ///
   /// Backend: `DELETE /api/v1/student-absence-records/{absenceRecordCode}`.

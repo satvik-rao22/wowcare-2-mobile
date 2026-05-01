@@ -846,6 +846,32 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<student_absent.StudentAttendanceAbsentFormPage>
+  getStudentAbsentRecordsActivity({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    final pageModel = await _remoteDataSource.getStudentAbsentRecordsActivity(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+      allowedClassroomCodes: allowed,
+    );
+
+    return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
   Future<void> deleteStudentAbsenceRecord({
     required String absenceRecordCode,
     required String staffCode,
