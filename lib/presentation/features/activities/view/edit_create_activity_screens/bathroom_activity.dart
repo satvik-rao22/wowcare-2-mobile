@@ -1512,14 +1512,12 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                     _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaff
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy:
-                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                          loggedInDisplayName: _staffName,
-                        ),
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy:
+                        _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                    loggedInDisplayName: _staffName,
+                  ),
                   isEditable: lockToLoggedInStaff
                       ? false
                       : _canInteract,

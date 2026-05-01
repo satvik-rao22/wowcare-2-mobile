@@ -93,7 +93,7 @@ abstract class ActivityRemoteDataSource {
   });
 
   /// Presigns one media asset in a previously created upload session.
-  /// `POST /document-ms/api/v1/upload-sessions/{sessionCode}/assets/presign`
+  /// `POST /document-ms/api/v1/upload-sessions/{sessionCode}/assets/presign/batch`
   Future<ActivityAssetPresignModel> createActivityAssetPresign({
     required String sessionCode,
     required String documentApiBasePath,
@@ -577,16 +577,20 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
     basePath = basePath.replaceAll(RegExp(r'/+$'), '');
     final endpoint =
-        '$origin$basePath/upload-sessions/$sessionCode/assets/presign';
+        '$origin$basePath/upload-sessions/$sessionCode/assets/presign/batch';
 
     final payload = <String, dynamic>{
-      'fileName': fileName,
-      'contentType': contentType,
-      'contentLengthBytes': contentLengthBytes,
-      'checksumSha256': checksumSha256,
-      'mediaType': mediaType,
-      'ownerType': ownerType,
-      'ownerCode': ownerCode,
+      'assets': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'fileName': fileName,
+          'contentType': contentType,
+          'contentLengthBytes': contentLengthBytes,
+          'checksumSha256': checksumSha256,
+          'mediaType': mediaType,
+          'ownerType': ownerType,
+          'ownerCode': ownerCode,
+        },
+      ],
     };
 
     final response = await _client.post<dynamic>(

@@ -13,13 +13,23 @@ class ActivityAssetPresignModel extends ActivityAssetPresign {
       throw Exception('Unexpected assets presign API data format');
     }
 
-    final assetCode = (data['assetCode'] ?? '').toString().trim();
-    final presignedPutUrl = (data['presignedPutUrl'] ?? '').toString().trim();
+    final uploads = data['uploads'];
+    if (uploads is! List || uploads.isEmpty) {
+      throw Exception('Unexpected assets presign uploads format');
+    }
+    final firstUpload = uploads.first;
+    if (firstUpload is! Map) {
+      throw Exception('Unexpected assets presign upload item format');
+    }
+
+    final assetCode = (firstUpload['assetCode'] ?? '').toString().trim();
+    final presignedPutUrl =
+        (firstUpload['presignedPutUrl'] ?? '').toString().trim();
     if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
       throw Exception('Missing assetCode or presignedPutUrl in presign response');
     }
 
-    final rawHeaders = data['requiredHeaders'];
+    final rawHeaders = firstUpload['requiredHeaders'];
     final requiredHeaders = <String, String>{};
     if (rawHeaders is Map) {
       rawHeaders.forEach((key, value) {

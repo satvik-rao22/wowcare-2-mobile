@@ -413,15 +413,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    final maxPhotoCount = widget.isPhoto ? 10 : 1;
+    if (photoCount > maxPhotoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Maximum $maxPhotoCount photo${maxPhotoCount == 1 ? '' : 's'} can be attached.',
         isError: true,
       );
       return;
     }
-    if (widget.isEdit && videoCount > 1) {
+    if (videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -1208,7 +1209,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   isRequired: true,
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
-                  limit: widget.isPhoto ? 1 : 10,
+                  limit: widget.isPhoto ? 10 : 1,
                   readOnly: widget.readOnly,
                   autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
                   onMediaChanged:
@@ -1250,14 +1251,12 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   final isAdminPersona = _isAdminDesignation;
                   final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                   return StaffPresentWidget(
-                    staffName: lockToLoggedInStaff
-                        ? _staffName
-                        : staffPresentLabelForActivity(
-                            layoutAsEdit: _layoutAsEdit,
-                            activityCreatedBy:
-                                _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                            loggedInDisplayName: _staffName,
-                          ),
+                    staffName: staffPresentLabelForActivity(
+                      layoutAsEdit: _layoutAsEdit,
+                      activityCreatedBy:
+                          _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                      loggedInDisplayName: _staffName,
+                    ),
                     isEditable: lockToLoggedInStaff
                         ? false
                         : _canInteract,

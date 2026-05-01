@@ -64,20 +64,20 @@ String staffPresentLabelForActivity({
   required String loggedInDisplayName,
   String? staffLabelFromParameters,
 }) {
-  if (!layoutAsEdit) {
-    final u = loggedInDisplayName.trim();
-    if (u.isNotEmpty) {
-      return u;
-    }
+  if (layoutAsEdit) {
+    // Edit/read-only should reflect API data first.
     return resolveActivityCreatedByForUi(
       rawCreatedBy: activityCreatedBy,
       staffLabelFromParameters: staffLabelFromParameters,
-      viewerDisplayNameFallback: null,
+      viewerDisplayNameFallback: loggedInDisplayName,
     );
   }
+  // Add/create should always show current logged-in staff.
+  final u = loggedInDisplayName.trim();
+  if (u.isNotEmpty) return u;
   return resolveActivityCreatedByForUi(
-    rawCreatedBy: activityCreatedBy,
-    staffLabelFromParameters: staffLabelFromParameters,
+    rawCreatedBy: '',
+    staffLabelFromParameters: null,
     viewerDisplayNameFallback: loggedInDisplayName,
   );
 }

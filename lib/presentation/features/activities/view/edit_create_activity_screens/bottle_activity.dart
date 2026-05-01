@@ -986,15 +986,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                     _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaff
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy:
-                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                          loggedInDisplayName: _staffName,
-                          staffLabelFromParameters: _staffPresentLabelForEdit,
-                        ),
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy:
+                        _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                    loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _staffPresentLabelForEdit,
+                  ),
                   isEditable: lockToLoggedInStaff
                       ? false
                       : _canInteract,

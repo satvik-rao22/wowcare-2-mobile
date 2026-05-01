@@ -617,22 +617,28 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final normalizedPhotos = widget.isEdit && photos.length > 1
+        ? <File>[photos.last]
+        : photos;
+    final photoCount =
+        normalizedPhotos.length + remainingExistingPhotoUrls.length;
+    final maxPhotoCount = widget.isEdit ? 1 : 2;
     final videoCount =
         (video != null ? 1 : 0) +
         ((remainingExistingVideoUrl != null &&
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 2) {
+    if (photoCount > maxPhotoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 2 photos can be attached.',
+        message:
+            'Maximum $maxPhotoCount photo${maxPhotoCount == 1 ? '' : 's'} can be attached.',
         isError: true,
       );
       return;
     }
-    if (widget.isEdit && videoCount > 1) {
+    if (videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -641,10 +647,11 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       return;
     }
     setState(() {
-      _newPhotos = photos;
-      _remainingExistingPhotoUrls = List<String>.from(
-        remainingExistingPhotoUrls,
-      );
+      _newPhotos = normalizedPhotos;
+      _remainingExistingPhotoUrls =
+          (widget.isEdit && normalizedPhotos.isNotEmpty)
+          ? const []
+          : List<String>.from(remainingExistingPhotoUrls);
       _uploadedAssetCodeByPath.removeWhere(
         (path, _) => !_newPhotos.any((f) => f.path == path),
       );
@@ -1531,14 +1538,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaff
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy:
-                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                          loggedInDisplayName: _staffName,
-                        ),
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy:
+                        _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                    loggedInDisplayName: _staffName,
+                  ),
                   isEditable: lockToLoggedInStaff
                       ? false
                       : _canInteract,
@@ -1577,7 +1582,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   allowPhoto: true,
                   readOnly: widget.readOnly,
                   isPictureBox: false,
-                  limit: 2,
+                  limit: widget.isEdit ? 1 : 2,
                   autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
                   initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                       ? List<String>.from(_remainingExistingPhotoUrls)

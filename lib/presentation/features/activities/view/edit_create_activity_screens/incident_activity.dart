@@ -847,8 +847,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
+    final cachedDisplayName =
+        (await storage.getString(StorageKeys.displayName) ?? '').trim();
     final roles =
         (await storage.getString(StorageKeys.roles) ?? '').trim().toUpperCase();
     final staffType =
@@ -858,10 +858,43 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
+    final staffRepo = serviceLocator<StaffRepository>();
+    var resolvedDisplayName = cachedDisplayName;
+    final trimmedStaffCode = (staffCode ?? '').trim();
+
+    if (trimmedStaffCode.isNotEmpty) {
+      try {
+        // Primary source: /api/v1/staff/my-profile/{staffCode}
+        final myProfile = await staffRepo.getStaffProfile(staffCode: trimmedStaffCode);
+        final full = myProfile.fullName.trim();
+        final composed = '${myProfile.firstName} ${myProfile.lastName}'.trim();
+        final apiName = full.isNotEmpty ? full : composed;
+        if (apiName.isNotEmpty) {
+          resolvedDisplayName = apiName;
+        }
+      } catch (_) {
+        try {
+          // Fallback: /api/v1/staff/{staffCode}/profile
+          final profileByCode = await staffRepo.getStaffProfile(
+            staffCode: trimmedStaffCode,
+            forEditStaff: true,
+          );
+          final full = profileByCode.fullName.trim();
+          final composed =
+              '${profileByCode.firstName} ${profileByCode.lastName}'.trim();
+          final apiName = full.isNotEmpty ? full : composed;
+          if (apiName.isNotEmpty) {
+            resolvedDisplayName = apiName;
+          }
+        } catch (_) {
+          // Keep cached display name as fallback.
+        }
+      }
+    }
 
     if (!mounted) return;
     setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffName = resolvedDisplayName.isNotEmpty ? resolvedDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _isGuardianPersona = roles.contains('GUARDIAN') || roles.contains('PARENT');
       _staffCode = staffCode;
@@ -1731,7 +1764,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     // Incident activity backend can reject SHARED attachments for some activity
     // type configs, so always upload as PER_STUDENT.
-    const isShared = false;
     const bindingMode = 'PER_STUDENT';
     const ownerType = 'STUDENT';
     final ownerCode = studentCodes.first;
@@ -1822,15 +1854,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
       if (assetCode != null && assetCode.isNotEmpty) {
-        if (isShared) {
-          attachments.add({'assetCode': assetCode});
-        } else {
-          attachments.add({
-            'assetCode': assetCode,
-            'studentCode': ownerCode,
-            'bindingMode': bindingMode,
-          });
-        }
+        attachments.add({
+          'assetCode': assetCode,
+          'studentCode': ownerCode,
+          'bindingMode': bindingMode,
+        });
       }
     }
     return attachments;

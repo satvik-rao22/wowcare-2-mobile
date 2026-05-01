@@ -556,7 +556,7 @@ class ApiPaths {
       if (base.isEmpty) base = '/api/v1';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
-    return '$base/upload-sessions/$sessionCode/assets/presign';
+    return '$base/upload-sessions/$sessionCode/assets/presign/batch';
   }
 
   static String documentAssetCompletePath({
