@@ -23,6 +23,9 @@ class StaffPresentWidget extends StatefulWidget {
     this.showSignCheckbox = true,
     this.signActionLabel = 'Click to sign',
     this.prefillWithStaffName = false,
+    this.showStaffDropdown = true,
+    this.signatureEncodedValue,
+    this.onStaffChanged,
   });
   final String staffName;
   final bool isEditable;
@@ -34,6 +37,9 @@ class StaffPresentWidget extends StatefulWidget {
   final bool showSignCheckbox;
   final String signActionLabel;
   final bool prefillWithStaffName;
+  final bool showStaffDropdown;
+  final String? signatureEncodedValue;
+  final void Function(String? selectedName, String? selectedCode)? onStaffChanged;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -44,6 +50,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
  String? selectedStaff;
  bool clickToSign = false;
  final List<String> _fetchedStaffNames = [];
+final Map<String, String> _staffCodeByNameLower = <String, String>{};
+final Map<String, String> _staffNameByCodeLower = <String, String>{};
  bool _loadingStaffs = false;
  late final CacheManager _cacheManager;
 
@@ -70,7 +78,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   }
 
   void _rebuildStaffSelection() {
-    final name = widget.staffName.trim();
+    final incomingName = _resolveDisplayName(widget.staffName.trim());
+    final currentName = _resolveDisplayName((selectedStaff ?? '').trim());
+    final seedName = incomingName.isNotEmpty ? incomingName : currentName;
     final unique = <String>{};
     final ordered = <String>[];
     void addName(String value) {
@@ -78,24 +88,24 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       if (v.isEmpty) return;
       if (unique.add(v.toLowerCase())) ordered.add(v);
     }
-    addName(name);
-    for (final n in _fetchedStaffNames) {
-      addName(n);
-    }
-    if (ordered.isEmpty) {
-      addName('Staff');
+    addName(seedName);
+    if (widget.isEditable) {
+      for (final n in _fetchedStaffNames) {
+        addName(n);
+      }
     }
     staffList = [
       ...ordered,
     ];
-    if (widget.prefillWithStaffName && name.isNotEmpty) {
+    if (seedName.isNotEmpty) {
       selectedStaff = staffList.firstWhere(
-        (s) => s.toLowerCase() == name.toLowerCase(),
-        orElse: () => name,
+        (s) => s.toLowerCase() == seedName.toLowerCase(),
+        orElse: () => seedName,
       );
       if (!staffList.any((s) => s.toLowerCase() == selectedStaff!.toLowerCase())) {
         staffList = [selectedStaff!, ...staffList];
       }
+      _emitStaffChanged();
       return;
     }
     final current = (selectedStaff ?? '').trim();
@@ -104,9 +114,31 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       selectedStaff = staffList.firstWhere(
         (s) => s.toLowerCase() == current.toLowerCase(),
       );
+      _emitStaffChanged();
       return;
     }
-    selectedStaff = staffList.first;
+    selectedStaff = staffList.isNotEmpty
+        ? staffList.first
+        : (currentName.isNotEmpty ? currentName : null);
+    _emitStaffChanged();
+  }
+
+  String _resolveDisplayName(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return '';
+    for (final n in _fetchedStaffNames) {
+      if (n.toLowerCase() == t.toLowerCase()) return n;
+    }
+    final fromCode = _staffNameByCodeLower[t.toLowerCase()];
+    if ((fromCode ?? '').trim().isNotEmpty) return fromCode!.trim();
+    return t;
+  }
+
+  void _emitStaffChanged() {
+    final selected = (selectedStaff ?? '').trim();
+    final code =
+        selected.isEmpty ? null : _staffCodeByNameLower[selected.toLowerCase()];
+    widget.onStaffChanged?.call(selectedStaff, code);
   }
 
   Future<void> _loadStaffNames() async {
@@ -130,6 +162,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       try {
         final cached = await _cacheManager.loadCache(cacheKey);
         final cachedNames = cached?['names'];
+        final cachedNameCodeMap = cached?['nameCodeMap'];
+        final cachedCodeNameMap = cached?['codeNameMap'];
         if (cachedNames is List && cachedNames.isNotEmpty) {
           _fetchedStaffNames
             ..clear()
@@ -141,6 +175,26 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   .toList()
                 ..sort(),
             );
+          _staffCodeByNameLower.clear();
+          _staffNameByCodeLower.clear();
+          if (cachedNameCodeMap is Map) {
+            for (final entry in cachedNameCodeMap.entries) {
+              final name = entry.key.toString().trim();
+              final code = entry.value.toString().trim();
+              if (name.isEmpty || code.isEmpty) continue;
+              _staffCodeByNameLower[name.toLowerCase()] = code;
+              _staffNameByCodeLower[code.toLowerCase()] = name;
+            }
+          }
+          if (cachedCodeNameMap is Map) {
+            for (final entry in cachedCodeNameMap.entries) {
+              final code = entry.key.toString().trim();
+              final name = entry.value.toString().trim();
+              if (name.isEmpty || code.isEmpty) continue;
+              _staffNameByCodeLower[code.toLowerCase()] = name;
+              _staffCodeByNameLower[name.toLowerCase()] = code;
+            }
+          }
           if (mounted) setState(_rebuildStaffSelection);
         }
       } catch (_) {}
@@ -163,9 +217,20 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
               .toList()
             ..sort(),
         );
+      _staffCodeByNameLower.clear();
+      _staffNameByCodeLower.clear();
+      for (final staff in page.items) {
+        final name = staff.name.trim();
+        final code = staff.code.trim();
+        if (name.isEmpty || code.isEmpty) continue;
+        _staffCodeByNameLower[name.toLowerCase()] = code;
+        _staffNameByCodeLower[code.toLowerCase()] = name;
+      }
       if (!mounted) return;
       await _cacheManager.saveCache(cacheKey, {
         'names': List<String>.from(_fetchedStaffNames),
+        'nameCodeMap': Map<String, String>.from(_staffCodeByNameLower),
+        'codeNameMap': Map<String, String>.from(_staffNameByCodeLower),
       });
       setState(_rebuildStaffSelection);
     } catch (_) {
@@ -218,46 +283,89 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
           ],
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
-        InkWell(
-          onTap: null,
-          child: Opacity(
-            opacity: widget.isEditable ? 1.0 : 0.4,
-            child: CustomDropdown(
-              hintText: 'Select present staff',
-              items: staffList,
-              selectedItem: selectedStaff,
-              isEnabled: widget.isEditable,
-              onSelect: widget.isEditable?
-              (String? value) {
-                setState(() {
-                  selectedStaff = value;
-                });
-              }: null,
+        if (widget.showStaffDropdown)
+          InkWell(
+            onTap: null,
+            child: Opacity(
+              opacity: widget.isEditable ? 1.0 : 0.4,
+              child: CustomDropdown(
+                hintText: 'Select present staff',
+                items: staffList,
+                selectedItem: selectedStaff,
+                isEnabled: widget.isEditable,
+                onSelect: widget.isEditable?
+                (String? value) {
+                  setState(() {
+                    selectedStaff = value;
+                  });
+                  _emitStaffChanged();
+                }: null,
+              ),
+            ),
+          )
+        else
+          Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0x1AB1AFE9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0x66573353)),
+            ),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              selectedStaff ?? widget.staffName,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff573353),
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ),
         SizedBox(height: responsive.verticalSpacing,),
         if (widget.incidentActivity && clickToSign)
           Container(
-            constraints: BoxConstraints(minHeight: 60),
+            constraints: const BoxConstraints(minHeight: 60),
             width: double.infinity,
             decoration: BoxDecoration(
               color: const Color(0xFFB1AFE9).withOpacity(0.102),
-              //color: const Color(0xFFF8F7FA),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Center(
-              child: Text(
-                selectedStaff!,
-                style: TextStyle(
-                  fontFamily: 'MervaleScript',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xff573353),
-                  //height: 19 / 14,
-                ),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Center(
+                    child: Text(
+                    selectedStaff ?? widget.staffName,
+                    style: const TextStyle(
+                      fontFamily: 'MervaleScript',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xff573353),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    ),
+                  ),
+                  if ((widget.signatureEncodedValue ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    SelectableText(
+                      'Signature-ID - ${widget.signatureEncodedValue!.trim()}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0x80573353),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           )

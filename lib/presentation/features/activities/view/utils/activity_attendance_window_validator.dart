@@ -55,50 +55,6 @@ Future<DateTime?> _selectedInstantUtc({
   }
 }
 
-Future<bool> _shouldSkipAtTimeValidationForCurrentTime({
-  required DateTime date,
-  required DateTime selectedInstantUtc,
-  required TimeOfDay selectedTime,
-}) async {
-  // Fast path: selected instant is effectively "now" in UTC (device clock).
-  final deviceNowDiffSeconds =
-      selectedInstantUtc.difference(DateTime.now().toUtc()).inSeconds.abs();
-  if (deviceNowDiffSeconds <= 180) return true;
-
-  try {
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-    final schoolNow =
-        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$1;
-    final nowInstantUtc = SchoolZoneDateTime.utcFromSchoolWallClock(
-      schoolTimeZone,
-      year: schoolNow.year,
-      month: schoolNow.month,
-      day: schoolNow.day,
-      hour: schoolNow.hour,
-      minute: schoolNow.minute,
-    );
-
-    // Skip validation when user selected current wall-clock minute.
-    final selectedMatchesNowMinute =
-        selectedTime.hour == schoolNow.hour && selectedTime.minute == schoolNow.minute;
-    if (selectedMatchesNowMinute) return true;
-
-    // Fallback tolerance for clock drift / rounding.
-    // When selected date differs due timezone/day rollover edge cases, instant diff
-    // is still authoritative for "current time" checks.
-    final diffSeconds = selectedInstantUtc.difference(nowInstantUtc).inSeconds.abs();
-    return diffSeconds <= 180;
-  } catch (_) {
-    // Final fallback if school timezone resolution fails.
-    final fallbackDiffSeconds =
-        selectedInstantUtc.difference(DateTime.now().toUtc()).inSeconds.abs();
-    return fallbackDiffSeconds <= 180;
-  }
-}
-
 Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
   required ApiClient apiClient,
   required List<String> studentCodes,
@@ -219,13 +175,8 @@ Future<bool> validateStudentsWithinAttendanceWindow({
     time: selectedTime,
   );
   if (instantUtc == null) return true;
-  final shouldSkipAtTimeValidation =
-      await _shouldSkipAtTimeValidationForCurrentTime(
-    date: selectedDate,
-    selectedInstantUtc: instantUtc,
-    selectedTime: selectedTime,
-  );
-  if (shouldSkipAtTimeValidation) return true;
+  // Always validate attendance against API, including "current minute"/today.
+  // This guarantees latest sign-in state is checked on every submit attempt.
   final classroomCode = _resolveClassroomCodeFromSelectedStudents(students);
   if (classroomCode.isEmpty) return true;
 

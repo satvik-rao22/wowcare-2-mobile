@@ -93,7 +93,7 @@ abstract class ActivityRemoteDataSource {
   });
 
   /// Presigns one media asset in a previously created upload session.
-  /// `POST /document-ms/api/v1/upload-sessions/{sessionCode}/assets/presign`
+  /// `POST /document-ms/api/v1/upload-sessions/{sessionCode}/assets/presign/batch`
   Future<ActivityAssetPresignModel> createActivityAssetPresign({
     required String sessionCode,
     required String documentApiBasePath,
@@ -115,6 +115,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -130,6 +131,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -575,16 +577,20 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
     basePath = basePath.replaceAll(RegExp(r'/+$'), '');
     final endpoint =
-        '$origin$basePath/upload-sessions/$sessionCode/assets/presign';
+        '$origin$basePath/upload-sessions/$sessionCode/assets/presign/batch';
 
     final payload = <String, dynamic>{
-      'fileName': fileName,
-      'contentType': contentType,
-      'contentLengthBytes': contentLengthBytes,
-      'checksumSha256': checksumSha256,
-      'mediaType': mediaType,
-      'ownerType': ownerType,
-      'ownerCode': ownerCode,
+      'assets': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'fileName': fileName,
+          'contentType': contentType,
+          'contentLengthBytes': contentLengthBytes,
+          'checksumSha256': checksumSha256,
+          'mediaType': mediaType,
+          'ownerType': ownerType,
+          'ownerCode': ownerCode,
+        },
+      ],
     };
 
     final response = await _client.post<dynamic>(
@@ -612,11 +618,17 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final statuses = (approvalStatuses ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
@@ -644,10 +656,13 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     };
     final payload = <String, dynamic>{
       'date': date.trim(),
-      'classroomCodes': selectedClassroomCodes,
       'studentCodes': selectedStudentCodes,
       'activityTypeCodes': ats,
+      'approvalStatuses': statuses,
     };
+    if (!guardianPersona) {
+      payload['classroomCodes'] = selectedClassroomCodes;
+    }
 
     final response = await _client.post<dynamic>(
       base,
@@ -672,11 +687,17 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final statuses = (approvalStatuses ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet()
@@ -705,10 +726,13 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final payload = <String, dynamic>{
       'startDate': startDate.trim(),
       'endDate': endDate.trim(),
-      'classroomCodes': selectedClassroomCodes,
       'studentCodes': selectedStudentCodes,
       'activityTypeCodes': ats,
+      'approvalStatuses': statuses,
     };
+    if (!guardianPersona) {
+      payload['classroomCodes'] = selectedClassroomCodes;
+    }
 
     final response = await _client.post<dynamic>(
       base,

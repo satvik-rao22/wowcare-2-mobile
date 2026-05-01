@@ -1169,6 +1169,8 @@ class _MediaUploaderState extends State<MediaUploader> {
       if (camera == null) return;
       candidates = [File(camera.path)];
     } else {
+      // Keep one gallery picker flow (same behavior as messaging attachments)
+      // and allow all configured image formats from FilePickerUtils.
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: _photoExt,

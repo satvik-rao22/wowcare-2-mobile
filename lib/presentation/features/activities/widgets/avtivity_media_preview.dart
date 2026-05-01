@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
 import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
 
 class ActivityMediaPreview extends StatefulWidget {
   final ActivityItem activity;
@@ -17,9 +15,6 @@ class ActivityMediaPreview extends StatefulWidget {
 }
 
 class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
-  VideoPlayerController? _controller;
-  bool _isInitialized = false;
-  bool _videoInitFailed = false;
   static final Map<String, dynamic> activityIcons = {
     'Nap': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
@@ -35,47 +30,57 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   };
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    final videoUrl = widget.activity.videoUrl;
-    if(videoUrl != null && videoUrl.isNotEmpty){
-      _loadThumbnail();
-    }
-  }
-  void _loadThumbnail() async{
-    final videoUrl = widget.activity.videoUrl;
-    if(videoUrl == null || videoUrl.isEmpty) return;
-    _videoInitFailed = false;
-    _controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-    try{
-      await _controller!.initialize();
-      _controller!.setVolume(0);
-      if (mounted){
-        setState(() {
-          _isInitialized = true;
-        });
-      }
-    } catch(e){
-      debugPrint('Error in loading thumbnail : $e');
-      _controller?.dispose();
-      _controller = null;
-      if (!mounted) return;
-      setState(() {
-        _videoInitFailed = true;
-      });
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Video thumbnail preview is not supported for this format on this device.',
-        isWarning: true,
-      );
-    }
   }
 
   @override
-  void dispose(){
-    _controller?.dispose();
+  void dispose() {
     super.dispose();
+  }
+
+  bool _isVideoRow(Map<String, dynamic> row) {
+    final mt = (row['mediaType'] ?? '').toString().trim().toUpperCase();
+    if (mt.contains('VIDEO')) return true;
+    final delivery = (row['deliveryUrl'] ?? row['artifactUrl'] ?? row['originalDownloadUrl'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    return delivery.endsWith('.mp4') ||
+        delivery.endsWith('.mov') ||
+        delivery.endsWith('.webm') ||
+        delivery.endsWith('.m3u8');
+  }
+
+  String? _resolveVideoThumbnailUrl() {
+    final rows = widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    for (final r in rows) {
+      if (!_isVideoRow(r)) continue;
+      final thumb = (r['thumbnailUrl'] ?? '').toString().trim();
+      if (thumb.isNotEmpty) return thumb;
+      final delivery = (r['deliveryUrl'] ?? '').toString().trim();
+      if (delivery.isNotEmpty) return delivery;
+      final artifact = (r['artifactUrl'] ?? '').toString().trim();
+      if (artifact.isNotEmpty) return artifact;
+      final original = (r['originalDownloadUrl'] ?? '').toString().trim();
+      if (original.isNotEmpty) return original;
+    }
+    return null;
+  }
+
+  Widget _buildIconFallback() {
+    final icon = activityIcons[widget.activity.name] ?? MediaRes.notesActivityIcon;
+    return Container(
+      width: 122,
+      height: 76,
+      color: widget.activityColor.withOpacity(0.25),
+      child: Center(
+        child: Image.asset(
+          icon,
+          fit: BoxFit.fill,
+        ),
+      ),
+    );
   }
 
   @override
@@ -84,6 +89,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     final String? photoUrl = widget.activity.photoUrl;
     final bool hasVideo = videoUrl?.isNotEmpty == true;
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
+    final thumbUrl = hasVideo ? _resolveVideoThumbnailUrl() : null;
     return InkWell(
       onTap: () {
         if ( photoUrl?.isNotEmpty == true || videoUrl?.isNotEmpty == true) {
@@ -97,33 +103,36 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (hasVideo && _isInitialized)
-            FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _controller?.value.size.width,
-                height: _controller?.value.size.height,
-                child: VideoPlayer(_controller!),
-              ),
-
-            )
-          else if (hasVideo)
-            Container(
-              color: widget.activityColor.withOpacity(0.3),
-              child: Center(
-                child: _videoInitFailed
-                    ? const Icon(
-                        Icons.videocam_off_outlined,
+          if (hasVideo)
+            (thumbUrl != null && thumbUrl.trim().isNotEmpty)
+                ? Image.network(
+                    thumbUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (c, child, progress) =>
+                        progress == null
+                            ? child
+                            : Container(color: widget.activityColor.withOpacity(0.3)),
+                    errorBuilder: (c, e, s) => Container(
+                      color: widget.activityColor.withOpacity(0.3),
+                      child: const Center(
+                        child: Icon(
+                          Icons.videocam_outlined,
+                          color: Colors.white70,
+                          size: 38,
+                        ),
+                      ),
+                    ),
+                  )
+                : Container(
+                    color: widget.activityColor.withOpacity(0.3),
+                    child: const Center(
+                      child: Icon(
+                        Icons.videocam_outlined,
                         color: Colors.white70,
                         size: 38,
-                      )
-                    : const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
                       ),
-              ),
-
-            )
+                    ),
+                  )
           else if (hasPhoto)
             Image.network(
               photoUrl!,
@@ -144,23 +153,6 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
               ),
             )
         ],
-      ),
-    );
-  }
-
-  Widget _buildIconFallback(){
-    return Container(
-      width: 122,
-      height: 76,
-      color: widget.activityColor
-          .withOpacity(0.25),
-      child: Center(
-        child: Image.asset(
-          activityIcons[widget.activity
-              .name],
-          //'assets/icons/activity-nap-icon.png',
-          fit: BoxFit.fill,
-        ),
       ),
     );
   }

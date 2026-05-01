@@ -113,6 +113,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   List<String> _availableStudents = [];
   List<String> _filterTags = [];
   List<String> _filterActivityTypes = [];
+  List<String> _filterApprovalStatuses = [];
   String? _selectedActivityType;
   final List<String> activityType = [
     'Sign-in',
@@ -140,6 +141,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   String? _schoolCode;
   /// Logged-in user's display name; used when feed [createdBy] is "system", etc.
   String _viewerStaffDisplayName = '';
+  String _viewerStaffCode = '';
   final Map<String, String> _staffDisplayNameByCode = {};
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
@@ -377,10 +379,53 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return null;
   }
 
+  List<String>? _approvalStatusesForApiFilter() {
+    if (_filterApprovalStatuses.isEmpty) return null;
+    const statusCodeByLabel = <String, String>{
+      'pending admin approval': 'PENDING_ADMIN_APPROVAL',
+      'approved': 'APPROVED',
+      'rejected': 'REJECTED',
+      'parent acknowledgement pending': 'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'parent acknowledgment pending': 'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'acknowledged': 'ACKNOWLEDGED',
+    };
+    const allowedEnums = <String>{
+      'PENDING_ADMIN_APPROVAL',
+      'APPROVED',
+      'REJECTED',
+      'PARENT_ACKNOWLEDGEMENT_PENDING',
+      'ACKNOWLEDGED',
+    };
+    final out = <String>{};
+    for (final label in _filterApprovalStatuses) {
+      final normalizedLabel = label.trim().toLowerCase();
+      final fromLabel = statusCodeByLabel[normalizedLabel];
+      if (fromLabel != null && fromLabel.isNotEmpty) {
+        out.add(fromLabel);
+        continue;
+      }
+      final enumLike = label.trim().toUpperCase().replaceAll(' ', '_');
+      if (allowedEnums.contains(enumLike)) {
+        out.add(enumLike);
+      }
+    }
+    return out.isEmpty ? null : out.toList();
+  }
+
+  Set<String> _selectedApprovalStatusCodesForUi() {
+    return (_approvalStatusesForApiFilter() ?? const <String>[])
+        .map((e) => e.trim().toUpperCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+  }
+
   int _appliedFilterBadgeCount() {
     final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
     final hasTagFilter = _filterTags.isNotEmpty;
-    return (hasActivityTypeFilter ? 1 : 0) + (hasTagFilter ? 1 : 0);
+    final hasStatusFilter = _filterApprovalStatuses.isNotEmpty;
+    return (hasActivityTypeFilter ? 1 : 0) +
+        (hasTagFilter ? 1 : 0) +
+        (hasStatusFilter ? 1 : 0);
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -407,6 +452,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 _studentCodesForTagFilter.contains(a.studentCode),
           )
           .toList();
+    }
+    if (_filterApprovalStatuses.isNotEmpty) {
+      final selected = _selectedApprovalStatusCodesForUi();
+      list = list.where((a) {
+        final status = (a.approvalStatus ?? '').trim().toUpperCase();
+        if (status.isEmpty) return false;
+        return selected.contains(status);
+      }).toList();
     }
     return list;
   }
@@ -475,6 +528,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   Future<void> _bootstrap() async {
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     final roles =
         (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
     final staffType =
@@ -484,6 +538,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
+        _viewerStaffCode = viewerStaffCode;
         _isAdminPersona = roles.contains('ADMIN') ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
@@ -1088,11 +1143,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     Iterable<ActivityFeedRow> rows,
   ) async {
     final missingCodes = <String>{};
+    String? staffPresentCodeFromRow(ActivityFeedRow row) {
+      for (final p in row.parameterValues) {
+        final pName = (p['parameterName'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        if (pName != 'staff present') continue;
+        final raw = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+            .toString()
+            .trim();
+        if (raw.isNotEmpty) return raw;
+      }
+      return null;
+    }
     for (final row in rows) {
-      final code = (row.staffCode ?? '').trim();
-      if (code.isEmpty) continue;
-      if (_staffDisplayNameByCode.containsKey(code)) continue;
-      missingCodes.add(code);
+      final codeCandidates = <String>{
+        (row.staffCode ?? '').trim(),
+        (staffPresentCodeFromRow(row) ?? '').trim(),
+      };
+      for (final code in codeCandidates) {
+        if (code.isEmpty) continue;
+        if (_staffDisplayNameByCode.containsKey(code)) continue;
+        missingCodes.add(code);
+      }
     }
     if (missingCodes.isEmpty) return;
     final repo = serviceLocator<StaffRepository>();
@@ -1112,6 +1186,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   String? _selectedAttendanceEventFilter() {
+    // Status filters apply to activity feed approvals only.
+    // Attendance rows don't carry approval status, so exclude attendance API
+    // when a status filter is active.
+    if (_filterApprovalStatuses.isNotEmpty) return null;
     if (_filterActivityTypes.length == 1) {
       final v = _filterActivityTypes.first.trim();
       if (v == 'Sign-in' ||
@@ -1603,8 +1681,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final typeCodes = _activityTypeCodesForApiFilter();
       final pageIndex = _feedNextPage;
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
+      final includeAttendance =
+          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+      final activityFeedPage = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: selectedStudentCode,
+        classroomCodes: classroomCodes,
+        studentCodes: studentCodes,
+        activityTypeCodes: typeCodes,
+        guardianPersona: _parentHome,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (includeAttendance) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
           attendanceDate: dateStr,
           classroomCodes: classroomCodes.isNotEmpty
               ? classroomCodes
@@ -1713,6 +1805,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final codes = _parentAllowedStudentCodes.toList()..sort();
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
+    final approvalStatuses = _approvalStatusesForApiFilter();
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
     final signOutAtFilter = selectedEvent == 'Sign-out' ? 'NOT_NULL' : null;
@@ -1725,6 +1818,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       (typeCodes ?? const <String>[]).join(','),
       _filterActivityTypes.join(','),
       _filterTags.join(','),
+      _filterApprovalStatuses.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -1790,6 +1884,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             date: dateStr,
             studentCode: sc,
             activityTypeCodes: typeCodes,
+            approvalStatuses: approvalStatuses,
             guardianPersona: true,
             page: 0,
             size: _feedPageSize,
@@ -1871,6 +1966,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
+    final approvalStatuses = _approvalStatusesForApiFilter();
     final pageIndex = _feedNextPage;
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter = selectedEvent == 'Sign-in' ? 'NOT_NULL' : null;
@@ -1917,6 +2013,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             date: dateStr,
             studentCode: sc,
             activityTypeCodes: typeCodes,
+            approvalStatuses: approvalStatuses,
             guardianPersona: true,
             page: pageIndex,
             size: _feedPageSize,
@@ -2012,6 +2109,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       selectedEvent ?? '',
       _filterActivityTypes.join(','),
       _filterTags.join(','),
+      _filterApprovalStatuses.join(','),
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
@@ -2050,9 +2148,25 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               ? studentCodes.first
               : null;
       final typeCodes = _activityTypeCodesForApiFilter();
+      final approvalStatuses = _approvalStatusesForApiFilter();
 
-      final results = await Future.wait([
-        _getStudentAttendanceDailyUseCase(
+      final includeAttendance =
+          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+      final activityFeedPage = await _getDailyActivityFeedUseCase(
+        classroomCode: classroomCode,
+        date: dateStr,
+        studentCode: selectedStudentCode,
+        classroomCodes: classroomCodes,
+        studentCodes: studentCodes,
+        activityTypeCodes: typeCodes,
+        approvalStatuses: approvalStatuses,
+        guardianPersona: _parentHome,
+        page: 0,
+        size: _feedPageSize,
+      );
+      StudentAttendanceDailyPage? attendancePage;
+      if (includeAttendance) {
+        attendancePage = await _getStudentAttendanceDailyUseCase(
           attendanceDate: dateStr,
           classroomCodes: classroomCodes,
           studentCodes: studentCodes,
@@ -2264,6 +2378,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           initialFilters: {
             'Tags': List<String>.from(_filterTags),
             'Activity Type': List<String>.from(_filterActivityTypes),
+            'Status': List<String>.from(_filterApprovalStatuses),
           },
         ),
       ),
@@ -2274,6 +2389,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       _filterActivityTypes = List<String>.from(
         result['Activity Type'] ?? const [],
       );
+      _filterApprovalStatuses = List<String>.from(result['Status'] ?? const []);
     });
     await _loadDailyFeed(refresh: true);
   }
@@ -2557,6 +2673,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                               _selectedStudents = [];
                                               _filterActivityTypes.clear();
                                               _filterTags.clear();
+                                              _filterApprovalStatuses.clear();
                                               _updateAvailableStudents();
                                             });
                                             await _refreshDropdownsAfterClearAll();
@@ -2701,8 +2818,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _filterApprovalStatuses.clear();
                                 });
                                 await _refreshDropdownsAfterClearAll();
+                                await _loadDailyFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
@@ -2901,6 +3020,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                 canEditActivityItem(
                                                   activity,
                                                   isAdminPersona: _isAdminPersona,
+                                                  viewerStaffCode: _viewerStaffCode,
                                                 );
                                             final destinationBuilder =
                                                 canOpenEdit
@@ -3155,6 +3275,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                       activity,
                                                                       isAdminPersona:
                                                                           _isAdminPersona,
+                                                                      viewerStaffCode:
+                                                                          _viewerStaffCode,
                                                                     ))
                                                                   PopupMenuItem<
                                                                     String
@@ -4291,8 +4413,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   _selectedStudents = [];
                                   _filterActivityTypes.clear();
                                   _filterTags.clear();
+                                  _filterApprovalStatuses.clear();
                                 });
                                 await _refreshDropdownsAfterClearAll();
+                                await _loadDailyFeed(refresh: true);
                               },
                               label: 'Clear All',
                             ),
@@ -4471,6 +4595,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                         activity,
                                                         isAdminPersona:
                                                             _isAdminPersona,
+                                                        viewerStaffCode:
+                                                            _viewerStaffCode,
                                                       );
                                                   final destinationBuilder =
                                                       canOpenEdit
@@ -4769,6 +4895,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                             activity,
                                                                             isAdminPersona:
                                                                                 _isAdminPersona,
+                                                                            viewerStaffCode:
+                                                                                _viewerStaffCode,
                                                                           ))
                                                                         PopupMenuItem<
                                                                           String
@@ -5571,6 +5699,11 @@ ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
       a.staffPresent ?? '',
       b.staffPresent ?? '',
     ),
+    staffPresentCode: (a.staffPresentCode ?? '').trim().isNotEmpty
+        ? a.staffPresentCode!.trim()
+        : ((b.staffPresentCode ?? '').trim().isNotEmpty
+              ? b.staffPresentCode!.trim()
+              : null),
     additionalNotes: a.additionalNotes,
     bathroomType: a.bathroomType,
     bathroomSubType: a.bathroomSubType,
@@ -5624,6 +5757,7 @@ class ActivityItem {
   final String? whatHappened; // for incident activity
   final bool? firstAidAdministered; // for incident activity
   final String? staffPresent; // can be equal to createdBy
+  final String? staffPresentCode; // raw code from "Staff Present"
   final String? additionalNotes; // for incident activity
   final String? bathroomType; // for bathroom activity
   final String? bathroomSubType; // also for bathroom activity
@@ -5668,6 +5802,7 @@ class ActivityItem {
     this.whatHappened,
     this.firstAidAdministered,
     this.staffPresent,
+    this.staffPresentCode,
     this.additionalNotes,
     this.bathroomType,
     this.bathroomSubType,
@@ -5748,7 +5883,11 @@ bool isAttendanceCardActivityItem(ActivityItem activity) {
       normalized == 'transfer';
 }
 
-bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
+bool canEditActivityItem(
+  ActivityItem activity, {
+  required bool isAdminPersona,
+  String? viewerStaffCode,
+}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (status == 'REJECTED') return false;
 
@@ -5756,6 +5895,11 @@ bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) 
     // Admin personas can always edit activities (even if approved/rejected),
     // except attendance pseudo-activities which are not editable via activity forms.
     return !isAttendanceCardActivityItem(activity);
+  }
+  final viewerCode = (viewerStaffCode ?? '').trim().toUpperCase();
+  final presentCode = (activity.staffPresentCode ?? '').trim().toUpperCase();
+  if (viewerCode.isEmpty || presentCode.isEmpty || viewerCode != presentCode) {
+    return false;
   }
   if (status == 'PARENT_ACKNOWLEDGEMENT_PENDING') return false;
   if (status == 'ACKNOWLEDGED') {
@@ -5770,7 +5914,29 @@ bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) 
 bool canDeleteActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (status == 'REJECTED' && !isAdminPersona) return false;
+  if (!isAdminPersona &&
+      isIncidentActivityItem(activity) &&
+      isLikelyAdminDesignationLabel(activity.createdBy)) {
+    return false;
+  }
   return true;
+}
+
+bool isLikelyAdminDesignationLabel(String raw) {
+  final v = raw.trim().toUpperCase();
+  if (v.isEmpty) return false;
+  const directMatches = <String>{
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  };
+  if (directMatches.contains(v)) return true;
+  return v.contains('ADMIN') ||
+      v.contains('DIRECTOR') ||
+      v.contains('OWNER');
 }
 
 bool canAdminApproveOrRejectActivityItem(
@@ -5959,10 +6125,11 @@ ActivityItem activityItemFromFeedRow(
   String? pickStaffPresentFromParameters() {
     for (final p in row.parameterValues) {
       final n = (p['parameterName'] ?? '').toString().toLowerCase();
-      if (!n.contains('staff')) continue;
+      if (n != 'staff present') continue;
       final dt = (p['dataType'] ?? '').toString().toUpperCase();
       if (dt == 'DATE' || dt == 'TIME') continue;
       for (final key in <String>[
+        'selectedOptionCode',
         'selectedOptionLabel',
         'optionLabel',
         'valueText',
@@ -6190,15 +6357,16 @@ ActivityItem activityItemFromFeedRow(
       : [studentName];
   final staffFromParams = pickStaffPresentFromParameters();
   final mappedStaffName = (() {
-    final code = (row.staffCode ?? '').trim();
-    if (code.isEmpty) return null;
-    final resolved = staffDisplayNameByCode?[code]?.trim() ?? '';
-    return resolved.isEmpty ? null : resolved;
+    final raw = (staffFromParams ?? '').trim();
+    if (raw.isEmpty) return null;
+    final resolved = staffDisplayNameByCode?[raw]?.trim() ?? '';
+    if (resolved.isNotEmpty) return resolved;
+    return raw;
   })();
   final by = resolveActivityCreatedByForUi(
-    rawCreatedBy: row.createdBy,
-    staffLabelFromParameters: mappedStaffName ?? staffFromParams,
-    viewerDisplayNameFallback: viewerDisplayName,
+    rawCreatedBy: '',
+    staffLabelFromParameters: mappedStaffName,
+    viewerDisplayNameFallback: null,
   );
 
   /// Learning: API stores these in [parameterValues] (e.g. PM_054 Activity Name, PM_055 Categories).
@@ -6243,6 +6411,9 @@ ActivityItem activityItemFromFeedRow(
             ? effectiveDescription
         : null,
     staffPresent: by,
+    staffPresentCode: (staffFromParams ?? '').trim().isEmpty
+        ? null
+        : staffFromParams!.trim(),
     bathroomType: name == 'Bathroom' ? bathroomType : null,
     bathroomSubType: name == 'Bathroom' ? bathroomSubType : null,
     bathroomDiaperSize: name == 'Bathroom' ? bathroomDiaperSizeLabel : null,

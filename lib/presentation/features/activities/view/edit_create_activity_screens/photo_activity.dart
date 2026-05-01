@@ -85,6 +85,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   String _staffType = '';
   bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
@@ -128,6 +129,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
   }
 
   String? _findParameterCode(
@@ -283,6 +296,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         }
         _descriptionController.text = item.description ?? '';
         _activityTypeCode = item.activityTypeCode;
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
@@ -343,8 +357,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
     final staffType =
         (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
@@ -352,11 +364,15 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
+    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+      staffCode: staffCode,
+    );
     if (!mounted) return;
     setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
@@ -406,6 +422,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    // For video activities, picking a new video should replace the previous one.
+    // Keeping both the existing video URL and the newly uploaded asset causes the
+    // PATCH payload to include multiple attachments, which the backend rejects
+    // for grouped activity cards.
+    if (!widget.isPhoto && video != null) {
+      remainingExistingVideoUrl = null;
+    }
     final photoCount = photos.length + remainingExistingPhotoUrls.length;
     final videoCount =
         (video != null ? 1 : 0) +
@@ -413,18 +436,20 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    final maxPhotoCount = widget.isPhoto ? 10 : 1;
+    if (photoCount > maxPhotoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message: 'Maximum $maxPhotoCount photo${maxPhotoCount == 1 ? '' : 's'} can be attached.',
         isError: true,
       );
       return;
     }
-    if (widget.isEdit && videoCount > 1) {
+    const maxVideoCount = 1;
+    if (videoCount > maxVideoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 video can be attached.',
+        message: 'Maximum $maxVideoCount videos can be attached.',
         isError: true,
       );
       return;
@@ -695,6 +720,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     }
 
     final descriptionTrim = _descriptionController.text.trim();
+    final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
     if (descriptionTrim.isNotEmpty && descriptionTrim.length < 5) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -768,7 +794,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           {
             'parameterCode':
                 _findParameterCode(details.parameters, contains: 'staff'),
-            'value': staffCode,
+            'value': staffPresentCode,
           },
         if (descriptionTrim.isNotEmpty &&
             _findParameterCode(
@@ -938,6 +964,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
     final localTime =
         '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
+    final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -1017,7 +1044,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         if (dateCode != null) {'parameterCode': dateCode, 'value': localDate},
         if (timeCode != null) {'parameterCode': timeCode, 'value': localTime},
         if (staffCodeParam != null)
-          {'parameterCode': staffCodeParam, 'value': staffCode},
+          {'parameterCode': staffCodeParam, 'value': staffPresentCode},
         if (descriptionCode != null && desc.isNotEmpty)
           {'parameterCode': descriptionCode, 'value': desc},
         if (uploadMediaCode != null && uploadAssetCodes.isNotEmpty)
@@ -1208,6 +1235,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   isRequired: true,
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
+                  limit: widget.isPhoto ? 10 : 1,
                   readOnly: widget.readOnly,
                   autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
                   onMediaChanged:
@@ -1249,17 +1277,24 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   final isAdminPersona = _isAdminDesignation;
                   final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                   return StaffPresentWidget(
-                    staffName: lockToLoggedInStaff
-                        ? _staffName
-                        : staffPresentLabelForActivity(
-                            layoutAsEdit: _layoutAsEdit,
-                            activityCreatedBy:
-                                _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                            loggedInDisplayName: _staffName,
-                          ),
+                    staffName: staffPresentLabelForActivity(
+                      layoutAsEdit: _layoutAsEdit,
+                      activityCreatedBy: '',
+                      loggedInDisplayName: _staffName,
+                      staffLabelFromParameters: _layoutAsEdit
+                          ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                                ? _staffPresentCode
+                                : _effectiveActivity.staffPresent)
+                          : null,
+                    ),
                     isEditable: lockToLoggedInStaff
                         ? false
                         : _canInteract,
+                    onStaffChanged: (_, selectedCode) {
+                      _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                          ? selectedCode!.trim()
+                          : (_staffPresentCode ?? _staffCode);
+                    },
                   );
                 },
               ),
