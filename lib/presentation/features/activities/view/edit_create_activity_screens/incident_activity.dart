@@ -122,6 +122,42 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   String? _lastUploadContextKey;
   List<String> _remainingExistingPhotoUrls = [];
 
+  bool? _pickFirstAidGivenFromActivityDetail(dynamic detail) {
+    bool? parseBool(dynamic raw) {
+      if (raw is bool) return raw;
+      if (raw == null) return null;
+      final text = raw.toString().trim().toLowerCase();
+      if (text.isEmpty) return null;
+      if (text == 'true' || text == 'yes' || text == 'y' || text == '1') return true;
+      if (text == 'false' || text == 'no' || text == 'n' || text == '0') return false;
+      return null;
+    }
+
+    try {
+      final values = (detail?.parameterValues ?? const <dynamic>[]) as List;
+      for (final p in values) {
+        if (p is! Map) continue;
+        final pName = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+        if (!(pName.contains('first') && pName.contains('aid'))) continue;
+
+        for (final key in const <String>[
+          'valueBool',
+          'valueBoolean',
+          'value',
+          'valueText',
+          'selectedOptionLabel',
+          'selectedOptionCode',
+        ]) {
+          final parsed = parseBool(p[key]);
+          if (parsed != null) return parsed;
+        }
+      }
+    } catch (_) {
+      // Best-effort parsing; fall back to existing state.
+    }
+    return null;
+  }
+
   int get _uploadedPhotoCount => _newPhotos
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
       .length;
@@ -530,7 +566,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _descriptionController.text =
           activity.whatHappened ?? activity.description ?? '';
       _addNotesController.text = activity.additionalNotes ?? '';
-      _firstAidGiven = activity.firstAidAdministered ?? false;
+      // IMPORTANT: For view/edit, first-aid toggle must come from Activity Detail API
+      // (parameterValues). Feed snapshot can be stale/absent.
       _isSigned = true;
       _activityTypeCode = activity.activityTypeCode;
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
@@ -759,6 +796,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
+      final firstAidFromApi = _pickFirstAidGivenFromActivityDetail(detail);
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
@@ -892,7 +930,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _adminSignerRawValue = adminSignRaw;
         _parentSignerRawValue = parentSignRaw;
         _hasGuardianAcknowledgedLocally = parentSigned == true;
-        _firstAidGiven = item.firstAidAdministered ?? false;
+        _firstAidGiven =
+            firstAidFromApi ?? (item.firstAidAdministered ?? _firstAidGiven);
         _activityTypeCode = item.activityTypeCode;
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
