@@ -142,6 +142,18 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Student absent records activity view - one row per absence record in date range.
+  Future<StudentAttendanceAbsentFormPage>
+  getStudentAttendanceAbsentRecordsActivityView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
   Future<StaffAttendanceDailyPage> getStaffAttendanceDaily({
     required String fromAttendanceDate,
     required String toAttendanceDate,

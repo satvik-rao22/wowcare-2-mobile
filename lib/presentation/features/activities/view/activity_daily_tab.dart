@@ -44,7 +44,7 @@ import '../../../../domain/features/student_classroom/usecases/get_student_class
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
-import '../../../../domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_absent_records_activity_view_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../util/activity_filter_metadata_cache.dart';
@@ -165,8 +165,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late final GetStudentCodesForActivityTagFilterUseCase
       _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
-  late final GetStudentAttendanceAbsentToggleViewUseCase
-      _getStudentAttendanceAbsentToggleViewUseCase;
+  late final GetStudentAttendanceAbsentRecordsActivityViewUseCase
+      _getStudentAttendanceAbsentRecordsActivityViewUseCase;
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final ApproveActivityUseCase _approveActivityUseCase;
@@ -1497,6 +1497,53 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return out;
   }
 
+  bool _attendanceItemsMergeableForDailyFeed(ActivityItem a, ActivityItem b) {
+    const attendanceNames = <String>{'Sign-in', 'Sign-out', 'Transfer', 'Absent'};
+    if (!attendanceNames.contains(a.name) || !attendanceNames.contains(b.name)) {
+      return false;
+    }
+    if (a.name != b.name) return false;
+    if ((a.activityDateIso ?? '') != (b.activityDateIso ?? '')) return false;
+    if ((a.classroomCode ?? '') != (b.classroomCode ?? '')) return false;
+    if ((a.description ?? '') != (b.description ?? '')) return false;
+    if ((a.createdBy).trim() != (b.createdBy).trim()) return false;
+
+    final scA = a.studentCode?.trim() ?? '';
+    final scB = b.studentCode?.trim() ?? '';
+    if (scA.isNotEmpty && scA == scB) return false;
+    return true;
+  }
+
+  List<ActivityItem> _mergeAttendanceItemsForDailyFeed(List<ActivityItem> items) {
+    if (items.length < 2) return items;
+    final sorted = [...items]..sort((a, b) {
+        DateTime aDt;
+        DateTime bDt;
+        try {
+          aDt = DateTime.parse(a.activityDateIso!);
+        } catch (_) {
+          aDt = DateTime(1970);
+        }
+        try {
+          bDt = DateTime.parse(b.activityDateIso!);
+        } catch (_) {
+          bDt = DateTime(1970);
+        }
+        return bDt.compareTo(aDt);
+      });
+    final out = <ActivityItem>[sorted.first];
+    for (var i = 1; i < sorted.length; i++) {
+      final prev = out.last;
+      final cur = sorted[i];
+      if (_attendanceItemsMergeableForDailyFeed(prev, cur)) {
+        out[out.length - 1] = mergeTwoActivityItemsForFeed(prev, cur);
+      } else {
+        out.add(cur);
+      }
+    }
+    return out;
+  }
+
   void _onFeedScroll() {
     _maybeLoadNextDailyFeedPage();
   }
@@ -1568,7 +1615,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           page: pageIndex,
           size: _feedPageSize,
         ),
-        _getStudentAttendanceAbsentToggleViewUseCase(
+        _getStudentAttendanceAbsentRecordsActivityViewUseCase(
           fromAbsenceDate: dateStr,
           toAbsenceDate: dateStr,
           classroomCodes: classroomCodes.isNotEmpty
@@ -1595,9 +1642,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final activityFeedPage = results[2] as ActivityFeedPage;
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
-      final items = <ActivityItem>[
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
         ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
+      final items = <ActivityItem>[
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1711,7 +1761,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         page: 0,
         size: _feedPageSize,
       );
-      final absentPage = await _getStudentAttendanceAbsentToggleViewUseCase(
+      final absentPage =
+          await _getStudentAttendanceAbsentRecordsActivityViewUseCase(
         fromAbsenceDate: dateStr,
         toAbsenceDate: dateStr,
         classroomCodes: _parentStudentClassroomByCode.values
@@ -1748,9 +1799,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
-      final items = <ActivityItem>[
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
         ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
+      final items = <ActivityItem>[
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(merged),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1834,7 +1888,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         page: pageIndex,
         size: _feedPageSize,
       );
-      final absentPage = await _getStudentAttendanceAbsentToggleViewUseCase(
+      final absentPage =
+          await _getStudentAttendanceAbsentRecordsActivityViewUseCase(
         fromAbsenceDate: dateStr,
         toAbsenceDate: dateStr,
         classroomCodes: _parentStudentClassroomByCode.values
@@ -1871,9 +1926,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
-      final items = <ActivityItem>[
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
         ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
+      final items = <ActivityItem>[
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(merged),
       ]..sort((a, b) {
           DateTime aDt;
@@ -2003,7 +2061,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           page: 0,
           size: _feedPageSize,
         ),
-        _getStudentAttendanceAbsentToggleViewUseCase(
+        _getStudentAttendanceAbsentRecordsActivityViewUseCase(
           fromAbsenceDate: dateStr,
           toAbsenceDate: dateStr,
           classroomCodes: classroomCodes,
@@ -2028,9 +2086,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final activityFeedPage = results[2] as ActivityFeedPage;
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
-      final items = <ActivityItem>[
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
         ..._mapAttendanceDailyPageToItems(attendancePage),
         ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
+      final items = <ActivityItem>[
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -2099,8 +2160,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _getStudentCodesForActivityTagFilterUseCase =
         serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
-    _getStudentAttendanceAbsentToggleViewUseCase =
-        serviceLocator<GetStudentAttendanceAbsentToggleViewUseCase>();
+    _getStudentAttendanceAbsentRecordsActivityViewUseCase = serviceLocator<
+        GetStudentAttendanceAbsentRecordsActivityViewUseCase>();
     _getStudentAttendanceDailyUseCase =
         serviceLocator<GetStudentAttendanceDailyUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();

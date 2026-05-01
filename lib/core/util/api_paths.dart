@@ -397,6 +397,8 @@ class ApiPaths {
       '/api/v1/student-attendance/view/mark-activity/student-list';
   static const String studentAttendanceAbsentView =
       '/api/v1/student-attendance/view/absent';
+  static const String studentAttendanceAbsentRecordsActivityView =
+      '/api/v1/student-attendance/view/absent/records/activity';
   static const String studentAttendanceAbsentToggleView =
       '/api/v1/student-attendance/view/absent/toggle';
 
