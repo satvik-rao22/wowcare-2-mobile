@@ -1716,6 +1716,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
+        _activities = groupMultiStudentFeedItems(
+          _activities,
+          attendanceRequireDateAndTimeMatch: false,
+        );
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1884,7 +1888,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         return;
       }
       setState(() {
-        _activities = items;
+        _activities = groupMultiStudentFeedItems(
+          items,
+          attendanceRequireDateAndTimeMatch: false,
+        );
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -2018,6 +2025,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
+        _activities = groupMultiStudentFeedItems(
+          _activities,
+          attendanceRequireDateAndTimeMatch: false,
+        );
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -2192,7 +2203,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         return;
       }
       setState(() {
-        _activities = items;
+        _activities = groupMultiStudentFeedItems(
+          items,
+          attendanceRequireDateAndTimeMatch: false,
+        );
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -5547,7 +5561,26 @@ const Set<String> _mergeableMultiStudentActivityNames = {
   'Video',
 };
 
+const Set<String> _attendanceMergeableActivityNames = {
+  'Sign-in',
+  'Sign-out',
+  'Transfer',
+  'Marked Absent',
+};
+
 bool activityItemsMergeableForFeedDisplay(ActivityItem a, ActivityItem b) {
+  if (_attendanceMergeableActivityNames.contains(a.name)) {
+    if (a.name != b.name) return false;
+    if (a.time != b.time) return false;
+    if (a.date != b.date) return false;
+    if ((a.classroomCode ?? '') != (b.classroomCode ?? '')) return false;
+    if ((a.description ?? '') != (b.description ?? '')) return false;
+    final scA = a.studentCode?.trim() ?? '';
+    final scB = b.studentCode?.trim() ?? '';
+    if (scA.isNotEmpty && scA == scB) return false;
+    return true;
+  }
+
   if (!_mergeableMultiStudentActivityNames.contains(a.name)) return false;
   if (a.name != b.name) return false;
   if ((a.activityTypeCode ?? '') != (b.activityTypeCode ?? '')) return false;
@@ -5700,6 +5733,85 @@ List<ActivityItem> mergeAdjacentMultiStudentFeedItems(List<ActivityItem> items) 
   return out;
 }
 
+String? _feedGroupKeyForItem(
+  ActivityItem x, {
+  required bool attendanceRequireDateAndTimeMatch,
+}) {
+  final name = x.name;
+  if (_attendanceMergeableActivityNames.contains(name)) {
+    final time = x.time.trim();
+    if (time.isEmpty) return null;
+    final date = x.date.trim();
+    final cc = (x.classroomCode ?? '').trim();
+    final desc = (x.description ?? '').trim();
+    final dtPart =
+        attendanceRequireDateAndTimeMatch ? '|$date|$time' : '|$time';
+    return 'ATT|$name$dtPart|$cc|$desc';
+  }
+
+  if (!_mergeableMultiStudentActivityNames.contains(name)) return null;
+
+  final typeCode = (x.activityTypeCode ?? '').trim();
+  final cc = (x.classroomCode ?? '').trim();
+  final iso = (x.activityDateIso ?? '').trim();
+  final desc = (x.description ?? '').trim();
+  final media = (x.photoUrl ?? x.videoUrl ?? '').trim();
+  final mealType = (x.mealType ?? '').trim();
+  final mealQty = (x.mealQuantity ?? '').trim();
+  final bottleAmt = (x.amountConsumed ?? '').trim();
+  final bottleStatus = (x.bottleConsumptionStatus ?? '').trim();
+  final bathType = (x.bathroomType ?? '').trim();
+  final bathSub = (x.bathroomSubType ?? '').trim();
+  final bathSize = (x.bathroomDiaperSize ?? '').trim();
+
+  return [
+    'ACT',
+    name,
+    typeCode,
+    cc,
+    iso,
+    desc,
+    media,
+    mealType,
+    mealQty,
+    bottleAmt,
+    bottleStatus,
+    bathType,
+    bathSub,
+    bathSize,
+  ].join('|');
+}
+
+List<ActivityItem> groupMultiStudentFeedItems(
+  List<ActivityItem> items, {
+  required bool attendanceRequireDateAndTimeMatch,
+}) {
+  if (items.length < 2) return items;
+
+  final out = <ActivityItem>[];
+  final indexByKey = <String, int>{};
+
+  for (final item in items) {
+    final key = _feedGroupKeyForItem(
+      item,
+      attendanceRequireDateAndTimeMatch: attendanceRequireDateAndTimeMatch,
+    );
+    if (key == null) {
+      out.add(item);
+      continue;
+    }
+    final existingIndex = indexByKey[key];
+    if (existingIndex == null) {
+      indexByKey[key] = out.length;
+      out.add(item);
+      continue;
+    }
+    out[existingIndex] = mergeTwoActivityItemsForFeed(out[existingIndex], item);
+  }
+
+  return out;
+}
+
 class ActivityItem {
   final String time;
   final String date;
@@ -5846,7 +5958,9 @@ bool isAttendanceCardActivityItem(ActivityItem activity) {
       .replaceAll(RegExp(r'[^a-z]'), '');
   return normalized == 'signin' ||
       normalized == 'signout' ||
-      normalized == 'transfer';
+      normalized == 'transfer' ||
+      normalized == 'markedabsent' ||
+      normalized == 'absent';
 }
 
 bool canEditActivityItem(

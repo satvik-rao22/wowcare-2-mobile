@@ -908,6 +908,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
+        final grouped = groupMultiStudentFeedItems(
+          activities,
+          attendanceRequireDateAndTimeMatch: true,
+        );
+        activities
+          ..clear()
+          ..addAll(grouped);
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1070,7 +1077,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       setState(() {
         activities
           ..clear()
-          ..addAll(items);
+          ..addAll(
+            groupMultiStudentFeedItems(
+              items,
+              attendanceRequireDateAndTimeMatch: true,
+            ),
+          );
         _feedError = null;
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
@@ -1208,6 +1220,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!mounted) return;
       setState(() {
         activities.addAll(items);
+        final grouped = groupMultiStudentFeedItems(
+          activities,
+          attendanceRequireDateAndTimeMatch: true,
+        );
+        activities
+          ..clear()
+          ..addAll(grouped);
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
