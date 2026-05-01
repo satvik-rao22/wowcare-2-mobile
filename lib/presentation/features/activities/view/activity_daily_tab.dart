@@ -41,7 +41,10 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
+    hide StudentAttendanceTime;
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_absent_records_activity_view_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../util/activity_filter_metadata_cache.dart';
@@ -116,6 +119,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     'Sign-in',
     'Sign-out',
     'Transfer',
+    'Absent',
   ];
   List<String> _classroomOptions = [];
   final Map<String, String> _classroomCodeByName = {};
@@ -163,6 +167,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late final GetStudentCodesForActivityTagFilterUseCase
       _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
+  late final GetStudentAttendanceAbsentRecordsActivityViewUseCase
+      _getStudentAttendanceAbsentRecordsActivityViewUseCase;
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final ApproveActivityUseCase _approveActivityUseCase;
@@ -302,6 +308,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     'Sign-in': MediaRes.dailyActivitySignInIcon,
     'Sign-out': MediaRes.dailyActivitySignOutIcon,
     'Transfer': MediaRes.dailyActivityTransferIcon,
+    'Absent': MediaRes.dailyActivityAbsentIcon,
   };
 
   Future<void> _onRefresh() async {
@@ -1185,15 +1192,25 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (_filterApprovalStatuses.isNotEmpty) return null;
     if (_filterActivityTypes.length == 1) {
       final v = _filterActivityTypes.first.trim();
-      if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+      if (v == 'Sign-in' ||
+          v == 'Sign-out' ||
+          v == 'Transfer' ||
+          v == 'Absent') {
+        return v;
+      }
     }
     final v = _selectedActivityType?.trim();
-    if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer') return v;
+    if (v == 'Sign-in' || v == 'Sign-out' || v == 'Transfer' || v == 'Absent') {
+      return v;
+    }
     return null;
   }
 
   bool _isAttendanceEventLabel(String value) {
-    return value == 'Sign-in' || value == 'Sign-out' || value == 'Transfer';
+    return value == 'Sign-in' ||
+        value == 'Sign-out' ||
+        value == 'Transfer' ||
+        value == 'Absent';
   }
 
   bool _shouldIncludeAttendanceEntries() {
@@ -1284,12 +1301,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return _classroomNameByCode[c] ?? c;
   }
 
-  DateTime? _attendanceClockToDateTime(
-    StudentAttendanceTime? t,
-    DateTime day,
-  ) {
+  DateTime? _attendanceClockToDateTime(dynamic t, DateTime day) {
     if (t == null) return null;
-    return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
+    final hour = (t.hour is int) ? t.hour as int : int.tryParse('${t.hour}');
+    final minute =
+        (t.minute is int) ? t.minute as int : int.tryParse('${t.minute}');
+    final second =
+        (t.second is int) ? t.second as int : int.tryParse('${t.second}');
+    if (hour == null || minute == null) return null;
+    return DateTime(day.year, day.month, day.day, hour, minute, second ?? 0);
   }
 
   List<ActivityItem> _mapAttendanceDailyPageToItems(
@@ -1488,6 +1508,120 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return out;
   }
 
+  List<ActivityItem> _mapAttendanceAbsentPageToItems(
+    StudentAttendanceAbsentFormPage page,
+  ) {
+    if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
+    final eventFilter = _selectedAttendanceEventFilter();
+    if (eventFilter != null && eventFilter != 'Absent') {
+      return const <ActivityItem>[];
+    }
+    final day = _selectedDate ?? DateTime.now();
+    final out = <ActivityItem>[];
+    for (final row in page.items) {
+      final studentName = row.studentName.trim().isEmpty
+          ? 'Student'
+          : row.studentName.trim();
+      final studentCode = row.studentCode.trim().isEmpty
+          ? null
+          : row.studentCode.trim();
+      final at = _attendanceClockToDateTime(row.markedAbsentTime, day) ?? day;
+      final className = _displayClassroomName(
+        classroomCode: row.classroomCode,
+        classroomName: row.classroomName,
+      );
+      final markedBy = (row.markedAbsentByName ?? '').trim();
+      final note = (row.absenceNote ?? '').trim();
+      final markLine = markedBy.isEmpty
+          ? 'Marked absent from ${className.isEmpty ? 'classroom' : className}'
+          : 'Marked absent by $markedBy from ${className.isEmpty ? 'classroom' : className}';
+      final description = note.isEmpty ? markLine : '$markLine\n$note';
+      out.add(
+        ActivityItem(
+          time: DateFormat.jm().format(at),
+          date: DateFormat('MMMM d, yyyy').format(at),
+          name: 'Absent',
+          description: description,
+          studentList: <String>[studentName],
+          createdBy: markedBy.isEmpty ? _viewerStaffDisplayName : markedBy,
+          studentCode: studentCode,
+          classroomCode: row.classroomCode.trim(),
+          activityDateIso: at.toIso8601String(),
+          studentActivityRefs: <Map<String, String>>[
+            {
+              'name': studentName,
+              if (studentCode != null && studentCode.isNotEmpty)
+                'studentCode': studentCode,
+            },
+          ],
+        ),
+      );
+    }
+    out.sort((a, b) {
+      DateTime aDt;
+      DateTime bDt;
+      try {
+        aDt = DateTime.parse(a.activityDateIso!);
+      } catch (_) {
+        aDt = DateTime(1970);
+      }
+      try {
+        bDt = DateTime.parse(b.activityDateIso!);
+      } catch (_) {
+        bDt = DateTime(1970);
+      }
+      return bDt.compareTo(aDt);
+    });
+    return out;
+  }
+
+  bool _attendanceItemsMergeableForDailyFeed(ActivityItem a, ActivityItem b) {
+    const attendanceNames = <String>{'Sign-in', 'Sign-out', 'Transfer', 'Absent'};
+    if (!attendanceNames.contains(a.name) || !attendanceNames.contains(b.name)) {
+      return false;
+    }
+    if (a.name != b.name) return false;
+    if ((a.activityDateIso ?? '') != (b.activityDateIso ?? '')) return false;
+    if ((a.classroomCode ?? '') != (b.classroomCode ?? '')) return false;
+    if ((a.description ?? '') != (b.description ?? '')) return false;
+    if ((a.createdBy).trim() != (b.createdBy).trim()) return false;
+
+    final scA = a.studentCode?.trim() ?? '';
+    final scB = b.studentCode?.trim() ?? '';
+    if (scA.isNotEmpty && scA == scB) return false;
+    return true;
+  }
+
+  List<ActivityItem> _mergeAttendanceItemsForDailyFeed(List<ActivityItem> items) {
+    if (items.length < 2) return items;
+    final sorted = [...items]..sort((a, b) {
+        DateTime aDt;
+        DateTime bDt;
+        try {
+          aDt = DateTime.parse(a.activityDateIso!);
+        } catch (_) {
+          aDt = DateTime(1970);
+        }
+        try {
+          bDt = DateTime.parse(b.activityDateIso!);
+        } catch (_) {
+          bDt = DateTime(1970);
+        }
+        return bDt.compareTo(aDt);
+      });
+    final out = <ActivityItem>[sorted.first];
+    for (var i = 1; i < sorted.length; i++) {
+      final prev = out.last;
+      final cur = sorted[i];
+      if (_attendanceItemsMergeableForDailyFeed(prev, cur)) {
+        out[out.length - 1] = mergeTwoActivityItemsForFeed(prev, cur);
+      } else {
+        out.add(cur);
+      }
+    }
+    return out;
+  }
+
   void _onFeedScroll() {
     _maybeLoadNextDailyFeedPage();
   }
@@ -1572,12 +1706,40 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           signOutAtFilter: signOutAtFilter,
           page: pageIndex,
           size: _feedPageSize,
-        );
-      }
+        ),
+        _getStudentAttendanceAbsentRecordsActivityViewUseCase(
+          fromAbsenceDate: dateStr,
+          toAbsenceDate: dateStr,
+          classroomCodes: classroomCodes.isNotEmpty
+              ? classroomCodes
+              : <String>[classroomCode],
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+        _getDailyActivityFeedUseCase(
+          classroomCode: classroomCode,
+          date: dateStr,
+          studentCode: selectedStudentCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
+          activityTypeCodes: typeCodes,
+          guardianPersona: _parentHome,
+          page: pageIndex,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final absentPage = results[1] as StudentAttendanceAbsentFormPage;
+      final activityFeedPage = results[2] as ActivityFeedPage;
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1599,7 +1761,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       setState(() {
         _activities.addAll(items);
         _feedHasMore =
-            (attendancePage?.hasMore ?? false) || !activityFeedPage.last;
+            attendancePage.hasMore || absentPage.hasMore || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
       });
     } catch (e) {
@@ -1685,17 +1847,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      StudentAttendanceDailyPage? attendancePage;
-      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
-        attendancePage = await _getStudentAttendanceDailyUseCase(
-          attendanceDate: dateStr,
-          studentCodes: codes,
-          signInAtFilter: signInAtFilter,
-          signOutAtFilter: signOutAtFilter,
-          page: 0,
-          size: _feedPageSize,
-        );
-      }
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        studentCodes: codes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: 0,
+        size: _feedPageSize,
+      );
+      final absentPage =
+          await _getStudentAttendanceAbsentRecordsActivityViewUseCase(
+        fromAbsenceDate: dateStr,
+        toAbsenceDate: dateStr,
+        classroomCodes: _parentStudentClassroomByCode.values
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList(),
+        page: 0,
+        size: _feedPageSize,
+      );
       final pages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
@@ -1723,8 +1894,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(merged),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1750,7 +1925,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = items;
         _loadingFeed = false;
         _feedError = null;
-        _feedHasMore = (attendancePage?.hasMore ?? false) || !merged.last;
+        _feedHasMore = attendancePage.hasMore || absentPage.hasMore || !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
@@ -1801,17 +1976,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (mounted) setState(() {});
 
     try {
-      StudentAttendanceDailyPage? attendancePage;
-      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
-        attendancePage = await _getStudentAttendanceDailyUseCase(
-          attendanceDate: dateStr,
-          studentCodes: _parentAllowedStudentCodes.toList(),
-          signInAtFilter: signInAtFilter,
-          signOutAtFilter: signOutAtFilter,
-          page: pageIndex,
-          size: _feedPageSize,
-        );
-      }
+      final attendancePage = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: dateStr,
+        studentCodes: _parentAllowedStudentCodes.toList(),
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        page: pageIndex,
+        size: _feedPageSize,
+      );
+      final absentPage =
+          await _getStudentAttendanceAbsentRecordsActivityViewUseCase(
+        fromAbsenceDate: dateStr,
+        toAbsenceDate: dateStr,
+        classroomCodes: _parentStudentClassroomByCode.values
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList(),
+        page: pageIndex,
+        size: _feedPageSize,
+      );
       final pages = await Future.wait(
         _parentAllowedStudentCodes.map((sc) async {
           final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
@@ -1839,8 +2023,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(merged),
       ]..sort((a, b) {
           DateTime aDt;
@@ -1861,7 +2049,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _activities.addAll(items);
-        _feedHasMore = (attendancePage?.hasMore ?? false) || !merged.last;
+        _feedHasMore = attendancePage.hasMore || absentPage.hasMore || !merged.last;
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
     } catch (e) {
@@ -1986,12 +2174,38 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           signOutAtFilter: signOutAtFilter,
           page: 0,
           size: _feedPageSize,
-        );
-      }
+        ),
+        _getStudentAttendanceAbsentRecordsActivityViewUseCase(
+          fromAbsenceDate: dateStr,
+          toAbsenceDate: dateStr,
+          classroomCodes: classroomCodes,
+          page: 0,
+          size: _feedPageSize,
+        ),
+        _getDailyActivityFeedUseCase(
+          classroomCode: classroomCode,
+          date: dateStr,
+          studentCode: selectedStudentCode,
+          classroomCodes: classroomCodes,
+          studentCodes: studentCodes,
+          activityTypeCodes: typeCodes,
+          guardianPersona: _parentHome,
+          page: 0,
+          size: _feedPageSize,
+        ),
+      ]);
+
+      final attendancePage = results[0] as StudentAttendanceDailyPage;
+      final absentPage = results[1] as StudentAttendanceAbsentFormPage;
+      final activityFeedPage = results[2] as ActivityFeedPage;
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
 
+      final attendanceItems = _mergeAttendanceItemsForDailyFeed([
+        ..._mapAttendanceDailyPageToItems(attendancePage),
+        ..._mapAttendanceAbsentPageToItems(absentPage),
+      ]);
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        ...attendanceItems,
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort((a, b) {
           DateTime aDt;
@@ -2018,7 +2232,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
-            (attendancePage?.hasMore ?? false) || !activityFeedPage.last;
+            attendancePage.hasMore || absentPage.hasMore || !activityFeedPage.last;
         _feedNextPage = _feedHasMore ? 1 : 0;
       });
       _isFeedRequestInFlight = false;
@@ -2060,6 +2274,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _getStudentCodesForActivityTagFilterUseCase =
         serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
     _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+    _getStudentAttendanceAbsentRecordsActivityViewUseCase = serviceLocator<
+        GetStudentAttendanceAbsentRecordsActivityViewUseCase>();
     _getStudentAttendanceDailyUseCase =
         serviceLocator<GetStudentAttendanceDailyUseCase>();
     _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
@@ -5283,7 +5499,8 @@ String activityFeedCardBodyLine(ActivityItem activity) {
   }
   if (activity.name == 'Sign-in' ||
       activity.name == 'Sign-out' ||
-      activity.name == 'Transfer') {
+      activity.name == 'Transfer' ||
+      activity.name == 'Absent') {
     final d = activity.description?.trim();
     return (d != null && d.isNotEmpty) ? d : 'No description';
   }
@@ -5299,7 +5516,8 @@ int activityFeedCardBodyMaxLines(ActivityItem activity) {
   if (activity.name == 'Bathroom') return 3;
   if (activity.name == 'Sign-in' ||
       activity.name == 'Sign-out' ||
-      activity.name == 'Transfer') {
+      activity.name == 'Transfer' ||
+      activity.name == 'Absent') {
     return 2;
   }
   return 1;

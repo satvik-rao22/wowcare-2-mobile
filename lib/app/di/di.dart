@@ -76,6 +76,7 @@ import '../../domain/features/attendance/usecases/get_student_sign_out_form_list
 import '../../domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_attendance_absent_records_activity_view_usecase.dart';
 import '../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_attendance_custom_usecase.dart';
@@ -402,6 +403,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentAttendanceAbsentToggleViewUseCase>(
     () => GetStudentAttendanceAbsentToggleViewUseCase(serviceLocator()),
   );
+  serviceLocator
+      .registerFactory<GetStudentAttendanceAbsentRecordsActivityViewUseCase>(
+        () => GetStudentAttendanceAbsentRecordsActivityViewUseCase(
+          serviceLocator(),
+        ),
+      );
   serviceLocator.registerFactory<MarkStudentsAbsentUseCase>(
     () => MarkStudentsAbsentUseCase(serviceLocator()),
   );

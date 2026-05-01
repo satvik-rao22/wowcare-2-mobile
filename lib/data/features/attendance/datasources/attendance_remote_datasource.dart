@@ -111,6 +111,20 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
+  /// Student absent records activity view - one row per absence record in range.
+  Future<StudentAttendanceAbsentFormPageModel>
+  getStudentAttendanceAbsentRecordsActivityView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+    required List<String> allowedClassroomCodes,
+  });
+
   Future<StaffAttendanceDailyPageModel> getStaffAttendanceDaily({
     required String fromAttendanceDate,
     required String toAttendanceDate,
@@ -743,6 +757,66 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected student absent toggle API response format');
+    }
+
+    return StudentAttendanceAbsentFormPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<StudentAttendanceAbsentFormPageModel>
+  getStudentAttendanceAbsentRecordsActivityView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+    required List<String> allowedClassroomCodes,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'fromAbsenceDate': fromAbsenceDate,
+      'toAbsenceDate': toAbsenceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
+
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceAbsentRecordsActivityView,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected student absent records activity API response format',
+      );
     }
 
     return StudentAttendanceAbsentFormPageModel.fromJson(
