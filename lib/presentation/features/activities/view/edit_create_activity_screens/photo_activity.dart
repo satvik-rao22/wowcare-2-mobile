@@ -422,6 +422,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
+    // For video activities, picking a new video should replace the previous one.
+    // Keeping both the existing video URL and the newly uploaded asset causes the
+    // PATCH payload to include multiple attachments, which the backend rejects
+    // for grouped activity cards.
+    if (!widget.isPhoto && video != null) {
+      remainingExistingVideoUrl = null;
+    }
     final photoCount = photos.length + remainingExistingPhotoUrls.length;
     final videoCount =
         (video != null ? 1 : 0) +
@@ -438,7 +445,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       return;
     }
-    const maxVideoCount = 2;
+    const maxVideoCount = 1;
     if (videoCount > maxVideoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1228,7 +1235,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   isRequired: true,
                   allowVideo: !widget.isPhoto,
                   allowPhoto: widget.isPhoto,
-                  limit: widget.isPhoto ? 10 : 2,
+                  limit: widget.isPhoto ? 10 : 1,
                   readOnly: widget.readOnly,
                   autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
                   onMediaChanged:
