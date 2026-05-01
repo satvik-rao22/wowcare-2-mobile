@@ -25,6 +25,7 @@ class StaffPresentWidget extends StatefulWidget {
     this.prefillWithStaffName = false,
     this.showStaffDropdown = true,
     this.signatureEncodedValue,
+    this.onStaffChanged,
   });
   final String staffName;
   final bool isEditable;
@@ -38,6 +39,7 @@ class StaffPresentWidget extends StatefulWidget {
   final bool prefillWithStaffName;
   final bool showStaffDropdown;
   final String? signatureEncodedValue;
+  final void Function(String? selectedName, String? selectedCode)? onStaffChanged;
 
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
@@ -48,6 +50,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
  String? selectedStaff;
  bool clickToSign = false;
  final List<String> _fetchedStaffNames = [];
+final Map<String, String> _staffCodeByNameLower = <String, String>{};
+final Map<String, String> _staffNameByCodeLower = <String, String>{};
  bool _loadingStaffs = false;
  late final CacheManager _cacheManager;
 
@@ -74,7 +78,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
   }
 
   void _rebuildStaffSelection() {
-    final name = widget.staffName.trim();
+    final incomingName = _resolveDisplayName(widget.staffName.trim());
+    final currentName = _resolveDisplayName((selectedStaff ?? '').trim());
+    final seedName = incomingName.isNotEmpty ? incomingName : currentName;
     final unique = <String>{};
     final ordered = <String>[];
     void addName(String value) {
@@ -82,7 +88,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       if (v.isEmpty) return;
       if (unique.add(v.toLowerCase())) ordered.add(v);
     }
-    addName(name);
+    addName(seedName);
     if (widget.isEditable) {
       for (final n in _fetchedStaffNames) {
         addName(n);
@@ -91,14 +97,15 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     staffList = [
       ...ordered,
     ];
-    if (widget.prefillWithStaffName && name.isNotEmpty) {
+    if (seedName.isNotEmpty) {
       selectedStaff = staffList.firstWhere(
-        (s) => s.toLowerCase() == name.toLowerCase(),
-        orElse: () => name,
+        (s) => s.toLowerCase() == seedName.toLowerCase(),
+        orElse: () => seedName,
       );
       if (!staffList.any((s) => s.toLowerCase() == selectedStaff!.toLowerCase())) {
         staffList = [selectedStaff!, ...staffList];
       }
+      _emitStaffChanged();
       return;
     }
     final current = (selectedStaff ?? '').trim();
@@ -107,9 +114,31 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       selectedStaff = staffList.firstWhere(
         (s) => s.toLowerCase() == current.toLowerCase(),
       );
+      _emitStaffChanged();
       return;
     }
-    selectedStaff = staffList.isNotEmpty ? staffList.first : null;
+    selectedStaff = staffList.isNotEmpty
+        ? staffList.first
+        : (currentName.isNotEmpty ? currentName : null);
+    _emitStaffChanged();
+  }
+
+  String _resolveDisplayName(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return '';
+    for (final n in _fetchedStaffNames) {
+      if (n.toLowerCase() == t.toLowerCase()) return n;
+    }
+    final fromCode = _staffNameByCodeLower[t.toLowerCase()];
+    if ((fromCode ?? '').trim().isNotEmpty) return fromCode!.trim();
+    return t;
+  }
+
+  void _emitStaffChanged() {
+    final selected = (selectedStaff ?? '').trim();
+    final code =
+        selected.isEmpty ? null : _staffCodeByNameLower[selected.toLowerCase()];
+    widget.onStaffChanged?.call(selectedStaff, code);
   }
 
   Future<void> _loadStaffNames() async {
@@ -133,6 +162,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       try {
         final cached = await _cacheManager.loadCache(cacheKey);
         final cachedNames = cached?['names'];
+        final cachedNameCodeMap = cached?['nameCodeMap'];
+        final cachedCodeNameMap = cached?['codeNameMap'];
         if (cachedNames is List && cachedNames.isNotEmpty) {
           _fetchedStaffNames
             ..clear()
@@ -144,6 +175,26 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   .toList()
                 ..sort(),
             );
+          _staffCodeByNameLower.clear();
+          _staffNameByCodeLower.clear();
+          if (cachedNameCodeMap is Map) {
+            for (final entry in cachedNameCodeMap.entries) {
+              final name = entry.key.toString().trim();
+              final code = entry.value.toString().trim();
+              if (name.isEmpty || code.isEmpty) continue;
+              _staffCodeByNameLower[name.toLowerCase()] = code;
+              _staffNameByCodeLower[code.toLowerCase()] = name;
+            }
+          }
+          if (cachedCodeNameMap is Map) {
+            for (final entry in cachedCodeNameMap.entries) {
+              final code = entry.key.toString().trim();
+              final name = entry.value.toString().trim();
+              if (name.isEmpty || code.isEmpty) continue;
+              _staffNameByCodeLower[code.toLowerCase()] = name;
+              _staffCodeByNameLower[name.toLowerCase()] = code;
+            }
+          }
           if (mounted) setState(_rebuildStaffSelection);
         }
       } catch (_) {}
@@ -166,9 +217,20 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
               .toList()
             ..sort(),
         );
+      _staffCodeByNameLower.clear();
+      _staffNameByCodeLower.clear();
+      for (final staff in page.items) {
+        final name = staff.name.trim();
+        final code = staff.code.trim();
+        if (name.isEmpty || code.isEmpty) continue;
+        _staffCodeByNameLower[name.toLowerCase()] = code;
+        _staffNameByCodeLower[code.toLowerCase()] = name;
+      }
       if (!mounted) return;
       await _cacheManager.saveCache(cacheKey, {
         'names': List<String>.from(_fetchedStaffNames),
+        'nameCodeMap': Map<String, String>.from(_staffCodeByNameLower),
+        'codeNameMap': Map<String, String>.from(_staffNameByCodeLower),
       });
       setState(_rebuildStaffSelection);
     } catch (_) {
@@ -236,6 +298,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   setState(() {
                     selectedStaff = value;
                   });
+                  _emitStaffChanged();
                 }: null,
               ),
             ),

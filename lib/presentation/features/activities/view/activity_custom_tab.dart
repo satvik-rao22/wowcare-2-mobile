@@ -116,6 +116,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String? _feedError;
   String? _schoolCode;
   String _viewerStaffDisplayName = '';
+  String _viewerStaffCode = '';
   final Map<String, String> _staffDisplayNameByCode = {};
   final Map<String, String> _classroomCodeByName = {};
   final Map<String, String> _classroomNameByCode = {};
@@ -1362,11 +1363,30 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     Iterable<ActivityFeedRow> rows,
   ) async {
     final missingCodes = <String>{};
+    String? staffPresentCodeFromRow(ActivityFeedRow row) {
+      for (final p in row.parameterValues) {
+        final pName = (p['parameterName'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        if (pName != 'staff present') continue;
+        final raw = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+            .toString()
+            .trim();
+        if (raw.isNotEmpty) return raw;
+      }
+      return null;
+    }
     for (final row in rows) {
-      final code = (row.staffCode ?? '').trim();
-      if (code.isEmpty) continue;
-      if (_staffDisplayNameByCode.containsKey(code)) continue;
-      missingCodes.add(code);
+      final codeCandidates = <String>{
+        (row.staffCode ?? '').trim(),
+        (staffPresentCodeFromRow(row) ?? '').trim(),
+      };
+      for (final code in codeCandidates) {
+        if (code.isEmpty) continue;
+        if (_staffDisplayNameByCode.containsKey(code)) continue;
+        missingCodes.add(code);
+      }
     }
     if (missingCodes.isEmpty) return;
     final repo = serviceLocator<StaffRepository>();
@@ -1470,6 +1490,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   Future<void> _bootstrapRangeFeed() async {
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     final roles =
         (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
     final staffType =
@@ -1479,6 +1500,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
+        _viewerStaffCode = viewerStaffCode;
         _isAdminPersona = roles.contains('ADMIN') ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
@@ -2785,6 +2807,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                 canEditActivityItem(
                                                   activity,
                                                   isAdminPersona: _isAdminPersona,
+                                                  viewerStaffCode: _viewerStaffCode,
                                                 );
                                             final destinationBuilder =
                                                 canOpenEdit
@@ -3068,6 +3091,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                           activity,
                                                                           isAdminPersona:
                                                                               _isAdminPersona,
+                                                                          viewerStaffCode:
+                                                                              _viewerStaffCode,
                                                                         ))
                                                                       PopupMenuItem<
                                                                         String

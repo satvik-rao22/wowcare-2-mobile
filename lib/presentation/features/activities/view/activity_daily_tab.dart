@@ -137,6 +137,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   String? _schoolCode;
   /// Logged-in user's display name; used when feed [createdBy] is "system", etc.
   String _viewerStaffDisplayName = '';
+  String _viewerStaffCode = '';
   final Map<String, String> _staffDisplayNameByCode = {};
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
@@ -520,6 +521,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   Future<void> _bootstrap() async {
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     final roles =
         (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
     final staffType =
@@ -529,6 +531,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
+        _viewerStaffCode = viewerStaffCode;
         _isAdminPersona = roles.contains('ADMIN') ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
@@ -1133,11 +1136,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     Iterable<ActivityFeedRow> rows,
   ) async {
     final missingCodes = <String>{};
+    String? staffPresentCodeFromRow(ActivityFeedRow row) {
+      for (final p in row.parameterValues) {
+        final pName = (p['parameterName'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        if (pName != 'staff present') continue;
+        final raw = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+            .toString()
+            .trim();
+        if (raw.isNotEmpty) return raw;
+      }
+      return null;
+    }
     for (final row in rows) {
-      final code = (row.staffCode ?? '').trim();
-      if (code.isEmpty) continue;
-      if (_staffDisplayNameByCode.containsKey(code)) continue;
-      missingCodes.add(code);
+      final codeCandidates = <String>{
+        (row.staffCode ?? '').trim(),
+        (staffPresentCodeFromRow(row) ?? '').trim(),
+      };
+      for (final code in codeCandidates) {
+        if (code.isEmpty) continue;
+        if (_staffDisplayNameByCode.containsKey(code)) continue;
+        missingCodes.add(code);
+      }
     }
     if (missingCodes.isEmpty) return;
     final repo = serviceLocator<StaffRepository>();
@@ -2769,6 +2791,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                 canEditActivityItem(
                                                   activity,
                                                   isAdminPersona: _isAdminPersona,
+                                                  viewerStaffCode: _viewerStaffCode,
                                                 );
                                             final destinationBuilder =
                                                 canOpenEdit
@@ -3023,6 +3046,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                       activity,
                                                                       isAdminPersona:
                                                                           _isAdminPersona,
+                                                                      viewerStaffCode:
+                                                                          _viewerStaffCode,
                                                                     ))
                                                                   PopupMenuItem<
                                                                     String
@@ -4340,6 +4365,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                         activity,
                                                         isAdminPersona:
                                                             _isAdminPersona,
+                                                        viewerStaffCode:
+                                                            _viewerStaffCode,
                                                       );
                                                   final destinationBuilder =
                                                       canOpenEdit
@@ -4638,6 +4665,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                             activity,
                                                                             isAdminPersona:
                                                                                 _isAdminPersona,
+                                                                            viewerStaffCode:
+                                                                                _viewerStaffCode,
                                                                           ))
                                                                         PopupMenuItem<
                                                                           String
@@ -5438,6 +5467,11 @@ ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
       a.staffPresent ?? '',
       b.staffPresent ?? '',
     ),
+    staffPresentCode: (a.staffPresentCode ?? '').trim().isNotEmpty
+        ? a.staffPresentCode!.trim()
+        : ((b.staffPresentCode ?? '').trim().isNotEmpty
+              ? b.staffPresentCode!.trim()
+              : null),
     additionalNotes: a.additionalNotes,
     bathroomType: a.bathroomType,
     bathroomSubType: a.bathroomSubType,
@@ -5491,6 +5525,7 @@ class ActivityItem {
   final String? whatHappened; // for incident activity
   final bool? firstAidAdministered; // for incident activity
   final String? staffPresent; // can be equal to createdBy
+  final String? staffPresentCode; // raw code from "Staff Present"
   final String? additionalNotes; // for incident activity
   final String? bathroomType; // for bathroom activity
   final String? bathroomSubType; // also for bathroom activity
@@ -5535,6 +5570,7 @@ class ActivityItem {
     this.whatHappened,
     this.firstAidAdministered,
     this.staffPresent,
+    this.staffPresentCode,
     this.additionalNotes,
     this.bathroomType,
     this.bathroomSubType,
@@ -5615,7 +5651,11 @@ bool isAttendanceCardActivityItem(ActivityItem activity) {
       normalized == 'transfer';
 }
 
-bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
+bool canEditActivityItem(
+  ActivityItem activity, {
+  required bool isAdminPersona,
+  String? viewerStaffCode,
+}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (status == 'REJECTED') return false;
 
@@ -5623,6 +5663,11 @@ bool canEditActivityItem(ActivityItem activity, {required bool isAdminPersona}) 
     // Admin personas can always edit activities (even if approved/rejected),
     // except attendance pseudo-activities which are not editable via activity forms.
     return !isAttendanceCardActivityItem(activity);
+  }
+  final viewerCode = (viewerStaffCode ?? '').trim().toUpperCase();
+  final presentCode = (activity.staffPresentCode ?? '').trim().toUpperCase();
+  if (viewerCode.isEmpty || presentCode.isEmpty || viewerCode != presentCode) {
+    return false;
   }
   if (status == 'PARENT_ACKNOWLEDGEMENT_PENDING') return false;
   if (status == 'ACKNOWLEDGED') {
@@ -5848,10 +5893,11 @@ ActivityItem activityItemFromFeedRow(
   String? pickStaffPresentFromParameters() {
     for (final p in row.parameterValues) {
       final n = (p['parameterName'] ?? '').toString().toLowerCase();
-      if (!n.contains('staff')) continue;
+      if (n != 'staff present') continue;
       final dt = (p['dataType'] ?? '').toString().toUpperCase();
       if (dt == 'DATE' || dt == 'TIME') continue;
       for (final key in <String>[
+        'selectedOptionCode',
         'selectedOptionLabel',
         'optionLabel',
         'valueText',
@@ -6079,15 +6125,16 @@ ActivityItem activityItemFromFeedRow(
       : [studentName];
   final staffFromParams = pickStaffPresentFromParameters();
   final mappedStaffName = (() {
-    final code = (row.staffCode ?? '').trim();
-    if (code.isEmpty) return null;
-    final resolved = staffDisplayNameByCode?[code]?.trim() ?? '';
-    return resolved.isEmpty ? null : resolved;
+    final raw = (staffFromParams ?? '').trim();
+    if (raw.isEmpty) return null;
+    final resolved = staffDisplayNameByCode?[raw]?.trim() ?? '';
+    if (resolved.isNotEmpty) return resolved;
+    return raw;
   })();
   final by = resolveActivityCreatedByForUi(
-    rawCreatedBy: row.createdBy,
-    staffLabelFromParameters: mappedStaffName ?? staffFromParams,
-    viewerDisplayNameFallback: viewerDisplayName,
+    rawCreatedBy: '',
+    staffLabelFromParameters: mappedStaffName,
+    viewerDisplayNameFallback: null,
   );
 
   /// Learning: API stores these in [parameterValues] (e.g. PM_054 Activity Name, PM_055 Categories).
@@ -6132,6 +6179,9 @@ ActivityItem activityItemFromFeedRow(
             ? effectiveDescription
         : null,
     staffPresent: by,
+    staffPresentCode: (staffFromParams ?? '').trim().isEmpty
+        ? null
+        : staffFromParams!.trim(),
     bathroomType: name == 'Bathroom' ? bathroomType : null,
     bathroomSubType: name == 'Bathroom' ? bathroomSubType : null,
     bathroomDiaperSize: name == 'Bathroom' ? bathroomDiaperSizeLabel : null,

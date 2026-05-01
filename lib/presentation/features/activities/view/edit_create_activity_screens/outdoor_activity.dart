@@ -81,6 +81,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   String _staffType = '';
   bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
@@ -116,6 +117,18 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
   }
 
   @override
@@ -251,6 +264,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         _descriptionController.text =
             item.whatHappened ?? item.description ?? '';
         _activityTypeCode = item.activityTypeCode;
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
@@ -308,6 +322,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
@@ -517,6 +532,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -525,8 +541,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -1063,6 +1079,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -1071,8 +1088,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -1289,13 +1306,22 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
                     layoutAsEdit: _layoutAsEdit,
-                    activityCreatedBy:
-                        _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                    activityCreatedBy: '',
                     loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _layoutAsEdit
+                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                              ? _staffPresentCode
+                              : _effectiveActivity.staffPresent)
+                        : null,
                   ),
                   isEditable: lockToLoggedInStaff
                       ? false
                       : _canInteract,
+                  onStaffChanged: (_, selectedCode) {
+                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                        ? selectedCode!.trim()
+                        : (_staffPresentCode ?? _staffCode);
+                  },
                 );
               },
             ),

@@ -94,6 +94,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   String _staffType = '';
   bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
@@ -263,6 +264,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         _detailParameterRows = detail.parameterValues
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -730,10 +732,23 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
     });
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final name = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (name != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
   }
 
   Future<void> _loadActivityContextForCreate() async {
@@ -1015,6 +1030,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final typeEntry =
           _paramForOptionOrValue(typeParam, _selectedBathroomType!);
@@ -1041,8 +1057,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
         typeEntry,
@@ -1248,6 +1264,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final typeEntry =
           _paramForOptionOrValue(typeParam, _selectedBathroomType!);
@@ -1273,8 +1290,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
         typeEntry,
@@ -1515,13 +1532,22 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
                     layoutAsEdit: _layoutAsEdit,
-                    activityCreatedBy:
-                        _layoutAsEdit ? _effectiveActivity.createdBy : '',
+                    activityCreatedBy: '',
                     loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _layoutAsEdit
+                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                              ? _staffPresentCode
+                              : _effectiveActivity.staffPresent)
+                        : null,
                   ),
                   isEditable: lockToLoggedInStaff
                       ? false
                       : _canInteract,
+                  onStaffChanged: (_, selectedCode) {
+                    _staffPresentCode = (selectedCode ?? '').trim().isEmpty
+                        ? _staffPresentCode
+                        : selectedCode!.trim();
+                  },
                 );
               },
             ),
