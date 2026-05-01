@@ -161,6 +161,58 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return (_staffCode ?? '').trim();
   }
 
+  _IncidentSignaturePayload _parseIncidentSignaturePayload(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) {
+      return const _IncidentSignaturePayload(
+        signerName: '',
+        encodedName: '',
+      );
+    }
+    final parts = value.split('::');
+    if (parts.length >= 2) {
+      final signerName = parts.first.trim();
+      final encodedName = parts.sublist(1).join('::').trim();
+      var decodedName = '';
+      if (encodedName.isNotEmpty) {
+        try {
+          decodedName = utf8.decode(base64.decode(encodedName)).trim();
+        } catch (_) {
+          decodedName = '';
+        }
+      }
+      return _IncidentSignaturePayload(
+        signerName: signerName.isNotEmpty ? signerName : decodedName,
+        encodedName: encodedName,
+      );
+    }
+    return _IncidentSignaturePayload(signerName: value, encodedName: '');
+  }
+
+  String _buildIncidentSignaturePayload({
+    required String signerName,
+  }) {
+    final name = signerName.trim();
+    if (name.isEmpty) return '';
+    final encodedName = name.isNotEmpty ? base64Encode(utf8.encode(name)) : '';
+    return '$name::$encodedName';
+  }
+
+  String _ensureIncidentSignaturePayload({
+    required String rawValue,
+    required String fallbackName,
+  }) {
+    final raw = rawValue.trim();
+    if (raw.isEmpty) return '';
+    final parsed = _parseIncidentSignaturePayload(raw);
+    if (parsed.encodedName.isNotEmpty && parsed.signerName.isNotEmpty) {
+      return raw;
+    }
+    final resolvedName = _displaySignerLabel(raw, fallback: fallbackName).trim();
+    if (resolvedName.isEmpty) return '';
+    return _buildIncidentSignaturePayload(signerName: resolvedName);
+  }
+
   void _debugIncidentParameterValues(
     String source,
     List<Map<String, dynamic>> parameterValues,
@@ -171,13 +223,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   bool _looksLikeStaffCode(String value) {
-    final v = value.trim().toUpperCase();
+    final signature = _parseIncidentSignaturePayload(value);
+    final v = signature.signerName.toUpperCase();
     return v.startsWith('STF_') || v.startsWith('STAFF_');
   }
 
   Future<void> _primeStaffDisplayNamesFromCodes(Iterable<String> rawCodes) async {
     final codes = rawCodes
-        .map((e) => e.trim())
+        .map((e) => _parseIncidentSignaturePayload(e).signerName)
         .where((e) => e.isNotEmpty && _looksLikeStaffCode(e))
         .toSet()
         .toList();
@@ -200,7 +253,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   String _displayNameForSignerRaw(String raw, {String fallback = ''}) {
-    final v = raw.trim();
+    final signature = _parseIncidentSignaturePayload(raw);
+    final v = signature.signerName;
     if (v.isEmpty) return fallback;
     if (_looksLikeStaffCode(v)) {
       final mapped = _staffDisplayNameByCode[v];
@@ -210,7 +264,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   String _displaySignerLabel(String raw, {String fallback = ''}) {
-    final v = raw.trim();
+    final signature = _parseIncidentSignaturePayload(raw);
+    final v = signature.signerName;
     if (v.isEmpty) return fallback;
     if (_looksLikeStaffCode(v)) {
       final name = _displayNameForSignerRaw(v, fallback: '');
@@ -221,7 +276,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   String _guardianDisplayNameForCode(String raw, {String fallback = ''}) {
-    final code = raw.trim();
+    final signature = _parseIncidentSignaturePayload(raw);
+    final code = signature.signerName;
     if (code.isEmpty) return fallback;
     final mapped = _guardianNameByCode[code];
     if (mapped != null && mapped.trim().isNotEmpty) return mapped.trim();
@@ -234,7 +290,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final school = (_schoolCode ?? '').trim();
     if (school.isEmpty) return;
     final wanted = codes
-        .map((e) => e.trim())
+        .map((e) => _parseIncidentSignaturePayload(e).signerName)
         .where((e) => e.isNotEmpty)
         .toSet()
         .toList();
@@ -629,19 +685,40 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final sc = (_effectiveActivity.studentCode ?? '').trim();
       if (sc.isNotEmpty) studentCodes.add(sc);
     }
-    final creatorStaffCodeForIncident = _staffPresentRawValue.trim().isNotEmpty
-        ? _staffPresentRawValue.trim()
-        : staffCode;
+    // Preserve original PM_045 (Staff Present) from API. Do not replace it
+    // with current admin/staff code during approve/reject patches.
+    final creatorStaffCodeForIncident = _staffPresentRawValue.trim();
+    final staffSignerValue = _isSigned
+        ? _ensureIncidentSignaturePayload(
+            rawValue: _staffSignerRawValue.trim().isNotEmpty
+                ? _staffSignerRawValue
+                : creatorStaffCodeForIncident,
+            fallbackName: _staffName,
+          )
+        : '';
+    final adminSignerValue = _isAdminSigned
+        ? _ensureIncidentSignaturePayload(
+            rawValue: _adminSignerRawValue.trim().isNotEmpty
+                ? _adminSignerRawValue
+                : _staffName,
+            fallbackName: _staffName,
+          )
+        : '';
+    final parentSignerValue = _parentSignerRawValue.trim().isNotEmpty
+        ? _ensureIncidentSignaturePayload(
+            rawValue: _parentSignerRawValue,
+            fallbackName: _guardianDisplayNameForCode(
+              _parentSignerRawValue,
+              fallback: _staffName,
+            ),
+          )
+        : '';
     final parameterValues = _incidentSignerParameterValuesForPatch(
       parameters: details.parameters,
       staffPresentCode: creatorStaffCodeForIncident,
-      // Keep original staff signer code; fallback to creator staff code when signed.
-      staffSignerCode: _staffSignerRawValue.trim().isNotEmpty
-          ? _staffSignerRawValue.trim()
-          : (_isSigned ? creatorStaffCodeForIncident : null),
-      adminSignerCode: _isAdminSigned ? staffCode : null,
-      parentSignerCode:
-          _parentSignerRawValue.trim().isNotEmpty ? _parentSignerRawValue : null,
+      staffSignerCode: staffSignerValue,
+      adminSignerCode: adminSignerValue,
+      parentSignerCode: parentSignerValue,
     );
     if (parameterValues.isEmpty) return;
     _debugIncidentParameterValues('adminDecisionPatch', parameterValues);
@@ -847,8 +924,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final cachedDisplayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
     final roles =
         (await storage.getString(StorageKeys.roles) ?? '').trim().toUpperCase();
     final staffType =
@@ -858,39 +933,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
-    final staffRepo = serviceLocator<StaffRepository>();
-    var resolvedDisplayName = cachedDisplayName;
-    final trimmedStaffCode = (staffCode ?? '').trim();
-
-    if (trimmedStaffCode.isNotEmpty) {
-      try {
-        // Primary source: /api/v1/staff/my-profile/{staffCode}
-        final myProfile = await staffRepo.getStaffProfile(staffCode: trimmedStaffCode);
-        final full = myProfile.fullName.trim();
-        final composed = '${myProfile.firstName} ${myProfile.lastName}'.trim();
-        final apiName = full.isNotEmpty ? full : composed;
-        if (apiName.isNotEmpty) {
-          resolvedDisplayName = apiName;
-        }
-      } catch (_) {
-        try {
-          // Fallback: /api/v1/staff/{staffCode}/profile
-          final profileByCode = await staffRepo.getStaffProfile(
-            staffCode: trimmedStaffCode,
-            forEditStaff: true,
-          );
-          final full = profileByCode.fullName.trim();
-          final composed =
-              '${profileByCode.firstName} ${profileByCode.lastName}'.trim();
-          final apiName = full.isNotEmpty ? full : composed;
-          if (apiName.isNotEmpty) {
-            resolvedDisplayName = apiName;
-          }
-        } catch (_) {
-          // Keep cached display name as fallback.
-        }
-      }
-    }
+    final resolvedDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+      staffCode: staffCode,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -948,7 +993,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       setState(() {
         _hasGuardianAcknowledgedLocally = true;
         _isParentSigned = true;
-        _parentSignerRawValue = parentSignerCode;
+        _parentSignerRawValue = _buildIncidentSignaturePayload(
+          signerName: _guardianDisplayNameForCode(
+            parentSignerCode,
+            fallback: _staffName,
+          ),
+        );
       });
       unawaited(
         _primeGuardianNamesFromCodes([parentSignerCode]).catchError((_) {}),
@@ -1254,6 +1304,24 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           : whatHappened;
 
       final parentSignerCode = await _resolveParentSignerCode();
+      final staffSignValue = (_isSigned && !_isAdminDesignation)
+          ? _buildIncidentSignaturePayload(
+              signerName: _staffName,
+            )
+          : '';
+      final adminSignValue = (_isAdminSigned && _isAdminDesignation)
+          ? _buildIncidentSignaturePayload(
+              signerName: _staffName,
+            )
+          : '';
+      final parentSignValue = _isParentSigned
+          ? _buildIncidentSignaturePayload(
+              signerName: _guardianDisplayNameForCode(
+                parentSignerCode,
+                fallback: _staffName,
+              ),
+            )
+          : '';
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
           {'parameterCode': dateParamCode, 'value': localDate},
@@ -1273,20 +1341,20 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': staffSignParamCode,
-            'value': (_isSigned && !_isAdminDesignation) ? staffCode.trim() : '',
+            'value': staffSignValue,
           },
         if (_isAdminDesignation &&
             adminSignParamCode != null &&
             adminSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': adminSignParamCode,
-            'value': (_isAdminSigned && _isAdminDesignation) ? staffCode.trim() : '',
+            'value': adminSignValue,
           },
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': parentSignParamCode,
-            'value': _isParentSigned ? parentSignerCode : '',
+            'value': parentSignValue,
           },
       ];
       _debugIncidentParameterValues('create', parameterValues);
@@ -1611,14 +1679,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           : whatHappened;
 
       final parentSignerCode = await _resolveParentSignerCode();
-      final creatorStaffCodeForIncident = _staffPresentRawValue.trim().isNotEmpty
-          ? _staffPresentRawValue.trim()
-          : staffCode.trim();
-      final resolvedStaffSignerCode = _isSigned
-          ? (_staffSignerRawValue.trim().isNotEmpty
-                ? _staffSignerRawValue.trim()
-                : creatorStaffCodeForIncident)
-          : '';
+      // Preserve original PM_045 (Staff Present) from API on edit save.
+      final creatorStaffCodeForIncident = _staffPresentRawValue.trim();
       final resolvedAdminSignerCode = _isAdminDesignation
           ? (_isAdminSigned
                 ? (_adminSignerRawValue.trim().isNotEmpty
@@ -1629,6 +1691,46 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final resolvedParentSignerCode = _isGuardianPersona
           ? (_isParentSigned ? parentSignerCode.trim() : '')
           : _parentSignerRawValue.trim();
+      final resolvedStaffSignerValue = _isSigned
+          ? (() {
+              if (_staffSignerRawValue.trim().isNotEmpty &&
+                  _staffSignerRawValue.contains('::')) {
+                return _staffSignerRawValue.trim();
+              }
+              return _buildIncidentSignaturePayload(
+                signerName: _displaySignerLabel(
+                  _staffSignerRawValue,
+                  fallback: _staffName,
+                ),
+              );
+            })()
+          : '';
+      final resolvedAdminSignerValue = resolvedAdminSignerCode.trim().isNotEmpty
+          ? (() {
+              if (_adminSignerRawValue.trim().contains('::')) {
+                return _adminSignerRawValue.trim();
+              }
+              return _buildIncidentSignaturePayload(
+                signerName: _displaySignerLabel(
+                  _adminSignerRawValue,
+                  fallback: _staffName,
+                ),
+              );
+            })()
+          : '';
+      final resolvedParentSignerValue = resolvedParentSignerCode.trim().isNotEmpty
+          ? (() {
+              if (_parentSignerRawValue.trim().contains('::')) {
+                return _parentSignerRawValue.trim();
+              }
+              return _buildIncidentSignaturePayload(
+                signerName: _guardianDisplayNameForCode(
+                  resolvedParentSignerCode,
+                  fallback: _staffName,
+                ),
+              );
+            })()
+          : '';
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
           {'parameterCode': dateParamCode, 'value': localDate},
@@ -1648,18 +1750,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': staffSignParamCode,
-            'value': resolvedStaffSignerCode,
+            'value': resolvedStaffSignerValue,
           },
         if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': adminSignParamCode,
-            'value': resolvedAdminSignerCode,
+            'value': resolvedAdminSignerValue,
           },
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
           {
             'parameterCode': parentSignParamCode,
-            'value': resolvedParentSignerCode,
+            'value': resolvedParentSignerValue,
           },
       ];
       _debugIncidentParameterValues('update', parameterValues);
@@ -2193,7 +2295,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           fieldLabel: 'Staff Present',
                           staffName: _displaySignerLabel(
                             staffSignerCode,
-                            fallback: 'Staff',
+                            fallback: '',
                           ),
                           isEditable: false,
                           isAlreadySigned: true,
@@ -2201,6 +2303,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           showSignCheckbox: true,
                           showStaffDropdown: false,
                           incidentActivity: true,
+                          signatureEncodedValue: _parseIncidentSignaturePayload(
+                            staffSignerCode,
+                          ).encodedName,
                         ),
                       if (showStaffSignedBlock && showAdminSignedBlock)
                         const SizedBox(height: 16),
@@ -2210,7 +2315,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           fieldLabel: 'Admin Present',
                           staffName: _displaySignerLabel(
                             _adminSignerRawValue,
-                            fallback: 'Admin',
+                            fallback: '',
                           ),
                           isEditable: false,
                           isAlreadySigned: true,
@@ -2218,6 +2323,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           showSignCheckbox: true,
                           showStaffDropdown: false,
                           incidentActivity: true,
+                          signatureEncodedValue: _parseIncidentSignaturePayload(
+                            adminSignerCode,
+                          ).encodedName,
                         ),
                       if ((showStaffSignedBlock || showAdminSignedBlock) &&
                           showParentSignedBlock)
@@ -2230,9 +2338,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           staffName: parentSignerCode.isNotEmpty
                               ? _guardianDisplayNameForCode(
                                   parentSignerCode,
-                                  fallback: 'Parent',
+                                  fallback: '',
                                 )
-                              : (_staffName.trim().isNotEmpty ? _staffName : 'Parent'),
+                              : '',
                           isEditable: false,
                           isAlreadySigned: _hasParentSignedForAction,
                           clickToSignEditable: !_isAcknowledged,
@@ -2244,6 +2352,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                               _isParentSigned = value;
                             });
                           },
+                          signatureEncodedValue: _parseIncidentSignaturePayload(
+                            parentSignerCode,
+                          ).encodedName,
                         ),
                     ],
                   );
@@ -2262,14 +2373,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   staffName: _layoutAsEdit
                       ? _displaySignerLabel(
                           _staffPresentRawValue,
-                          fallback: staffPresentLabelForActivity(
-                            layoutAsEdit: _layoutAsEdit,
-                            activityCreatedBy: _layoutAsEdit
-                                ? (_effectiveActivity.staffPresent ??
-                                    _effectiveActivity.createdBy)
-                                : '',
-                            loggedInDisplayName: _staffName,
-                          ),
+                          fallback: '',
                         )
                       : (lockToLoggedInStaff
                             ? _staffName
@@ -2292,11 +2396,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   onSigned: (value) {
                     setState(() {
                       _isSigned = value;
-                      if (value) {
-                        _staffSignerRawValue = (_staffCode ?? '').trim();
-                      }
+                      _staffSignerRawValue = value
+                          ? _buildIncidentSignaturePayload(
+                              signerName: _staffName,
+                            )
+                          : '';
                     });
                   },
+                  signatureEncodedValue: _parseIncidentSignaturePayload(
+                    _staffSignerRawValue,
+                  ).encodedName,
                 );
               },
             ),
@@ -2316,11 +2425,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   setState(() {
                     _isAdminSigned = value;
                     _adminSignedThisSession = value;
-                    if (value) {
-                      _adminSignerRawValue = (_staffCode ?? '').trim();
-                    }
+                    _adminSignerRawValue = value
+                        ? _buildIncidentSignaturePayload(
+                            signerName: _staffName,
+                          )
+                        : '';
                   });
                 },
+                signatureEncodedValue: _parseIncidentSignaturePayload(
+                  _adminSignerRawValue,
+                ).encodedName,
               ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
@@ -2535,6 +2649,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       ],
     );
   }
+}
+
+class _IncidentSignaturePayload {
+  const _IncidentSignaturePayload({
+    required this.signerName,
+    required this.encodedName,
+  });
+
+  final String signerName;
+  final String encodedName;
 }
 
 

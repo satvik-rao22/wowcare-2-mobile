@@ -65,12 +65,12 @@ String staffPresentLabelForActivity({
   String? staffLabelFromParameters,
 }) {
   if (layoutAsEdit) {
-    // Edit/read-only should reflect API data first.
-    return resolveActivityCreatedByForUi(
-      rawCreatedBy: activityCreatedBy,
-      staffLabelFromParameters: staffLabelFromParameters,
-      viewerDisplayNameFallback: loggedInDisplayName,
-    );
+    // Edit/read-only should reflect API-only values (no viewer fallback).
+    final fromCreatedBy = _validStaffDisplayOrEmpty(activityCreatedBy);
+    if (fromCreatedBy.isNotEmpty) return fromCreatedBy;
+    final fromParams = _validStaffDisplayOrEmpty(staffLabelFromParameters ?? '');
+    if (fromParams.isNotEmpty) return fromParams;
+    return '';
   }
   // Add/create should always show current logged-in staff.
   final u = loggedInDisplayName.trim();
