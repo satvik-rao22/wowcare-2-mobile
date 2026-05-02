@@ -1200,6 +1200,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         staffSignRaw,
         adminSignRaw,
       ]);
+      final itemApprovalNormalized =
+          (item.approvalStatus ?? '').trim().toUpperCase();
+      // Pending parent acknowledgement must be reaffirmed explicitly each session:
+      // API may carry a staged parent sign value/text; still show unchecked "Click to
+      // sign" and require check + Acknowledge (do not derive from prefetched booleans).
+      final guardianMustReaffirmPendingParentAck =
+          guardianViewer &&
+              itemApprovalNormalized == 'PARENT_ACKNOWLEDGEMENT_PENDING';
       setState(() {
         _liveActivity = item;
         _requireAdminApproval = _isAdminApprovalRequired(item);
@@ -1214,12 +1222,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _isAdminSigned = adminSigned ?? _isAdminSigned;
         // Force explicit click-to-sign in this screen session for admin actions.
         _adminSignedThisSession = false;
-        _isParentSigned = parentSigned ?? _isParentSigned;
+        _isParentSigned = guardianMustReaffirmPendingParentAck
+            ? false
+            : (parentSigned ?? _isParentSigned);
         _staffPresentRawValue = staffPresentRaw;
         _staffSignerRawValue = staffSignRaw;
         _adminSignerRawValue = adminSignRaw;
         _parentSignerRawValue = effectiveParentSignRaw;
-        _hasGuardianAcknowledgedLocally = parentActuallySigned;
+        _hasGuardianAcknowledgedLocally = guardianMustReaffirmPendingParentAck
+            ? false
+            : parentActuallySigned;
         _firstAidGiven =
             firstAidFromApi ?? (item.firstAidAdministered ?? _firstAidGiven);
         _activityTypeCode = item.activityTypeCode;
