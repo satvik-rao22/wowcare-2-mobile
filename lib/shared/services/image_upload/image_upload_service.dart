@@ -365,7 +365,7 @@ class ImageUploadService {
 
   Future<String> finalizeStaffProfilePhoto({
     required String staffCode,
-    required String sessionCode,
+    required String assetCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffProfilePhotoFinalizePath(staffCode),
@@ -373,7 +373,9 @@ class ImageUploadService {
     );
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
-      data: <String, dynamic>{'sessionCode': sessionCode},
+      data: <String, dynamic>{
+        'assetCode': assetCode.trim(),
+      },
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -389,11 +391,27 @@ class ImageUploadService {
     if (data is! Map<String, dynamic>) {
       throw Exception('Missing finalize response data');
     }
-    final url = (data['url'] ?? '').toString().trim();
-    if (url.isEmpty) {
-      throw Exception('Profile photo URL missing after finalize');
-    }
-    return url;
+    final finalizedAssetCode =
+        (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
+            .toString()
+            .trim();
+    final effectiveAssetCode =
+        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final directUrl = (data['url'] ?? '').toString().trim();
+    final thumbnailUrl = (data['thumbnailUrl'] ?? '').toString().trim();
+    if (directUrl.isNotEmpty) return directUrl;
+    if (thumbnailUrl.isNotEmpty) return thumbnailUrl;
+
+    final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
+      assetCode: effectiveAssetCode,
+    );
+    if (mediaAssetUrl.isNotEmpty) return mediaAssetUrl;
+
+    final profileUrl = await _waitForStaffProfilePhotoUrl(
+      staffCode: staffCode,
+    );
+    if (profileUrl.isNotEmpty) return profileUrl;
+    throw Exception('Profile photo URL missing after finalize');
   }
 
   Future<String> createStudentProfilePhotoUploadSession({
@@ -774,6 +792,53 @@ class ImageUploadService {
           }
           final profilePhotoAssetCode =
               (data['profilePhotoAssetCode'] ?? '').toString().trim();
+          if (profilePhotoAssetCode.isNotEmpty) {
+            final resolved = await _waitForDocumentAssetUrlByCode(
+              assetCode: profilePhotoAssetCode,
+              timeout: const Duration(seconds: 6),
+            );
+            if (resolved.isNotEmpty) return resolved;
+          }
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> _waitForStaffProfilePhotoUrl({
+    required String staffCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final normalized = staffCode.trim();
+    if (normalized.isEmpty) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffProfileByCodePath(normalized),
+        ApiConstants.staffBaseUrl,
+      );
+      final response = await _apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          final candidates = <dynamic>[
+            data['profilePhotoUrl'],
+            data['photoUrl'],
+            data['profileImageUrl'],
+            data['imageUrl'],
+            data['url'],
+          ];
+          for (final raw in candidates) {
+            final value = (raw ?? '').toString().trim();
+            if (value.isNotEmpty) return value;
+          }
+          final profilePhotoAssetCode =
+              (data['profilePhotoAssetCode'] ?? data['photoAssetCode'] ?? '')
+                  .toString()
+                  .trim();
           if (profilePhotoAssetCode.isNotEmpty) {
             final resolved = await _waitForDocumentAssetUrlByCode(
               assetCode: profilePhotoAssetCode,

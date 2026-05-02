@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class StaffProfileScreen extends StatefulWidget {
   const StaffProfileScreen({
@@ -294,20 +295,26 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       if (mounted) setState(() => _profilePhotoUploadPercent = 100);
       final finalizedUrl = await uploadService.finalizeStaffProfilePhoto(
         staffCode: staffCode,
-        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
       );
       if (mounted) {
         setState(() => _profilePhotoUploadPercent = 100);
       }
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      final repo = serviceLocator<StaffRepository>();
+      final refreshed = await repo.getStaffProfile(staffCode: staffCode);
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Profile photo updated successfully',
         isSuccess: true,
       );
       if (!mounted) return;
-      setState(() => _profilePhotoUrl = finalizedUrl);
+      setState(() {
+        _profilePhotoUrl = (refreshed.profilePhotoUrl).trim().isNotEmpty
+            ? refreshed.profilePhotoUrl.trim()
+            : finalizedUrl;
+      });
     } catch (e) {
       CoreUtils.showTopSnackBar(
         context: context,

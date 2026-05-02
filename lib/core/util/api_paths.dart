@@ -293,6 +293,14 @@ class ApiPaths {
   static String staffProfilePhotoFinalizePath(String staffCode) =>
       '$staffMyProfile/$staffCode/profile-photo/finalize';
 
+  /// GET `/api/v1/staff/my-profile/profile-photo/asset-codes`.
+  static const String staffProfilePhotoAssetCodes =
+      '$staffMyProfile/profile-photo/asset-codes';
+
+  /// POST `/api/v1/staff/my-profile/delete-profile-photo/{staffCode}`.
+  static String staffDeleteProfilePhotoPath(String staffCode) =>
+      '$staffMyProfile/delete-profile-photo/$staffCode';
+
   /// GET/PATCH other staff profile — `/api/v1/staff/{staffCode}/profile`.
   static String staffProfileByCodePath(String staffCode) =>
       '/api/v1/staff/$staffCode/profile';
