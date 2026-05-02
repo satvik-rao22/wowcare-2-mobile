@@ -144,6 +144,13 @@ class ApiPathsUat {
       case 'activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'admin':
+        // v2 activity moderation endpoints:
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
       default:
         return ApiMicroservices.user;
     }
