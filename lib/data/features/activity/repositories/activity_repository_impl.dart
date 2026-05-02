@@ -208,9 +208,15 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
-  Future<ActivityDetail> getActivity({required String code}) async {
+  Future<ActivityDetail> getActivity({
+    required String code,
+    bool forGuardianPersona = false,
+    String? guardianCode,
+  }) async {
     final data = await _remoteDataSource.getActivityByCode(
       cardGroupCode: code,
+      forGuardianPersona: forGuardianPersona,
+      guardianCode: guardianCode,
     );
     return ActivityDetail.fromApiData(data);
   }

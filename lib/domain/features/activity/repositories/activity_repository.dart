@@ -61,7 +61,11 @@ abstract class ActivityRepository {
   });
 
   /// `GET /api/v1/activities/code/{code}`
-  Future<ActivityDetail> getActivity({required String code});
+  Future<ActivityDetail> getActivity({
+    required String code,
+    bool forGuardianPersona = false,
+    String? guardianCode,
+  });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({

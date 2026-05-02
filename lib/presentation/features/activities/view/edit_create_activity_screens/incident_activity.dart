@@ -19,12 +19,12 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
 import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
@@ -47,6 +47,25 @@ import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
+
+/// Same rules as `rolesJsonIndicatesGuardianLogin` in `login_persona_util.dart`
+/// (defined here so hot restart always sees the symbol).
+bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
+  final raw = rolesJson.trim();
+  if (raw.isEmpty) return false;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded.any((r) {
+        if (r is! Map) return false;
+        final role = (r['role'] ?? r['Role'] ?? '').toString().toUpperCase();
+        return role.contains('GUARDIAN') || role.contains('PARENT');
+      });
+    }
+  } catch (_) {}
+  final u = raw.toUpperCase();
+  return u.contains('GUARDIAN') || u.contains('PARENT');
+}
 
 class IncidentActivityScreen extends StatefulWidget {
   const IncidentActivityScreen({
@@ -110,6 +129,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool _loadingActivityDetail = false;
   bool _isGuardianPersona = false;
   bool _hasGuardianAcknowledgedLocally = false;
+  /// Logged-in guardian record code + display label for Parent Present when API omits valueText.
+  String _loggedInGuardianCode = '';
+  String _loggedInParentPresentLabel = '';
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
@@ -166,7 +188,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   late final GuardianParentSignatureUseCase _guardianParentSignatureUseCase;
   late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
   late final ApproveActivityUseCase _approveActivityUseCase;
   late final RejectActivityUseCase _rejectActivityUseCase;
@@ -194,7 +215,111 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<String> _resolveParentSignerCode() async {
     final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
     if (guardianCode.isNotEmpty) return guardianCode;
+    final storage = serviceLocator<StorageService>();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    if (incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+      return '';
+    }
     return (_staffCode ?? '').trim();
+  }
+
+  /// Parent/guardian must use `GET /api/v2/guardian/activities/...` with
+  /// resolved guardian record code when required by the API.
+  Future<ActivityDetail> _getActivityDetailRespectingPersona(String code) async {
+    final storage = serviceLocator<StorageService>();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    final isGuardian = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+    if (mounted) {
+      setState(() => _isGuardianPersona = isGuardian);
+    }
+    String? guardianQuery;
+    if (isGuardian) {
+      final g = (await resolveGuardianCodeForLoggedInUser()).trim();
+      guardianQuery = g.isNotEmpty ? g : null;
+    }
+    return serviceLocator<ActivityRepository>().getActivity(
+      code: code,
+      forGuardianPersona: isGuardian,
+      guardianCode: guardianQuery,
+    );
+  }
+
+  Future<void> _resolveLoggedInGuardianPresentLabel() async {
+    final storage = serviceLocator<StorageService>();
+    var school = (_schoolCode ?? '').trim();
+    if (school.isEmpty) {
+      school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    }
+    if (school.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _loggedInGuardianCode = '';
+          _loggedInParentPresentLabel = '';
+        });
+      }
+      return;
+    }
+    final code = (await resolveGuardianCodeForLoggedInUser()).trim();
+    if (!mounted) return;
+    if (code.isEmpty) {
+      setState(() {
+        _loggedInGuardianCode = '';
+        _loggedInParentPresentLabel = '';
+      });
+      return;
+    }
+    await _primeGuardianNamesFromCodes([code]);
+    if (!mounted) return;
+    final label = _guardianDisplayNameForCode(code, fallback: code).trim();
+    setState(() {
+      _loggedInGuardianCode = code;
+      _loggedInParentPresentLabel = label.isNotEmpty ? label : code;
+    });
+  }
+
+  Future<void> _resolveLoggedInGuardianPresentIfNeeded() async {
+    final storage = serviceLocator<StorageService>();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) return;
+    await _resolveLoggedInGuardianPresentLabel();
+  }
+
+  /// Parent "Click to sign" raw from activity detail (skips bare true/false placeholders).
+  String _extractParentSignRawFromParameterValues(
+    List<Map<String, dynamic>> values,
+  ) {
+    for (final p in values) {
+      final pCode = (p['parameterCode'] ?? p['code'] ?? '')
+          .toString()
+          .trim()
+          .toUpperCase();
+      final pName = (p['parameterName'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      final matchesCode = pCode == 'PM_062';
+      final matchesName = pName.contains('click to sign - parent');
+      if (!matchesCode && !matchesName) continue;
+      final raw = (p['valueText'] ?? p['value'] ?? '').toString().trim();
+      if (raw.isEmpty) continue;
+      final lower = raw.toLowerCase();
+      if (lower == 'true' || lower == 'false') continue;
+      return raw;
+    }
+    return '';
+  }
+
+  String _parentPresentDisplayForReadOnlyView(String parentParamRawTrimmed) {
+    final trimmed = parentParamRawTrimmed.trim();
+    if (trimmed.isNotEmpty) {
+      final resolved = _guardianDisplayNameForCode(
+        trimmed,
+        fallback: _displaySignerLabel(trimmed, fallback: ''),
+      );
+      if (resolved.trim().isNotEmpty) return resolved.trim();
+      return _displaySignerLabel(trimmed, fallback: '').trim();
+    }
+    return _loggedInParentPresentLabel.trim();
   }
 
   _IncidentSignaturePayload _parseIncidentSignaturePayload(String raw) {
@@ -323,7 +448,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<void> _primeGuardianNamesFromCodes(Iterable<String> codes) async {
     // Needed for rendering "Parent Present" in view-only mode for any persona
     // (guardian/staff/admin). Do not gate this by _isGuardianPersona.
-    final school = (_schoolCode ?? '').trim();
+    var school = (_schoolCode ?? '').trim();
+    if (school.isEmpty) {
+      final storage = serviceLocator<StorageService>();
+      school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    }
     if (school.isEmpty) return;
     final wanted = codes
         .map((e) => _parseIncidentSignaturePayload(e).signerName)
@@ -542,7 +671,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             ? serviceLocator<GuardianParentSignatureUseCase>()
             : GuardianParentSignatureUseCase(serviceLocator<ActivityRepository>());
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
     _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
@@ -794,7 +922,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      await _resolveLoggedInGuardianPresentIfNeeded();
+      if (!mounted) return;
+      final detail = await _getActivityDetailRespectingPersona(code);
       if (!mounted) return;
       final firstAidFromApi = _pickFirstAidGivenFromActivityDetail(detail);
       final item = activityItemFromActivityDetail(
@@ -905,6 +1035,17 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         code: 'PM_062',
         labelContains: 'click to sign - parent',
       );
+      var effectiveParentSignRaw = parentSignRaw;
+      if (parentSigned == true && effectiveParentSignRaw.trim().isEmpty) {
+        final label = _loggedInParentPresentLabel.trim();
+        final gc = _loggedInGuardianCode.trim();
+        if (label.isNotEmpty) {
+          effectiveParentSignRaw =
+              _buildIncidentSignaturePayload(signerName: label);
+        } else if (gc.isNotEmpty) {
+          effectiveParentSignRaw = gc;
+        }
+      }
       await _primeStaffDisplayNamesFromCodes([
         staffPresentRaw,
         staffSignRaw,
@@ -928,7 +1069,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _staffPresentRawValue = staffPresentRaw;
         _staffSignerRawValue = staffSignRaw;
         _adminSignerRawValue = adminSignRaw;
-        _parentSignerRawValue = parentSignRaw;
+        _parentSignerRawValue = effectiveParentSignRaw;
         _hasGuardianAcknowledgedLocally = parentSigned == true;
         _firstAidGiven =
             firstAidFromApi ?? (item.firstAidAdministered ?? _firstAidGiven);
@@ -953,7 +1094,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           } catch (_) {}
         }
       });
-      unawaited(_primeGuardianNamesFromCodes([parentSignRaw]).catchError((_) {}));
+      unawaited(
+        _primeGuardianNamesFromCodes([effectiveParentSignRaw]).catchError((_) {}),
+      );
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -963,8 +1106,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final roles =
-        (await storage.getString(StorageKeys.roles) ?? '').trim().toUpperCase();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
     final staffType =
         (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
@@ -980,7 +1122,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     setState(() {
       _staffName = resolvedDisplayName.isNotEmpty ? resolvedDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
-      _isGuardianPersona = roles.contains('GUARDIAN') || roles.contains('PARENT');
+      _isGuardianPersona = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -988,6 +1130,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     unawaited(
       _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
     );
+    if (incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+      unawaited(_resolveLoggedInGuardianPresentLabel().catchError((_) {}));
+    } else if (mounted) {
+      setState(() {
+        _loggedInGuardianCode = '';
+        _loggedInParentPresentLabel = '';
+      });
+    }
   }
 
   Future<void> _onAcknowledgePressed() async {
@@ -1029,18 +1179,42 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         guardianCode: parentSignerCode,
       );
       if (!mounted) return;
+
+      await _primeGuardianNamesFromCodes([parentSignerCode]);
+
+      var refreshedParentRaw = '';
+      try {
+        final refreshed = await _getActivityDetailRespectingPersona(code);
+        if (!mounted) return;
+        refreshedParentRaw = _extractParentSignRawFromParameterValues(
+          refreshed.parameterValues,
+        );
+      } catch (_) {}
+
+      if (!mounted) return;
       setState(() {
         _hasGuardianAcknowledgedLocally = true;
         _isParentSigned = true;
-        _parentSignerRawValue = _buildIncidentSignaturePayload(
-          signerName: _guardianDisplayNameForCode(
+        if (refreshedParentRaw.trim().isNotEmpty) {
+          _parentSignerRawValue = refreshedParentRaw.trim();
+        } else {
+          final displayName = _guardianDisplayNameForCode(
             parentSignerCode,
-            fallback: _staffName,
-          ),
-        );
+            fallback: _loggedInParentPresentLabel.isNotEmpty
+                ? _loggedInParentPresentLabel
+                : parentSignerCode,
+          )
+              .trim();
+          if (displayName.isNotEmpty) {
+            _parentSignerRawValue =
+                _buildIncidentSignaturePayload(signerName: displayName);
+          } else {
+            _parentSignerRawValue = parentSignerCode.trim();
+          }
+        }
       });
       unawaited(
-        _primeGuardianNamesFromCodes([parentSignerCode]).catchError((_) {}),
+        _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
       );
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1844,7 +2018,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           attachments: patchAttachments,
         );
         try {
-          await _getActivityUseCase(code: code);
+          await _getActivityDetailRespectingPersona(code);
         } catch (_) {}
       }
 
@@ -2374,12 +2548,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           key: const ValueKey('incident_parent_sign_only'),
                           fieldLabel: 'Parent Present',
                           // Never show logged-in staff/admin name here.
-                          staffName: parentSignerCode.isNotEmpty
-                              ? _guardianDisplayNameForCode(
-                                  parentSignerCode,
-                                  fallback: '',
-                                )
-                              : '',
+                          staffName:
+                              _parentPresentDisplayForReadOnlyView(
+                            parentSignerCode,
+                          ),
                           isEditable: false,
                           isAlreadySigned: _hasParentSignedForAction,
                           clickToSignEditable: !_isAcknowledged,

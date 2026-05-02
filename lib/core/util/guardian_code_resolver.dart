@@ -73,7 +73,14 @@ Future<String> resolveGuardianCodeForLoggedInUser() async {
       schoolCode: schoolCode,
       userCode: userCode,
     );
-    final code = (data['code'] ?? '').toString().trim();
+    final code = (data['code'] ??
+            data['guardianCode'] ??
+            data['GuardianCode'] ??
+            data['parentCode'] ??
+            data['ParentCode'] ??
+            '')
+        .toString()
+        .trim();
     if (code.isNotEmpty) {
       await storage.saveString(StorageKeys.guardianCode, code);
       await storage.saveString(StorageKeys.guardianCodeUser, userCode);

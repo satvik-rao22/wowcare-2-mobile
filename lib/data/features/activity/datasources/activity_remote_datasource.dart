@@ -11,8 +11,13 @@ import '../models/activity_upload_session_models.dart';
 
 abstract class ActivityRemoteDataSource {
   /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.
+  ///
+  /// Parent/guardian: `GET /api/v2/guardian/activities/{cardGroupCode}` with
+  /// optional [guardianCode] query when the backend requires the record code.
   Future<Map<String, dynamic>> getActivityByCode({
     required String cardGroupCode,
+    bool forGuardianPersona = false,
+    String? guardianCode,
   });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
@@ -187,12 +192,24 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getActivityByCode({
     required String cardGroupCode,
+    bool forGuardianPersona = false,
+    String? guardianCode,
   }) async {
-    final base = ApiPaths.url('/api/v2/activities');
     final raw = cardGroupCode.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
+    final base = forGuardianPersona
+        ? ApiPaths.url('/api/v2/guardian/activities')
+        : ApiPaths.url('/api/v2/activities');
     final endpoint = '$base/$segment';
-    final response = await _client.get<dynamic>(endpoint);
+    final gc = (guardianCode ?? '').trim();
+    final Map<String, dynamic>? queryParameters =
+        forGuardianPersona && gc.isNotEmpty
+        ? <String, dynamic>{'guardianCode': gc}
+        : null;
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected get-activity API response format');
