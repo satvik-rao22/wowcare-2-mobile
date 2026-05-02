@@ -550,23 +550,35 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
-  static const String documentUploadSessionsRoot = '/api/v1/upload-sessions';
+  static String get documentUploadSessionsRoot => ApiConstants.isUat
+      ? '/upload-sessions'
+      : '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
     required String sessionCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/api/v1';
+    final defaultDocumentBasePath = ApiConstants.isUat
+        ? '/api/v1/document'
+        : '/api/v1';
+    if (base.isEmpty) base = defaultDocumentBasePath;
     if (!base.startsWith('/')) base = '/$base';
     // If backend returns `/document-ms/api/v1`, strip the `/document-ms` prefix
     // because [ApiConstants.documentMsBaseUrl] already includes it in LOCAL.
     if (base.startsWith('/document-ms/')) {
       base = base.replaceFirst('/document-ms', '');
-      if (base.isEmpty) base = '/api/v1';
+      if (base.isEmpty) base = defaultDocumentBasePath;
+    }
+    if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
+      base = '/api/v1/document';
+    }
+    if (ApiConstants.isUat && base.startsWith('/api/v1/document')) {
+      base = base.replaceFirst('/api/v1/document', '');
+      if (base.isEmpty) base = '';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
-    return '$base/upload-sessions/$sessionCode/assets/presign/batch';
+    return '${base.isEmpty ? '' : base}/upload-sessions/$sessionCode/assets/presign/batch';
   }
 
   static String documentAssetCompletePath({
@@ -575,24 +587,36 @@ class ApiPaths {
     required String assetCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/api/v1';
+    final defaultDocumentBasePath = ApiConstants.isUat
+        ? '/api/v1/document'
+        : '/api/v1';
+    if (base.isEmpty) base = defaultDocumentBasePath;
     if (!base.startsWith('/')) base = '/$base';
     // If backend returns `/document-ms/api/v1`, strip the `/document-ms` prefix
     // because [ApiConstants.documentMsBaseUrl] already includes it in LOCAL.
     if (base.startsWith('/document-ms/')) {
       base = base.replaceFirst('/document-ms', '');
-      if (base.isEmpty) base = '/api/v1';
+      if (base.isEmpty) base = defaultDocumentBasePath;
+    }
+    if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
+      base = '/api/v1/document';
+    }
+    if (ApiConstants.isUat && base.startsWith('/api/v1/document')) {
+      base = base.replaceFirst('/api/v1/document', '');
+      if (base.isEmpty) base = '';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
     final s = sessionCode.trim();
     final a = assetCode.trim();
-    return '$base/upload-sessions/$s/assets/$a/complete';
+    return '${base.isEmpty ? '' : base}/upload-sessions/$s/assets/$a/complete';
   }
 
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
   static String documentMediaAssetByCodePath(String assetCode) =>
-      '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
+      ApiConstants.isUat
+          ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
+          : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>

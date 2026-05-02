@@ -27,6 +27,11 @@ bool staffMayEditDeleteByApprovalStatus(String normalizedStatus) {
       normalizedStatus == 'PENDING';
 }
 
+bool staffMayEditByApprovalStatus(String normalizedStatus) {
+  return staffMayEditDeleteByApprovalStatus(normalizedStatus) ||
+      normalizedStatus == 'NOT_REQUIRED';
+}
+
 bool canEditActivityItem(
   ActivityItem activity, {
   required bool isAdminPersona,
@@ -43,7 +48,7 @@ bool canEditActivityItem(
   if (viewerCode.isEmpty || presentCode.isEmpty || viewerCode != presentCode) {
     return false;
   }
-  if (!staffMayEditDeleteByApprovalStatus(status)) return false;
+  if (!staffMayEditByApprovalStatus(status)) return false;
   return true;
 }
 

@@ -9,6 +9,7 @@ import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
+import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -301,7 +302,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                 children: [
           Expanded(
             child: _isLoadingActivities
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _visibleActivityKeys.isEmpty
                     ? const Center(
                         child: Text(
