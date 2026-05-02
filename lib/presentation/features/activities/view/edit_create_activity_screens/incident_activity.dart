@@ -98,6 +98,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool get _showRequireAdminApprovalToggle =>
       !_isAdminDesignation && !widget.readOnly;
 
+  /// Incident create: admins only need one "Click to sign" (admin param); avoids
+  /// duplicating Staff Present + Admin Present. Edit/read still uses both blocks when needed.
+  bool get _mergeAdminSignatureIntoStaffPresent =>
+      !_layoutAsEdit && _isAdminDesignation && !widget.readOnly;
+
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
@@ -213,18 +218,55 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<String> _resolveParentSignerCode() async {
-    final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
-    if (guardianCode.isNotEmpty) return guardianCode;
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
       return '';
     }
-    return (_staffCode ?? '').trim();
+    var guardianCode =
+        (await refreshGuardianProfileSnapshotForLoggedInUser()).trim();
+    if (guardianCode.isEmpty) {
+      guardianCode = (await storage.getString(StorageKeys.guardianCode) ?? '').trim();
+    }
+    return guardianCode;
   }
 
-  /// Parent/guardian must use `GET /api/v2/guardian/activities/...` with
-  /// resolved guardian record code when required by the API.
+  /// Logged-in guardian `GUA_…`: storage updated by guardian profile snapshot refresh.
+  Future<String> _resolveGuardianCodeForIncidentPayload() async {
+    var gc = _loggedInGuardianCode.trim();
+    if (gc.isEmpty) {
+      gc = (await serviceLocator<StorageService>()
+                  .getString(StorageKeys.guardianCode) ??
+              '')
+          .trim();
+    }
+    if (gc.isEmpty) {
+      gc = (await refreshGuardianProfileSnapshotForLoggedInUser()).trim();
+    }
+    return gc;
+  }
+
+  /// Rewrite parent-sign API text so it always carries `::<base64 utf8 guardianCode>`
+  /// when [guardianCode] is known (fixes bare codes, plain names, or legacy payloads).
+  String _canonicalGuardianIncidentSignStorage({
+    required String raw,
+    required String guardianCode,
+  }) {
+    final g = guardianCode.trim();
+    final r = raw.trim();
+    if (r.isEmpty || g.isEmpty) return r;
+
+    if (_incidentStoredPayloadEncodesRecordCode(r, g)) return r;
+
+    final trimmedProfile = _loggedInParentPresentLabel.trim();
+    final prefix = trimmedProfile.isNotEmpty ? trimmedProfile : g;
+    return _buildIncidentSignaturePayload(
+      prefixForStorage: prefix,
+      signingRecordCode: g,
+    );
+  }
+
+  /// `GET /api/v2/activities/{code}` for all personas (OpenAPI grouped card by code).
   Future<ActivityDetail> _getActivityDetailRespectingPersona(String code) async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
@@ -232,16 +274,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (mounted) {
       setState(() => _isGuardianPersona = isGuardian);
     }
-    String? guardianQuery;
-    if (isGuardian) {
-      final g = (await resolveGuardianCodeForLoggedInUser()).trim();
-      guardianQuery = g.isNotEmpty ? g : null;
-    }
-    return serviceLocator<ActivityRepository>().getActivity(
-      code: code,
-      forGuardianPersona: isGuardian,
-      guardianCode: guardianQuery,
-    );
+    return serviceLocator<ActivityRepository>().getActivity(code: code);
   }
 
   Future<void> _resolveLoggedInGuardianPresentLabel() async {
@@ -259,7 +292,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       }
       return;
     }
-    final code = (await resolveGuardianCodeForLoggedInUser()).trim();
+    final code = (await refreshGuardianProfileSnapshotForLoggedInUser()).trim();
     if (!mounted) return;
     if (code.isEmpty) {
       setState(() {
@@ -268,9 +301,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       });
       return;
     }
-    await _primeGuardianNamesFromCodes([code]);
+    final labelRaw = await readCachedGuardianProfileDisplayLine();
+    final label = (labelRaw ?? '').trim();
     if (!mounted) return;
-    final label = _guardianDisplayNameForCode(code, fallback: code).trim();
     setState(() {
       _loggedInGuardianCode = code;
       _loggedInParentPresentLabel = label.isNotEmpty ? label : code;
@@ -285,21 +318,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   /// Parent "Click to sign" raw from activity detail (skips bare true/false placeholders).
+  /// [parentSignParameter] comes from activity-type metadata ([parameterName] as API returns it).
   String _extractParentSignRawFromParameterValues(
-    List<Map<String, dynamic>> values,
-  ) {
+    List<Map<String, dynamic>> values, {
+    ActivityTypeParameter? parentSignParameter,
+  }) {
+    if (parentSignParameter == null) return '';
     for (final p in values) {
-      final pCode = (p['parameterCode'] ?? p['code'] ?? '')
-          .toString()
-          .trim()
-          .toUpperCase();
-      final pName = (p['parameterName'] ?? '')
-          .toString()
-          .trim()
-          .toLowerCase();
-      final matchesCode = pCode == 'PM_062';
-      final matchesName = pName.contains('click to sign - parent');
-      if (!matchesCode && !matchesName) continue;
+      if (!_parameterValueMatchesIncidentSchema(p, parentSignParameter)) {
+        continue;
+      }
       final raw = (p['valueText'] ?? p['value'] ?? '').toString().trim();
       if (raw.isEmpty) continue;
       final lower = raw.toLowerCase();
@@ -309,17 +337,27 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return '';
   }
 
-  String _parentPresentDisplayForReadOnlyView(String parentParamRawTrimmed) {
-    final trimmed = parentParamRawTrimmed.trim();
-    if (trimmed.isNotEmpty) {
-      final resolved = _guardianDisplayNameForCode(
-        trimmed,
-        fallback: _displaySignerLabel(trimmed, fallback: ''),
-      );
-      if (resolved.trim().isNotEmpty) return resolved.trim();
-      return _displaySignerLabel(trimmed, fallback: '').trim();
-    }
-    return _loggedInParentPresentLabel.trim();
+  /// Match a feed/detail [parameterValues] row to schema by [ActivityTypeParameter.parameterName]
+  /// (trim; allow case-only mismatch between detail row and type definition).
+  bool _parameterValueMatchesIncidentSchema(
+    Map<String, dynamic> pv,
+    ActivityTypeParameter? schema,
+  ) {
+    if (schema == null) return false;
+    final pvName = (pv['parameterName'] ?? '').toString().trim();
+    final schemaName = schema.parameterName.trim();
+    if (pvName.isEmpty || schemaName.isEmpty) return false;
+    if (pvName == schemaName) return true;
+    return pvName.toLowerCase() == schemaName.toLowerCase();
+  }
+
+  /// Same resolution path as guardian labels; prefers [fallback] for technical
+  /// guardian record ids when school map has not warmed yet.
+  bool _looksLikeGuardianTechnicalId(String signerToken) {
+    final u = signerToken.trim().toUpperCase();
+    return u.startsWith('GRD_') ||
+        u.startsWith('GUA_') ||
+        u.startsWith('GUARDIAN_');
   }
 
   _IncidentSignaturePayload _parseIncidentSignaturePayload(String raw) {
@@ -350,28 +388,97 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return _IncidentSignaturePayload(signerName: value, encodedName: '');
   }
 
+  /// `{prefixForStorage}::{base64Utf8(signingRecordCode)}` — the encoded segment is
+  /// always the canonical **staff code** (`STF_…`) or **guardian record code**, not names.
   String _buildIncidentSignaturePayload({
-    required String signerName,
+    required String prefixForStorage,
+    required String signingRecordCode,
   }) {
-    final name = signerName.trim();
-    if (name.isEmpty) return '';
-    final encodedName = name.isNotEmpty ? base64Encode(utf8.encode(name)) : '';
-    return '$name::$encodedName';
+    final prefix = prefixForStorage.trim();
+    final code = signingRecordCode.trim();
+    if (code.isEmpty) return prefix.isNotEmpty ? prefix : '';
+    final encoded = base64Encode(utf8.encode(code));
+    if (prefix.isEmpty) return '$code::$encoded';
+    return '$prefix::$encoded';
+  }
+
+  /// True when [raw]'s trailing segment base64-decodes to [signingRecordCode].
+  bool _incidentStoredPayloadEncodesRecordCode(
+    String raw,
+    String signingRecordCode,
+  ) {
+    final trimmed = raw.trim();
+    final rec = signingRecordCode.trim();
+    if (trimmed.isEmpty || rec.isEmpty) return false;
+    final p = _parseIncidentSignaturePayload(trimmed);
+    if (p.encodedName.isEmpty) return false;
+    try {
+      final dec = utf8.decode(base64.decode(p.encodedName)).trim();
+      return dec == rec;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Signing record code: technical prefix before `::`, otherwise the UTF-8
+  /// payload of the base64 suffix (`Name::base64(GUA_BCD…)` from API flows).
+  String _inferIncidentSigningRecordCodeFromRaw(String raw) {
+    final parsed = _parseIncidentSignaturePayload(raw.trim());
+    final v = parsed.signerName.trim();
+    if (_looksLikeStaffCode(v)) return v;
+    if (_looksLikeGuardianTechnicalId(v)) return v;
+
+    final enc = parsed.encodedName.trim();
+    if (enc.isEmpty) return '';
+    try {
+      final dec = utf8.decode(base64.decode(enc)).trim();
+      if (dec.isEmpty) return '';
+      if (_looksLikeStaffCode(dec)) return dec;
+      if (_looksLikeGuardianTechnicalId(dec)) return dec;
+    } catch (_) {}
+    return '';
+  }
+
+  /// Fingerprint for "Signature-ID" — corresponds to base64(signingRecordCode).
+  /// Prefers [.encodedName] when present on [rawStoredValue].
+  String _incidentSignatureEncodedFingerprint({
+    required String rawStoredValue,
+    required String signingRecordCode,
+  }) {
+    final parsed = _parseIncidentSignaturePayload(rawStoredValue.trim());
+    final encoded = parsed.encodedName.trim();
+    if (encoded.isNotEmpty) return encoded;
+    final code = signingRecordCode.trim().isNotEmpty
+        ? signingRecordCode.trim()
+        : _inferIncidentSigningRecordCodeFromRaw(rawStoredValue.trim());
+    if (code.isEmpty) return '';
+    try {
+      return base64Encode(utf8.encode(code));
+    } catch (_) {
+      return '';
+    }
   }
 
   String _ensureIncidentSignaturePayload({
     required String rawValue,
-    required String fallbackName,
+    required String fallbackDisplayName,
+    required String signingRecordCode,
   }) {
     final raw = rawValue.trim();
-    if (raw.isEmpty) return '';
-    final parsed = _parseIncidentSignaturePayload(raw);
-    if (parsed.encodedName.isNotEmpty && parsed.signerName.isNotEmpty) {
-      return raw;
-    }
-    final resolvedName = _displaySignerLabel(raw, fallback: fallbackName).trim();
-    if (resolvedName.isEmpty) return '';
-    return _buildIncidentSignaturePayload(signerName: resolvedName);
+    var code = signingRecordCode.trim();
+    if (code.isEmpty) code = _inferIncidentSigningRecordCodeFromRaw(raw);
+    if (code.isEmpty) return '';
+    if (_incidentStoredPayloadEncodesRecordCode(raw, code)) return raw;
+
+
+    final display = _displaySignerLabel(raw, fallback: fallbackDisplayName).trim();
+    final prefix =
+        display.isNotEmpty ? display : code;
+
+    return _buildIncidentSignaturePayload(
+      prefixForStorage: prefix,
+      signingRecordCode: code,
+    );
   }
 
   void _debugIncidentParameterValues(
@@ -433,16 +540,25 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (name.trim().isNotEmpty) return name.trim();
       return fallback;
     }
+    final guardianMapped = _guardianNameByCode[v];
+    if (guardianMapped != null && guardianMapped.trim().isNotEmpty) {
+      return guardianMapped.trim();
+    }
+    // Mirror guardian helper: show contextual fallback instead of opaque ids.
+    if (fallback.trim().isNotEmpty &&
+        _looksLikeGuardianTechnicalId(v) &&
+        v.trim() != fallback.trim()) {
+      return fallback.trim();
+    }
     return v;
   }
 
-  String _guardianDisplayNameForCode(String raw, {String fallback = ''}) {
-    final signature = _parseIncidentSignaturePayload(raw);
-    final code = signature.signerName;
-    if (code.isEmpty) return fallback;
-    final mapped = _guardianNameByCode[code];
-    if (mapped != null && mapped.trim().isNotEmpty) return mapped.trim();
-    return fallback.isNotEmpty ? fallback : code;
+  /// Fallback display for parent payloads (approve/reject) when parsing raw signer.
+  String _parentIncidentSignatureFallbackDisplay() {
+    final a = _loggedInParentPresentLabel.trim();
+    if (a.isNotEmpty) return a;
+    final b = _loggedInGuardianCode.trim();
+    return b;
   }
 
   Future<void> _primeGuardianNamesFromCodes(Iterable<String> codes) async {
@@ -552,7 +668,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return null;
   }
 
-  String? _findIncidentParamCodeByName(
+  /// Locate a parameter on the activity type; [exactNames]/[contains] are only for discovery.
+  /// Comparison to [parameterValues] rows uses [ActivityTypeParameter.parameterName] as returned by the API.
+  ActivityTypeParameter? _findIncidentSchemaParameter(
     List<ActivityTypeParameter> parameters,
     List<String> exactNames, {
     List<String> contains = const <String>[],
@@ -560,8 +678,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     for (final p in parameters) {
       final n = p.parameterName.trim().toLowerCase();
       if (exactNames.any((name) => n == name.trim().toLowerCase())) {
-        final code = p.code.trim();
-        if (code.isNotEmpty) return code;
+        return p;
       }
     }
     for (final part in contains) {
@@ -570,12 +687,26 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       for (final p in parameters) {
         final n = p.parameterName.trim().toLowerCase();
         if (n.contains(target)) {
-          final code = p.code.trim();
-          if (code.isNotEmpty) return code;
+          return p;
         }
       }
     }
     return null;
+  }
+
+  String? _findIncidentParamCodeByName(
+    List<ActivityTypeParameter> parameters,
+    List<String> exactNames, {
+    List<String> contains = const <String>[],
+  }) {
+    final p = _findIncidentSchemaParameter(
+      parameters,
+      exactNames,
+      contains: contains,
+    );
+    final c = p?.code.trim();
+    if (c == null || c.isEmpty) return null;
+    return c;
   }
 
   /// Dropdown-style parameters must use [selectedOptionCode]; plain BOOLEAN
@@ -853,12 +984,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     // Preserve original PM_045 (Staff Present) from API. Do not replace it
     // with current admin/staff code during approve/reject patches.
     final creatorStaffCodeForIncident = _staffPresentRawValue.trim();
+    final signerStaffCode = staffCode.trim();
     final staffSignerValue = _isSigned
         ? _ensureIncidentSignaturePayload(
             rawValue: _staffSignerRawValue.trim().isNotEmpty
                 ? _staffSignerRawValue
                 : creatorStaffCodeForIncident,
-            fallbackName: _staffName,
+            fallbackDisplayName: _staffName,
+            signingRecordCode: signerStaffCode,
           )
         : '';
     final adminSignerValue = _isAdminSigned
@@ -866,16 +999,21 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             rawValue: _adminSignerRawValue.trim().isNotEmpty
                 ? _adminSignerRawValue
                 : _staffName,
-            fallbackName: _staffName,
+            fallbackDisplayName: _staffName,
+            signingRecordCode: signerStaffCode,
           )
         : '';
+    final guardianResolved = (await _resolveParentSignerCode()).trim();
     final parentSignerValue = _parentSignerRawValue.trim().isNotEmpty
         ? _ensureIncidentSignaturePayload(
             rawValue: _parentSignerRawValue,
-            fallbackName: _guardianDisplayNameForCode(
-              _parentSignerRawValue,
-              fallback: _staffName,
-            ),
+            fallbackDisplayName: _parentIncidentSignatureFallbackDisplay(),
+            signingRecordCode:
+                guardianResolved.isNotEmpty
+                    ? guardianResolved
+                    : _inferIncidentSigningRecordCodeFromRaw(
+                        _parentSignerRawValue,
+                      ),
           )
         : '';
     final parameterValues = _incidentSignerParameterValuesForPatch(
@@ -924,6 +1062,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     try {
       await _resolveLoggedInGuardianPresentIfNeeded();
       if (!mounted) return;
+      final canonGc = await _resolveGuardianCodeForIncidentPayload();
+      final rolesPrefetch =
+          (await serviceLocator<StorageService>().getString(StorageKeys.roles) ??
+                  '')
+              .trim();
+      final guardianViewer =
+          incidentRolesJsonIndicatesGuardianLogin(rolesPrefetch);
       final detail = await _getActivityDetailRespectingPersona(code);
       if (!mounted) return;
       final firstAidFromApi = _pickFirstAidGivenFromActivityDetail(detail);
@@ -931,10 +1076,39 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         detail,
         viewerDisplayName: _staffName,
       );
-      bool? pickBoolSign({
-        required String code,
-        required String labelContains,
-      }) {
+
+      final activityTypeCode = detail.activityTypeCode.trim();
+      var schemaParams = const <ActivityTypeParameter>[];
+      if (activityTypeCode.isNotEmpty) {
+        try {
+          final typeDetails =
+              await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          schemaParams = typeDetails.parameters;
+        } catch (_) {}
+      }
+
+      final staffPresentSchema = _findIncidentSchemaParameter(
+        schemaParams,
+        const ['Staff Present'],
+        contains: const ['staff present'],
+      );
+      final staffSignSchema = _findIncidentSchemaParameter(
+        schemaParams,
+        const ['Click to Sign - Staff'],
+        contains: const ['click to sign - staff'],
+      );
+      final adminSignSchema = _findIncidentSchemaParameter(
+        schemaParams,
+        const ['Click to Sign - Admin'],
+        contains: const ['click to sign - admin'],
+      );
+      final parentSignSchema = _findIncidentSchemaParameter(
+        schemaParams,
+        const ['Click to Sign - Parent'],
+        contains: const ['click to sign - parent'],
+      );
+
+      bool? pickBoolSign(ActivityTypeParameter? schemaParam) {
         bool? fromRaw(dynamic raw) {
           if (raw is bool) return raw;
           final text = (raw ?? '').toString().trim().toLowerCase();
@@ -944,17 +1118,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         }
 
         for (final p in detail.parameterValues) {
-          final pCode = (p['parameterCode'] ?? p['code'] ?? '')
-              .toString()
-              .trim()
-              .toUpperCase();
-          final pName = (p['parameterName'] ?? '')
-              .toString()
-              .trim()
-              .toLowerCase();
-          final matchesCode = pCode == code.toUpperCase();
-          final matchesName = pName.contains(labelContains.toLowerCase());
-          if (!matchesCode && !matchesName) continue;
+          if (!_parameterValueMatchesIncidentSchema(p, schemaParam)) continue;
           for (final key in const <String>[
             'valueBool',
             'valueBoolean',
@@ -973,78 +1137,63 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         return null;
       }
 
-      final staffSigned = pickBoolSign(
-        code: 'PM_047',
-        labelContains: 'click to sign - staff',
-      );
-      final adminSigned = pickBoolSign(
-        code: 'PM_061',
-        labelContains: 'click to sign - admin',
-      );
-      final parentSigned = pickBoolSign(
-        code: 'PM_062',
-        labelContains: 'click to sign - parent',
-      );
+      final staffSigned = pickBoolSign(staffSignSchema);
+      final adminSigned = pickBoolSign(adminSignSchema);
+      final parentSigned = pickBoolSign(parentSignSchema);
+      final parentActuallySigned = parentSigned == true;
       String pickStaffPresentRawValue() {
         for (final p in detail.parameterValues) {
-          final pCode = (p['parameterCode'] ?? p['code'] ?? '')
-              .toString()
-              .trim()
-              .toUpperCase();
-          final pName = (p['parameterName'] ?? '')
-              .toString()
-              .trim()
-              .toLowerCase();
-          if (pCode != 'PM_045' && !pName.contains('staff present')) continue;
+          if (!_parameterValueMatchesIncidentSchema(p, staffPresentSchema)) {
+            continue;
+          }
           final raw = (p['valueText'] ?? p['value'] ?? '').toString().trim();
           if (raw.isNotEmpty) return raw;
         }
         return '';
       }
-      String pickSignRawValue({
-        required String code,
-        required String labelContains,
-      }) {
+      String pickSignRawValue(ActivityTypeParameter? schemaParam) {
         for (final p in detail.parameterValues) {
-          final pCode = (p['parameterCode'] ?? p['code'] ?? '')
-              .toString()
-              .trim()
-              .toUpperCase();
-          final pName = (p['parameterName'] ?? '')
-              .toString()
-              .trim()
-              .toLowerCase();
-          final matchesCode = pCode == code.toUpperCase();
-          final matchesName = pName.contains(labelContains.toLowerCase());
-          if (!matchesCode && !matchesName) continue;
+          if (!_parameterValueMatchesIncidentSchema(p, schemaParam)) continue;
           final raw = (p['valueText'] ?? p['value'] ?? '').toString().trim();
           if (raw.isNotEmpty) return raw;
         }
         return '';
       }
       final staffPresentRaw = pickStaffPresentRawValue();
-      final staffSignRaw = pickSignRawValue(
-        code: 'PM_047',
-        labelContains: 'click to sign - staff',
-      );
-      final adminSignRaw = pickSignRawValue(
-        code: 'PM_061',
-        labelContains: 'click to sign - admin',
-      );
-      final parentSignRaw = pickSignRawValue(
-        code: 'PM_062',
-        labelContains: 'click to sign - parent',
-      );
-      var effectiveParentSignRaw = parentSignRaw;
-      if (parentSigned == true && effectiveParentSignRaw.trim().isEmpty) {
-        final label = _loggedInParentPresentLabel.trim();
-        final gc = _loggedInGuardianCode.trim();
-        if (label.isNotEmpty) {
-          effectiveParentSignRaw =
-              _buildIncidentSignaturePayload(signerName: label);
-        } else if (gc.isNotEmpty) {
-          effectiveParentSignRaw = gc;
+      final staffSignRaw = pickSignRawValue(staffSignSchema);
+      final adminSignRaw = pickSignRawValue(adminSignSchema);
+      final parentSignRaw = pickSignRawValue(parentSignSchema);
+      var effectiveParentSignRaw = parentSignRaw.trim();
+      if (parentActuallySigned && effectiveParentSignRaw.isEmpty) {
+        var gc = canonGc.trim();
+        var label = _loggedInParentPresentLabel.trim();
+        if (gc.isNotEmpty && label.isEmpty && !guardianViewer) {
+          await _primeGuardianNamesFromCodes([gc]);
+          if (mounted) {
+            label =
+                _displaySignerLabel(gc, fallback: gc).trim();
+          }
         }
+        if (gc.isNotEmpty) {
+          effectiveParentSignRaw = label.isNotEmpty
+              ? _buildIncidentSignaturePayload(
+                  prefixForStorage: label,
+                  signingRecordCode: gc,
+                )
+              : _buildIncidentSignaturePayload(
+                  prefixForStorage: gc,
+                  signingRecordCode: gc,
+                );
+        }
+      }
+      if (effectiveParentSignRaw.isNotEmpty &&
+          canonGc.isNotEmpty &&
+          guardianViewer &&
+          !_incidentStoredPayloadEncodesRecordCode(effectiveParentSignRaw, canonGc)) {
+        effectiveParentSignRaw = _canonicalGuardianIncidentSignStorage(
+          raw: effectiveParentSignRaw,
+          guardianCode: canonGc,
+        );
       }
       await _primeStaffDisplayNamesFromCodes([
         staffPresentRaw,
@@ -1070,7 +1219,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _staffSignerRawValue = staffSignRaw;
         _adminSignerRawValue = adminSignRaw;
         _parentSignerRawValue = effectiveParentSignRaw;
-        _hasGuardianAcknowledgedLocally = parentSigned == true;
+        _hasGuardianAcknowledgedLocally = parentActuallySigned;
         _firstAidGiven =
             firstAidFromApi ?? (item.firstAidAdministered ?? _firstAidGiven);
         _activityTypeCode = item.activityTypeCode;
@@ -1165,18 +1314,32 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         throw Exception('Unable to resolve activity type for parent signature');
       }
       final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
-      final parentSignParamCode = _findIncidentParamCodeByName(
+      final parentSignSchema = _findIncidentSchemaParameter(
         details.parameters,
         const ['Click to Sign - Parent'],
         contains: const ['click to sign - parent'],
       );
-      if (parentSignParamCode == null || parentSignParamCode.trim().isEmpty) {
+      final parentSignParamCode = parentSignSchema?.code.trim();
+      if (parentSignParamCode == null || parentSignParamCode.isEmpty) {
         throw Exception('Parent signature parameter is not configured');
+      }
+      var signaturePayload = _parentSignerRawValue.trim();
+      final g = parentSignerCode.trim();
+      if (signaturePayload.isEmpty ||
+          !_incidentStoredPayloadEncodesRecordCode(signaturePayload, g)) {
+        final label = _loggedInParentPresentLabel.trim().isNotEmpty
+            ? _loggedInParentPresentLabel.trim()
+            : g;
+        signaturePayload = _buildIncidentSignaturePayload(
+          prefixForStorage: label,
+          signingRecordCode: g,
+        );
       }
       await _guardianParentSignatureUseCase(
         code: code,
         parameterCode: parentSignParamCode.trim(),
         guardianCode: parentSignerCode,
+        signatureValue: signaturePayload,
       );
       if (!mounted) return;
 
@@ -1188,6 +1351,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (!mounted) return;
         refreshedParentRaw = _extractParentSignRawFromParameterValues(
           refreshed.parameterValues,
+          parentSignParameter: parentSignSchema,
         );
       } catch (_) {}
 
@@ -1196,20 +1360,32 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _hasGuardianAcknowledgedLocally = true;
         _isParentSigned = true;
         if (refreshedParentRaw.trim().isNotEmpty) {
-          _parentSignerRawValue = refreshedParentRaw.trim();
+          _parentSignerRawValue = _canonicalGuardianIncidentSignStorage(
+            raw: refreshedParentRaw.trim(),
+            guardianCode: parentSignerCode.trim(),
+          );
         } else {
-          final displayName = _guardianDisplayNameForCode(
-            parentSignerCode,
-            fallback: _loggedInParentPresentLabel.isNotEmpty
-                ? _loggedInParentPresentLabel
-                : parentSignerCode,
-          )
-              .trim();
-          if (displayName.isNotEmpty) {
-            _parentSignerRawValue =
-                _buildIncidentSignaturePayload(signerName: displayName);
+          final profileLine = _loggedInParentPresentLabel.trim();
+          final displayName = profileLine.isNotEmpty
+              ? profileLine
+              : _displaySignerLabel(
+                  parentSignerCode,
+                  fallback: parentSignerCode,
+                ).trim();
+          final g = parentSignerCode.trim();
+          if (displayName.isNotEmpty && g.isNotEmpty) {
+            _parentSignerRawValue = _buildIncidentSignaturePayload(
+              prefixForStorage: displayName,
+              signingRecordCode: g,
+            );
           } else {
-            _parentSignerRawValue = parentSignerCode.trim();
+            _parentSignerRawValue =
+                g.isNotEmpty
+                    ? _buildIncidentSignaturePayload(
+                        prefixForStorage: g,
+                        signingRecordCode: g,
+                      )
+                    : '';
           }
         }
       });
@@ -1517,22 +1693,27 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           : whatHappened;
 
       final parentSignerCode = await _resolveParentSignerCode();
+      final createStaffCode = staffCode.trim();
       final staffSignValue = (_isSigned && !_isAdminDesignation)
           ? _buildIncidentSignaturePayload(
-              signerName: _staffName,
+              prefixForStorage: _staffName,
+              signingRecordCode: createStaffCode,
             )
           : '';
       final adminSignValue = (_isAdminSigned && _isAdminDesignation)
           ? _buildIncidentSignaturePayload(
-              signerName: _staffName,
+              prefixForStorage: _staffName,
+              signingRecordCode: createStaffCode,
             )
           : '';
-      final parentSignValue = _isParentSigned
+      final gCode = parentSignerCode.trim();
+      final parentSignValue = _isParentSigned && gCode.isNotEmpty
           ? _buildIncidentSignaturePayload(
-              signerName: _guardianDisplayNameForCode(
+              prefixForStorage: _displaySignerLabel(
                 parentSignerCode,
-                fallback: _staffName,
+                fallback: parentSignerCode.trim(),
               ),
+              signingRecordCode: gCode,
             )
           : '';
       final parameterValues = <Map<String, dynamic>>[
@@ -1904,43 +2085,50 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final resolvedParentSignerCode = _isGuardianPersona
           ? (_isParentSigned ? parentSignerCode.trim() : '')
           : _parentSignerRawValue.trim();
+      final updateStaffCode = staffCode.trim();
       final resolvedStaffSignerValue = _isSigned
           ? (() {
-              if (_staffSignerRawValue.trim().isNotEmpty &&
-                  _staffSignerRawValue.contains('::')) {
-                return _staffSignerRawValue.trim();
+              final raw = _staffSignerRawValue.trim();
+              if (_incidentStoredPayloadEncodesRecordCode(raw, updateStaffCode)) {
+                return raw;
               }
               return _buildIncidentSignaturePayload(
-                signerName: _displaySignerLabel(
-                  _staffSignerRawValue,
+                prefixForStorage: _displaySignerLabel(
+                  raw,
                   fallback: _staffName,
                 ),
+                signingRecordCode: updateStaffCode,
               );
             })()
           : '';
       final resolvedAdminSignerValue = resolvedAdminSignerCode.trim().isNotEmpty
           ? (() {
-              if (_adminSignerRawValue.trim().contains('::')) {
-                return _adminSignerRawValue.trim();
+              final raw = _adminSignerRawValue.trim();
+              if (_incidentStoredPayloadEncodesRecordCode(raw, updateStaffCode)) {
+                return raw;
               }
               return _buildIncidentSignaturePayload(
-                signerName: _displaySignerLabel(
-                  _adminSignerRawValue,
+                prefixForStorage: _displaySignerLabel(
+                  raw,
                   fallback: _staffName,
                 ),
+                signingRecordCode: updateStaffCode,
               );
             })()
           : '';
-      final resolvedParentSignerValue = resolvedParentSignerCode.trim().isNotEmpty
+      final pvc = resolvedParentSignerCode.trim();
+      final resolvedParentSignerValue = pvc.isNotEmpty
           ? (() {
-              if (_parentSignerRawValue.trim().contains('::')) {
-                return _parentSignerRawValue.trim();
+              final raw = _parentSignerRawValue.trim();
+              if (_incidentStoredPayloadEncodesRecordCode(raw, pvc)) {
+                return raw;
               }
               return _buildIncidentSignaturePayload(
-                signerName: _guardianDisplayNameForCode(
-                  resolvedParentSignerCode,
-                  fallback: _staffName,
+                prefixForStorage: _displaySignerLabel(
+                  raw,
+                  fallback: pvc,
                 ),
+                signingRecordCode: pvc,
               );
             })()
           : '';
@@ -2495,6 +2683,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   final staffSignerCode = _staffSignerRawValue.trim();
                   final adminSignerCode = _adminSignerRawValue.trim();
                   final parentSignerCode = _parentSignerRawValue.trim();
+                  final staffPresentReadLabel =
+                      _displaySignerLabel(staffSignerCode, fallback: '');
+                  final adminPresentReadLabel =
+                      _displaySignerLabel(adminSignerCode, fallback: '');
+                  final profileGuardianLine = _loggedInParentPresentLabel.trim();
+                  final parentPresentReadLabel =
+                      (_isGuardianPersona && profileGuardianLine.isNotEmpty)
+                          ? profileGuardianLine
+                          : _displaySignerLabel(
+                              parentSignerCode,
+                              fallback: profileGuardianLine,
+                            );
                   final showStaffSignedBlock = staffSignerCode.isNotEmpty;
                   final showAdminSignedBlock = adminSignerCode.isNotEmpty;
                   final showParentSignedBlock = parentSignerCode.isNotEmpty ||
@@ -2506,19 +2706,21 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                         StaffPresentWidget(
                           key: const ValueKey('incident_parent_view_staff_present'),
                           fieldLabel: 'Staff Present',
-                          staffName: _displaySignerLabel(
-                            staffSignerCode,
-                            fallback: '',
-                          ),
+                          staffName: staffPresentReadLabel,
                           isEditable: false,
                           isAlreadySigned: true,
                           clickToSignEditable: false,
                           showSignCheckbox: true,
                           showStaffDropdown: false,
                           incidentActivity: true,
-                          signatureEncodedValue: _parseIncidentSignaturePayload(
-                            staffSignerCode,
-                          ).encodedName,
+                          signatureEncodedValue:
+                              _incidentSignatureEncodedFingerprint(
+                            rawStoredValue: staffSignerCode,
+                            signingRecordCode:
+                                _inferIncidentSigningRecordCodeFromRaw(
+                              staffSignerCode,
+                            ),
+                          ),
                         ),
                       if (showStaffSignedBlock && showAdminSignedBlock)
                         const SizedBox(height: 16),
@@ -2526,19 +2728,21 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                         StaffPresentWidget(
                           key: const ValueKey('incident_parent_view_admin_present'),
                           fieldLabel: 'Admin Present',
-                          staffName: _displaySignerLabel(
-                            _adminSignerRawValue,
-                            fallback: '',
-                          ),
+                          staffName: adminPresentReadLabel,
                           isEditable: false,
                           isAlreadySigned: true,
                           clickToSignEditable: false,
                           showSignCheckbox: true,
                           showStaffDropdown: false,
                           incidentActivity: true,
-                          signatureEncodedValue: _parseIncidentSignaturePayload(
-                            adminSignerCode,
-                          ).encodedName,
+                          signatureEncodedValue:
+                              _incidentSignatureEncodedFingerprint(
+                            rawStoredValue: adminSignerCode,
+                            signingRecordCode:
+                                _inferIncidentSigningRecordCodeFromRaw(
+                              adminSignerCode,
+                            ),
+                          ),
                         ),
                       if ((showStaffSignedBlock || showAdminSignedBlock) &&
                           showParentSignedBlock)
@@ -2548,24 +2752,52 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                           key: const ValueKey('incident_parent_sign_only'),
                           fieldLabel: 'Parent Present',
                           // Never show logged-in staff/admin name here.
-                          staffName:
-                              _parentPresentDisplayForReadOnlyView(
-                            parentSignerCode,
-                          ),
+                          staffName: parentPresentReadLabel,
                           isEditable: false,
                           isAlreadySigned: _hasParentSignedForAction,
                           clickToSignEditable: !_isAcknowledged,
+                          matchStaffDirectoryForDisplay: false,
                           showStaffDropdown: false,
                           showSignCheckbox: true,
                           incidentActivity: true,
                           onSigned: (value) {
                             setState(() {
                               _isParentSigned = value;
+                              if (!value) {
+                                _parentSignerRawValue = '';
+                              }
                             });
+                            if (!value || !mounted) return;
+                            () async {
+                              var gc = _loggedInGuardianCode.trim();
+                              if (gc.isEmpty) {
+                                gc = (await serviceLocator<StorageService>()
+                                            .getString(StorageKeys.guardianCode) ??
+                                        '')
+                                    .trim();
+                              }
+                              if (!mounted || !_isParentSigned) return;
+                              final label = _loggedInParentPresentLabel.trim();
+                              final prefix = label.isNotEmpty ? label : gc;
+                              setState(() {
+                                _parentSignerRawValue = gc.isNotEmpty
+                                    ? _buildIncidentSignaturePayload(
+                                        prefixForStorage:
+                                            prefix.isNotEmpty ? prefix : gc,
+                                        signingRecordCode: gc,
+                                      )
+                                    : '';
+                              });
+                            }();
                           },
-                          signatureEncodedValue: _parseIncidentSignaturePayload(
-                            parentSignerCode,
-                          ).encodedName,
+                          signatureEncodedValue:
+                              _incidentSignatureEncodedFingerprint(
+                            rawStoredValue: parentSignerCode,
+                            signingRecordCode:
+                                _inferIncidentSigningRecordCodeFromRaw(
+                              parentSignerCode,
+                            ),
+                          ),
                         ),
                     ],
                   );
@@ -2579,50 +2811,74 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 if (!showStaffPresentBlock) {
                   return const SizedBox.shrink();
                 }
+                final staffPresentEditLabel = _layoutAsEdit
+                    ? _displaySignerLabel(
+                        _staffPresentRawValue,
+                        fallback: '',
+                      )
+                    : (lockToLoggedInStaff
+                          ? _staffName
+                          : staffPresentLabelForActivity(
+                              layoutAsEdit: _layoutAsEdit,
+                              activityCreatedBy: _layoutAsEdit
+                                  ? (_effectiveActivity.staffPresent ??
+                                      _effectiveActivity.createdBy)
+                                  : '',
+                              loggedInDisplayName: _staffName,
+                            ));
                 return StaffPresentWidget(
                   key: const ValueKey('incident_staff_present'),
-                  staffName: _layoutAsEdit
-                      ? _displaySignerLabel(
-                          _staffPresentRawValue,
-                          fallback: '',
-                        )
-                      : (lockToLoggedInStaff
-                            ? _staffName
-                            : staffPresentLabelForActivity(
-                                layoutAsEdit: _layoutAsEdit,
-                                activityCreatedBy: _layoutAsEdit
-                                    ? (_effectiveActivity.staffPresent ??
-                                        _effectiveActivity.createdBy)
-                                    : '',
-                                loggedInDisplayName: _staffName,
-                              )),
+                  staffName: staffPresentEditLabel,
                   isEditable:
                       lockToLoggedInStaff ? false : _canInteract,
-                  isAlreadySigned: _isSigned,
+                  isAlreadySigned: _mergeAdminSignatureIntoStaffPresent
+                      ? _isAdminSigned
+                      : _isSigned,
                   clickToSignEditable: _canInteract,
-                  showSignCheckbox: !_isGuardianPersona && !_isAdminDesignation,
+                  showSignCheckbox: !_isGuardianPersona &&
+                      (!_isAdminDesignation ||
+                          _mergeAdminSignatureIntoStaffPresent),
                   showStaffDropdown: !_isAdminDesignation,
                   prefillWithStaffName: !_layoutAsEdit && _isAdminDesignation,
                   incidentActivity: true,
                   onSigned: (value) {
                     setState(() {
-                      _isSigned = value;
-                      _staffSignerRawValue = value
-                          ? _buildIncidentSignaturePayload(
-                              signerName: _staffName,
-                            )
-                          : '';
+                      final sc = (_staffCode ?? '').trim();
+                      if (_mergeAdminSignatureIntoStaffPresent) {
+                        _isAdminSigned = value;
+                        _adminSignedThisSession = value;
+                        final prefix =
+                            _staffName.trim().isEmpty ? 'Admin' : _staffName.trim();
+                        _adminSignerRawValue = value
+                            ? _buildIncidentSignaturePayload(
+                                prefixForStorage: prefix,
+                                signingRecordCode: sc,
+                              )
+                            : '';
+                      } else {
+                        _isSigned = value;
+                        _staffSignerRawValue = value
+                            ? _buildIncidentSignaturePayload(
+                                prefixForStorage: _staffName,
+                                signingRecordCode: sc,
+                              )
+                            : '';
+                      }
                     });
                   },
-                  signatureEncodedValue: _parseIncidentSignaturePayload(
-                    _staffSignerRawValue,
-                  ).encodedName,
+                  signatureEncodedValue:
+                      _incidentSignatureEncodedFingerprint(
+                    rawStoredValue: _mergeAdminSignatureIntoStaffPresent
+                        ? _adminSignerRawValue
+                        : _staffSignerRawValue,
+                    signingRecordCode: (_staffCode ?? '').trim(),
+                  ),
                 );
               },
             ),
-            if (_isAdminDesignation && !widget.readOnly)
+            if (_layoutAsEdit && _isAdminDesignation && !widget.readOnly)
               const SizedBox(height: 16),
-            if (_isAdminDesignation && !widget.readOnly)
+            if (_layoutAsEdit && _isAdminDesignation && !widget.readOnly)
               StaffPresentWidget(
                 key: const ValueKey('incident_admin_present'),
                 fieldLabel: 'Admin Present',
@@ -2636,16 +2892,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   setState(() {
                     _isAdminSigned = value;
                     _adminSignedThisSession = value;
+                    final sc = (_staffCode ?? '').trim();
                     _adminSignerRawValue = value
                         ? _buildIncidentSignaturePayload(
-                            signerName: _staffName,
+                            prefixForStorage: _staffName.trim().isEmpty
+                                ? 'Admin'
+                                : _staffName.trim(),
+                            signingRecordCode: sc,
                           )
                         : '';
                   });
                 },
-                signatureEncodedValue: _parseIncidentSignaturePayload(
-                  _adminSignerRawValue,
-                ).encodedName,
+                signatureEncodedValue:
+                    _incidentSignatureEncodedFingerprint(
+                  rawStoredValue: _adminSignerRawValue,
+                  signingRecordCode: (_staffCode ?? '').trim(),
+                ),
               ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(

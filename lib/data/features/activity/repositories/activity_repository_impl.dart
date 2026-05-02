@@ -210,13 +210,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
   @override
   Future<ActivityDetail> getActivity({
     required String code,
-    bool forGuardianPersona = false,
-    String? guardianCode,
   }) async {
     final data = await _remoteDataSource.getActivityByCode(
       cardGroupCode: code,
-      forGuardianPersona: forGuardianPersona,
-      guardianCode: guardianCode,
     );
     return ActivityDetail.fromApiData(data);
   }
@@ -285,11 +281,13 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String code,
     required String parameterCode,
     required String guardianCode,
+    String? signatureValue,
   }) async {
     final message = await _remoteDataSource.guardianParentSignature(
       cardGroupCode: code,
       parameterCode: parameterCode,
       guardianCode: guardianCode,
+      signatureValue: signatureValue,
     );
     await ActivityFeedInvalidation.invalidate(_storageService);
     return message;

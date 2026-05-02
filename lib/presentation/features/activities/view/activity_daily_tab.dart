@@ -31,7 +31,7 @@ import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
@@ -66,6 +66,11 @@ import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import '../util/activity_parent_feed_merge.dart';
 import '../utils/activity_staff_display.dart';
+import 'activity_feed_card_permissions.dart';
+import 'activity_item.dart';
+
+export 'activity_item.dart';
+export 'activity_feed_card_permissions.dart';
 
 class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
@@ -160,8 +165,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetClassroomActivitySettingsUseCase
-  _getClassroomActivitySettingsUseCase;
+  late final GetActiveActivityTypesForSchoolUseCase
+      _getActiveActivityTypesForSchoolUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentCodesForActivityTagFilterUseCase
@@ -947,10 +952,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     );
 
     try {
-      final settings = await ActivityFilterMetadataCache.loadClassroomActivitySettings(
+      final settings =
+          await ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
         cacheManager: _cacheManager,
-        useCase: _getClassroomActivitySettingsUseCase,
-        classroomCode: code,
+        useCase: _getActiveActivityTypesForSchoolUseCase,
+        schoolCode: school,
         forceRefresh: forceRefreshApis,
       );
       if (!mounted) return;
@@ -2328,8 +2334,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _getDailyActivityFeedUseCase =
         serviceLocator<GetDailyActivityFeedUseCase>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
-    _getClassroomActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getActiveActivityTypesForSchoolUseCase =
+        serviceLocator<GetActiveActivityTypesForSchoolUseCase>();
     _getStudentClassroomListUseCase =
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
@@ -5895,90 +5901,6 @@ List<ActivityItem> groupMultiStudentFeedItems(
   return out;
 }
 
-class ActivityItem {
-  final String time;
-  final String date;
-  final String name;
-  final String? description;
-  //final Color color;
-  final String? photoUrl;
-  final String? videoUrl;
-  final List<String> studentList;
-  final String createdBy;
-  final String? activityType; // for learning activity
-  final List<String>? categoryType; // for learning activity
-  final String? mealType; // for meal activity
-  final String? mealQuantity; // also for meal activity
-  final String? amountConsumed; // for bottle activity (volume, e.g. 6 OZ)
-  /// Consumption / intake status from feed (e.g. "Consumed"), not the free-text description.
-  final String? bottleConsumptionStatus;
-  final String? napStartTime; // for nap activity
-  final bool? remainderOn; // for nap start activity
-  final String? napEndTime; // for nap end activity
-  final String? whatHappened; // for incident activity
-  final bool? firstAidAdministered; // for incident activity
-  final String? staffPresent; // can be equal to createdBy
-  final String? staffPresentCode; // raw code from "Staff Present"
-  final String? additionalNotes; // for incident activity
-  final String? bathroomType; // for bathroom activity
-  final String? bathroomSubType; // also for bathroom activity
-  /// Diaper size label from activity parameters (feed / detail), e.g. "2".
-  final String? bathroomDiaperSize;
-  /// From feed row; used to load activity-type parameter definitions in edit flows.
-  final String? activityTypeCode;
-
-  /// `GET /api/v1/activities/code/{code}` / `PATCH /api/v1/activities/{code}`
-  final String? activityCode;
-  final String? studentCode;
-  final String? classroomCode;
-
-  /// Raw ISO from API (edit / prefetch).
-  final String? activityDateIso;
-
-  /// Attachment rows from feed (or detail) snapshot; used by edit screens without GET-by-code.
-  final List<Map<String, dynamic>>? snapshotAttachments;
-  /// One map per student on merged feed cards: `name`, `studentCode`, `activityCode`.
-  final List<Map<String, String>>? studentActivityRefs;
-  final String? approvalStatus;
-
-  const ActivityItem({
-    required this.time,
-    required this.date,
-    required this.name,
-    this.description,
-    //required this.color,
-    this.photoUrl,
-    this.videoUrl,
-    required this.studentList,
-    required this.createdBy,
-    this.activityType,
-    this.categoryType,
-    this.mealType,
-    this.mealQuantity,
-    this.amountConsumed,
-    this.bottleConsumptionStatus,
-    this.napStartTime,
-    this.remainderOn,
-    this.napEndTime,
-    this.whatHappened,
-    this.firstAidAdministered,
-    this.staffPresent,
-    this.staffPresentCode,
-    this.additionalNotes,
-    this.bathroomType,
-    this.bathroomSubType,
-    this.bathroomDiaperSize,
-    this.activityTypeCode,
-    this.activityCode,
-    this.studentCode,
-    this.classroomCode,
-    this.activityDateIso,
-    this.snapshotAttachments,
-    this.studentActivityRefs,
-    this.approvalStatus,
-  });
-}
-
 String? activityApprovalStatusBadgeLabel(String? rawStatus) {
   final raw = (rawStatus ?? '').trim().toUpperCase();
   if (raw.isEmpty || raw == 'ACTIVE') return null;
@@ -6022,93 +5944,6 @@ Color activityApprovalStatusBadgeColor(String? rawStatus) {
     default:
       return const Color(0xFFE9E2F7);
   }
-}
-
-String normalizeApprovalStatus(String? rawStatus) {
-  final raw = (rawStatus ?? '').trim().toUpperCase();
-  return raw.isEmpty ? 'NOT_REQUIRED' : raw;
-}
-
-bool isIncidentActivityItem(ActivityItem activity) {
-  final name = activity.name.trim().toLowerCase();
-  return name == 'incident' || name.contains('incident');
-}
-
-bool isAttendanceCardActivityItem(ActivityItem activity) {
-  final normalized = activity.name
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z]'), '');
-  return normalized == 'signin' ||
-      normalized == 'signout' ||
-      normalized == 'transfer' ||
-      normalized == 'markedabsent' ||
-      normalized == 'absent';
-}
-
-bool canEditActivityItem(
-  ActivityItem activity, {
-  required bool isAdminPersona,
-  String? viewerStaffCode,
-}) {
-  final status = normalizeApprovalStatus(activity.approvalStatus);
-  if (status == 'REJECTED') return false;
-
-  if (isAdminPersona) {
-    // Admin personas can always edit activities (even if approved/rejected),
-    // except attendance pseudo-activities which are not editable via activity forms.
-    return !isAttendanceCardActivityItem(activity);
-  }
-  final viewerCode = (viewerStaffCode ?? '').trim().toUpperCase();
-  final presentCode = (activity.staffPresentCode ?? '').trim().toUpperCase();
-  if (viewerCode.isEmpty || presentCode.isEmpty || viewerCode != presentCode) {
-    return false;
-  }
-  if (status == 'PARENT_ACKNOWLEDGEMENT_PENDING') return false;
-  if (status == 'ACKNOWLEDGED') {
-    return isAdminPersona && isIncidentActivityItem(activity);
-  }
-  if (status == 'APPROVED' && isIncidentActivityItem(activity)) {
-    return false;
-  }
-  return true;
-}
-
-bool canDeleteActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
-  final status = normalizeApprovalStatus(activity.approvalStatus);
-  if (status == 'REJECTED' && !isAdminPersona) return false;
-  if (!isAdminPersona &&
-      isIncidentActivityItem(activity) &&
-      isLikelyAdminDesignationLabel(activity.createdBy)) {
-    return false;
-  }
-  return true;
-}
-
-bool isLikelyAdminDesignationLabel(String raw) {
-  final v = raw.trim().toUpperCase();
-  if (v.isEmpty) return false;
-  const directMatches = <String>{
-    'SCHOOL_ADMIN',
-    'ORGANIZATION_ADMIN',
-    'DIRECTOR',
-    'ADMIN',
-    'ASSISTANT_DIRECTOR',
-    'OWNER',
-  };
-  if (directMatches.contains(v)) return true;
-  return v.contains('ADMIN') ||
-      v.contains('DIRECTOR') ||
-      v.contains('OWNER');
-}
-
-bool canAdminApproveOrRejectActivityItem(
-  ActivityItem activity, {
-  required bool isAdminPersona,
-}) {
-  if (!isAdminPersona) return false;
-  final status = normalizeApprovalStatus(activity.approvalStatus);
-  return status == 'PENDING_ADMIN_APPROVAL' || status == 'PENDING';
 }
 
 /// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.

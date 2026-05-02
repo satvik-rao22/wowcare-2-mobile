@@ -60,11 +60,9 @@ abstract class ActivityRepository {
     int size = 100,
   });
 
-  /// `GET /api/v1/activities/code/{code}`
+  /// `GET /api/v2/activities/{cardGroupCode}`
   Future<ActivityDetail> getActivity({
     required String code,
-    bool forGuardianPersona = false,
-    String? guardianCode,
   });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
@@ -96,6 +94,7 @@ abstract class ActivityRepository {
     required String code,
     required String parameterCode,
     required String guardianCode,
+    String? signatureValue,
   });
 
   /// Creates a new activity via `POST /api/v1/activities`.

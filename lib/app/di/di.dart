@@ -157,6 +157,7 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
@@ -202,9 +203,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Auth Data Sources
   serviceLocator.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
-  );
-  serviceLocator.registerLazySingleton<AuthLocalDataSource>(
-    () => AuthLocalDataSourceImpl(serviceLocator()),
   );
 
   // Staff Data Sources
@@ -306,6 +304,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => CommunicationRepositoryImpl(
       remoteDataSource: serviceLocator(),
       cacheService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<SessionLocalCacheWiper>(
+    () => SessionLocalCacheWiper(
+      cacheService: serviceLocator<CacheService>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<AuthLocalDataSource>(
+    () => AuthLocalDataSourceImpl(
+      serviceLocator<StorageService>(),
+      sessionLocalCacheWiper: serviceLocator<SessionLocalCacheWiper>(),
     ),
   );
 

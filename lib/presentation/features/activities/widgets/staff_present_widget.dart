@@ -4,8 +4,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/staff/entities/staff_member.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
@@ -26,6 +27,7 @@ class StaffPresentWidget extends StatefulWidget {
     this.showStaffDropdown = true,
     this.signatureEncodedValue,
     this.onStaffChanged,
+    this.matchStaffDirectoryForDisplay = true,
   });
   final String staffName;
   final bool isEditable;
@@ -41,6 +43,10 @@ class StaffPresentWidget extends StatefulWidget {
   final String? signatureEncodedValue;
   final void Function(String? selectedName, String? selectedCode)? onStaffChanged;
 
+  /// When false, [staffName] is shown as-is (e.g. guardian name from profile API).
+  /// When true, names may match the staff directory case-insensitive (can distort casing).
+  final bool matchStaffDirectoryForDisplay;
+
   @override
   State<StaffPresentWidget> createState() => _StaffPresentWidgetState();
 }
@@ -53,12 +59,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
 final Map<String, String> _staffCodeByNameLower = <String, String>{};
 final Map<String, String> _staffNameByCodeLower = <String, String>{};
  bool _loadingStaffs = false;
- late final CacheManager _cacheManager;
-
   @override
   void initState(){
     super.initState();
-    _cacheManager = CacheManager(serviceLocator<StorageService>());
     _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
     _loadStaffNames();
@@ -67,7 +70,9 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
   @override
   void didUpdateWidget(StaffPresentWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.staffName.trim() != widget.staffName.trim()) {
+    if (oldWidget.staffName.trim() != widget.staffName.trim() ||
+        oldWidget.matchStaffDirectoryForDisplay !=
+            widget.matchStaffDirectoryForDisplay) {
       setState(_rebuildStaffSelection);
     }
     if (oldWidget.isAlreadySigned != widget.isAlreadySigned) {
@@ -126,6 +131,7 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
   String _resolveDisplayName(String raw) {
     final t = raw.trim();
     if (t.isEmpty) return '';
+    if (!widget.matchStaffDirectoryForDisplay) return t;
     for (final n in _fetchedStaffNames) {
       if (n.toLowerCase() == t.toLowerCase()) return n;
     }
@@ -141,6 +147,28 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
     widget.onStaffChanged?.call(selectedStaff, code);
   }
 
+  void _applyStaffMemberItems(List<StaffMember> items) {
+    _fetchedStaffNames
+      ..clear()
+      ..addAll(
+        items
+            .map((e) => e.name.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort(),
+      );
+    _staffCodeByNameLower.clear();
+    _staffNameByCodeLower.clear();
+    for (final staff in items) {
+      final name = staff.name.trim();
+      final code = staff.code.trim();
+      if (name.isEmpty || code.isEmpty) continue;
+      _staffCodeByNameLower[name.toLowerCase()] = code;
+      _staffNameByCodeLower[code.toLowerCase()] = name;
+    }
+  }
+
   Future<void> _loadStaffNames() async {
     if (_loadingStaffs) return;
     _loadingStaffs = true;
@@ -152,52 +180,18 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
           (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (org.isEmpty || school.isEmpty) return;
 
-      final cacheKey = CacheManager.buildCacheKey(
-        feature: 'staff',
-        resource: 'list',
-        identifier: '${org}_$school',
-      );
-
-      // Fast path: load cached staff names.
-      try {
-        final cached = await _cacheManager.loadCache(cacheKey);
-        final cachedNames = cached?['names'];
-        final cachedNameCodeMap = cached?['nameCodeMap'];
-        final cachedCodeNameMap = cached?['codeNameMap'];
-        if (cachedNames is List && cachedNames.isNotEmpty) {
-          _fetchedStaffNames
-            ..clear()
-            ..addAll(
-              cachedNames
-                  .map((e) => e.toString().trim())
-                  .where((e) => e.isNotEmpty)
-                  .toSet()
-                  .toList()
-                ..sort(),
-            );
-          _staffCodeByNameLower.clear();
-          _staffNameByCodeLower.clear();
-          if (cachedNameCodeMap is Map) {
-            for (final entry in cachedNameCodeMap.entries) {
-              final name = entry.key.toString().trim();
-              final code = entry.value.toString().trim();
-              if (name.isEmpty || code.isEmpty) continue;
-              _staffCodeByNameLower[name.toLowerCase()] = code;
-              _staffNameByCodeLower[code.toLowerCase()] = name;
-            }
+      final repo = serviceLocator<StaffRepository>();
+      if (repo is StaffRepositoryWithCache) {
+        try {
+          final cached = await (repo as StaffRepositoryWithCache)
+              .loadCachedStaffPage(school, status: 'ACTIVE');
+          if (cached != null && cached.items.isNotEmpty) {
+            _applyStaffMemberItems(cached.items);
+            if (mounted) setState(_rebuildStaffSelection);
+            return;
           }
-          if (cachedCodeNameMap is Map) {
-            for (final entry in cachedCodeNameMap.entries) {
-              final code = entry.key.toString().trim();
-              final name = entry.value.toString().trim();
-              if (name.isEmpty || code.isEmpty) continue;
-              _staffNameByCodeLower[code.toLowerCase()] = name;
-              _staffCodeByNameLower[name.toLowerCase()] = code;
-            }
-          }
-          if (mounted) setState(_rebuildStaffSelection);
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
 
       final useCase = serviceLocator<GetStaffPageUseCase>();
       final page = await useCase(
@@ -207,31 +201,8 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
         size: 300,
         status: 'ACTIVE',
       );
-      _fetchedStaffNames
-        ..clear()
-        ..addAll(
-          page.items
-              .map((e) => e.name.trim())
-              .where((e) => e.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort(),
-        );
-      _staffCodeByNameLower.clear();
-      _staffNameByCodeLower.clear();
-      for (final staff in page.items) {
-        final name = staff.name.trim();
-        final code = staff.code.trim();
-        if (name.isEmpty || code.isEmpty) continue;
-        _staffCodeByNameLower[name.toLowerCase()] = code;
-        _staffNameByCodeLower[code.toLowerCase()] = name;
-      }
+      _applyStaffMemberItems(page.items);
       if (!mounted) return;
-      await _cacheManager.saveCache(cacheKey, {
-        'names': List<String>.from(_fetchedStaffNames),
-        'nameCodeMap': Map<String, String>.from(_staffCodeByNameLower),
-        'codeNameMap': Map<String, String>.from(_staffNameByCodeLower),
-      });
       setState(_rebuildStaffSelection);
     } catch (_) {
       // Silent fallback to logged-in staff only.
@@ -244,6 +215,15 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final signEditable = widget.clickToSignEditable ?? widget.isEditable;
+    // While the user can toggle "Click to sign", do not reveal the scripted
+    // signature band from a pre-filled fingerprint until checked.
+    final gateSignatureRevealOnIncidentCheckbox =
+        widget.incidentActivity && widget.showSignCheckbox && signEditable;
+    final showIncidentSignatureBand = widget.incidentActivity &&
+        (gateSignatureRevealOnIncidentCheckbox
+            ? clickToSign
+            : (clickToSign ||
+                (widget.signatureEncodedValue ?? '').trim().isNotEmpty));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -326,7 +306,7 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
             ),
           ),
         SizedBox(height: responsive.verticalSpacing,),
-        if (widget.incidentActivity && clickToSign)
+        if (showIncidentSignatureBand)
           Container(
             constraints: const BoxConstraints(minHeight: 60),
             width: double.infinity,

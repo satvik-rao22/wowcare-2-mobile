@@ -12,12 +12,9 @@ import '../models/activity_upload_session_models.dart';
 abstract class ActivityRemoteDataSource {
   /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.
   ///
-  /// Parent/guardian: `GET /api/v2/guardian/activities/{cardGroupCode}` with
-  /// optional [guardianCode] query when the backend requires the record code.
+  /// `GET /api/v2/activities/{cardGroupCode}`
   Future<Map<String, dynamic>> getActivityByCode({
     required String cardGroupCode,
-    bool forGuardianPersona = false,
-    String? guardianCode,
   });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
@@ -49,6 +46,7 @@ abstract class ActivityRemoteDataSource {
     required String cardGroupCode,
     required String parameterCode,
     required String guardianCode,
+    String? signatureValue,
   });
 
   /// Fetches activity settings for a classroom via
@@ -192,24 +190,12 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getActivityByCode({
     required String cardGroupCode,
-    bool forGuardianPersona = false,
-    String? guardianCode,
   }) async {
     final raw = cardGroupCode.trim();
     final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
-    final base = forGuardianPersona
-        ? ApiPaths.url('/api/v2/guardian/activities')
-        : ApiPaths.url('/api/v2/activities');
+    final base = ApiPaths.url('/api/v2/activities');
     final endpoint = '$base/$segment';
-    final gc = (guardianCode ?? '').trim();
-    final Map<String, dynamic>? queryParameters =
-        forGuardianPersona && gc.isNotEmpty
-        ? <String, dynamic>{'guardianCode': gc}
-        : null;
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: queryParameters,
-    );
+    final response = await _client.get<dynamic>(endpoint);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected get-activity API response format');
@@ -335,7 +321,12 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String cardGroupCode,
     required String parameterCode,
     required String guardianCode,
+    String? signatureValue,
   }) async {
+    final trimmedCode = guardianCode.trim();
+    final effective = (signatureValue != null && signatureValue.trim().isNotEmpty)
+        ? signatureValue.trim()
+        : trimmedCode;
     final endpoint = ApiPaths.url(
       ApiPaths.guardianParentSignatureActivity(cardGroupCode),
     );
@@ -343,8 +334,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       endpoint,
       data: <String, dynamic>{
         'parameterCode': parameterCode.trim(),
-        'value': guardianCode.trim(),
-        'valueText': guardianCode.trim(),
+        'value': effective,
+        'valueText': effective,
       },
     );
     final body = response.data;

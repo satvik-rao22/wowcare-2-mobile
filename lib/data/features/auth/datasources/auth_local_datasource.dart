@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
@@ -43,9 +44,13 @@ abstract class AuthLocalDataSource {
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
-  AuthLocalDataSourceImpl(this._storage);
+  AuthLocalDataSourceImpl(
+    this._storage, {
+    SessionLocalCacheWiper? sessionLocalCacheWiper,
+  }) : _sessionLocalCacheWiper = sessionLocalCacheWiper;
 
   final StorageService _storage;
+  final SessionLocalCacheWiper? _sessionLocalCacheWiper;
 
   @override
   Future<void> cacheLoginResponse(LoginResponseModel response) async {
@@ -128,38 +133,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> clearCache() async {
-    await _storage.remove(StorageKeys.loginCacheKey);
-    await _storage.remove(StorageKeys.loginCacheTimestamp);
-    await _storage.remove(StorageKeys.accessToken);
-    await _storage.remove(StorageKeys.refreshToken);
-    await _storage.remove(StorageKeys.tokenExpiresIn);
-    await _storage.remove(StorageKeys.refreshExpiresIn);
-    await _storage.remove(StorageKeys.tokenType);
-    await _storage.remove(StorageKeys.userCode);
-    await _storage.remove(StorageKeys.email);
-    await _storage.remove(StorageKeys.displayName);
-    await _storage.remove(StorageKeys.firstLogin);
-    await _storage.remove(StorageKeys.roles);
-    await _storage.remove(StorageKeys.organizationCode);
-    await _storage.remove(StorageKeys.schoolCode);
-    await _storage.remove(StorageKeys.selectedSchoolName);
-    await _storage.remove(StorageKeys.organizationsAndSchools);
-    await _storage.remove(StorageKeys.loginCompleted);
-    await _storage.remove(StorageKeys.loginContext);
-    await _storage.remove(StorageKeys.staffCode);
-    await _storage.remove(StorageKeys.staffCodeUser);
-    await _storage.remove(StorageKeys.staffCodeOrganization);
-    await _storage.remove(StorageKeys.staffCodeSchool);
-    await _storage.remove(StorageKeys.staffType);
-    await _storage.remove(StorageKeys.staffAllowedClassroomCodes);
-    await _storage.remove(StorageKeys.userAccessDetails);
-    await _storage.remove(StorageKeys.guardianCode);
-    await _storage.remove(StorageKeys.guardianCodeUser);
-    await _storage.remove(StorageKeys.guardianCodeSchool);
-    await _storage.remove(StorageKeys.guardianCodeOrganization);
-    await _storage.remove(StorageKeys.schoolTimeZone);
-    await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
-    await _storage.remove('selected_role');
+    // Full wipe so every module cache (staff list/profile, activity feed pages,
+    // filters, guardian snapshot, timezone, PIN, credentials keys, legacy keys)
+    // is cleared and never leaks across users. Preserve first-run onboarding only.
+    final seenOnboarding =
+        await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
+    await _storage.clear();
+    if (seenOnboarding) {
+      await _storage.saveBool(StorageKeys.onboardingSeen, true);
+    }
+    try {
+      await _sessionLocalCacheWiper?.wipe();
+    } catch (_) {}
   }
 
   @override

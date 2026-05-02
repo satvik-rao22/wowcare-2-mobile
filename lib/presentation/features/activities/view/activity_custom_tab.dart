@@ -31,7 +31,7 @@ import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -54,6 +54,7 @@ import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart'
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../widgets/avtivity_media_preview.dart';
+/// Feed card model + permissions (`activity_feed_card_permissions.dart`) come through this barrel export.
 import 'activity_daily_tab.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -148,8 +149,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   String? _primaryClassroomCode;
 
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetClassroomActivitySettingsUseCase
-  _getClassroomActivitySettingsUseCase;
+  late final GetActiveActivityTypesForSchoolUseCase
+      _getActiveActivityTypesForSchoolUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentCodesForActivityTagFilterUseCase
@@ -313,8 +314,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   void initState() {
     super.initState();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
-    _getClassroomActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
+    _getActiveActivityTypesForSchoolUseCase =
+        serviceLocator<GetActiveActivityTypesForSchoolUseCase>();
     _getStudentClassroomListUseCase =
         serviceLocator<GetStudentClassroomListUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
@@ -2434,8 +2435,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         final shouldReloadClassroomDependencies =
             refresh ||
             _lastResolvedClassroomCode != classroomCode ||
-            !classroomStudents.containsKey(classroomName) ||
-            _classroomActivitySettings.isEmpty;
+            !classroomStudents.containsKey(classroomName);
 
         if (shouldReloadClassroomDependencies) {
           if (school != null && school.isNotEmpty) {
@@ -2511,88 +2511,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             });
           }
 
-          final settingsCacheKey = CacheManager.buildCacheKey(
-            feature: 'activity',
-            resource: 'settings',
-            identifier: classroomCode,
-          );
-          if (!refresh) {
-            try {
-              final cachedSettings = await _cacheManager.loadCache(
-                settingsCacheKey,
-              );
-              if (cachedSettings != null &&
-                  cachedSettings['settings'] is List) {
-                final list = (cachedSettings['settings'] as List)
-                    .whereType<Map>()
-                    .map(
-                      (e) => ActivitySetting(
-                        activityTypeCode: (e['activityTypeCode'] ?? '')
-                            .toString(),
-                        activityTypeName: (e['activityTypeName'] ?? '')
-                            .toString(),
-                        description: (e['description'] ?? '').toString(),
-                        category: (e['category'] ?? '').toString(),
-                        icon: (e['icon'] ?? '').toString(),
-                        color: (e['color'] ?? '').toString(),
-                        isSystem: (e['isSystem'] as bool?) ?? false,
-                        isMultiStudent: (e['isMultiStudent'] as bool?) ?? false,
-                        requiresStaff: (e['requiresStaff'] as bool?) ?? false,
-                        requiresPhoto: (e['requiresPhoto'] as bool?) ?? false,
-                        requiresVideo: (e['requiresVideo'] as bool?) ?? false,
-                        allowsAttachments:
-                            (e['allowsAttachments'] as bool?) ?? false,
-                        maxAttachments: (e['maxAttachments'] as int?) ?? 0,
-                        isEnabled: (e['isEnabled'] as bool?) ?? true,
-                        isFavorite: (e['isFavorite'] as bool?) ?? false,
-                        displayOrder: (e['displayOrder'] as int?) ?? 0,
-                      ),
-                    )
-                    .where(
-                      (e) =>
-                          e.activityTypeCode.isNotEmpty &&
-                          e.activityTypeName.isNotEmpty,
-                    )
-                    .toList();
-                if (list.isNotEmpty) {
-                  _classroomActivitySettings = list;
-                }
-              }
-            } catch (_) {}
-          }
-
           try {
-            _classroomActivitySettings =
-                await _getClassroomActivitySettingsUseCase(
-                  classroomCode: classroomCode,
-                  refresh: refresh,
-                );
-            await _cacheManager.saveCache(settingsCacheKey, {
-              'settings': _classroomActivitySettings
-                  .map(
-                    (s) => {
-                      'activityTypeCode': s.activityTypeCode,
-                      'activityTypeName': s.activityTypeName,
-                      'description': s.description,
-                      'category': s.category,
-                      'icon': s.icon,
-                      'color': s.color,
-                      'isSystem': s.isSystem,
-                      'isMultiStudent': s.isMultiStudent,
-                      'requiresStaff': s.requiresStaff,
-                      'requiresPhoto': s.requiresPhoto,
-                      'requiresVideo': s.requiresVideo,
-                      'allowsAttachments': s.allowsAttachments,
-                      'maxAttachments': s.maxAttachments,
-                      'isEnabled': s.isEnabled,
-                      'isFavorite': s.isFavorite,
-                      'displayOrder': s.displayOrder,
-                    },
-                  )
-                  .toList(),
-            });
+            if ((refresh || _classroomActivitySettings.isEmpty) &&
+                school != null &&
+                school.isNotEmpty) {
+              _classroomActivitySettings =
+                  await ActivityFilterMetadataCache
+                      .loadSchoolActivityTypeSettingsForFilters(
+                cacheManager: _cacheManager,
+                useCase: _getActiveActivityTypesForSchoolUseCase,
+                schoolCode: school,
+                forceRefresh: refresh,
+              );
+            }
           } catch (_) {
-            // Keep existing in-memory/cached settings on fetch failure.
+            // Keep existing in-memory settings on fetch failure.
           }
           _lastResolvedClassroomCode = classroomCode;
           if (mounted) setState(() {});

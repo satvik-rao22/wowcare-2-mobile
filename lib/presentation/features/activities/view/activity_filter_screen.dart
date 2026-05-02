@@ -13,8 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-/// Activity feed filters: **Tags** (school-wide) + **Activity Type** (per classroom).
-/// Loads tag name/code map and classroom activity settings with disk cache.
+/// Activity feed filters (tags + activity types), school-wide via
+/// [ActivityFilterMetadataCache] and disk cache.
 class ActivityFilterScreen extends StatefulWidget {
   const ActivityFilterScreen({
     super.key,

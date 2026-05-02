@@ -11,12 +11,14 @@ class GuardianParentSignatureUseCase {
     required String code,
     required String parameterCode,
     required String guardianCode,
+    String? signatureValue,
   }) async {
     try {
       return await _repository.guardianParentSignature(
         code: code,
         parameterCode: parameterCode,
         guardianCode: guardianCode,
+        signatureValue: signatureValue,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

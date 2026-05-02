@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
@@ -12,8 +13,11 @@ import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 part 'auth_state.dart';
 
@@ -510,6 +514,15 @@ class AuthCubit extends Cubit<AuthState> {
     } finally {
       await _localDataSource.clearCache();
       await _localDataSource.clearCredentials();
+      final navCtx = CoreUtils.rootNavigatorKey.currentContext;
+      if (navCtx != null && navCtx.mounted) {
+        try {
+          navCtx.read<ParentChildProvider>().invalidate();
+        } catch (_) {}
+        try {
+          navCtx.read<RoleProvider>().resetSessionForLogout();
+        } catch (_) {}
+      }
       emit(const AuthInitial());
     }
   }
@@ -517,6 +530,15 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> clearCache() async {
     try {
       await _localDataSource.clearCache();
+      final navCtx = CoreUtils.rootNavigatorKey.currentContext;
+      if (navCtx != null && navCtx.mounted) {
+        try {
+          navCtx.read<ParentChildProvider>().invalidate();
+        } catch (_) {}
+        try {
+          navCtx.read<RoleProvider>().resetSessionForLogout();
+        } catch (_) {}
+      }
       emit(const AuthInitial());
     } catch (e) {
       emit(AuthError('Failed to clear cache: $e'));

@@ -99,6 +99,15 @@ class ParentChildProvider extends ChangeNotifier {
     final contextKey = _contextKey(userCode, orgCode, schoolCode);
     final contextChanged = contextKey != _lastLoadedContextKey;
 
+    if (hasGuardianPersona &&
+        schoolCode.isNotEmpty &&
+        orgCode.isNotEmpty &&
+        userCode.isNotEmpty) {
+      try {
+        await refreshGuardianProfileSnapshotForLoggedInUser();
+      } catch (_) {}
+    }
+
     if (_isLoaded && !force && !contextChanged) {
       return;
     }
@@ -109,7 +118,12 @@ class ParentChildProvider extends ChangeNotifier {
     try {
       final remote = serviceLocator<StudentRemoteDataSource>();
       final studentPage = serviceLocator<GetStudentPageUseCase>();
-      final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+      final storage = serviceLocator<StorageService>();
+      var guardianCode =
+          (await storage.getString(StorageKeys.guardianCode) ?? '').trim();
+      if (guardianCode.isEmpty) {
+        guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+      }
 
       if (guardianCode.isEmpty ||
           schoolCode.isEmpty ||
