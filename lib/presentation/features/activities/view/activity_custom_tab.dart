@@ -844,7 +844,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final pageIndex = _feedNextPage;
 
       final includeAttendance =
-          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+          _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
       final activityFeedPage = await _getRangeActivityFeedUseCase(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
@@ -869,6 +869,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             page: pageIndex,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final startStr = _dateQueryParam(start);
+          final endStr = _dateQueryParam(end);
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: startStr,
+              fromAttendanceDate: startStr,
+              toAttendanceDate: endStr,
+              classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: startStr,
+              toAbsenceDate: endStr,
+              classroomCodes: classroomCodes,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: _dateQueryParam(start),
@@ -1000,7 +1025,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           : null;
       StudentAttendanceDailyPage? attendancePage;
       StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+      if (_filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: _dateQueryParam(start),
@@ -1008,6 +1033,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             page: 0,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final startStr = _dateQueryParam(start);
+          final endStr = _dateQueryParam(end);
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: startStr,
+              fromAttendanceDate: startStr,
+              toAttendanceDate: endStr,
+              studentCodes: codes,
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: 0,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: startStr,
+              toAbsenceDate: endStr,
+              page: 0,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: _dateQueryParam(start),
@@ -1147,7 +1195,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           : null;
       StudentAttendanceDailyPage? attendancePage;
       StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+      if (_filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: _dateQueryParam(start),
@@ -1155,6 +1203,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             page: pageIndex,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final startStr = _dateQueryParam(start);
+          final endStr = _dateQueryParam(end);
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: startStr,
+              fromAttendanceDate: startStr,
+              toAttendanceDate: endStr,
+              studentCodes: _parentAllowedStudentCodes.toList(),
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: startStr,
+              toAbsenceDate: endStr,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: _dateQueryParam(start),
@@ -2249,7 +2320,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final approvalStatuses = _approvalStatusesForApiFilter();
 
       final includeAttendance =
-          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+          _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
       final activityFeedPage = await _getRangeActivityFeedUseCase(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
@@ -2274,6 +2345,31 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             page: 0,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final startStr = _dateQueryParam(start);
+          final endStr = _dateQueryParam(end);
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: startStr,
+              fromAttendanceDate: startStr,
+              toAttendanceDate: endStr,
+              classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: 0,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: startStr,
+              toAbsenceDate: endStr,
+              classroomCodes: classroomCodes,
+              page: 0,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: _dateQueryParam(start),

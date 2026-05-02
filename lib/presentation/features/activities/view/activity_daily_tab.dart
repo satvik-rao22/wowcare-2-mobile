@@ -1652,7 +1652,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final pageIndex = _feedNextPage;
 
       final includeAttendance =
-          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+          _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
       final activityFeedPage = await _getDailyActivityFeedUseCase(
         classroomCode: classroomCode,
         date: dateStr,
@@ -1677,6 +1677,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             page: pageIndex,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final ccForAttendance = classroomCodes.isNotEmpty
+              ? classroomCodes
+              : <String>[classroomCode];
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: dateStr,
+              classroomCodes: ccForAttendance,
+              studentCodes: studentCodes,
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: dateStr,
+              toAbsenceDate: dateStr,
+              classroomCodes: ccForAttendance,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: dateStr,
@@ -1817,7 +1841,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       StudentAttendanceDailyPage? attendancePage;
       StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+      if (_filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
@@ -1825,6 +1849,25 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             page: 0,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: dateStr,
+              studentCodes: codes,
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: 0,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: dateStr,
+              toAbsenceDate: dateStr,
+              page: 0,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: dateStr,
@@ -1956,7 +1999,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       StudentAttendanceDailyPage? attendancePage;
       StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty && selectedEvent != null) {
+      if (_filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
@@ -1964,6 +2007,25 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             page: pageIndex,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: dateStr,
+              studentCodes: _parentAllowedStudentCodes.toList(),
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: dateStr,
+              toAbsenceDate: dateStr,
+              page: pageIndex,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: dateStr,
@@ -2140,7 +2202,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final approvalStatuses = _approvalStatusesForApiFilter();
 
       final includeAttendance =
-          _filterApprovalStatuses.isEmpty && selectedEvent != null;
+          _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
       final activityFeedPage = await _getDailyActivityFeedUseCase(
         classroomCode: classroomCode,
         date: dateStr,
@@ -2164,6 +2226,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             page: 0,
             size: _feedPageSize,
           );
+        } else if (selectedEvent == null) {
+          final dailyAbsent = await Future.wait([
+            _getStudentAttendanceDailyUseCase(
+              attendanceDate: dateStr,
+              classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
+              signInAtFilter: null,
+              signOutAtFilter: null,
+              page: 0,
+              size: _feedPageSize,
+            ),
+            _getStudentAbsentRecordsActivityUseCase(
+              fromAbsenceDate: dateStr,
+              toAbsenceDate: dateStr,
+              classroomCodes: classroomCodes,
+              page: 0,
+              size: _feedPageSize,
+            ),
+          ]);
+          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
+          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
           attendancePage = await _getStudentAttendanceDailyUseCase(
             attendanceDate: dateStr,

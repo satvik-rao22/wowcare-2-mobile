@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/activities/widgets/staff_present_w
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -84,6 +85,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   bool _isSubmitting = false;
   bool _isApprovingOrRejecting = false;
   bool _loadingActivityDetail = false;
+  /// Nap start only — persisted when activity type defines a matching BOOLEAN param.
+  bool _remindCheckNapEvery15Minutes = true;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
 
@@ -230,6 +233,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
+      ActivityTypeDetails? typeDetailsForRemind;
+      final tc = detail.activityTypeCode.trim();
+      if (tc.isNotEmpty) {
+        try {
+          typeDetailsForRemind =
+              await _getActivityTypeDetailsUseCase(code: tc);
+        } catch (_) {}
+      }
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
@@ -251,6 +262,27 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
+        }
+        if (typeDetailsForRemind != null &&
+            !_napEventIsEnd(detail.activityTypeName)) {
+          final remindCode = _resolveRemindNap15ParamCode(typeDetailsForRemind);
+          if (remindCode != null && remindCode.isNotEmpty) {
+            for (final pv in detail.parameterValues) {
+              final pc = (pv['parameterCode'] ?? '').toString().trim();
+              if (pc != remindCode) continue;
+              final v = pv['value'];
+              if (v is bool) {
+                _remindCheckNapEvery15Minutes = v;
+              } else if (v is num) {
+                _remindCheckNapEvery15Minutes = v != 0;
+              } else {
+                final s = v?.toString().toLowerCase() ?? '';
+                _remindCheckNapEvery15Minutes =
+                    s == 'true' || s == '1' || s == 'yes';
+              }
+              break;
+            }
+          }
         }
       });
     } catch (e) {
@@ -394,6 +426,41 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         'value': napEndFlag,
       });
     }
+  }
+
+  /// BOOLEAN parameter for “remind / 15 min / check nap” style fields from activity settings.
+  String? _resolveRemindNap15ParamCode(ActivityTypeDetails details) {
+    for (final p in details.parameters) {
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt != 'BOOLEAN' && dt != 'BOOL') continue;
+      final n = p.parameterName.toLowerCase();
+      final matches = (n.contains('remind') &&
+              (n.contains('15') ||
+                  n.contains('minute') ||
+                  n.contains('min'))) ||
+          (n.contains('check') &&
+              n.contains('nap') &&
+              (n.contains('15') || n.contains('remind') || n.contains('minute')));
+      if (matches) {
+        final c = p.code.trim();
+        if (c.isNotEmpty) return c;
+      }
+    }
+    return null;
+  }
+
+  void _appendRemindNap15IfNapStart(
+    ActivityTypeDetails details,
+    List<Map<String, dynamic>> parameterValues,
+    bool isNapEnd,
+  ) {
+    if (isNapEnd) return;
+    final code = _resolveRemindNap15ParamCode(details);
+    if (code == null || code.isEmpty) return;
+    parameterValues.add({
+      'parameterCode': code,
+      'value': _remindCheckNapEvery15Minutes,
+    });
   }
 
   Future<bool?> _resolveNapEndFromCurrentStatus({
@@ -652,6 +719,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         description = isNapEnd ? 'Nap Ended' : 'Nap Started';
       }
       _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
+      _appendRemindNap15IfNapStart(details, parameterValues, isNapEnd);
 
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
@@ -815,6 +883,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       ];
 
       _appendNapStartEndBooleans(
+        details,
+        parameterValues,
+        _napEventIsEnd(_effectiveActivity.name),
+      );
+      _appendRemindNap15IfNapStart(
         details,
         parameterValues,
         _napEventIsEnd(_effectiveActivity.name),
@@ -1043,6 +1116,31 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                 ),
               ],
             ),
+            if (!_isNapEndContextForUi()) ...[
+              SizedBox(height: responsive.verticalSpacing * 0.6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: CustomCheckbox(
+                    value: _remindCheckNapEvery15Minutes,
+                    onChanged: !_canInteract
+                        ? null
+                        : (v) {
+                            setState(() {
+                              _remindCheckNapEvery15Minutes = v ?? false;
+                            });
+                          },
+                    label: 'Remind to check nap every 15 minutes',
+                    labelStyle: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
