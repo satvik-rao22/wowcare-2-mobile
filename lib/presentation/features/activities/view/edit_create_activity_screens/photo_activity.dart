@@ -1229,21 +1229,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 ],
               ),
               SizedBox(height: responsive.verticalSpacing),
-              IgnorePointer(
-                ignoring: _layoutAsEdit && !_canInteract,
-                child: MediaUploader(
-                  isRequired: true,
-                  allowVideo: !widget.isPhoto,
-                  allowPhoto: widget.isPhoto,
-                  limit: widget.isPhoto ? 10 : 1,
-                  readOnly: widget.readOnly,
-                  autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
-                  onMediaChanged:
-                      _layoutAsEdit && !_canInteract ? null : _onMediaChanged,
-                  initialPhotoUrls:
-                      _layoutAsEdit ? _existingPhotoUrls : const [],
-                  initialVideoUrl: _layoutAsEdit ? _existingVideoUrl : null,
-                ),
+              MediaUploader(
+                isRequired: true,
+                allowVideo: !widget.isPhoto,
+                allowPhoto: widget.isPhoto,
+                limit: widget.isPhoto ? 10 : 1,
+                readOnly: widget.readOnly,
+                autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
+                onMediaChanged:
+                    _layoutAsEdit && !_canInteract ? null : _onMediaChanged,
+                initialPhotoUrls:
+                    _layoutAsEdit ? _existingPhotoUrls : const [],
+                initialVideoUrl: _layoutAsEdit ? _existingVideoUrl : null,
               ),
               if (_isUploadingMedia) ...[
                 const SizedBox(height: 8),

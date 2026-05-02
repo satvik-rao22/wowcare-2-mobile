@@ -958,6 +958,8 @@ import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/utils/responsive_helper.dart';
+import '../view/activity_item.dart';
+import '../view/view_activity_screens/show_full_screen_media.dart';
 
 enum MediaType { photos, video }
 
@@ -1151,6 +1153,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
+    if (widget.readOnly) return;
     if (_currentType == MediaType.video && !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('photos');
       if (!replace) return;
@@ -1243,6 +1246,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (widget.readOnly) return;
     if (!widget.allowVideo) return;
 
     if (_hasMedia &&
@@ -1371,7 +1375,37 @@ class _MediaUploaderState extends State<MediaUploader> {
     _notifyParent();
   }
 
+  void _openVideoFullscreen() {
+    final url = _existingVideoUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ShowFullScreenMedia(
+            activity: ActivityItem(
+              time: '',
+              date: '',
+              name: '',
+              studentList: const [],
+              createdBy: '',
+              videoUrl: url,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    final file = _newVideoFile;
+    if (file != null) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => FullscreenLocalVideoPlayerPage(videoFile: file),
+        ),
+      );
+    }
+  }
+
   void _showPickerDialog() {
+    if (widget.readOnly) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -1416,6 +1450,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     final bool showRemoteThumbnail = hasRemoteVideoOnly && _remoteThumbnailReady && !_remoteThumbnailError;
 
     return _previewItem(
+      onTap: _openVideoFullscreen,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1480,6 +1515,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         ],
       ),
       onRemove: _removeVideo,
+      canRemove: !widget.readOnly,
     );
   }
 
@@ -1625,13 +1661,14 @@ class _MediaUploaderState extends State<MediaUploader> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final showUploadControl = !(widget.readOnly && _hasMedia);
+    final canOpenPicker = !widget.readOnly;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.isPictureBox && showUploadControl)
           GestureDetector(
-            onTap: _showPickerDialog,
+            onTap: canOpenPicker ? _showPickerDialog : null,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
@@ -1664,7 +1701,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: _showPickerDialog,
+                onTap: canOpenPicker ? _showPickerDialog : null,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1698,6 +1735,101 @@ class _MediaUploaderState extends State<MediaUploader> {
 
         const SizedBox(height: 12),
       ],
+    );
+  }
+}
+
+/// Full-screen playback for a locally picked video file (preview tap).
+class FullscreenLocalVideoPlayerPage extends StatefulWidget {
+  const FullscreenLocalVideoPlayerPage({super.key, required this.videoFile});
+
+  final File videoFile;
+
+  @override
+  State<FullscreenLocalVideoPlayerPage> createState() =>
+      _FullscreenLocalVideoPlayerPageState();
+}
+
+class _FullscreenLocalVideoPlayerPageState extends State<FullscreenLocalVideoPlayerPage> {
+  VideoPlayerController? _controller;
+
+  void _onCtrlUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final c = VideoPlayerController.file(widget.videoFile);
+    _controller = c;
+    c.initialize().then(
+      (_) {
+        if (!mounted) return;
+        c.addListener(_onCtrlUpdate);
+        setState(() {});
+      },
+      onError: (_, __) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Could not open this video.',
+          isWarning: true,
+        );
+        Navigator.of(context).maybePop();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onCtrlUpdate);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _controller;
+    final ready = c != null && c.value.isInitialized;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Center(
+        child: !ready
+            ? const CircularProgressIndicator(color: Colors.white)
+            : GestureDetector(
+                onTap: () {
+                  if (c.value.isPlaying) {
+                    c.pause();
+                  } else {
+                    c.play();
+                  }
+                },
+                child: AspectRatio(
+                  aspectRatio: c.value.aspectRatio,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      VideoPlayer(c),
+                      AnimatedOpacity(
+                        opacity: c.value.isPlaying ? 0 : 1,
+                        duration: const Duration(milliseconds: 300),
+                        child: const Icon(Icons.play_circle_fill,
+                            color: Colors.white70, size: 72),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }

@@ -2936,26 +2936,23 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
-              IgnorePointer(
-                ignoring: !_canInteract,
-                child: MediaUploader(
-                  isRequired: false,
-                  allowVideo: false,
-                  allowPhoto: true,
-                  readOnly: widget.readOnly,
-                  isPictureBox: false,
-                  limit: 1,
-                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
-                  photoSizeLimit: 20,
-                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
-                      ? List<String>.from(_remainingExistingPhotoUrls)
-                      : (_effectiveActivity.photoUrl != null &&
-                              _effectiveActivity.photoUrl!.trim().isNotEmpty
-                          ? [_effectiveActivity.photoUrl!.trim()]
-                          : const []),
-                  label: 'Photos',
-                  onMediaChanged: _onMediaChanged,
-                ),
+              MediaUploader(
+                isRequired: false,
+                allowVideo: false,
+                allowPhoto: true,
+                readOnly: widget.readOnly,
+                isPictureBox: false,
+                limit: 1,
+                autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
+                photoSizeLimit: 20,
+                initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                    ? List<String>.from(_remainingExistingPhotoUrls)
+                    : (_effectiveActivity.photoUrl != null &&
+                            _effectiveActivity.photoUrl!.trim().isNotEmpty
+                        ? [_effectiveActivity.photoUrl!.trim()]
+                        : const []),
+                label: 'Photos',
+                onMediaChanged: _onMediaChanged,
               )
             else
               MediaUploader(

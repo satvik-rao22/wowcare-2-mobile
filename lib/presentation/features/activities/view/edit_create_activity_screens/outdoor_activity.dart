@@ -1349,25 +1349,22 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
-              IgnorePointer(
-                ignoring: !_canInteract,
-                child: MediaUploader(
-                  isRequired: false,
-                  allowVideo: false,
-                  allowPhoto: true,
-                  readOnly: widget.readOnly,
-                  isPictureBox: false,
-                  limit: widget.isEdit ? 1 : 2,
-                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
-                  label: 'Upload Photo',
-                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
-                      ? List<String>.from(_remainingExistingPhotoUrls)
-                      : (_effectiveActivity.photoUrl != null &&
-                              _effectiveActivity.photoUrl!.trim().isNotEmpty
-                          ? [_effectiveActivity.photoUrl!.trim()]
-                          : const []),
-                  onMediaChanged: _onMediaChanged,
-                ),
+              MediaUploader(
+                isRequired: false,
+                allowVideo: false,
+                allowPhoto: true,
+                readOnly: widget.readOnly,
+                isPictureBox: false,
+                limit: widget.isEdit ? 1 : 2,
+                autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
+                label: 'Upload Photo',
+                initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                    ? List<String>.from(_remainingExistingPhotoUrls)
+                    : (_effectiveActivity.photoUrl != null &&
+                            _effectiveActivity.photoUrl!.trim().isNotEmpty
+                        ? [_effectiveActivity.photoUrl!.trim()]
+                        : const []),
+                onMediaChanged: _onMediaChanged,
               )
             else
               MediaUploader(
