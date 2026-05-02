@@ -105,6 +105,7 @@ abstract class AttendanceRemoteDataSource {
     required String toAbsenceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    List<String>? studentCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -716,6 +717,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String toAbsenceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    List<String>? studentCodes,
     String? search,
     int page = 0,
     int size = 10,
@@ -735,6 +737,18 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (tagCodes != null && tagCodes.isNotEmpty) {
       queryParameters['tagCodes'] = tagCodes;
+    }
+
+    final normalizedStudentCodes = <String>[];
+    if (studentCodes != null) {
+      for (final c in studentCodes) {
+        final v = c.trim();
+        if (v.isEmpty || normalizedStudentCodes.contains(v)) continue;
+        normalizedStudentCodes.add(v);
+      }
+    }
+    if (normalizedStudentCodes.isNotEmpty) {
+      queryParameters['studentCodes'] = normalizedStudentCodes;
     }
 
     if (search != null && search.isNotEmpty) {

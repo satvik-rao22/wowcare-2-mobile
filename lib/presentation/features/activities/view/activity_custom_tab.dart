@@ -816,8 +816,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
     var studentCodes = _selectedStudentCodesForAttendanceFilter();
     if ((studentCodes == null || studentCodes.isEmpty) &&
-        _selectedStudents.isNotEmpty &&
-        isNotParent) {
+        isNotParent &&
+        (_selectedStudents.isNotEmpty ||
+            (_selectedStudent?.trim().isNotEmpty ?? false))) {
       await _loadAllStudentsForAllowedClassrooms();
       if (!mounted) return;
       studentCodes = _selectedStudentCodesForAttendanceFilter();
@@ -867,6 +868,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             classroomCodes: classroomCodes,
+            studentCodes: studentCodes,
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -889,6 +891,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -1031,6 +1034,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
+            studentCodes: codes,
             page: 0,
             size: _feedPageSize,
           );
@@ -1051,6 +1055,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
+              studentCodes: codes,
               page: 0,
               size: _feedPageSize,
             ),
@@ -1201,6 +1206,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
+            studentCodes: _parentAllowedStudentCodes.toList(),
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -1221,6 +1227,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
+              studentCodes: _parentAllowedStudentCodes.toList(),
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -2271,8 +2278,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (!mounted) return;
     var studentCodes = _selectedStudentCodesForAttendanceFilter();
     if ((studentCodes == null || studentCodes.isEmpty) &&
-        _selectedStudents.isNotEmpty &&
-        isNotParent) {
+        isNotParent &&
+        (_selectedStudents.isNotEmpty ||
+            (_selectedStudent?.trim().isNotEmpty ?? false))) {
       await _loadAllStudentsForAllowedClassrooms();
       if (!mounted) return;
       studentCodes = _selectedStudentCodesForAttendanceFilter();
@@ -2343,6 +2351,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             classroomCodes: classroomCodes,
+            studentCodes: studentCodes,
             page: 0,
             size: _feedPageSize,
           );
@@ -2365,6 +2374,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
               page: 0,
               size: _feedPageSize,
             ),

@@ -89,6 +89,7 @@ abstract class AttendanceRepository {
     required String toAbsenceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    List<String>? studentCodes,
     String? search,
     int page,
     int size,

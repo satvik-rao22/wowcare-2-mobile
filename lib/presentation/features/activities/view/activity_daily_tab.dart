@@ -1634,7 +1634,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final classroomCode = _classroomCodeByName[classroomName]!;
     final dateStr = _dateQueryParam(date);
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    var studentCodes = _selectedStudentCodesForAttendanceFilter();
+    if ((studentCodes == null || studentCodes.isEmpty) &&
+        isNotParent &&
+        (_selectedStudents.isNotEmpty ||
+            (_selectedStudent?.trim().isNotEmpty ?? false))) {
+      await _loadAllStudentsForAllowedClassrooms();
+      if (!mounted) return;
+      studentCodes = _selectedStudentCodesForAttendanceFilter();
+    }
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter =
         (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-in')
@@ -1680,6 +1688,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             classroomCodes: classroomCodes.isNotEmpty
                 ? classroomCodes
                 : <String>[classroomCode],
+            studentCodes: studentCodes,
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -1701,6 +1710,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               classroomCodes: ccForAttendance,
+              studentCodes: studentCodes,
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -1852,6 +1862,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
+            studentCodes: codes,
             page: 0,
             size: _feedPageSize,
           );
@@ -1868,6 +1879,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
+              studentCodes: codes,
               page: 0,
               size: _feedPageSize,
             ),
@@ -2010,6 +2022,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
+            studentCodes: _parentAllowedStudentCodes.toList(),
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -2026,6 +2039,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
+              studentCodes: _parentAllowedStudentCodes.toList(),
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -2149,7 +2163,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     final dateStr = _dateQueryParam(date);
 
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
+    var studentCodes = _selectedStudentCodesForAttendanceFilter();
+    if ((studentCodes == null || studentCodes.isEmpty) &&
+        isNotParent &&
+        (_selectedStudents.isNotEmpty ||
+            (_selectedStudent?.trim().isNotEmpty ?? false))) {
+      await _loadAllStudentsForAllowedClassrooms();
+      if (!mounted) return;
+      studentCodes = _selectedStudentCodesForAttendanceFilter();
+    }
     final selectedEvent = _selectedAttendanceEventFilter();
     final signInAtFilter =
         (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-in')
@@ -2229,6 +2251,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
             classroomCodes: classroomCodes,
+            studentCodes: studentCodes,
             page: 0,
             size: _feedPageSize,
           );
@@ -2247,6 +2270,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
               page: 0,
               size: _feedPageSize,
             ),
