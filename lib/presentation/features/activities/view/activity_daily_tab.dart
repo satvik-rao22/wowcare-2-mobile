@@ -1680,6 +1680,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             classroomCodes: classroomCodes.isNotEmpty
                 ? classroomCodes
                 : <String>[classroomCode],
+            studentCodes: studentCodes,
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -1701,6 +1702,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               classroomCodes: ccForAttendance,
+              studentCodes: studentCodes,
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -1852,6 +1854,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
+            studentCodes: codes,
             page: 0,
             size: _feedPageSize,
           );
@@ -1868,6 +1871,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
+              studentCodes: codes,
               page: 0,
               size: _feedPageSize,
             ),
@@ -2010,6 +2014,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
+            studentCodes: _parentAllowedStudentCodes.toList(),
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -2026,6 +2031,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
+              studentCodes: _parentAllowedStudentCodes.toList(),
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -2229,6 +2235,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
             classroomCodes: classroomCodes,
+            studentCodes: studentCodes,
             page: 0,
             size: _feedPageSize,
           );
@@ -2247,6 +2254,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
               page: 0,
               size: _feedPageSize,
             ),

@@ -867,6 +867,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             classroomCodes: classroomCodes,
+            studentCodes: studentCodes,
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -889,6 +890,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -1031,6 +1033,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
+            studentCodes: codes,
             page: 0,
             size: _feedPageSize,
           );
@@ -1051,6 +1054,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
+              studentCodes: codes,
               page: 0,
               size: _feedPageSize,
             ),
@@ -1201,6 +1205,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
+            studentCodes: _parentAllowedStudentCodes.toList(),
             page: pageIndex,
             size: _feedPageSize,
           );
@@ -1221,6 +1226,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             _getStudentAbsentRecordsActivityUseCase(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
+              studentCodes: _parentAllowedStudentCodes.toList(),
               page: pageIndex,
               size: _feedPageSize,
             ),
@@ -2343,6 +2349,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             classroomCodes: classroomCodes,
+            studentCodes: studentCodes,
             page: 0,
             size: _feedPageSize,
           );
@@ -2365,6 +2372,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               classroomCodes: classroomCodes,
+              studentCodes: studentCodes,
               page: 0,
               size: _feedPageSize,
             ),
