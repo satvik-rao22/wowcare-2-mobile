@@ -1329,6 +1329,70 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return DateTime(day.year, day.month, day.day, hour, minute, second);
   }
 
+  DateTime? _tryParseDisplayDateTime(String dateRaw, String timeRaw) {
+    final date = dateRaw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final time = timeRaw
+        .trim()
+        .replaceAll(RegExp(r'[\u00A0\u202F]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+    if (date.isEmpty || time.isEmpty) return null;
+
+    DateTime day;
+    try {
+      day = DateFormat('MMMM d, yyyy').parseStrict(date);
+    } catch (_) {
+      return null;
+    }
+
+    final m = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][.]?[Mm][.]?)?$',
+    ).firstMatch(time);
+    if (m == null) return null;
+
+    var hour = int.tryParse(m.group(1) ?? '') ?? 0;
+    final minute = int.tryParse(m.group(2) ?? '') ?? 0;
+    final second = int.tryParse(m.group(3) ?? '') ?? 0;
+    final ampm = (m.group(4) ?? '').toUpperCase().replaceAll('.', '');
+
+    if (ampm == 'AM') {
+      if (hour == 12) hour = 0;
+    } else if (ampm == 'PM') {
+      if (hour < 12) hour += 12;
+    }
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+      return null;
+    }
+    return DateTime(day.year, day.month, day.day, hour, minute, second);
+  }
+
+  DateTime _activityItemSortDateTime(ActivityItem item) {
+    final parsedDisplay = _tryParseDisplayDateTime(item.date, item.time);
+    if (parsedDisplay != null) return parsedDisplay;
+
+    final date = item.date.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (date.isNotEmpty) {
+      try {
+        return DateFormat('MMMM d, yyyy').parseStrict(date);
+      } catch (_) {}
+    }
+
+    final iso = (item.activityDateIso ?? '').trim();
+    if (iso.isNotEmpty) {
+      try {
+        return DateTime.parse(iso);
+      } catch (_) {}
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  int _compareActivityItemsByTimeDesc(ActivityItem a, ActivityItem b) {
+    final byTime = _activityItemSortDateTime(b).compareTo(
+      _activityItemSortDateTime(a),
+    );
+    if (byTime != 0) return byTime;
+    return b.name.compareTo(a.name);
+  }
+
   List<ActivityItem> _mapAttendanceDailyPageToItems(
     StudentAttendanceDailyPage page,
   ) {
@@ -1507,21 +1571,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         );
       }
     }
-    out.sort((a, b) {
-      DateTime aDt;
-      DateTime bDt;
-      try {
-        aDt = DateTime.parse(a.activityDateIso!);
-      } catch (_) {
-        aDt = DateTime(1970);
-      }
-      try {
-        bDt = DateTime.parse(b.activityDateIso!);
-      } catch (_) {
-        bDt = DateTime(1970);
-      }
-      return bDt.compareTo(aDt);
-    });
+    out.sort(_compareActivityItemsByTimeDesc);
     return out;
   }
 
@@ -1574,21 +1624,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         ),
       );
     }
-    out.sort((a, b) {
-      DateTime aDt;
-      DateTime bDt;
-      try {
-        aDt = DateTime.parse(a.activityDateIso!);
-      } catch (_) {
-        aDt = DateTime(1970);
-      }
-      try {
-        bDt = DateTime.parse(b.activityDateIso!);
-      } catch (_) {
-        bDt = DateTime(1970);
-      }
-      return bDt.compareTo(aDt);
-    });
+    out.sort(_compareActivityItemsByTimeDesc);
     return out;
   }
 
@@ -1729,21 +1765,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(activityFeedPage),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ]..sort(_compareActivityItemsByTimeDesc);
 
       if (!mounted) return;
       setState(() {
@@ -1751,7 +1773,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = groupMultiStudentFeedItems(
           _activities,
           attendanceRequireDateAndTimeMatch: false,
-        );
+        )..sort(_compareActivityItemsByTimeDesc);
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1920,21 +1942,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(merged),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ]..sort(_compareActivityItemsByTimeDesc);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -1944,7 +1952,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = groupMultiStudentFeedItems(
           items,
           attendanceRequireDateAndTimeMatch: false,
-        );
+        )..sort(_compareActivityItemsByTimeDesc);
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -2080,21 +2088,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(merged),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ]..sort(_compareActivityItemsByTimeDesc);
 
       if (!mounted) return;
       setState(() {
@@ -2102,7 +2096,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = groupMultiStudentFeedItems(
           _activities,
           attendanceRequireDateAndTimeMatch: false,
-        );
+        )..sort(_compareActivityItemsByTimeDesc);
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -2279,21 +2273,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(activityFeedPage),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ]..sort(_compareActivityItemsByTimeDesc);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -2303,7 +2283,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _activities = groupMultiStudentFeedItems(
           items,
           attendanceRequireDateAndTimeMatch: false,
-        );
+        )..sort(_compareActivityItemsByTimeDesc);
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =

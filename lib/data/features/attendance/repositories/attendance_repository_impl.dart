@@ -214,6 +214,7 @@ class AttendanceRepositoryImpl
   ) {
     return StudentAttendanceDailyItem(
       attendanceRecordCode: model.attendanceRecordCode,
+      attendanceDate: model.attendanceDate,
       studentCode: model.studentCode,
       studentName: model.studentName,
       isExpectedToday: model.isExpectedToday,

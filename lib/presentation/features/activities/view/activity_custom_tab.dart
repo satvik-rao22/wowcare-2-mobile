@@ -138,7 +138,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   DateTime? _lastFeedCompletedAt;
   bool _lastFeedCompletedWithError = false;
   String? _lastResolvedClassroomCode;
-  static const int _feedPageSize = 10;
+  // Pull a large merged window so all three APIs are unified before render.
+  static const int _feedPageSize = 1000;
   final ScrollController _feedScrollController = ScrollController();
   bool _feedHasMore = false;
   bool _loadingMoreFeed = false;
@@ -524,6 +525,58 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return DateTime(day.year, day.month, day.day, hour, minute, second);
   }
 
+  DateTime _activityDateTimeOrEpoch(ActivityItem item) {
+    final cardDate = item.date.trim();
+    final normalizedTime = item.time
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('\u202f', ' ')
+        .trim();
+
+    if (cardDate.isNotEmpty && normalizedTime.isNotEmpty) {
+      try {
+        final day = DateFormat('MMMM d, yyyy').parseLoose(cardDate);
+        final parsedTime = DateFormat.jm().parseLoose(normalizedTime);
+        return DateTime(
+          day.year,
+          day.month,
+          day.day,
+          parsedTime.hour,
+          parsedTime.minute,
+          parsedTime.second,
+        );
+      } catch (_) {}
+    }
+
+    final iso = (item.activityDateIso ?? '').trim();
+    if (iso.isNotEmpty) {
+      try {
+        return SchoolZoneDateTime.dateTimeFromInstantInSchool(
+          DateTime.parse(iso),
+          _schoolIana,
+        );
+      } catch (_) {}
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  }
+
+  int _compareActivityItemsByTimeDesc(ActivityItem a, ActivityItem b) {
+    final byTime = _activityDateTimeOrEpoch(b).compareTo(_activityDateTimeOrEpoch(a));
+    if (byTime != 0) return byTime;
+    final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    if (byName != 0) return byName;
+    final aStudents = a.studentList.join(',').toLowerCase();
+    final bStudents = b.studentList.join(',').toLowerCase();
+    return aStudents.compareTo(bStudents);
+  }
+
+  List<ActivityItem> _sortItemsByLatestFirst(Iterable<ActivityItem> items) {
+    final sorted = List<ActivityItem>.from(items);
+    sorted.sort(_compareActivityItemsByTimeDesc);
+    return sorted;
+  }
+
+  List<ActivityItem> get _displayActivities => _sortItemsByLatestFirst(activities);
+
   List<ActivityItem> _itemsFromAttendancePage(StudentAttendanceDailyPage page) {
     if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
     final eventFilter = _selectedAttendanceEventFilter();
@@ -535,13 +588,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     for (final row in page.items) {
       DateTime rowDay;
       try {
-        final src = (row.signedInAt ?? row.signedOutAt ?? '').trim();
-        rowDay = src.isEmpty
-            ? (_selectedStartDate ?? DateTime.now())
-            : SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                DateTime.parse(src),
-                _schoolIana,
-              );
+        final attendanceDateSrc = (row.attendanceDate ?? '').trim();
+        if (attendanceDateSrc.isNotEmpty) {
+          rowDay = DateTime.parse(attendanceDateSrc);
+        } else {
+          final src = (row.signedInAt ?? row.signedOutAt ?? '').trim();
+          rowDay = src.isEmpty
+              ? (_selectedStartDate ?? DateTime.now())
+              : SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                  DateTime.parse(src),
+                  _schoolIana,
+                );
+        }
       } catch (_) {
         rowDay = _selectedStartDate ?? DateTime.now();
       }
@@ -711,22 +769,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         );
       }
     }
-    out.sort((a, b) {
-      DateTime aDt;
-      DateTime bDt;
-      try {
-        aDt = DateTime.parse(a.activityDateIso!);
-      } catch (_) {
-        aDt = DateTime(1970);
-      }
-      try {
-        bDt = DateTime.parse(b.activityDateIso!);
-      } catch (_) {
-        bDt = DateTime(1970);
-      }
-      return bDt.compareTo(aDt);
-    });
-    return _withClientFilters(out);
+    return _sortItemsByLatestFirst(_withClientFilters(out));
   }
 
   List<ActivityItem> _itemsFromAbsentRecordsPage(
@@ -779,22 +822,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         ),
       );
     }
-    out.sort((a, b) {
-      DateTime aDt;
-      DateTime bDt;
-      try {
-        aDt = DateTime.parse(a.activityDateIso!);
-      } catch (_) {
-        aDt = DateTime(1970);
-      }
-      try {
-        bDt = DateTime.parse(b.activityDateIso!);
-      } catch (_) {
-        bDt = DateTime(1970);
-      }
-      return bDt.compareTo(aDt);
-    });
-    return _withClientFilters(out);
+    return _sortItemsByLatestFirst(_withClientFilters(out));
   }
 
   Future<void> _loadNextRangeFeedPage() async {
@@ -917,28 +945,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         if (absentPage != null) ..._itemsFromAbsentRecordsPage(absentPage),
         ..._itemsFromActivityFeedPage(activityFeedPage),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ];
+      final sortedItems = _sortItemsByLatestFirst(items);
 
       if (!mounted) return;
       setState(() {
-        activities.addAll(items);
-        final grouped = groupMultiStudentFeedItems(
-          activities,
-          attendanceRequireDateAndTimeMatch: true,
+        activities.addAll(sortedItems);
+        final grouped = _sortItemsByLatestFirst(
+          groupMultiStudentFeedItems(
+            activities,
+            attendanceRequireDateAndTimeMatch: true,
+          ),
         );
         activities
           ..clear()
@@ -1107,21 +1124,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         if (absentPage != null) ..._itemsFromAbsentRecordsPage(absentPage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ];
+      final sortedItems = _sortItemsByLatestFirst(items);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -1131,9 +1135,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         activities
           ..clear()
           ..addAll(
-            groupMultiStudentFeedItems(
-              items,
-              attendanceRequireDateAndTimeMatch: true,
+            _sortItemsByLatestFirst(
+              groupMultiStudentFeedItems(
+                sortedItems,
+                attendanceRequireDateAndTimeMatch: true,
+              ),
             ),
           );
         _feedError = null;
@@ -1279,28 +1285,17 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         if (absentPage != null) ..._itemsFromAbsentRecordsPage(absentPage),
         ..._itemsFromActivityFeedPage(mergedActivityPage),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ];
+      final sortedItems = _sortItemsByLatestFirst(items);
 
       if (!mounted) return;
       setState(() {
-        activities.addAll(items);
-        final grouped = groupMultiStudentFeedItems(
-          activities,
-          attendanceRequireDateAndTimeMatch: true,
+        activities.addAll(sortedItems);
+        final grouped = _sortItemsByLatestFirst(
+          groupMultiStudentFeedItems(
+            activities,
+            attendanceRequireDateAndTimeMatch: true,
+          ),
         );
         activities
           ..clear()
@@ -2399,21 +2394,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         if (absentPage != null) ..._itemsFromAbsentRecordsPage(absentPage),
         ..._itemsFromActivityFeedPage(activityFeedPage),
-      ]..sort((a, b) {
-          DateTime aDt;
-          DateTime bDt;
-          try {
-            aDt = DateTime.parse(a.activityDateIso!);
-          } catch (_) {
-            aDt = DateTime(1970);
-          }
-          try {
-            bDt = DateTime.parse(b.activityDateIso!);
-          } catch (_) {
-            bDt = DateTime(1970);
-          }
-          return bDt.compareTo(aDt);
-        });
+      ];
+      final sortedItems = _sortItemsByLatestFirst(items);
 
       if (!mounted) {
         _isFeedRequestInFlight = false;
@@ -2422,7 +2404,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       setState(() {
         activities
           ..clear()
-          ..addAll(items);
+          ..addAll(sortedItems);
         _feedError = null;
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
@@ -2901,7 +2883,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
               const SizedBox(height: 12),
 
-                if (_loadingParentContext && activities.isEmpty)
+                if (_loadingParentContext && _displayActivities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(
                       child: Padding(
@@ -2926,7 +2908,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                       ),
                     ),
                   ),
-                if (!_loadingParentContext && activities.length == 0)
+                if (!_loadingParentContext && _displayActivities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(
                       child: Padding(
@@ -2954,7 +2936,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                     ),
                   ),
 
-              if (activities.length != 0)
+              if (_displayActivities.isNotEmpty)
                 Expanded(
                   child: Padding(
                     padding: ResponsiveSizing.activityFeedListPadding(context),
@@ -2967,9 +2949,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                             controller: _feedScrollController,
                             padding: EdgeInsets.zero,
                             itemCount:
-                                activities.length + (_loadingMoreFeed ? 1 : 0),
+                                _displayActivities.length + (_loadingMoreFeed ? 1 : 0),
                             itemBuilder: (context, index) {
-                              if (index == activities.length) {
+                              if (index == _displayActivities.length) {
                                 return const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 24),
                                   child: Center(
@@ -2980,7 +2962,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   ),
                                 );
                               }
-                              final activity = activities[index];
+                              final activity = _displayActivities[index];
                               final students = activity.studentList;
                               final Color activityColor =
                                   _colorPalette[index % _colorPalette.length];
