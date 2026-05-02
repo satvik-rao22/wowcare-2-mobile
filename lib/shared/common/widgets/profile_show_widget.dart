@@ -280,7 +280,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final directUrl = _extractPhotoUrl(data);
       if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
 
-      final assetCode = _extractAssetCode(data);
+      String assetCode = _extractAssetCode(data);
+      if (assetCode.isEmpty) {
+        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        assetCode = await _fetchStaffProfilePhotoAssetCode(
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+        );
+      }
       if (assetCode.isEmpty) return null;
       final documentUrl = await _fetchDocumentAssetUrl(assetCode);
       return documentUrl.isEmpty ? null : documentUrl;
@@ -324,6 +331,44 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (value.isNotEmpty) return value;
     }
     return '';
+  }
+
+  Future<String> _fetchStaffProfilePhotoAssetCode({
+    required String staffCode,
+    required String schoolCode,
+  }) async {
+    final normalizedStaff = staffCode.trim();
+    final normalizedSchool = schoolCode.trim();
+    if (normalizedStaff.isEmpty || normalizedSchool.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffProfilePhotoAssetCodes,
+        ApiConstants.staffBaseUrl,
+      );
+      final response = await apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'schoolCode': normalizedSchool,
+          'staffCode': normalizedStaff,
+        },
+      );
+      final body = response.data;
+      if (body is! Map) return '';
+      final data = body['data'];
+      if (data is! List) return '';
+      final match = data.whereType<Map>().firstWhere(
+        (row) =>
+            (row['staffCode'] ?? '').toString().trim().toUpperCase() ==
+            normalizedStaff.toUpperCase(),
+        orElse: () => <String, dynamic>{},
+      );
+      return (match['profilePhotoAssetCode'] ?? match['assetCode'] ?? '')
+          .toString()
+          .trim();
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<String> _fetchStudentProfilePhotoAssetCode({
