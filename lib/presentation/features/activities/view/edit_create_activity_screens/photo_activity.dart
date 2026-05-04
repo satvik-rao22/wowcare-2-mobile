@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -62,6 +64,8 @@ class PhotoVideoActivityScreen extends StatefulWidget {
 }
 
 class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
+  static const String _pendingUploadPollStorageKey =
+      'activity_media_pending_upload_poll_v1';
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -100,6 +104,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   int _uploadProgressPercent = 0;
   int _uploadCompletedCount = 0;
   int _uploadTotalCount = 0;
+  bool _isMediaProcessing = false;
+  String _mediaProcessingStatusText = '';
+  Timer? _mediaProcessingPollTimer;
+  String? _processingSessionCode;
+  List<String> _processingAssetCodes = const [];
 
   List<File> _photos = [];
   File? _video;
@@ -224,6 +233,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       });
     }
     _loadStaffContext();
+    _restorePendingProcessingPollIfAny();
   }
 
   bool get _showAdminApproveRejectActions {
@@ -534,8 +544,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: widget.isPhoto
-            ? 'Photo uploaded successfully'
-            : 'Video uploaded successfully',
+            ? 'Photo uploaded. Processing continues in background.'
+            : 'Video uploaded. Processing continues in background.',
         isSuccess: true,
       );
     } catch (error) {
@@ -643,14 +653,158 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       uploadedCodes.add(presign.assetCode);
     }
 
-    await _uploadService.waitUntilAssetsReady(
-      sessionCode: uploadSession.sessionCode,
-      expectedAssetCodes: uploadedCodes,
-    );
     if (mounted) {
       setState(() => _uploadProgressPercent = 100);
     }
+    _startProcessingPoll(
+      sessionCode: uploadSession.sessionCode,
+      assetCodes: uploadedCodes,
+      persist: true,
+    );
     return uploadedCodes.map((code) => <String, dynamic>{'assetCode': code}).toList();
+  }
+
+  Future<void> _restorePendingProcessingPollIfAny() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final raw = await storage.getString(_pendingUploadPollStorageKey);
+      if (raw == null || raw.trim().isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final typeKey = (decoded['mediaType'] ?? '').toString().trim().toUpperCase();
+      if (typeKey.isEmpty) return;
+      if (typeKey != (widget.isPhoto ? 'PHOTO' : 'VIDEO')) return;
+      final sessionCode = (decoded['sessionCode'] ?? '').toString().trim();
+      final assetsRaw = decoded['assetCodes'];
+      final assetCodes = (assetsRaw is List)
+          ? assetsRaw
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+          : <String>[];
+      if (sessionCode.isEmpty || assetCodes.isEmpty) return;
+      _startProcessingPoll(
+        sessionCode: sessionCode,
+        assetCodes: assetCodes,
+        persist: false,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _savePendingProcessingPoll({
+    required String sessionCode,
+    required List<String> assetCodes,
+  }) async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      await storage.saveString(
+        _pendingUploadPollStorageKey,
+        jsonEncode(<String, dynamic>{
+          'mediaType': widget.isPhoto ? 'PHOTO' : 'VIDEO',
+          'sessionCode': sessionCode,
+          'assetCodes': assetCodes,
+          'savedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _clearPendingProcessingPoll() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      await storage.remove(_pendingUploadPollStorageKey);
+    } catch (_) {}
+  }
+
+  void _startProcessingPoll({
+    required String sessionCode,
+    required List<String> assetCodes,
+    required bool persist,
+  }) {
+    final normalizedCodes = assetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (sessionCode.trim().isEmpty || normalizedCodes.isEmpty) return;
+    _mediaProcessingPollTimer?.cancel();
+    _processingSessionCode = sessionCode.trim();
+    _processingAssetCodes = normalizedCodes;
+    if (mounted) {
+      setState(() {
+        _isMediaProcessing = true;
+        _mediaProcessingStatusText = widget.isPhoto
+            ? 'Photo processing in background...'
+            : 'Video processing in background...';
+      });
+    }
+    if (persist) {
+      _savePendingProcessingPoll(
+        sessionCode: _processingSessionCode!,
+        assetCodes: _processingAssetCodes,
+      );
+    }
+    _pollProcessingStatusOnce();
+    _mediaProcessingPollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _pollProcessingStatusOnce(),
+    );
+  }
+
+  Future<void> _pollProcessingStatusOnce() async {
+    final sessionCode = _processingSessionCode;
+    final assetCodes = _processingAssetCodes;
+    if (sessionCode == null || sessionCode.isEmpty || assetCodes.isEmpty) return;
+    try {
+      final statuses = await _uploadService.getUploadAssetStatuses(
+        sessionCode: sessionCode,
+        expectedAssetCodes: assetCodes,
+      );
+      if (statuses.isEmpty) return;
+      var ready = 0;
+      var failed = 0;
+      for (final s in statuses.values) {
+        final normalized = s.trim().toUpperCase();
+        if (normalized == 'READY') ready++;
+        if (normalized == 'FAILED') failed++;
+      }
+      if (!mounted) return;
+      if (failed > 0) {
+        _mediaProcessingPollTimer?.cancel();
+        _processingSessionCode = null;
+        _processingAssetCodes = const [];
+        setState(() {
+          _isMediaProcessing = false;
+          _mediaProcessingStatusText = '';
+        });
+        await _clearPendingProcessingPoll();
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Media processing failed for one or more files.',
+          isError: true,
+        );
+        return;
+      }
+      if (ready >= assetCodes.length) {
+        _mediaProcessingPollTimer?.cancel();
+        _processingSessionCode = null;
+        _processingAssetCodes = const [];
+        setState(() {
+          _isMediaProcessing = false;
+          _mediaProcessingStatusText = widget.isPhoto ? 'Photo ready' : 'Video ready';
+        });
+        await _clearPendingProcessingPoll();
+        return;
+      }
+      setState(() {
+        _isMediaProcessing = true;
+        _mediaProcessingStatusText = widget.isPhoto
+            ? 'Photo processing ($ready/${assetCodes.length} ready)'
+            : 'Video processing ($ready/${assetCodes.length} ready)';
+      });
+    } catch (_) {
+      // Keep polling silently; backend processing may be eventually consistent.
+    }
   }
 
   Future<void> _submitCreate() async {
@@ -1144,6 +1298,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   @override
   void dispose() {
+    _mediaProcessingPollTimer?.cancel();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -1263,6 +1418,44 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 Text(
                   '${widget.isPhoto ? 'Uploading photo' : 'Uploading video'}... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
                   style: const TextStyle(color: AppColors.primaryColor, fontSize: 13),
+                ),
+              ] else if (_isMediaProcessing) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F8FF),
+                    border: Border.all(color: const Color(0xFFD5E9FF)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF1A73E8),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _mediaProcessingStatusText.isNotEmpty
+                              ? _mediaProcessingStatusText
+                              : (widget.isPhoto
+                                  ? 'Photo processing in background...'
+                                  : 'Video processing in background...'),
+                          style: const TextStyle(
+                            color: Color(0xFF1F3B64),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ] else if (_uploadTotalCount > 0 &&
                   _uploadCompletedCount == _uploadTotalCount &&

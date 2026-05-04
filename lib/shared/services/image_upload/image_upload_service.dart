@@ -279,6 +279,24 @@ class ImageUploadService {
     }
   }
 
+  Future<Map<String, String>> getUploadAssetStatuses({
+    required String sessionCode,
+    required List<String> expectedAssetCodes,
+  }) async {
+    final expectedSet = expectedAssetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (expectedSet.isEmpty) return const <String, String>{};
+    final endpoint =
+        '${ApiConstants.documentMsBaseUrl}${ApiPaths.documentUploadSessionPath(sessionCode)}';
+    final response = await _apiClient.client.get<dynamic>(endpoint);
+    return _extractUploadAssetStatuses(
+      body: response.data,
+      expectedAssetCodes: expectedSet,
+    );
+  }
+
   Future<_UploadSessionStatusResult> _getUploadSessionStatus({
     required String sessionCode,
     required Set<String> expectedAssetCodes,
@@ -287,43 +305,54 @@ class ImageUploadService {
         '${ApiConstants.documentMsBaseUrl}${ApiPaths.documentUploadSessionPath(sessionCode)}';
     final response = await _apiClient.client.get<dynamic>(endpoint);
     final body = response.data;
-    if (body is! Map<String, dynamic>) {
+    final statuses = _extractUploadAssetStatuses(
+      body: body,
+      expectedAssetCodes: expectedAssetCodes,
+    );
+    if (statuses.isEmpty) {
       return const _UploadSessionStatusResult(isReady: false);
     }
-    final data = body['data'];
-    if (data is! Map<String, dynamic>) {
-      return const _UploadSessionStatusResult(isReady: false);
-    }
-    final assets = data['assets'];
-    if (assets is! List) {
-      return const _UploadSessionStatusResult(isReady: false);
-    }
-
     var readyCount = 0;
-    for (final item in assets) {
-      if (item is! Map) continue;
-      final assetCode = (item['assetCode'] ?? '').toString().trim();
-      if (!expectedAssetCodes.contains(assetCode)) continue;
-      final status = (item['status'] ?? '').toString().trim().toUpperCase();
-      if (status == 'READY') readyCount++;
-      if (status == 'FAILED') {
-        final failureMessage =
-            (item['failureMessage'] ?? '').toString().trim();
-        final failureCode = (item['failureCode'] ?? '').toString().trim();
-        final message = failureMessage.isNotEmpty
-            ? failureMessage
-            : (failureCode.isNotEmpty
-                ? 'Upload processing failed: $failureCode'
-                : 'Upload processing failed');
-        return _UploadSessionStatusResult(
+    for (final status in statuses.values) {
+      final normalized = status.trim().toUpperCase();
+      if (normalized == 'READY') readyCount++;
+      if (normalized == 'FAILED') {
+        return const _UploadSessionStatusResult(
           isReady: false,
-          failureMessage: message,
+          failureMessage: 'Upload processing failed',
         );
       }
     }
     return _UploadSessionStatusResult(
       isReady: readyCount == expectedAssetCodes.length,
     );
+  }
+
+  Map<String, String> _extractUploadAssetStatuses({
+    required dynamic body,
+    required Set<String> expectedAssetCodes,
+  }) {
+    if (body is! Map<String, dynamic>) {
+      return const <String, String>{};
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      return const <String, String>{};
+    }
+    final assets = data['assets'];
+    if (assets is! List) {
+      return const <String, String>{};
+    }
+
+    final statuses = <String, String>{};
+    for (final item in assets) {
+      if (item is! Map) continue;
+      final assetCode = (item['assetCode'] ?? '').toString().trim();
+      if (!expectedAssetCodes.contains(assetCode)) continue;
+      final status = (item['status'] ?? '').toString().trim();
+      statuses[assetCode] = status.toUpperCase();
+    }
+    return statuses;
   }
 
   Future<String> createStaffProfilePhotoUploadSession({

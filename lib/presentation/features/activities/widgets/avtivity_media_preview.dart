@@ -68,6 +68,56 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     return null;
   }
 
+  bool _hasProcessingMedia() {
+    final rows = widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    for (final r in rows) {
+      final status = (r['status'] ?? '').toString().trim().toUpperCase();
+      if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildProcessingCard() {
+    return Container(
+      width: 122,
+      height: 76,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEAF4FF), Color(0xFFF5F9FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A73E8)),
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Processing...',
+              style: TextStyle(
+                color: Color(0xFF1F3B64),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIconFallback() {
     final icon = activityIcons[widget.activity.name] ?? MediaRes.notesActivityIcon;
     return Container(
@@ -89,6 +139,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     final String? photoUrl = widget.activity.photoUrl;
     final bool hasVideo = videoUrl?.isNotEmpty == true;
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
+    final bool hasProcessingMedia = _hasProcessingMedia();
     final thumbUrl = hasVideo ? _resolveVideoThumbnailUrl() : null;
     return InkWell(
       onTap: () {
@@ -141,6 +192,8 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
               errorBuilder: (c, e, s)=> _buildIconFallback(),
 
             )
+          else if (hasProcessingMedia)
+            _buildProcessingCard()
           else
             _buildIconFallback(),
 
@@ -151,7 +204,27 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
                 color: Colors.white,
                 size : 50,
               ),
-            )
+            ),
+          if (hasProcessingMedia && !hasVideo)
+            Positioned(
+              top: 6,
+              right: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD7E9FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'PROCESSING',
+                  style: TextStyle(
+                    color: Color(0xFF1A56A5),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -3108,10 +3108,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                         width: 140,
                                                         height: 120,
                                                         child:
-                                                            activity.photoUrl !=
-                                                                    null ||
-                                                                activity.videoUrl !=
-                                                                    null
+                                                            activityHasMediaOrProcessing(activity)
                                                             ? ActivityMediaPreview(
                                                                 activity:
                                                                     activity,

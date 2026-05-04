@@ -73,6 +73,28 @@ import 'activity_item.dart';
 export 'activity_item.dart';
 export 'activity_feed_card_permissions.dart';
 
+bool activityHasMediaOrProcessing(ActivityItem activity) {
+  final photo = (activity.photoUrl ?? '').trim();
+  final video = (activity.videoUrl ?? '').trim();
+  if (photo.isNotEmpty || video.isNotEmpty) return true;
+  final attachments = activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+  for (final row in attachments) {
+    final status = (row['status'] ?? '').toString().trim().toUpperCase();
+    if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
+      return true;
+    }
+    final anyUrl = (row['deliveryUrl'] ??
+            row['thumbnailUrl'] ??
+            row['artifactUrl'] ??
+            row['originalDownloadUrl'] ??
+            '')
+        .toString()
+        .trim();
+    if (anyUrl.isNotEmpty) return true;
+  }
+  return false;
+}
+
 class ActivityDailyTab extends StatefulWidget {
   const ActivityDailyTab({
     super.key,
@@ -3135,10 +3157,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                     width: 140,
                                                     height: 120,
                                                     child:
-                                                        activity.photoUrl !=
-                                                                null ||
-                                                            activity.videoUrl !=
-                                                                null
+                                                        activityHasMediaOrProcessing(activity)
                                                         ? ActivityMediaPreview(
                                                             activity: activity,
                                                             activityColor:
@@ -4726,10 +4745,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                           width: 140,
                                                           height: 120,
                                                           child:
-                                                              activity.photoUrl !=
-                                                                      null ||
-                                                                  activity.videoUrl !=
-                                                                      null
+                                                              activityHasMediaOrProcessing(activity)
                                                               ? ActivityMediaPreview(
                                                                   activity:
                                                                       activity,

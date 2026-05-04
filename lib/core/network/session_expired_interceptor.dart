@@ -19,6 +19,12 @@ class SessionExpiredInterceptor extends Interceptor {
       return;
     }
 
+    if (_isMissingAuthorizationHeaderError(err)) {
+      await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession();
+      handler.next(err);
+      return;
+    }
+
     final hasSession = await _hasAnyPersistedSessionState();
     if (!hasSession) {
       handler.next(err);
@@ -52,6 +58,22 @@ class SessionExpiredInterceptor extends Interceptor {
     if (p.contains('/auth/forgot-password')) return true;
     if (p.contains('/auth/forgot_password')) return true;
     if (p.contains('/auth/logout')) return true;
+    return false;
+  }
+
+  /// Some backends return 401 with a specific message when Authorization
+  /// header is absent. Treat this as a hard session-expired signal and logout.
+  static bool _isMissingAuthorizationHeaderError(DioException err) {
+    final data = err.response?.data;
+    if (data is Map) {
+      final message = (data['message'] ?? '').toString().toLowerCase();
+      final error = (data['error'] ?? '').toString().toLowerCase();
+      if (message.contains('missing authorization header')) return true;
+      if (error == 'unauthorized' &&
+          message.contains('authorization header')) {
+        return true;
+      }
+    }
     return false;
   }
 }
