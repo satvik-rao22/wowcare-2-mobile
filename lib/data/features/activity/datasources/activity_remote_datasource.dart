@@ -239,7 +239,29 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'parameterValues': parameterValues,
       'attachments': normalizedAttachments,
     };
-    final response = await _client.patch<dynamic>(endpoint, data: payload);
+    const maxReadyRetries = 2;
+    Response<dynamic> response;
+    var attempt = 0;
+    while (true) {
+      try {
+        response = await _client.patch<dynamic>(endpoint, data: payload);
+        break;
+      } on DioException catch (e) {
+        final statusCode = e.response?.statusCode;
+        final responseData = e.response?.data;
+        final message = responseData is Map<String, dynamic>
+            ? (responseData['message'] ?? '').toString().trim()
+            : '';
+        final isAssetNotReadyConflict = statusCode == 409 &&
+            message.toLowerCase().contains('must reach ready before linking');
+        if (!isAssetNotReadyConflict || attempt >= maxReadyRetries) {
+          rethrow;
+        }
+        attempt += 1;
+        // Asset readiness can lag briefly after upload completion.
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+      }
+    }
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected update-activity API response format');

@@ -123,6 +123,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool _isSubmitting = false;
   bool _isAcknowledging = false;
   bool _isApprovingOrRejecting = false;
+  bool _isSavingBeforeApprove = false;
+  bool _lastUpdateSucceeded = false;
   bool _isAdminSigned = false;
   bool _adminSignedThisSession = false;
   bool _isParentSigned = false;
@@ -875,9 +877,13 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
     final code = _effectiveActivity.activityCode?.trim();
     if (code == null || code.isEmpty) return;
-    setState(() => _isApprovingOrRejecting = true);
+    setState(() {
+      _isSavingBeforeApprove = true;
+      _isApprovingOrRejecting = true;
+    });
     try {
-      await _patchAdminSignBeforeDecision();
+      await _submitUpdateActivity();
+      if (!_lastUpdateSucceeded) return;
       final msg = await _approveActivityUseCase(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -894,7 +900,12 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         context: context,
       );
     } finally {
-      if (mounted) setState(() => _isApprovingOrRejecting = false);
+      if (mounted) {
+        setState(() {
+          _isSavingBeforeApprove = false;
+          _isApprovingOrRejecting = false;
+        });
+      }
     }
   }
 
@@ -1811,6 +1822,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
+    _lastUpdateSucceeded = false;
 
     final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
@@ -2223,14 +2235,17 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       }
 
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: lastMessage ?? 'Updated',
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      _lastUpdateSucceeded = true;
+      if (!_isSavingBeforeApprove) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: lastMessage ?? 'Updated',
+          isSuccess: true,
+        );
+        Navigator.of(context).popUntil((route) {
+          return route.settings.name == ActivityFeedScreen.routeName;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(

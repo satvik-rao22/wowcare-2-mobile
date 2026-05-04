@@ -86,6 +86,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   String? _organizationCode;
   bool _isSubmitting = false;
   bool _isApprovingOrRejecting = false;
+  bool _isSavingBeforeApprove = false;
+  bool _lastUpdateSucceeded = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
@@ -203,8 +205,13 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   Future<void> _approvePendingActivity() async {
     final code = _effectiveActivity.activityCode?.trim();
     if (code == null || code.isEmpty) return;
-    setState(() => _isApprovingOrRejecting = true);
+    setState(() {
+      _isSavingBeforeApprove = true;
+      _isApprovingOrRejecting = true;
+    });
     try {
+      await _submitUpdateActivity();
+      if (!_lastUpdateSucceeded) return;
       final msg = await _approveActivityUseCase(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
@@ -217,7 +224,12 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         context: context,
       );
     } finally {
-      if (mounted) setState(() => _isApprovingOrRejecting = false);
+      if (mounted) {
+        setState(() {
+          _isSavingBeforeApprove = false;
+          _isApprovingOrRejecting = false;
+        });
+      }
     }
   }
 
@@ -903,6 +915,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
+    _lastUpdateSucceeded = false;
 
     final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
@@ -1143,14 +1156,17 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       }
 
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: lastMessage ?? 'Updated',
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      _lastUpdateSucceeded = true;
+      if (!_isSavingBeforeApprove) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: lastMessage ?? 'Updated',
+          isSuccess: true,
+        );
+        Navigator.of(context).popUntil((route) {
+          return route.settings.name == ActivityFeedScreen.routeName;
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
