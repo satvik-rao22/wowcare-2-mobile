@@ -16,16 +16,10 @@ class HlsWebPlayer extends StatefulWidget {
 class _HlsWebPlayerState extends State<HlsWebPlayer> {
   BetterPlayerController? _controller;
   final GlobalKey _playerKey = GlobalKey();
-  static const List<String> _youtubeLikeTrackNames = <String>[
+  static const List<String> _limitedTrackNames = <String>[
     'Auto',
-    '144p',
-    '240p',
     '360p',
-    '480p',
     '720p',
-    '1080p',
-    '1440p',
-    '2160p',
   ];
 
   @override
@@ -56,18 +50,20 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
       autoDetectFullscreenAspectRatio: true,
       controlsConfiguration: BetterPlayerControlsConfiguration(
         playerTheme: BetterPlayerTheme.material,
+        iconsColor: Colors.white,
+        textColor: Colors.white,
         enableFullscreen: true,
         enablePip: true,
         enableQualities: true,
         enableSubtitles: false,
         enablePlaybackSpeed: true,
-        controlsHideTime: Duration(milliseconds: 1600),
+        controlsHideTime: Duration(milliseconds: 2200),
         controlBarHeight: 52,
-        controlBarColor: Color(0xCC0F1115),
-        progressBarPlayedColor: Color(0xFF4F8CFF),
-        progressBarHandleColor: Color(0xFF6FA2FF),
-        progressBarBufferedColor: Color(0x99FFFFFF),
-        progressBarBackgroundColor: Color(0x40FFFFFF),
+        controlBarColor: Color(0xD910141A),
+        progressBarPlayedColor: Color(0xFF35B6FF),
+        progressBarHandleColor: Color(0xFF35B6FF),
+        progressBarBufferedColor: Color(0x8AE0E8F1),
+        progressBarBackgroundColor: Color(0x5A6A7789),
         overflowMenuIcon: Icons.more_vert_rounded,
         qualitiesIcon: Icons.high_quality_rounded,
         playbackSpeedIcon: Icons.speed_rounded,
@@ -77,7 +73,8 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         playIcon: Icons.play_arrow_rounded,
         pauseIcon: Icons.pause_rounded,
         overflowModalColor: Color(0xFF111827),
-        overflowModalTextColor: Color(0xFFF3F6FC),
+        overflowModalTextColor: Color(0xFFEAF2FF),
+        overflowMenuIconsColor: Colors.white,
         overflowMenuCustomItems: <BetterPlayerOverflowMenuItem>[
           BetterPlayerOverflowMenuItem(
             Icons.picture_in_picture_alt_rounded,
@@ -90,6 +87,8 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         BetterPlayerTranslations(
           overflowMenuQuality: 'Quality',
           qualityAuto: 'Auto',
+          overflowMenuPlaybackSpeed: 'Speed',
+          overflowMenuSubtitles: 'Subtitles',
         ),
       ],
     );
@@ -100,7 +99,7 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
       videoFormat: isHls
           ? BetterPlayerVideoFormat.hls
           : BetterPlayerVideoFormat.other,
-      asmsTrackNames: isHls ? _youtubeLikeTrackNames : null,
+      asmsTrackNames: isHls ? _limitedTrackNames : null,
       useAsmsSubtitles: false,
       cacheConfiguration: const BetterPlayerCacheConfiguration(useCache: false),
     );
@@ -115,9 +114,8 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
       final controller = _controller;
       if (controller == null) return;
-      // Force full-screen occupancy. This avoids tiny center rendering when
-      // stream metadata reports unstable dimensions/aspect values.
-      controller.setOverriddenFit(BoxFit.cover);
+      // Keep content visible and avoid crop for tall portrait videos.
+      controller.setOverriddenFit(BoxFit.contain);
     }
   }
 
@@ -154,7 +152,26 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
             child: Container(
               key: _playerKey,
               color: Colors.black,
-              child: BetterPlayer(controller: _controller!),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  brightness: Brightness.dark,
+                  colorScheme: const ColorScheme.dark(
+                    primary: Colors.white,
+                    onPrimary: Colors.white,
+                    secondary: Colors.white,
+                    onSecondary: Colors.white,
+                    surface: Colors.black,
+                    onSurface: Colors.white,
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  primaryIconTheme: const IconThemeData(color: Colors.white),
+                  textTheme: Theme.of(context).textTheme.apply(
+                        bodyColor: Colors.white,
+                        displayColor: Colors.white,
+                      ),
+                ),
+                child: BetterPlayer(controller: _controller!),
+              ),
             ),
           ),
           Positioned(
@@ -162,14 +179,17 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
             right: 14,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xA6111827),
+                color: const Color(0xB010141A),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0x66FFFFFF)),
+                border: Border.all(color: const Color(0x6635B6FF)),
               ),
               child: IconButton(
                 tooltip: 'PiP',
                 onPressed: _enterPipMode,
-                icon: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white),
+                icon: const Icon(
+                  Icons.picture_in_picture_alt_rounded,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

@@ -49,6 +49,10 @@ class StorageKeys {
   static const String guardianCodeSchool = 'guardianCodeSchool';
   static const String guardianCodeOrganization = 'guardianCodeOrganization';
 
+  /// Last `GET /api/v1/guardian/profile` snapshot (persisted alongside [guardianCode]).
+  static const String guardianProfileFirstName = 'guardianProfileFirstName';
+  static const String guardianProfileLastName = 'guardianProfileLastName';
+
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';
 

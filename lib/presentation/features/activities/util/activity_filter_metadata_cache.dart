@@ -158,4 +158,45 @@ class ActivityFilterMetadataCache {
     });
     return items;
   }
+
+  static ActivitySetting _activitySettingFromTypeSummary(ActivityTypeSummary t) {
+    return ActivitySetting(
+      activityTypeCode: t.code,
+      activityTypeName: t.name,
+      description: '',
+      category: '',
+      icon: '',
+      color: '',
+      isSystem: false,
+      isMultiStudent: false,
+      requiresStaff: false,
+      requiresPhoto: false,
+      requiresVideo: false,
+      allowsAttachments: false,
+      maxAttachments: 0,
+      isEnabled: true,
+      isFavorite: false,
+      displayOrder: 0,
+    );
+  }
+
+  /// Activity type labels/codes for staff feed filters — school catalogue
+  /// (`GET /api/v1/activity-types?schoolCode=...`), not per-classroom overrides.
+  static Future<List<ActivitySetting>> loadSchoolActivityTypeSettingsForFilters({
+    required CacheManager cacheManager,
+    required GetActiveActivityTypesForSchoolUseCase useCase,
+    required String schoolCode,
+    bool forceRefresh = false,
+  }) async {
+    final summaries = await loadActiveActivityTypesForSchool(
+      cacheManager: cacheManager,
+      useCase: useCase,
+      schoolCode: schoolCode,
+      forceRefresh: forceRefresh,
+    );
+    summaries.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return summaries.map(_activitySettingFromTypeSummary).toList();
+  }
 }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -51,6 +55,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _loginEmail = '';
   String _loginPersona = '';
   bool _hasShownProfileLoadError = false;
+  String? _schoolCode;
+  String? _organizationCode;
+  bool _isUploadingProfilePhoto = false;
+  double _profilePhotoUploadPercent = 0;
 
   String _formatPhoneForDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
@@ -93,6 +101,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         } catch (_) {}
       }
       _loginPersona = persona;
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      if (mounted) {
+        setState(() {
+          _schoolCode = school.isEmpty ? null : school;
+          _organizationCode = org.isEmpty ? null : org;
+        });
+      }
     } catch (_) {}
 
     final direct = (widget.staffCode ?? '').trim();
@@ -196,22 +214,138 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  String _effectiveStaffCode() {
+    final fromProfile = (_profile?.staffCode ?? '').trim();
+    if (fromProfile.isNotEmpty) return fromProfile;
+    return (widget.staffCode ?? '').trim();
+  }
+
   Future<void> _pickProfileImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
-      // TODO: wire this to upload/update avatar in your backend/state
+
+      var staffCode = _effectiveStaffCode();
+      if (staffCode.isEmpty) {
+        final resolved = await _resolveLoggedInStaffCode();
+        if (!mounted) return;
+        staffCode = resolved.trim();
+      }
+      if (staffCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Staff code is required to upload profile photo.',
+          isError: true,
+        );
+        return;
+      }
+
+      if ((_schoolCode ?? '').trim().isEmpty ||
+          (_organizationCode ?? '').trim().isEmpty) {
+        final storage = serviceLocator<StorageService>();
+        final school =
+            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+        final org =
+            (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+        if (!mounted) return;
+        setState(() {
+          _schoolCode = school.isEmpty ? null : school;
+          _organizationCode = org.isEmpty ? null : org;
+        });
+      }
+      final schoolCode = (_schoolCode ?? '').trim();
+      final organizationCode = (_organizationCode ?? '').trim();
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing school or organization context.',
+          isError: true,
+        );
+        return;
+      }
+
+      setState(() {
+        _isUploadingProfilePhoto = true;
+        _profilePhotoUploadPercent = 5;
+      });
+      final uploadService = serviceLocator<ImageUploadService>();
+      final file = File(image.path);
+      final sessionCode =
+          await uploadService.createStaffProfilePhotoUploadSession(
+        staffCode: staffCode,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
+      final lowerPath = image.path.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType =
+          lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'staff-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'STAFF',
+        ownerCode: staffCode,
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (!mounted || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          setState(() {
+            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
+          });
+        },
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
+      await uploadService.finalizeStaffProfilePhoto(
+        staffCode: staffCode,
+        assetCode: presign.assetCode,
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
+
+      DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      await _loadStaffProfile(staffCode);
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected profile image',
+        message: 'Profile photo updated successfully',
         isSuccess: true,
       );
     } catch (e) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to pick image: $e',
+        message: 'Failed to update profile photo: $e',
         isError: true,
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingProfilePhoto = false;
+          _profilePhotoUploadPercent = 0;
+        });
+      }
     }
   }
 
@@ -358,12 +492,128 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       DocumentImageWidget(
-                                        fileUuid: displayName.isNotEmpty ? displayName : 'User',
+                                        fileUuid: _effectiveStaffCode().isNotEmpty
+                                            ? _effectiveStaffCode()
+                                            : (displayName.isNotEmpty
+                                                ? displayName
+                                                : 'User'),
                                         name: displayName.isNotEmpty ? displayName : 'User',
+                                        imageUrl: (_profile?.profilePhotoUrl ?? '')
+                                                .trim()
+                                                .isNotEmpty
+                                            ? _profile!.profilePhotoUrl.trim()
+                                            : null,
+                                        staffCode: _effectiveStaffCode().isNotEmpty
+                                            ? _effectiveStaffCode()
+                                            : null,
+                                        staffEmploymentStatus: _profile?.status,
                                         size: 90,
                                         fontSize: 24,
-                                        statusColor: const Color(0xFF00B115),
                                       ),
+                                      if (_isUploadingProfilePhoto)
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xB3241631),
+                                              borderRadius:
+                                                  BorderRadius.circular(45),
+                                            ),
+                                            child: Center(
+                                              child: Container(
+                                                width: 72,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 7,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primaryColor
+                                                      .withOpacity(0.25),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: Colors.white
+                                                        .withOpacity(0.22),
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${_profilePhotoUploadPercent.clamp(0, 100)}%',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              999),
+                                                      child:
+                                                          LinearProgressIndicator(
+                                                        value:
+                                                            (_profilePhotoUploadPercent /
+                                                                    100)
+                                                                .clamp(
+                                                                    0.0,
+                                                                    1.0),
+                                                        minHeight: 4,
+                                                        backgroundColor: Colors
+                                                            .white
+                                                            .withOpacity(0.22),
+                                                        valueColor:
+                                                            const AlwaysStoppedAnimation<
+                                                                Color>(
+                                                          AppColors.themeColor,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        SvgPicture.asset(
+                                                          MediaRes.uploadIcon,
+                                                          height: 10,
+                                                          width: 10,
+                                                          colorFilter:
+                                                              ColorFilter.mode(
+                                                            Colors.white
+                                                                .withOpacity(
+                                                                    0.92),
+                                                            BlendMode.srcIn,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 3),
+                                                        Text(
+                                                          _profilePhotoUploadPercent >=
+                                                                  100
+                                                              ? 'Finalizing'
+                                                              : 'Uploading',
+                                                          style: TextStyle(
+                                                            color: Colors.white
+                                                                .withOpacity(
+                                                                    0.92),
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       Positioned(
                                         right: -2,
                                         bottom: -2,

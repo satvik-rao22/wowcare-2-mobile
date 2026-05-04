@@ -121,7 +121,8 @@ class ActivityFeedPageModel {
       final description = (json['description'] ?? '').toString();
       final createdBy = (json['createdBy'] ?? '').toString();
       final staffCode = (json['staffCode'] ?? '').toString().trim();
-      final approvalStatus = (json['status'] ?? '').toString().trim();
+      final approvalStatus =
+          (json['approvalStatus'] ?? json['status'] ?? '').toString().trim();
       final napStart = asNullableBool(json['napStart']);
       final napEnd = asNullableBool(json['napEnd']);
 

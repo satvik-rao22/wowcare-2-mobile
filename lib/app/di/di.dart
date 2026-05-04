@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
+import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
 import '../../core/cache/cache_service.dart';
@@ -75,6 +76,7 @@ import '../../domain/features/attendance/usecases/get_student_sign_in_form_list_
 import '../../domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_absent_records_activity_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 import '../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
@@ -114,6 +116,7 @@ import '../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../domain/features/activity/usecases/delete_activity_usecase.dart';
 import '../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../domain/features/activity/usecases/acknowledge_activity_usecase.dart';
+import '../../domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
 import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
@@ -155,6 +158,7 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
@@ -190,6 +194,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       baseUrl: apiBaseUrl,
       interceptors: <Interceptor>[
         AuthInterceptor(serviceLocator<StorageService>()),
+        SessionExpiredInterceptor(serviceLocator<StorageService>()),
       ],
     ),
   );
@@ -200,9 +205,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Auth Data Sources
   serviceLocator.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
-  );
-  serviceLocator.registerLazySingleton<AuthLocalDataSource>(
-    () => AuthLocalDataSourceImpl(serviceLocator()),
   );
 
   // Staff Data Sources
@@ -307,6 +309,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  serviceLocator.registerLazySingleton<SessionLocalCacheWiper>(
+    () => SessionLocalCacheWiper(
+      cacheService: serviceLocator<CacheService>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<AuthLocalDataSource>(
+    () => AuthLocalDataSourceImpl(
+      serviceLocator<StorageService>(),
+      sessionLocalCacheWiper: serviceLocator<SessionLocalCacheWiper>(),
+    ),
+  );
+
   // Use cases
   serviceLocator.registerFactory<LoginUseCase>(
     () => LoginUseCase(serviceLocator()),
@@ -397,6 +412,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentAbsentFormListUseCase>(
     () => GetStudentAbsentFormListUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAbsentRecordsActivityUseCase>(
+    () => GetStudentAbsentRecordsActivityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentAttendanceAbsentToggleViewUseCase>(
     () => GetStudentAttendanceAbsentToggleViewUseCase(serviceLocator()),
@@ -517,6 +535,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<AcknowledgeActivityUseCase>(
     () => AcknowledgeActivityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GuardianParentSignatureUseCase>(
+    () => GuardianParentSignatureUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateActivityUploadSessionsUseCase>(
     () => CreateActivityUploadSessionsUseCase(serviceLocator()),

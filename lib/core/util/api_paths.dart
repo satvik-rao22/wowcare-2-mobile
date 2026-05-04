@@ -285,6 +285,22 @@ class ApiPaths {
   static String staffProfilePath(String staffCode) =>
       '$staffMyProfile/$staffCode';
 
+  /// POST `/api/v1/staff/my-profile/{staffCode}/profile-photo/upload-session`.
+  static String staffProfilePhotoUploadSessionPath(String staffCode) =>
+      '$staffMyProfile/$staffCode/profile-photo/upload-session';
+
+  /// POST `/api/v1/staff/my-profile/{staffCode}/profile-photo/finalize`.
+  static String staffProfilePhotoFinalizePath(String staffCode) =>
+      '$staffMyProfile/$staffCode/profile-photo/finalize';
+
+  /// GET `/api/v1/staff/my-profile/profile-photo/asset-codes`.
+  static const String staffProfilePhotoAssetCodes =
+      '$staffMyProfile/profile-photo/asset-codes';
+
+  /// POST `/api/v1/staff/my-profile/delete-profile-photo/{staffCode}`.
+  static String staffDeleteProfilePhotoPath(String staffCode) =>
+      '$staffMyProfile/delete-profile-photo/$staffCode';
+
   /// GET/PATCH other staff profile — `/api/v1/staff/{staffCode}/profile`.
   static String staffProfileByCodePath(String staffCode) =>
       '/api/v1/staff/$staffCode/profile';
@@ -329,6 +345,12 @@ class ApiPaths {
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
+  static String studentProfilePhotoUploadSessionPath(String studentCode) =>
+      '$studentList/$studentCode/profile-photo/upload-session';
+  static String studentProfilePhotoFinalizePath(String studentCode) =>
+      '$studentList/$studentCode/profile-photo/finalize';
+  static const String studentProfilePhotoAssetCodes =
+      '/api/v1/student/profile-photo/asset-codes';
   static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
 
@@ -368,6 +390,10 @@ class ApiPaths {
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
+  static String guardianProfilePhotoUploadSessionPath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
+  static String guardianProfilePhotoFinalizePath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String futureAvailability = '/api/v1/future-availability';
@@ -381,10 +407,14 @@ class ApiPaths {
       '/api/v1/student-attendance/view/daily';
   static const String studentAttendanceCustomView =
       '/api/v1/student-attendance/view/custom';
+  static const String studentAttendanceMarkActivityStudentList =
+      '/api/v1/student-attendance/view/mark-activity/student-list';
   static const String studentAttendanceAbsentView =
       '/api/v1/student-attendance/view/absent';
   static const String studentAttendanceAbsentToggleView =
       '/api/v1/student-attendance/view/absent/toggle';
+  static const String studentAttendanceAbsentRecordsActivityView =
+      '/api/v1/student-attendance/view/absent/records/activity';
 
   static const String studentAttendanceProfile =
       '/api/v1/student-attendance/profile';
@@ -496,12 +526,22 @@ class ApiPaths {
       '/api/v2/activities/upload-sessions';
   static const String activitiesFeedDaily = '/api/v2/activities/feed/daily';
   static const String activitiesFeedRange = '/api/v2/activities/feed/range';
+  static const String activitiesFeedDailySearch =
+      '/api/v2/activities/feed/daily/search';
+  static const String activitiesFeedRangeSearch =
+      '/api/v2/activities/feed/range/search';
   static const String guardianActivitiesFeedDaily =
       '/api/v2/guardian/activities/feed/daily';
   static const String guardianActivitiesFeedRange =
       '/api/v2/guardian/activities/feed/range';
+  static const String guardianActivitiesFeedDailySearch =
+      '/api/v2/guardian/activities/feed/daily/search';
+  static const String guardianActivitiesFeedRangeSearch =
+      '/api/v2/guardian/activities/feed/range/search';
   static String guardianAcknowledgeActivity(String cardGroupCode) =>
       '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/acknowledge';
+  static String guardianParentSignatureActivity(String cardGroupCode) =>
+      '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/parent-signature';
   static String adminApproveActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
   static String adminRejectActivity(String cardGroupCode) =>
@@ -510,23 +550,35 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
-  static const String documentUploadSessionsRoot = '/api/v1/upload-sessions';
+  static String get documentUploadSessionsRoot => ApiConstants.isUat
+      ? '/upload-sessions'
+      : '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
     required String sessionCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/api/v1';
+    final defaultDocumentBasePath = ApiConstants.isUat
+        ? '/api/v1/document'
+        : '/api/v1';
+    if (base.isEmpty) base = defaultDocumentBasePath;
     if (!base.startsWith('/')) base = '/$base';
     // If backend returns `/document-ms/api/v1`, strip the `/document-ms` prefix
     // because [ApiConstants.documentMsBaseUrl] already includes it in LOCAL.
     if (base.startsWith('/document-ms/')) {
       base = base.replaceFirst('/document-ms', '');
-      if (base.isEmpty) base = '/api/v1';
+      if (base.isEmpty) base = defaultDocumentBasePath;
+    }
+    if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
+      base = '/api/v1/document';
+    }
+    if (ApiConstants.isUat && base.startsWith('/api/v1/document')) {
+      base = base.replaceFirst('/api/v1/document', '');
+      if (base.isEmpty) base = '';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
-    return '$base/upload-sessions/$sessionCode/assets/presign';
+    return '${base.isEmpty ? '' : base}/upload-sessions/$sessionCode/assets/presign/batch';
   }
 
   static String documentAssetCompletePath({
@@ -535,22 +587,36 @@ class ApiPaths {
     required String assetCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/api/v1';
+    final defaultDocumentBasePath = ApiConstants.isUat
+        ? '/api/v1/document'
+        : '/api/v1';
+    if (base.isEmpty) base = defaultDocumentBasePath;
     if (!base.startsWith('/')) base = '/$base';
     // If backend returns `/document-ms/api/v1`, strip the `/document-ms` prefix
     // because [ApiConstants.documentMsBaseUrl] already includes it in LOCAL.
     if (base.startsWith('/document-ms/')) {
       base = base.replaceFirst('/document-ms', '');
-      if (base.isEmpty) base = '/api/v1';
+      if (base.isEmpty) base = defaultDocumentBasePath;
+    }
+    if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
+      base = '/api/v1/document';
+    }
+    if (ApiConstants.isUat && base.startsWith('/api/v1/document')) {
+      base = base.replaceFirst('/api/v1/document', '');
+      if (base.isEmpty) base = '';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
     final s = sessionCode.trim();
     final a = assetCode.trim();
-    return '$base/upload-sessions/$s/assets/$a/complete';
+    return '${base.isEmpty ? '' : base}/upload-sessions/$s/assets/$a/complete';
   }
 
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
+  static String documentMediaAssetByCodePath(String assetCode) =>
+      ApiConstants.isUat
+          ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
+          : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>

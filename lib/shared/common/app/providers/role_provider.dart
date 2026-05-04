@@ -47,6 +47,17 @@ class RoleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// After logout / session expiry: drop module access memory and force a fresh
+  /// `/users/details` resolution on next sign-in (storage is cleared separately).
+  void resetSessionForLogout() {
+    _role = 'admin';
+    _modulesWithRead.clear();
+    _modulesWithWrite.clear();
+    _granularModuleAccess = false;
+    _initialized = false;
+    notifyListeners();
+  }
+
   /// Whether the active school context uses API module rows for this user.
   bool get usesGranularModuleAccess => _granularModuleAccess;
 

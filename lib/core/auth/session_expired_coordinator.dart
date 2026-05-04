@@ -11,6 +11,9 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:provider/provider.dart';
 
 /// When the refresh token is expired or refresh fails: call logout API, clear local
 /// session, reset [AuthCubit], and navigate to sign-in.
@@ -63,6 +66,12 @@ class SessionExpiredCoordinator {
 
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {
+        try {
+          ctx.read<ParentChildProvider>().invalidate();
+        } catch (_) {}
+        try {
+          ctx.read<RoleProvider>().resetSessionForLogout();
+        } catch (_) {}
         try {
           ctx.read<AuthCubit>().logout();
         } catch (_) {}

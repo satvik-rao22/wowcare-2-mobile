@@ -1143,6 +1143,7 @@ class StudentRepositoryImpl
               firstName: m.firstName,
               lastName: m.lastName,
               status: m.status,
+              profileImage: m.profilePhotoUrl,
               classroom: m.classroom,
               dob: m.dob,
               movementDate: m.movementDate,

@@ -5,6 +5,7 @@ import 'student_attendance_record_code.dart';
 class StudentAttendanceDailyItemModel extends Equatable {
   const StudentAttendanceDailyItemModel({
     this.attendanceRecordCode,
+    this.attendanceDate,
     this.studentCode,
     required this.studentName,
     required this.isExpectedToday,
@@ -41,6 +42,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final bool isExpectedToday;
   final String classroomName;
   final String? attendanceRecordCode;
+  final String? attendanceDate;
   final String? studentCode;
   final String? signedInAt;
   final StudentAttendanceTimeModel? signedInTime;
@@ -74,6 +76,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
       attendanceRecordCode: resolveStudentAttendanceRecordCodeForMutations(
         json,
       ),
+      attendanceDate: json['attendanceDate'] as String?,
       studentCode: json['studentCode'] as String?,
       studentName: json['studentName'] as String? ?? '',
       isExpectedToday: json['isExpectedToday'] as bool? ?? false,
@@ -127,6 +130,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
   Map<String, dynamic> toJson() {
     return {
       'attendanceRecordCode': attendanceRecordCode,
+      'attendanceDate': attendanceDate,
       'studentCode': studentCode,
       'studentName': studentName,
       'isExpectedToday': isExpectedToday,
@@ -163,6 +167,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
   @override
   List<Object?> get props => [
     attendanceRecordCode,
+    attendanceDate,
     studentCode,
     studentName,
     isExpectedToday,

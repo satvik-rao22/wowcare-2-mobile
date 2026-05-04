@@ -70,7 +70,7 @@ class ActivityFeedRow extends Equatable {
       attachments: d.attachments,
       napStart: null,
       napEnd: null,
-      approvalStatus: null,
+      approvalStatus: d.approvalStatus,
       students: fullName.isEmpty
           ? const []
           : [
