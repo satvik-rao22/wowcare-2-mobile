@@ -940,6 +940,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         }
       }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
+      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
@@ -1120,6 +1121,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       final mergedActivityPage = mergeActivityFeedPages(activityPages);
       await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
+      await primeActivityFeedOptionLabelsFromRows(mergedActivityPage.content);
       final items = <ActivityItem>[
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         if (absentPage != null) ..._itemsFromAbsentRecordsPage(absentPage),
@@ -1281,6 +1283,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       final mergedActivityPage = mergeActivityFeedPages(activityPages);
       await _primeStaffDisplayNamesFromFeedRows(mergedActivityPage.content);
+      await primeActivityFeedOptionLabelsFromRows(mergedActivityPage.content);
       final items = <ActivityItem>[
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),
         if (absentPage != null) ..._itemsFromAbsentRecordsPage(absentPage),
@@ -1623,6 +1626,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
             schoolIana: _schoolIana,
             staffDisplayNameByCode: _staffDisplayNameByCode,
+            activityTypeOptionCodeToLabel:
+                activityFeedOptionLabelsForType(row.activityTypeCode),
           ),
         )
         .toList();
@@ -2389,6 +2394,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         }
       }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
+      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         if (attendancePage != null) ..._itemsFromAttendancePage(attendancePage),

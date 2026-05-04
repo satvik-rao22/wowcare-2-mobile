@@ -36,6 +36,7 @@ import '../../../../domain/features/activity/usecases/delete_activity_usecase.da
 import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
+import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -1140,6 +1141,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
             schoolIana: _schoolIana,
             staffDisplayNameByCode: _staffDisplayNameByCode,
+            activityTypeOptionCodeToLabel:
+                activityFeedOptionLabelsForType(row.activityTypeCode),
           ),
         )
         .toList();
@@ -1760,6 +1763,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         }
       }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
+      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
@@ -1938,6 +1942,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
+      await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
@@ -2084,6 +2089,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final merged = mergeActivityFeedPages(pages);
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
+      await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
@@ -2268,6 +2274,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         }
       }
       await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
+      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
         if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
@@ -5942,6 +5949,8 @@ ActivityItem activityItemFromActivityDetail(
   return activityItemFromFeedRow(
     ActivityFeedRow.fromActivityDetail(detail),
     viewerDisplayName: viewerDisplayName,
+    activityTypeOptionCodeToLabel:
+        activityFeedOptionLabelsForType(detail.activityTypeCode),
   );
 }
 
@@ -5980,6 +5989,84 @@ List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity)
     maps.add({'name': 'Student'});
   }
   return maps;
+}
+
+/// Option code → label for activity type definitions (`GET …/activity-types/{code}`).
+final Map<String, Map<String, String>> _activityFeedOptionLabelCache = {};
+
+Future<void> ensureActivityFeedOptionLabelsForType(String activityTypeCode) async {
+  final c = activityTypeCode.trim();
+  if (c.isEmpty) return;
+  if (_activityFeedOptionLabelCache.containsKey(c)) return;
+  try {
+    final uc = serviceLocator<GetActivityTypeDetailsUseCase>();
+    final d = await uc(code: c);
+    final map = <String, String>{};
+    for (final param in d.parameters) {
+      for (final o in param.options) {
+        final lbl = (o.optionLabel ?? '').trim();
+        if (lbl.isEmpty) continue;
+        final oc = (o.optionCode ?? '').trim();
+        final rawCode = o.code.trim();
+        if (oc.isNotEmpty) map[oc] = lbl;
+        if (rawCode.isNotEmpty && rawCode != oc) map[rawCode] = lbl;
+      }
+    }
+    _activityFeedOptionLabelCache[c] = map;
+  } catch (_) {
+    _activityFeedOptionLabelCache[c] = {};
+  }
+}
+
+Future<void> primeActivityFeedOptionLabelsFromRows(Iterable<ActivityFeedRow> rows) async {
+  final codes = <String>{};
+  for (final r in rows) {
+    if (mapApiActivityTypeNameToUiLabel(r.activityTypeName) != 'Learning') continue;
+    final code = r.activityTypeCode.trim();
+    if (code.isNotEmpty) codes.add(code);
+  }
+  await Future.wait(codes.map(ensureActivityFeedOptionLabelsForType));
+}
+
+Map<String, String>? activityFeedOptionLabelsForType(String activityTypeCode) {
+  final map = _activityFeedOptionLabelCache[activityTypeCode.trim()];
+  if (map == null || map.isEmpty) return null;
+  return map;
+}
+
+String? _resolveLearningFeedParamDisplay(
+  Map<String, dynamic> p,
+  Map<String, String> codeToLabel,
+) {
+  for (final key in ['selectedOptionLabel', 'optionLabel']) {
+    final v = (p[key] ?? '').toString().trim();
+    if (v.isNotEmpty) return v;
+  }
+
+  final dt = (p['dataType'] ?? '').toString().toUpperCase();
+  if (dt == 'DATE') {
+    final d = (p['valueDate'] ?? '').toString().trim();
+    if (d.isNotEmpty) return d;
+  }
+  if (dt == 'TIME') {
+    final t = (p['valueTime'] ?? '').toString().trim();
+    if (t.isNotEmpty) return t;
+  }
+
+  final sel = (p['selectedOptionCode'] ?? '').toString().trim();
+  if (sel.isNotEmpty) {
+    final hit = codeToLabel[sel];
+    if (hit != null && hit.isNotEmpty) return hit;
+  }
+
+  for (final key in ['valueText', 'valueNumber']) {
+    final raw = (p[key] ?? '').toString().trim();
+    if (raw.isEmpty) continue;
+    final hit = codeToLabel[raw];
+    if (hit != null && hit.isNotEmpty) return hit;
+    return raw;
+  }
+  return null;
 }
 
 /// Maps backend [ActivityFeedRow.activityTypeName] to UI keys used in [activityRoutes].
@@ -6023,6 +6110,7 @@ ActivityItem activityItemFromFeedRow(
   String? viewerDisplayName,
   String? schoolIana,
   Map<String, String>? staffDisplayNameByCode,
+  Map<String, String>? activityTypeOptionCodeToLabel,
 }) {
   bool? _boolFromAny(dynamic raw) {
     if (raw is bool) return raw;
@@ -6092,6 +6180,13 @@ ActivityItem activityItemFromFeedRow(
     for (final p in row.parameterValues) {
       final n = (p['parameterName'] ?? '').toString().toLowerCase();
       if (!match(n)) continue;
+      if (name == 'Learning') {
+        final m = activityTypeOptionCodeToLabel;
+        if (m != null && m.isNotEmpty) {
+          final resolved = _resolveLearningFeedParamDisplay(p, m);
+          if (resolved != null && resolved.isNotEmpty) return resolved;
+        }
+      }
       // Prefer human-readable labels (dropdowns) before option codes in valueText.
       for (final key in <String>[
         'selectedOptionLabel',
