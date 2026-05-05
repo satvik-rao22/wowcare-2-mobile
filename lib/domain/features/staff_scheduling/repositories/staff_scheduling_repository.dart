@@ -6,9 +6,10 @@ abstract class StaffSchedulingRepository {
   Future<void> addSchedule(Map<String, dynamic> data);
   Future<void> editSchedule(String id, Map<String, dynamic> data);
   Future<List<StaffShiftEntity>> getStaffShifts({
-    required String classroomCode,
+    String? classroomCode,
     required String dateFrom,
     required String dateTo,
-    String shiftStatus = 'PUBLISHED',
+    String? shiftStatus,
   });
+  Future<List<Map<String, dynamic>>> getAllClassrooms(String schoolCode);
 }

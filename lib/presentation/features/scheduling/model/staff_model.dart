@@ -1,9 +1,13 @@
+import 'package:flutter/material.dart';
+import '../../../../shared/common/widgets/profile_show_widget.dart';
+
 class StaffModel {
   final String name;
-  final String image;
+  final DocumentImageWidget image;
   final int workedHours;
   final int totalHours;
   final String shift;
+  final Color? statusColor;
 
   StaffModel({
     required this.name,
@@ -11,5 +15,6 @@ class StaffModel {
     required this.workedHours,
     required this.totalHours,
     required this.shift,
+    this.statusColor,
   });
 }

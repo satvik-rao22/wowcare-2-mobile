@@ -122,7 +122,8 @@ class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
   Future<void> addSchedule(Map<String, dynamic> data) async {
     final responseData = await _remoteDataSource.addSchedule(data);
     if (responseData != null) {
-      final createdShiftCodes = responseData['createdShiftCodes'] as List<dynamic>?;
+      final createdShiftCodes =
+          responseData['createdShiftCodes'] as List<dynamic>?;
       if (createdShiftCodes != null && createdShiftCodes.isNotEmpty) {
         final shifts = createdShiftCodes.map((code) {
           return StaffShiftCollection.fromMap(data, code: code as String);
@@ -139,17 +140,17 @@ class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
 
   @override
   Future<List<StaffShiftEntity>> getStaffShifts({
-    required String classroomCode,
+    String? classroomCode,
     required String dateFrom,
     required String dateTo,
-    String shiftStatus = 'PUBLISHED',
+    String? shiftStatus,
   }) async {
     try {
       final remoteShifts = await _remoteDataSource.getStaffShifts(
         classroomCode: classroomCode,
         dateFrom: dateFrom,
         dateTo: dateTo,
-        shiftStatus: shiftStatus,
+        shiftStatus: shiftStatus ?? 'PUBLISHED',
       );
 
       final shifts = remoteShifts.map((map) {
@@ -164,12 +165,20 @@ class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
       // Fallback to cache on error
       final cachedShifts = await _cacheService.getAll<StaffShiftCollection>();
       return cachedShifts
-          .where((s) =>
-              s.classroomCode == classroomCode &&
-              s.shiftDate.compareTo(dateFrom) >= 0 &&
-              s.shiftDate.compareTo(dateTo) <= 0)
+          .where(
+            (s) =>
+                (classroomCode == null || s.classroomCode == classroomCode) &&
+                s.shiftDate.compareTo(dateFrom) >= 0 &&
+                s.shiftDate.compareTo(dateTo) <= 0,
+          )
           .map((s) => s.toEntity())
           .toList();
     }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllClassrooms(String schoolCode) {
+    // TODO: implement getAllClassrooms
+    throw UnimplementedError();
   }
 }

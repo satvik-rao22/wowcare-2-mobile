@@ -19,12 +19,14 @@ class StaffShiftModel {
   final String? notes;
   final double availableHours;
   final double scheduledHours;
+  final String image;
   final double unscheduledHours;
 
   StaffShiftModel({
     required this.shiftCode,
     required this.staffCode,
     required this.staffFirstName,
+    required this.image,
     required this.staffLastName,
     required this.classroomCode,
     required this.schoolCode,
@@ -46,6 +48,7 @@ class StaffShiftModel {
   factory StaffShiftModel.fromJson(Map<String, dynamic> json) {
     return StaffShiftModel(
       shiftCode: json['shiftCode'] as String? ?? '',
+      image: json['image'] as String? ?? '',
       staffCode: json['staffCode'] as String? ?? '',
       staffFirstName: json['staffFirstName'] as String? ?? '',
       staffLastName: json['staffLastName'] as String? ?? '',
@@ -87,6 +90,7 @@ class StaffShiftModel {
       notes: notes,
       availableHours: availableHours,
       scheduledHours: scheduledHours,
+      image: image,
       unscheduledHours: unscheduledHours,
     );
   }

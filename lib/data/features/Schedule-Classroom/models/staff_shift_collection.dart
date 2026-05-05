@@ -31,6 +31,7 @@ class StaffShiftCollection {
   late double availableHours;
   late double scheduledHours;
   late double unscheduledHours;
+  late String image;
 
   StaffShiftCollection();
 
@@ -55,7 +56,8 @@ class StaffShiftCollection {
       ..publish = map['publish'] as bool? ?? true
       ..repeat = map['repeat'] as bool? ?? false
       ..overrideConflicts = map['overrideConflicts'] as bool? ?? true
-      ..forceAdd = map['forceAdd'] as bool? ?? map['forceAdded'] as bool? ?? true
+      ..forceAdd =
+          map['forceAdd'] as bool? ?? map['forceAdded'] as bool? ?? true
       ..notes = map['notes'] as String?
       ..seriesCode = map['seriesCode'] as String?
       ..availableHours = (map['availableHours'] as num?)?.toDouble() ?? 0.0
@@ -111,6 +113,7 @@ class StaffShiftCollection {
       availableHours: availableHours,
       scheduledHours: scheduledHours,
       unscheduledHours: unscheduledHours,
+      image: image,
     );
   }
 }

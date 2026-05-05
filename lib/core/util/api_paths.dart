@@ -473,6 +473,7 @@ class ApiPaths {
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';
+  static const String classroomAllStatuses = '/api/v1/classroom/all-classrooms';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
 

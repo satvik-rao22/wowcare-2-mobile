@@ -18,6 +18,7 @@ class CustomRepeatOnDaysSelector extends StatefulWidget {
 
 class _CustomRepeatOnDaysSelectorState
     extends State<CustomRepeatOnDaysSelector> {
+  bool _isRepeatEnabled = false;
   final List<String> _allDays = [
     "Monday",
     "Tuesday",
@@ -76,43 +77,77 @@ class _CustomRepeatOnDaysSelectorState
                   color: Color(0xFF4B2E4C),
                 ),
               ),
+              SizedBox(width: 16),
+              Row(
+                children: [
+                  const Text("Off"),
+                  Switch(
+                    value: _isRepeatEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _isRepeatEnabled = value;
+
+                        if (!value) {
+                          _selectedDays.clear();
+                          widget.onSelectionChanged([]);
+                        }
+                      });
+                    },
+
+                    /// Track (background)
+                    trackColor: MaterialStateProperty.resolveWith((states) {
+                      if (states.contains(MaterialState.selected)) {
+                        return AppColors.themeColor; // ON
+                      }
+                      return Colors.grey.shade300; // OFF
+                    }),
+
+                    /// Thumb (bubble) → always white
+                    thumbColor: MaterialStateProperty.all(Colors.white),
+                  ),
+                  const Text("On"),
+                ],
+              ),
               const Spacer(),
-              GestureDetector(
-                onTap: _toggleSelectAll,
-                child: ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: AppColors.primaryGradientColors,
-                  ).createShader(bounds),
-                  child: const Text(
-                    "Select All",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+              if (_isRepeatEnabled)
+                GestureDetector(
+                  onTap: _toggleSelectAll,
+
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: AppColors.primaryGradientColors,
+                    ).createShader(bounds),
+                    child: const Text(
+                      "Select All",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
 
         // GridView - 3 items per row with better text visibility
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 16,
-            childAspectRatio: 3.2, // Increased for better text space
+        if (_isRepeatEnabled)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 16,
+              childAspectRatio: 3.2, // Increased for better text space
+            ),
+            itemCount: _allDays.length,
+            itemBuilder: (context, index) {
+              final day = _allDays[index];
+              return _buildDayCheckbox(day);
+            },
           ),
-          itemCount: _allDays.length,
-          itemBuilder: (context, index) {
-            final day = _allDays[index];
-            return _buildDayCheckbox(day);
-          },
-        ),
       ],
     );
   }

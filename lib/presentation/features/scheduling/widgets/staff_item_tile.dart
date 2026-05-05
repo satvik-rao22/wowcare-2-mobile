@@ -17,9 +17,8 @@ class StaffItemTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(backgroundImage: NetworkImage(staff.image)),
+          staff.image,
           const SizedBox(width: 10),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

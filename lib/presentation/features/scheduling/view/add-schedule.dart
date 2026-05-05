@@ -31,6 +31,7 @@ class AddShiftScreen extends StatefulWidget {
 }
 
 class _AddShiftScreenState extends State<AddShiftScreen> {
+  bool _isRepeatEnabled = false;
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -117,13 +118,17 @@ class _AddShiftFormState extends State<AddShiftForm> {
       "shiftDate": DateFormat('yyyy-MM-dd').format(_shiftDate!),
       "startTime": formatTime(_startTime),
       "endTime": formatTime(_endTime),
-      "breakStartTime": formatTime(_breakStartTime),
-      "breakEndTime": formatTime(_breakEndTime),
+      if (_breakStartTime != null)
+        "breakStartTime": formatTime(_breakStartTime),
+      if (_breakEndTime != null) "breakEndTime": formatTime(_breakEndTime),
       "publish": true,
       "repeat": _selectedDays.isNotEmpty,
+      if (_selectedDays.isNotEmpty) "repeatDays": _selectedDays,
+      if (_selectedDays.isNotEmpty && _repeatUntil != null)
+        "repeatUntil": DateFormat('yyyy-MM-dd').format(_repeatUntil!),
       "overrideConflicts": true,
       "forceAdd": true,
-      "notes": _notes,
+      if (_notes.isNotEmpty) "notes": _notes,
     };
 
     if (mounted) {
@@ -436,7 +441,9 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                   const SizedBox(height: 16),
                                   CustomAddNoteButton(
                                     onSubmitted: (value) {
-                                      print(value);
+                                      setState(() {
+                                        _notes = value;
+                                      });
                                     },
                                   ),
                                 ],

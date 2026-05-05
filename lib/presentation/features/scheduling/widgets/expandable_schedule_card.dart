@@ -35,8 +35,23 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
     isExpanded = widget.isInitiallyExpanded;
   }
 
+  @override
+  void didUpdateWidget(ExpandableScheduleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isInitiallyExpanded != widget.isInitiallyExpanded) {
+      setState(() {
+        isExpanded = widget.isInitiallyExpanded;
+      });
+    }
+  }
+
   void toggleAll() {
-    setState(() => isExpanded = !isExpanded);
+    setState(() {
+      isExpanded = !isExpanded;
+      for (var classroom in widget.classrooms) {
+        classroom.isExpanded = isExpanded;
+      }
+    });
   }
 
   void togglePopup(int index, bool isWarning) {
@@ -115,23 +130,37 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
   }
 
   Widget _buildHeader() {
-    return Column(
-      children: [
-        IntrinsicHeight(
-          child: Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: toggleAll,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+    return Container(
+      color: const Color(0xFFFBF8FC), // 👈 background added
+      child: Column(
+        children: [
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: toggleAll,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      alignment: Alignment.centerLeft,
                     ),
-                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      isExpanded ? "Collapse All" : "Expand All",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4B2E4C),
+                      ),
+                    ),
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    isExpanded ? "Collapse All" : "Expand All",
+                    widget.title,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -139,23 +168,12 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  widget.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF4B2E4C),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1, color: Color(0xFFE5E5E5)),
-      ],
+          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+        ],
+      ),
     );
   }
 
@@ -243,10 +261,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundImage: NetworkImage(staff.image),
-                            ),
+                            staff.image,
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -266,13 +281,29 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                         ),
                                       );
                                     },
-                                    child: Text(
-                                      staff.name,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF4B2E4C),
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (staff.statusColor != null) ...[
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: staff.statusColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        Text(
+                                          staff.name,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF4B2E4C),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(height: 6),

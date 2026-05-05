@@ -19,6 +19,7 @@ class StaffShiftEntity extends Equatable {
   final String? notes;
   final double availableHours;
   final double scheduledHours;
+  final String image;
   final double unscheduledHours;
 
   const StaffShiftEntity({
@@ -26,6 +27,7 @@ class StaffShiftEntity extends Equatable {
     required this.staffCode,
     required this.staffFirstName,
     required this.staffLastName,
+    required this.image,
     required this.classroomCode,
     required this.schoolCode,
     required this.organizationCode,
@@ -47,24 +49,24 @@ class StaffShiftEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        shiftCode,
-        staffCode,
-        staffFirstName,
-        staffLastName,
-        classroomCode,
-        schoolCode,
-        organizationCode,
-        shiftDate,
-        startTime,
-        endTime,
-        breakStartTime,
-        breakEndTime,
-        shiftStatus,
-        forceAdded,
-        seriesCode,
-        notes,
-        availableHours,
-        scheduledHours,
-        unscheduledHours,
-      ];
+    shiftCode,
+    staffCode,
+    staffFirstName,
+    staffLastName,
+    classroomCode,
+    schoolCode,
+    organizationCode,
+    shiftDate,
+    startTime,
+    endTime,
+    breakStartTime,
+    breakEndTime,
+    shiftStatus,
+    forceAdded,
+    seriesCode,
+    notes,
+    availableHours,
+    scheduledHours,
+    unscheduledHours,
+  ];
 }

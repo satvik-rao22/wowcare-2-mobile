@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:http/http.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../classroom/cubit/classroom_cubit.dart';
+import '../cubit/staff_scheduling_cubit.dart';
+import '../cubit/staff_scheduling_state.dart';
 
 class ScheduleCard extends StatefulWidget {
   const ScheduleCard({super.key});
@@ -21,8 +21,15 @@ class _ScheduleCardState extends State<ScheduleCard> {
   String? _selectedClassroomCode;
 
   List<Map<String, dynamic>> get classroomList {
-    final classrooms = context.read<ClassroomCubit>().state.classrooms;
-    return classrooms.map((c) => {'code': c.code, 'name': c.name}).toList();
+    final classrooms = context.read<StaffSchedulingCubit>().state;
+    if (classrooms is StaffSchedulingLoaded) {
+      return classrooms.allClassrooms.map((c) {
+        final code = c['classroomCode'] ?? c['code'] ?? '';
+        final name = c['classroomName'] ?? c['name'] ?? 'Classroom';
+        return {'code': code, 'name': name};
+      }).toList();
+    }
+    return [];
   }
 
   @override

@@ -1,14 +1,98 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import '../model/staff_model.dart';
 import 'staff_scheduling_state.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+
+import 'package:intl/intl.dart';
 
 class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
-  StaffSchedulingCubit() : super(StaffSchedulingInitial()) {
-    loadInitialData();
+  final StaffSchedulingRepository _repository;
+  final StorageService _storageService;
+
+  StaffSchedulingCubit(this._repository, this._storageService)
+    : super(StaffSchedulingInitial()) {
+    // Default to daily view and current date
+    loadInitialData(date: DateTime.now(), isDaily: true);
   }
 
-  void loadInitialData() {
-    emit(StaffSchedulingLoaded(expandAll: false, staffList: _dummyData()));
+  void loadInitialData({DateTime? date, bool isDaily = true}) async {
+    final targetDate = date ?? DateTime.now();
+
+    emit(
+      StaffSchedulingLoaded(
+        expandAll: false,
+        staffList: [],
+        staffShifts: const [],
+        isDailyView: isDaily,
+        selectedDate: targetDate,
+      ),
+    );
+
+    try {
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+      List<StaffShiftEntity> shifts = [];
+      List<Map<String, dynamic>> classroomsRaw = [];
+
+      String dateFrom;
+      String dateTo;
+
+      if (isDaily) {
+        dateFrom = DateFormat('yyyy-MM-dd').format(targetDate);
+        dateTo = dateFrom;
+      } else {
+        // Find Monday of the week
+        final int daysToSubtract = targetDate.weekday - DateTime.monday;
+        final DateTime monday = targetDate.subtract(
+          Duration(days: daysToSubtract),
+        );
+        final DateTime sunday = monday.add(const Duration(days: 6));
+        dateFrom = DateFormat('yyyy-MM-dd').format(monday);
+        dateTo = DateFormat('yyyy-MM-dd').format(sunday);
+      }
+
+      try {
+        shifts = await _repository.getStaffShifts(
+          dateFrom: dateFrom,
+          dateTo: dateTo,
+        );
+      } catch (e) {
+        print("Error fetching shifts: $e");
+      }
+
+      try {
+        classroomsRaw = await _repository.getAllClassrooms(schoolCode);
+      } catch (e) {
+        print("Error fetching classrooms: $e");
+      }
+
+      if (state is StaffSchedulingLoaded) {
+        emit(
+          (state as StaffSchedulingLoaded).copyWith(
+            staffShifts: shifts,
+            allClassrooms: classroomsRaw,
+          ),
+        );
+      }
+    } catch (e) {
+      print("Unexpected error in loadInitialData: $e");
+    }
+  }
+
+  void changeDateAndMode({required DateTime date, required bool isDaily}) {
+    if (state is StaffSchedulingLoaded) {
+      emit(
+        (state as StaffSchedulingLoaded).copyWith(
+          selectedDate: date,
+          isDailyView: isDaily,
+        ),
+      );
+    }
+    loadInitialData(date: date, isDaily: isDaily);
   }
 
   void toggleCard(String id) {
@@ -56,38 +140,5 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   void updatePublish(String value) {
     final current = state as StaffSchedulingLoaded;
     emit(current.copyWith(selectedPublish: value));
-  }
-
-  List<StaffModel> _dummyData() {
-    return [
-      StaffModel(
-        name: "Vivek Pawar",
-        image: "https://i.pravatar.cc/150?img=1",
-        workedHours: 45,
-        totalHours: 55,
-        shift: "07:00 AM - 05:00 PM",
-      ),
-      StaffModel(
-        name: "Divya Patil",
-        image: "https://i.pravatar.cc/150?img=2",
-        workedHours: 40,
-        totalHours: 50,
-        shift: "09:00 AM - 06:00 PM",
-      ),
-      StaffModel(
-        name: "Preshita Koli",
-        image: "https://i.pravatar.cc/150?img=2",
-        workedHours: 40,
-        totalHours: 50,
-        shift: "09:00 AM - 06:00 PM",
-      ),
-      StaffModel(
-        name: "Prathames Jaipal",
-        image: "https://i.pravatar.cc/150?img=2",
-        workedHours: 40,
-        totalHours: 50,
-        shift: "09:00 AM - 06:00 PM",
-      ),
-    ];
   }
 }
