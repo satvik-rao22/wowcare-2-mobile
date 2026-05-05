@@ -1,76 +1,208 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
-import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 
 // ---------------------------------------------------------------------------
-// Responsive sizing — fixed for Bug 3 (iPad split-screen)
-// Uses shortestSide to detect a true tablet regardless of split-view width.
+// Device Tier Enum
+// ---------------------------------------------------------------------------
+enum _DeviceTier {
+  /// Compact outer fold screen / very narrow phones (< 360 logical px wide)
+  foldOuter,
+
+  /// Standard compact phones: Realme C-series, budget Androids (360–399px)
+  compact,
+
+  /// Mid-range phones: Realme GT, Nothing Phone 1/2, most flagships (400–479px)
+  standard,
+
+  /// Large phones / inner fold unfolded / phablets (480–599px)
+  large,
+
+  /// Small tablets / fold fully open ≥600 shortest side
+  tablet,
+
+  /// Large tablets / iPads ≥900 shortest side
+  largeTablet,
+}
+
+// ---------------------------------------------------------------------------
+// _NavSizes — full device-aware sizing
 // ---------------------------------------------------------------------------
 class _NavSizes {
   _NavSizes(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final w = mq.size.width;
-    // shortestSide is always the physical short dimension even in landscape.
-    // ≥600 on shortestSide = a genuine tablet, not an iPhone in landscape.
     final shortest = mq.size.shortestSide;
-    final isTablet = shortest >= 600;
-    final isLargeTablet = shortest >= 900;
+    final logicalWidth = mq.size.width;
+    final dpr = mq.devicePixelRatio;
 
-    if (isLargeTablet) {
-      iconSize = 30;
-      fontSize = 13;
-      itemPaddingH = 16;
-      itemPaddingV = 12;
-      activeRadius = 16;
-    } else if (isTablet) {
-      iconSize = 26;
-      fontSize = 12;
-      itemPaddingH = 10;
-      itemPaddingV = 10;
-      activeRadius = 14;
+    // ---- Detect foldable hinge / display features ----
+    final hasFoldHinge = mq.displayFeatures.any(
+      (f) =>
+          f.type == DisplayFeatureType.fold ||
+          f.type == DisplayFeatureType.hinge,
+    );
+
+    // ---- Determine tier ----
+    if (shortest >= 900) {
+      _tier = _DeviceTier.largeTablet;
+    } else if (shortest >= 600) {
+      _tier = _DeviceTier.tablet;
+    } else if (logicalWidth >= 480 || (hasFoldHinge && logicalWidth >= 700)) {
+      // Inner fold screen opened wide OR physical phablet
+      _tier = _DeviceTier.large;
+    } else if (logicalWidth >= 400) {
+      _tier = _DeviceTier.standard;
+    } else if (logicalWidth >= 360) {
+      _tier = _DeviceTier.compact;
     } else {
-      iconSize = 22;
-      fontSize = 10;
-      itemPaddingH = 4;
-      itemPaddingV = 6;
-      activeRadius = 12;
+      // Outer fold screen (Z Fold cover screen ~344–360px)
+      _tier = _DeviceTier.foldOuter;
     }
 
-    // Bug 2 fix — Samsung & all Android gesture-nav:
-    // viewPadding is the raw inset before system consumption; it reports the
-    // correct bottom inset in every Android navigation mode (gesture, 2-button,
-    // 3-button) AND on iOS home-bar devices.
-    // DO NOT use mq.padding.bottom — it can be 0 in gesture mode on Samsung.
-    final bottomInset = mq.viewPadding.bottom;
+    // ---- Assign sizes by tier ----
+    switch (_tier) {
+      case _DeviceTier.foldOuter:
+        iconSize = 30;
+        fontSize = 13;
+        itemPaddingH = 16;
+        itemPaddingV = 12;
+        activeRadius = 16;
+        labelMaxWidth = 110.0;
+        break;
+      case _DeviceTier.compact:
+        iconSize = 30;
+        fontSize = 13;
+        itemPaddingH = 16;
+        itemPaddingV = 12;
+        activeRadius = 16;
+        labelMaxWidth = 110.0;
+        break;
+      case _DeviceTier.standard:
+        iconSize = 30;
+        fontSize = 13;
+        itemPaddingH = 16;
+        itemPaddingV = 12;
+        activeRadius = 16;
+        labelMaxWidth = 110.0;
+        break;
+      case _DeviceTier.large:
+        iconSize = 30;
+        fontSize = 13;
+        itemPaddingH = 16;
+        itemPaddingV = 12;
+        activeRadius = 16;
+        labelMaxWidth = 110.0;
+        break;
+      case _DeviceTier.tablet:
+        iconSize = 30;
+        fontSize = 13;
+        itemPaddingH = 16;
+        itemPaddingV = 12;
+        activeRadius = 16;
+        labelMaxWidth = 110.0;
+        break;
+      case _DeviceTier.largeTablet:
+        iconSize = 30;
+        fontSize = 13;
+        itemPaddingH = 16;
+        itemPaddingV = 12;
+        activeRadius = 16;
+        labelMaxWidth = 110.0;
+        break;
+    }
+
+    // ---- Scale icon slightly for very high DPI screens ----
+    // Devices like Nothing Phone 2 (dpr ≥ 3.0) on compact bodies
+    // can make 22px icons feel tiny at actual physical mm size.
+    if (dpr >= 3.5 && _tier == _DeviceTier.compact) {
+      iconSize += 2;
+    }
+
+    // ---- Bottom inset — robust across all Android nav modes ----
+    //
+    // viewPadding.bottom = raw OS-reported inset BEFORE Flutter consumes it.
+    // This is correct for:
+    //   - Samsung gesture nav (viewPadding > 0, padding = 0)
+    //   - iOS home indicator
+    //   - Android 3-button / 2-button nav
+    //   - Nothing OS transparent nav bar
+    //   - Realme UI with full-screen gesture
+    //
+    // We clamp to a max of 60 to guard against erroneous values on some
+    // OEM ROMs that report the full screen height as the bottom inset
+    // when the activity is in an unusual window mode.
+    final rawBottom = mq.viewPadding.bottom.clamp(0.0, 60.0);
+
+    // ---- Side insets — handle curved display / fold asymmetric cutouts ----
+    // Nothing Phone curved corners and some Realme side notches add
+    // viewPadding on left/right. We respect those too.
+    final sideInsetL = mq.viewPadding.left.clamp(0.0, 24.0);
+    final sideInsetR = mq.viewPadding.right.clamp(0.0, 24.0);
+
+    final double hPadBase = switch (_tier) {
+      _DeviceTier.foldOuter => 4,
+      _DeviceTier.compact => 6,
+      _DeviceTier.standard => 6,
+      _DeviceTier.large => 10,
+      _DeviceTier.tablet => 12,
+      _DeviceTier.largeTablet => 16,
+    };
+    final double vPadBase = switch (_tier) {
+      _DeviceTier.foldOuter => 8,
+      _DeviceTier.compact => 10,
+      _DeviceTier.standard => 12,
+      _DeviceTier.large => 14,
+      _DeviceTier.tablet => 16,
+      _DeviceTier.largeTablet => 18,
+    };
+
     barPadding = EdgeInsets.fromLTRB(
-      isLargeTablet ? 16 : (isTablet ? 12 : 6),
-      isLargeTablet ? 10 : (isTablet ? 8 : 6),
-      isLargeTablet ? 16 : (isTablet ? 12 : 6),
-      (isLargeTablet ? 10 : (isTablet ? 8 : 6)) + bottomInset,
+      hPadBase + sideInsetL,
+      vPadBase,
+      hPadBase + sideInsetR,
+      vPadBase + rawBottom,
     );
+
+    // ---- Hinge-aware horizontal item padding ----
+    // On fold inner screen, reduce item H-padding so 5 items fit without
+    // crowding near the hinge.
+    if (hasFoldHinge && _tier == _DeviceTier.large) {
+      itemPaddingH = (itemPaddingH * 0.6).clamp(2.0, 12.0);
+    }
   }
 
-  late final double iconSize;
-  late final double fontSize;
-  late final double itemPaddingH;
-  late final double itemPaddingV;
-  late final EdgeInsets barPadding;
-  late final double activeRadius;
+  late _DeviceTier _tier;
+  late double iconSize;
+  late double fontSize;
+  late double itemPaddingH;
+  late double itemPaddingV;
+  late EdgeInsets barPadding;
+  late double activeRadius;
+  late double labelMaxWidth;
+
+  bool get isFoldOuter => _tier == _DeviceTier.foldOuter;
+  bool get isCompactOrFold =>
+      _tier == _DeviceTier.foldOuter || _tier == _DeviceTier.compact;
 }
 
+// ---------------------------------------------------------------------------
+// CustomNavigationBar
+// ---------------------------------------------------------------------------
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
 
@@ -87,9 +219,10 @@ class CustomNavigationBar extends StatefulWidget {
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
   final GlobalKey _containerKey = GlobalKey();
   double _navBarHeight = 0.0;
-  // Bug 4 fix: removed _hasMeasured flag so height re-measures on every
-  // layout change (rotation, split-view resize, etc.).
   String _currentRoute = '';
+  int _index = 0;
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -109,33 +242,28 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     }
   }
 
-  // Bug 4 fix: called from didUpdateWidget + postFrameCallback on every build
-  // so height stays accurate after rotation.
-  void _measureHeight() {
-    if (!mounted) return;
-    final RenderBox? renderBox =
-        _containerKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      final newHeight = renderBox.size.height;
-      if (newHeight != _navBarHeight) {
-        setState(() => _navBarHeight = newHeight);
-      }
-    }
-  }
-
   @override
   void didUpdateWidget(covariant CustomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-measure whenever the widget rebuilds (catches orientation changes).
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
-  int _index = 0;
+  // ── Height measurement ────────────────────────────────────────────────────
+
+  void _measureHeight() {
+    if (!mounted) return;
+    final box = _containerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null) {
+      final h = box.size.height;
+      if (h != _navBarHeight) setState(() => _navBarHeight = h);
+    }
+  }
+
+  // ── Route → index sync ────────────────────────────────────────────────────
 
   void _updateIndexFromRoute() {
     if (!mounted) return;
-    final roleProvider = Provider.of<RoleProvider>(context, listen: false);
-    final isParent = roleProvider.isParent;
+    final isParent = Provider.of<RoleProvider>(context, listen: false).isParent;
 
     if (isParent) {
       if (_currentRoute == DashboardScreen.routeName)
@@ -156,6 +284,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     }
   }
 
+  // ── Tap handler ───────────────────────────────────────────────────────────
+
   void _onItemTapped(int index, BuildContext context, bool isParent) {
     setState(() => _index = index);
 
@@ -163,13 +293,10 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       switch (index) {
         case 0:
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-          break;
         case 1:
           AttendancePopupManager.showAttendancePopup(context);
-          break;
         case 2:
           Navigator.pushReplacementNamed(context, ActivityFeedScreen.routeName);
-          break;
         case 3:
           Navigator.pushReplacement(
             context,
@@ -179,31 +306,25 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                   const MessagingScreen(userPersona: UserPersona.parent),
             ),
           );
-          break;
         case 4:
           Navigator.pushReplacementNamed(
             context,
             ParentBillingScreen.routeName,
           );
-          break;
       }
     } else {
       switch (index) {
         case 0:
           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-          break;
         case 1:
           AttendancePopupManager.showAttendancePopup(context);
-          break;
         case 2:
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
           );
-          break;
         case 3:
           Navigator.pushReplacementNamed(context, ActivityFeedScreen.routeName);
-          break;
         case 4:
           Navigator.pushReplacement(
             context,
@@ -213,10 +334,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                   const MessagingScreen(userPersona: UserPersona.admin),
             ),
           );
-          break;
       }
     }
   }
+
+  // ── Item builder ──────────────────────────────────────────────────────────
 
   Widget _buildNavItem({
     required String icon,
@@ -227,6 +349,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     required _NavSizes sizes,
   }) {
     final bool isActive = _index == index;
+
+    // On fold outer screen the label can be very long ("Communication").
+    // We abbreviate if needed so the item never overflows.
+    final displayLabel = sizes.isFoldOuter
+        ? _abbreviateLabel(label)
+        : sizes.isCompactOrFold && label.length > 10
+        ? _abbreviateLabel(label)
+        : label;
 
     return Expanded(
       child: InkWell(
@@ -257,18 +387,22 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                     : null,
               ),
               const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: Fonts.inter,
-                    fontSize: sizes.fontSize,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: sizes.labelMaxWidth),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    displayLabel,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: Fonts.inter,
+                      fontSize: sizes.fontSize,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    softWrap: false,
                   ),
-                  maxLines: 1,
-                  softWrap: false,
                 ),
               ),
             ],
@@ -278,11 +412,27 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     );
   }
 
+  /// Abbreviates long labels for tiny screens.
+  String _abbreviateLabel(String label) {
+    return switch (label) {
+      'Dashboard' => 'Home',
+      'Attendance' => 'Attend.',
+      'Activities' => 'Activity',
+      'Communication' => 'Messages',
+      'Classrooms' => 'Classes',
+      'Billing' => 'Billing',
+      'Messages' => 'Chat',
+      _ => label.length > 7 ? '${label.substring(0, 6)}.' : label,
+    };
+  }
+
   Widget _hiddenNavSlot() => const Expanded(child: SizedBox.shrink());
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    // Bug 4 fix: schedule a re-measure after every build pass.
+    // Re-measure after every build (rotation, fold/unfold, split resize).
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
 
     final roleProvider = context.watch<RoleProvider>();
@@ -320,11 +470,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final sizes = _NavSizes(context);
 
-    // Bug 1 fix: SafeArea removed entirely. We handle bottom inset manually
-    // via mq.viewPadding.bottom inside _NavSizes.barPadding, which works
-    // correctly for BOTH iPhone notch/home-bar AND Android gesture nav.
-    // Using SafeArea(bottom:false) + manual padding caused double-inset on
-    // some iPhone models because ClipRRect sits inside the SafeArea widget.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       child: Container(
