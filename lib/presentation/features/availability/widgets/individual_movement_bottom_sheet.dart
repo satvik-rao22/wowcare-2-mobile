@@ -12,21 +12,29 @@ enum IndividualMovementAction { edit, confirm, reject, moveToPending, delete }
 Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
   BuildContext context, {
   required MovementItem item,
+  required MovementBucket currentBucket,
 }) {
   final List<IndividualMovementAction> actions = <IndividualMovementAction>[];
-  switch (item.workflowStatus) {
-    case MovementWorkflowStatus.pending:
+  switch (currentBucket) {
+    case MovementBucket.upcoming:
       actions.add(IndividualMovementAction.edit);
       actions.addAll(<IndividualMovementAction>[
         IndividualMovementAction.confirm,
         IndividualMovementAction.reject,
+        IndividualMovementAction.delete,
       ]);
       break;
-    case MovementWorkflowStatus.confirmed:
-      return Future<IndividualMovementAction?>.value(null);
-    case MovementWorkflowStatus.rejected:
+    case MovementBucket.overdue:
       actions.add(IndividualMovementAction.edit);
-      actions.add(IndividualMovementAction.moveToPending);
+      actions.add(IndividualMovementAction.reject);
+      actions.add(IndividualMovementAction.delete);
+      break;
+    case MovementBucket.confirmed:
+      actions.add(IndividualMovementAction.edit);
+      actions.add(IndividualMovementAction.delete);
+      break;
+    case MovementBucket.rejected:
+      actions.add(IndividualMovementAction.edit);
       actions.add(IndividualMovementAction.delete);
       break;
   }

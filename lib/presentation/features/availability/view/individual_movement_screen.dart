@@ -6,6 +6,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
@@ -17,6 +18,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_overview.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 // import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'dart:convert';
@@ -120,8 +122,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   void _toastViewOnly(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('You do not have permission to change movements.')),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'You do not have permission to change movements.',
+      isWarning: true,
     );
   }
 
@@ -266,21 +270,15 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   //   }
   // }
 
-  Future<void> _showMovementOptions(MovementItem item) async {
+  Future<void> _onMovementAction(
+    MovementItem item,
+    IndividualMovementAction action,
+  ) async {
     final RoleProvider roles = context.read<RoleProvider>();
     if (!_canMutateMovements(roles)) {
       _toastViewOnly(context);
       return;
     }
-    if (item.workflowStatus == MovementWorkflowStatus.confirmed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No status transition actions available for confirmed items.')),
-      );
-      return;
-    }
-    final action = await showIndividualMovementOptionsBottomSheet(context, item: item);
-    if (action == null || !mounted) return;
-
     switch (action) {
       case IndividualMovementAction.edit:
         await _openEditMovementScreen(item);
@@ -323,57 +321,49 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         );
         break;
       case IndividualMovementAction.delete:
-        await _deleteRejectedMovement(item);
+        await _deleteMovement(item);
         break;
     }
   }
 
-  Future<void> _deleteRejectedMovement(MovementItem item) async {
+  Future<void> _deleteMovement(MovementItem item) async {
     final RoleProvider roles = context.read<RoleProvider>();
     if (!_canMutateMovements(roles)) {
       _toastViewOnly(context);
       return;
     }
-    if (item.workflowStatus != MovementWorkflowStatus.rejected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only rejected movements can be deleted.')),
-      );
-      return;
-    }
-
-    final bool? confirmed = await showDialog<bool>(
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Delete movement'),
-          content: const Text('This will delete the rejected movement. Continue?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete'),
-            ),
-          ],
+        return DeleteConfirmationBottomSheet(
+          name: item.name,
+          type: 'Activity',
+          onDelete: () async {
+            Navigator.of(ctx).pop();
+            try {
+              final message = await _individualMovementsCubit.deleteMovement(id: item.id);
+              if (!mounted) return;
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isSuccess: true,
+              );
+            } catch (e) {
+              if (!mounted) return;
+              final msg = e.toString().replaceFirst('Exception: ', '').trim();
+              CoreUtils.logApiError(
+                msg.isEmpty ? 'Failed to delete movement.' : msg,
+                showOnScreen: true,
+                context: context,
+              );
+            }
+          },
+          onCancel: () => Navigator.of(ctx).pop(),
         );
       },
     );
-
-    if (confirmed != true || !mounted) return;
-
-    try {
-      final message = await _individualMovementsCubit.deleteMovement(id: item.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceFirst('Exception: ', '').trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg.isEmpty ? 'Failed to delete movement.' : msg)),
-      );
-    }
   }
 
   Future<void> _openEditMovementScreen(MovementItem item) async {
@@ -385,8 +375,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
     final board = _individualMovementsCubit.state.board;
     if (board == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Movements are not loaded yet.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Movements are not loaded yet.',
+        isWarning: true,
       );
       return;
     }
@@ -397,10 +389,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceFirst('Exception: ', '').trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg.isEmpty ? 'Failed to load movement details.' : msg),
-        ),
+      CoreUtils.logApiError(
+        msg.isEmpty ? 'Failed to load movement details.' : msg,
+        showOnScreen: true,
+        context: context,
       );
       return;
     }
@@ -462,7 +454,11 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       excludeId: resolvedMovement.id,
     );
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: error,
+        isWarning: true,
+      );
       return;
     }
 
@@ -476,12 +472,18 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         comment: result.comment.isEmpty ? null : result.comment,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceFirst('Exception: ', '').trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg.isEmpty ? 'Failed to update movement.' : msg)),
+      CoreUtils.logApiError(
+        msg.isEmpty ? 'Failed to update movement.' : msg,
+        showOnScreen: true,
+        context: context,
       );
     }
   }
@@ -500,12 +502,18 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         newMovementDate: newMovementDate,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceFirst('Exception: ', '').trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg.isEmpty ? 'Failed to update movement status.' : msg)),
+      CoreUtils.logApiError(
+        msg.isEmpty ? 'Failed to update movement status.' : msg,
+        showOnScreen: true,
+        context: context,
       );
     }
   }
@@ -658,14 +666,8 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     return const <String>{};
   }
 
-  DateTime _dateOnlyNow() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
-  }
-
   bool _canDragItem(MovementItem item) {
-    // Keep drag actions aligned with allowed status transitions.
-    if (item.workflowStatus == MovementWorkflowStatus.confirmed) return false;
+    // Drag enablement is validated again at drop-time by allowed-moves matrix.
     return true;
   }
 
@@ -675,14 +677,6 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   ) async {
     final sourceBucket = item.bucketFor(DateTime.now());
     if (sourceBucket == targetBucket) return;
-
-    if (item.workflowStatus == MovementWorkflowStatus.confirmed) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Confirmed movements cannot be moved.')),
-      );
-      return;
-    }
 
     if (targetBucket == MovementBucket.confirmed) {
       await _transitionMovementStatus(
@@ -702,17 +696,11 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    // Overdue / Upcoming buckets are pending; choose date by target lane.
-    final today = _dateOnlyNow();
-    final newDate = targetBucket == MovementBucket.upcoming
-        ? today.add(const Duration(days: 1))
-        : today.subtract(const Duration(days: 1));
-
     await _transitionMovementStatus(
       id: item.id,
       status: IndividualMovementWorkflowStatus.pending,
       comment: item.comment.isEmpty ? 'Moved to pending via drag' : item.comment,
-      newMovementDate: newDate,
+      newMovementDate: item.movementDate,
     );
   }
 
@@ -927,7 +915,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                           setState(() => _currentSectionIndex = index),
                       onPrevious: _goToPreviousSection,
                       onNext: _goToNextSection,
-                      onMoreTap: _showMovementOptions,
+                      onActionSelected: _onMovementAction,
                       onDropToBucket: _handleDropToBucket,
                       canDragItem: _canDragItem,
                       onDragStarted: _onCardDragStarted,

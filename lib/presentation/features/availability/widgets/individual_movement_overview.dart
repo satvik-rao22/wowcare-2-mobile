@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -117,7 +118,7 @@ class IndividualMovementPager extends StatelessWidget {
     required this.onPageChanged,
     required this.onPrevious,
     required this.onNext,
-    required this.onMoreTap,
+    required this.onActionSelected,
     required this.onDropToBucket,
     this.canDragItem,
     this.onDragStarted,
@@ -131,7 +132,8 @@ class IndividualMovementPager extends StatelessWidget {
   final ValueChanged<int> onPageChanged;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
-  final ValueChanged<MovementItem> onMoreTap;
+  final void Function(MovementItem item, IndividualMovementAction action)
+      onActionSelected;
   final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
@@ -163,7 +165,7 @@ class IndividualMovementPager extends StatelessWidget {
                       ),
                       child: _MovementSectionCard(
                         section: sections[index],
-                        onMoreTap: onMoreTap,
+                        onActionSelected: onActionSelected,
                         onDropToBucket: onDropToBucket,
                         canDragItem: canDragItem,
                         onDragStarted: onDragStarted,
@@ -227,7 +229,7 @@ class IndividualMovementPager extends StatelessWidget {
 class _MovementSectionCard extends StatelessWidget {
   const _MovementSectionCard({
     required this.section,
-    required this.onMoreTap,
+    required this.onActionSelected,
     required this.onDropToBucket,
     this.canDragItem,
     this.onDragStarted,
@@ -236,7 +238,8 @@ class _MovementSectionCard extends StatelessWidget {
   });
 
   final MovementSection section;
-  final ValueChanged<MovementItem> onMoreTap;
+  final void Function(MovementItem item, IndividualMovementAction action)
+      onActionSelected;
   final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
@@ -257,7 +260,7 @@ class _MovementSectionCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: section.backgroundColor,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isActive
@@ -297,8 +300,10 @@ class _MovementSectionCard extends StatelessWidget {
                 ...section.items.map(
                   (item) => _MovementRow(
                     item: item,
-                    onMoreTap: onMoreTap,
+                    bucket: section.bucket,
+                    onActionSelected: onActionSelected,
                     canDrag: canDragItem?.call(item) ?? true,
+                    cardBackgroundColor: section.backgroundColor,
                     onDragStarted: onDragStarted,
                     onDragEnded: onDragEnded,
                     onDragGlobalUpdate: onDragGlobalUpdate,
@@ -315,19 +320,76 @@ class _MovementSectionCard extends StatelessWidget {
 class _MovementRow extends StatelessWidget {
   const _MovementRow({
     required this.item,
-    required this.onMoreTap,
+    required this.bucket,
+    required this.onActionSelected,
     required this.canDrag,
+    required this.cardBackgroundColor,
     this.onDragStarted,
     this.onDragEnded,
     this.onDragGlobalUpdate,
   });
 
   final MovementItem item;
-  final ValueChanged<MovementItem> onMoreTap;
+  final MovementBucket bucket;
+  final void Function(MovementItem item, IndividualMovementAction action)
+      onActionSelected;
   final bool canDrag;
+  final Color cardBackgroundColor;
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
   final ValueChanged<Offset>? onDragGlobalUpdate;
+
+  List<PopupMenuEntry<IndividualMovementAction>> _buildMenuEntries() {
+    final actions = <IndividualMovementAction>[];
+    switch (bucket) {
+      case MovementBucket.upcoming:
+        actions.addAll(const [
+          IndividualMovementAction.edit,
+          IndividualMovementAction.confirm,
+          IndividualMovementAction.reject,
+          IndividualMovementAction.delete,
+        ]);
+        break;
+      case MovementBucket.overdue:
+        actions.addAll(const [
+          IndividualMovementAction.edit,
+          IndividualMovementAction.reject,
+          IndividualMovementAction.delete,
+        ]);
+        break;
+      case MovementBucket.confirmed:
+      case MovementBucket.rejected:
+        actions.addAll(const [
+          IndividualMovementAction.edit,
+          IndividualMovementAction.delete,
+        ]);
+        break;
+    }
+
+    return actions
+        .map(
+          (a) => PopupMenuItem<IndividualMovementAction>(
+            value: a,
+            child: Text(_labelForAction(a)),
+          ),
+        )
+        .toList();
+  }
+
+  String _labelForAction(IndividualMovementAction a) {
+    switch (a) {
+      case IndividualMovementAction.edit:
+        return 'Edit';
+      case IndividualMovementAction.confirm:
+        return 'Confirm';
+      case IndividualMovementAction.reject:
+        return 'Reject';
+      case IndividualMovementAction.moveToPending:
+        return 'Move to Pending';
+      case IndividualMovementAction.delete:
+        return 'Delete';
+    }
+  }
 
   Widget _typeChip(BuildContext context, String label) {
     final scheme = Theme.of(context).colorScheme;
@@ -409,7 +471,7 @@ class _MovementRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBackgroundColor,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -428,21 +490,23 @@ class _MovementRow extends StatelessWidget {
                 child: _buildFromToRow(context),
               ),
               const SizedBox(width: 8),
-              InkWell(
-                onTap: () => onMoreTap(item),
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: PopupMenuButton<IndividualMovementAction>(
+                  tooltip: 'More',
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
                     Icons.more_horiz,
                     size: 22,
                     color: AppColors.primaryColor,
                   ),
+                  onSelected: (action) => onActionSelected(item, action),
+                  itemBuilder: (_) => _buildMenuEntries(),
                 ),
               ),
             ],
