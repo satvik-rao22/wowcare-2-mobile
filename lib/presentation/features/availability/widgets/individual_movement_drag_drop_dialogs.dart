@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
@@ -111,7 +112,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await pickNormalDate(
       context: context,
       initialDate: _selectedDate ?? now,
       firstDate: DateTime(now.year - 2),

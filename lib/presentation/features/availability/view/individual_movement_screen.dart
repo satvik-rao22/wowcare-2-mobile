@@ -14,11 +14,13 @@ import 'package:wowcare/presentation/features/availability/view/add_edit_individ
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/confirm_individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/availability/widgets/individual_movement_drag_drop_dialogs.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_overview.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 // import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'dart:convert';
@@ -519,37 +521,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   Future<String?> _showRejectCommentDialog() async {
-    final controller = TextEditingController();
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: const Text('Reject movement'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(hintText: 'Comment (optional)'),
-            maxLines: 3,
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Reject'),
-            ),
-          ],
-        );
-      },
+    final decision = await showMovementRejectDropDialog(
+      context,
+      movementTitle: '',
     );
-    if (confirmed != true) {
-      controller.dispose();
-      return null;
-    }
-    final note = controller.text.trim();
-    controller.dispose();
-    return note;
+    if (decision == null || decision.confirmed != true || !mounted) return null;
+    return decision.comment.trim();
   }
 
   void _goToPreviousSection() {
@@ -679,28 +656,80 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     if (sourceBucket == targetBucket) return;
 
     if (targetBucket == MovementBucket.confirmed) {
+      DateTime? newDate;
+      if (sourceBucket == MovementBucket.rejected) {
+        final dateDecision = await showMovementDateDropDialog(
+          context,
+          title: 'Revalidate Date',
+          message:
+              'Please select a future date before moving this rejected movement to Confirmed.',
+          mustBeFuture: true,
+        );
+        if (dateDecision == null ||
+            dateDecision.confirmed != true ||
+            !mounted) {
+          return;
+        }
+        newDate = dateDecision.selectedDate;
+        if (newDate == null) return;
+      }
+
+      final confirmDecision = await showMovementConfirmDropDialog(
+        context,
+        movementTitle: item.name,
+      );
+      if (confirmDecision == null ||
+          confirmDecision.confirmed != true ||
+          !mounted) {
+        return;
+      }
+
       await _transitionMovementStatus(
         id: item.id,
         status: IndividualMovementWorkflowStatus.confirmed,
-        comment: item.comment.isEmpty ? 'Moved to confirmed via drag' : item.comment,
+        comment: confirmDecision.comment.trim().isNotEmpty
+            ? confirmDecision.comment.trim()
+            : (item.comment.isEmpty ? 'Moved to confirmed via drag' : item.comment),
+        newMovementDate: newDate,
       );
       return;
     }
 
     if (targetBucket == MovementBucket.rejected) {
+      final decision = await showMovementRejectDropDialog(
+        context,
+        movementTitle: item.name,
+      );
+      if (decision == null || decision.confirmed != true || !mounted) return;
+
       await _transitionMovementStatus(
         id: item.id,
         status: IndividualMovementWorkflowStatus.rejected,
-        comment: item.comment.isEmpty ? 'Moved to rejected via drag' : item.comment,
+        comment: decision.comment.trim().isNotEmpty
+            ? decision.comment.trim()
+            : (item.comment.isEmpty ? 'Moved to rejected via drag' : item.comment),
       );
       return;
     }
+
+    // Dragging to Upcoming or Overdue requires date confirmation.
+    final dateDecision = await showMovementDateDropDialog(
+      context,
+      title: 'Confirm Date',
+      message: targetBucket == MovementBucket.upcoming
+          ? 'Select a future date to move this movement to Upcoming.'
+          : 'Select a past date to move this movement to Overdue.',
+      mustBeFuture: targetBucket == MovementBucket.upcoming,
+    );
+    if (dateDecision == null || dateDecision.confirmed != true || !mounted) return;
+    final newDate = dateDecision.selectedDate;
+    if (newDate == null) return;
 
     await _transitionMovementStatus(
       id: item.id,
       status: IndividualMovementWorkflowStatus.pending,
       comment: item.comment.isEmpty ? 'Moved to pending via drag' : item.comment,
-      newMovementDate: item.movementDate,
+      newMovementDate: newDate,
     );
   }
 
@@ -890,7 +919,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (state.isLoading)
-                    const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: PrimaryCircularLoader(),
+                      ),
+                    )
                   else if (state.errorMessage != null && state.board == null)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 18),

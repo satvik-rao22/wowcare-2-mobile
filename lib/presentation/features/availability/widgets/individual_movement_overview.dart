@@ -4,6 +4,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart'
+    show PopupItem;
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -282,33 +284,37 @@ class _MovementSectionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              if (section.items.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 18),
-                  child: Center(
-                    child: Text(
-                      'No movements available',
-                      style: TextStyle(
-                        fontFamily: Fonts.manrope,
-                        fontSize: 14,
-                        color: AppColors.primaryColor,
+              Expanded(
+                child: section.items.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No movements available',
+                          style: TextStyle(
+                            fontFamily: Fonts.manrope,
+                            fontSize: 14,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: section.items.length,
+                        itemBuilder: (context, index) {
+                          final item = section.items[index];
+                          return _MovementRow(
+                            item: item,
+                            bucket: section.bucket,
+                            onActionSelected: onActionSelected,
+                            canDrag: canDragItem?.call(item) ?? true,
+                            cardBackgroundColor: section.backgroundColor,
+                            onDragStarted: onDragStarted,
+                            onDragEnded: onDragEnded,
+                            onDragGlobalUpdate: onDragGlobalUpdate,
+                          );
+                        },
                       ),
-                    ),
-                  ),
-                )
-              else
-                ...section.items.map(
-                  (item) => _MovementRow(
-                    item: item,
-                    bucket: section.bucket,
-                    onActionSelected: onActionSelected,
-                    canDrag: canDragItem?.call(item) ?? true,
-                    cardBackgroundColor: section.backgroundColor,
-                    onDragStarted: onDragStarted,
-                    onDragEnded: onDragEnded,
-                    onDragGlobalUpdate: onDragGlobalUpdate,
-                  ),
-                ),
+              ),
             ],
           ),
         );
@@ -370,7 +376,15 @@ class _MovementRow extends StatelessWidget {
         .map(
           (a) => PopupMenuItem<IndividualMovementAction>(
             value: a,
-            child: Text(_labelForAction(a)),
+            child: PopupItem(
+              title: _labelForAction(a),
+              icon: Icon(
+                _iconForAction(a),
+                color: a == IndividualMovementAction.delete
+                    ? Colors.red
+                    : AppColors.themeColor,
+              ),
+            ),
           ),
         )
         .toList();
@@ -388,6 +402,21 @@ class _MovementRow extends StatelessWidget {
         return 'Move to Pending';
       case IndividualMovementAction.delete:
         return 'Delete';
+    }
+  }
+
+  IconData _iconForAction(IndividualMovementAction a) {
+    switch (a) {
+      case IndividualMovementAction.edit:
+        return Icons.edit_outlined;
+      case IndividualMovementAction.confirm:
+        return Icons.check_circle_outline_rounded;
+      case IndividualMovementAction.reject:
+        return Icons.block_outlined;
+      case IndividualMovementAction.moveToPending:
+        return Icons.schedule_rounded;
+      case IndividualMovementAction.delete:
+        return Icons.delete_outline_rounded;
     }
   }
 
@@ -549,6 +578,23 @@ class _MovementRow extends StatelessWidget {
               ),
             ],
           ),
+          if (item.comment.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                item.comment.trim(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: Fonts.manrope,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primaryColor.withValues(alpha: 0.85),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
