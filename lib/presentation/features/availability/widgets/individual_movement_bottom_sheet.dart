@@ -33,39 +33,66 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
 
   return showModalBottomSheet<IndividualMovementAction>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: false,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (ctx) {
       return SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 6),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              ListTile(
-                dense: true,
-                title: const Text(
-                  'More Options',
-                  style: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryColor,
-                  ),
+              const SizedBox(height: 8),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                trailing: IconButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  icon: const Icon(Icons.close, color: Colors.grey),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+                child: Row(
+                  children: <Widget>[
+                    const Expanded(
+                      child: Text(
+                        'More Options',
+                        style: TextStyle(
+                          fontFamily: Fonts.manrope,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded),
+                      color: AppColors.primaryColor.withValues(alpha: 0.7),
+                    ),
+                  ],
                 ),
               ),
               const Divider(height: 1),
-              ...actions.map(
-                (IndividualMovementAction a) => _ActionTile(
-                  title: _actionLabel(a),
-                  onTap: () => Navigator.pop(ctx, a),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+                child: Column(
+                  children: actions
+                      .map(
+                        (IndividualMovementAction a) => _ActionTile(
+                          action: a,
+                          onTap: () => Navigator.pop(ctx, a),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ],
@@ -93,27 +120,63 @@ String _actionLabel(IndividualMovementAction a) {
 
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
-    required this.title,
+    required this.action,
     required this.onTap,
   });
 
-  final String title;
+  final IndividualMovementAction action;
   final VoidCallback onTap;
+
+  bool get _isDestructive => action == IndividualMovementAction.delete;
+
+  IconData get _icon {
+    switch (action) {
+      case IndividualMovementAction.edit:
+        return Icons.edit_outlined;
+      case IndividualMovementAction.confirm:
+        return Icons.check_circle_outline_rounded;
+      case IndividualMovementAction.reject:
+        return Icons.block_rounded;
+      case IndividualMovementAction.moveToPending:
+        return Icons.undo_rounded;
+      case IndividualMovementAction.delete:
+        return Icons.delete_outline_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontFamily: Fonts.manrope,
-          fontSize: 22,
-          fontWeight: FontWeight.w500,
-          color: AppColors.primaryColor,
+    final color = _isDestructive ? AppColors.errorColor : AppColors.primaryColor;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              Icon(_icon, size: 20, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _actionLabel(action),
+                  style: TextStyle(
+                    fontFamily: Fonts.manrope,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.primaryColor.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
         ),
       ),
-      onTap: onTap,
     );
   }
 }

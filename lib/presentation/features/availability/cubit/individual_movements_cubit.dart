@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
@@ -172,8 +175,45 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
   }
 
   Future<String> _resolveSchoolCode() async {
-    final schoolCode = (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (schoolCode.isEmpty) {
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isNotEmpty && schoolCode != '-') {
+      return schoolCode;
+    }
+
+    // Recover a valid school from saved org/school selections when stale '-'
+    // exists in storage.
+    final organizationCode =
+        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+            .trim();
+    final rawList =
+        (await _storageService.getString(StorageKeys.organizationsAndSchools) ??
+                '')
+            .trim();
+    if (organizationCode.isNotEmpty && rawList.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawList);
+        if (decoded is List) {
+          for (final item in decoded) {
+            if (item is Map) {
+              final org = (item['organizationCode'] ?? '').toString().trim();
+              final school = (item['schoolCode'] ?? '').toString().trim();
+              if (org == organizationCode && school.isNotEmpty && school != '-') {
+                return school;
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Non-blocking: continue with dev fallback / error.
+      }
+    }
+
+    if (DebugDefaults.schoolCode.trim().isNotEmpty) {
+      return DebugDefaults.schoolCode.trim();
+    }
+
+    if (schoolCode.isEmpty || schoolCode == '-') {
       throw Exception('School code is missing. Please re-login and try again.');
     }
     return schoolCode;
