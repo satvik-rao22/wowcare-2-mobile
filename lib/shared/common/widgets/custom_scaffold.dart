@@ -180,6 +180,7 @@ class GlobalScaffold extends StatefulWidget {
     this.isParent = false,
     this.studentList,
     this.customButtonLayout,
+
     /// When null, defaults to 8 px on all sides. Screens like the activity feed
     /// can use asymmetric padding (e.g. zero right/bottom) to align with edges and
     /// sit closer above the bottom navigation bar.
@@ -225,10 +226,6 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       studentList: widget.studentList,
     );
 
-    final double navHeight = CustomNavigationBar.navBarHeight > 0
-        ? CustomNavigationBar.navBarHeight
-        : 72;
-
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
@@ -259,11 +256,9 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
         extendBody: true,
         floatingActionButton: widget.floatingActionButton,
         bottomNavigationBar: widget.showCustomNavigationBar
-            ? AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: _showBars ? navHeight : 0,
-                child: const CustomNavigationBar(),
-              )
+            ? _showBars
+                  ? CustomNavigationBar(key: CustomNavigationBar.navBarKey)
+                  : const SizedBox.shrink()
             : widget.customButtonLayout,
       ),
     );
