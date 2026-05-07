@@ -72,6 +72,8 @@ class _DeleteConfirmationBottomSheetState
 
     final bool isPlanAction =
         widget.type == 'plan_cancel' || widget.type == 'plan_pause';
+    final bool isActivityApprove = widget.type == 'activity_approve';
+    final bool isActivityReject = widget.type == 'activity_reject';
 
     final String typeText = isPlanAction
         ? (widget.type == 'plan_cancel'
@@ -117,6 +119,10 @@ class _DeleteConfirmationBottomSheetState
         ? "Are you sure you want to mark this purchase \"${widget.name}\" as ordered? This action cannot be reversed."
         : widget.type == 'reject_request'
         ? "Are you sure you want to reject this request for \"${widget.name}\"? This action cannot be reversed."
+        : widget.type == 'activity_approve'
+        ? 'Are you sure you want to approve this pending activity card?'
+        : widget.type == 'activity_reject'
+        ? 'Are you sure you want to reject this pending activity card?'
         : widget.type == 'attendance'
         ? "Do you want to delete ${widget.name}'s Attendance?"
         : widget.type == 'document'
@@ -137,6 +143,10 @@ class _DeleteConfirmationBottomSheetState
         ? "Mark as Ordered"
         : widget.type == 'reject_request'
         ? "Reject Request"
+        : widget.type == 'activity_approve'
+        ? 'Approve'
+        : widget.type == 'activity_reject'
+        ? 'Reject'
         : (widget.type == 'plan_pause'
               ? 'Pause Plan'
               : (widget.type == 'plan_cancel' ? 'Cancel Plan' : "Delete"));
@@ -168,38 +178,54 @@ class _DeleteConfirmationBottomSheetState
               SizedBox(height: verticalPadding / 2),
               // Delete icon at the top center
               Center(
-                child: Image.asset(
-                  'assets/icons/delete.png',
-                  width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                  height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                  errorBuilder: (context, error, stackTrace) {
-                    // Fallback icon if image is not found
-                    return Container(
-                      width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                      height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF85A5A),
-                        shape: BoxShape.circle,
+                child: isActivityApprove
+                    ? SvgPicture.asset(
+                        MediaRes.greenCheckCircleIcon,
+                        width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                      )
+                    : isActivityReject
+                    ? SvgPicture.asset(
+                        MediaRes.redCrossCircleIcon,
+                        width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                      )
+                    : Image.asset(
+                        'assets/icons/delete.png',
+                        width:
+                            isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        height:
+                            isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback icon if image is not found
+                          return Container(
+                            width:
+                                isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                            height:
+                                isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF85A5A),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: SvgPicture.asset(
+                                MediaRes.formDeleteIcon,
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.white,
+                                  BlendMode.srcIn,
+                                ),
+                                width: isLargeTablet
+                                    ? 32.0
+                                    : (isTablet ? 28.0 : 24.0),
+                                height: isLargeTablet
+                                    ? 32.0
+                                    : (isTablet ? 28.0 : 24.0),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: SvgPicture.asset(
-                          MediaRes.formDeleteIcon,
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                          width: isLargeTablet
-                              ? 32.0
-                              : (isTablet ? 28.0 : 24.0),
-                          height: isLargeTablet
-                              ? 32.0
-                              : (isTablet ? 28.0 : 24.0),
-                        ),
-                      ),
-                    );
-                  },
-                ),
               ),
               SizedBox(height: verticalPadding),
               // Title text centered

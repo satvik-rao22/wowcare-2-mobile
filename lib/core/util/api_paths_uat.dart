@@ -16,6 +16,7 @@ class ApiPathsUat {
     ApiMicroservices.classroom,
     ApiMicroservices.attendance,
     ApiMicroservices.activity,
+    'activities',
     ApiMicroservices.document,
   };
 
@@ -72,17 +73,31 @@ class ApiPathsUat {
     ApiMicroservices.document: {},
   };
 
+  static String _uatSegmentForMicroservice(String microserviceKey) {
+    // UAT gateway expects plural `activities` as the microservice segment.
+    if (microserviceKey == ApiMicroservices.activity) return 'activities';
+    return microserviceKey;
+  }
+
   static String microserviceKeyFromPath(String path) {
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+    if (parts.length < 3 || parts[0] != 'api') {
+      return ApiMicroservices.user;
+    }
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
+    final nextSeg = parts.length > 3 ? parts[3] : '';
 
     // If the UAT path already includes the microservice segment
     // (/api/v1/<ms>/...), use it as-is.
-    if (_microservicePathSegments.contains(seg)) return seg;
+    if (_microservicePathSegments.contains(seg)) {
+      if (seg == 'activities') return ApiMicroservices.activity;
+      return seg;
+    }
 
     switch (seg) {
       case 'auth':
@@ -110,6 +125,10 @@ class ApiPathsUat {
       case 'physicians':
       case 'tags':
       case 'guardian':
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.student;
       case 'pickup':
         return ApiMicroservices.student;
       case 'student-attendance':
@@ -125,6 +144,13 @@ class ApiPathsUat {
       case 'activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'admin':
+        // v2 activity moderation endpoints:
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
       default:
         return ApiMicroservices.user;
     }
@@ -155,24 +181,28 @@ class ApiPathsUat {
     if (p.startsWith('/document-ms/')) return p;
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') return p;
+    if (parts.length < 3 || parts[0] != 'api') return p;
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') return p;
 
     final seg = parts[2];
     if (_microservicePathSegments.contains(seg)) {
       // Ambiguous case: some endpoints use the same word for both MS and resource
       // (e.g. local `/api/v1/staff/code` should become `/api/v1/staff/staff/code` in UAT).
-      final ms = seg;
+      final ms = seg == 'activities' ? ApiMicroservices.activity : seg;
       final roots = _resourceRootsByMicroservice[ms];
       if (parts.length >= 4 && roots != null && roots.contains(parts[3])) {
-        return p; // already `/api/v1/<ms>/<resource>/...`
+        return p; // already `/api/<version>/<ms>/<resource>/...`
       }
       final rest = parts.sublist(2).join('/');
-      return '/api/v1/$ms/$rest';
+      final uatSegment = _uatSegmentForMicroservice(ms);
+      return '/api/$version/$uatSegment/$rest';
     }
 
     final ms = microserviceKeyFromPath(p);
     final rest = parts.sublist(2).join('/');
-    return '/api/v1/$ms/$rest';
+    final uatSegment = _uatSegmentForMicroservice(ms);
+    return '/api/$version/$uatSegment/$rest';
   }
 
   static String url(String path) {
@@ -194,7 +224,7 @@ class ApiPathsUat {
 
   static String urlWithBase(String path, String baseUrl) => url(path);
 
-  /// Document endpoints are special-cased under `/document-ms/...` in this app.
+  /// Document endpoints in UAT are rooted under `/api/v1/document`.
   /// This helper is added for parity with local [ApiPaths].
   static String documentAssetCompletePath({
     required String documentApiBasePath,
@@ -202,7 +232,7 @@ class ApiPathsUat {
     required String assetCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/document-ms/api/v1';
+    if (base.isEmpty) base = '/api/v1/document';
     if (!base.startsWith('/')) base = '/$base';
     base = base.replaceAll(RegExp(r'/+$'), '');
     final s = sessionCode.trim();

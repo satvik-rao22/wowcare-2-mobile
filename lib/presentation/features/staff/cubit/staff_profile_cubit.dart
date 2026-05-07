@@ -19,8 +19,10 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
   Future<void> loadInitial(String staffCode) async {
     // Try cache first
     final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache)
-            .loadCachedStaffProfile(staffCode)
+        ? (_repository as StaffRepositoryWithCache).loadCachedStaffProfile(
+            staffCode,
+            forEditStaff: true,
+          )
         : Future.value(null));
 
     if (cached != null && !isClosed) {

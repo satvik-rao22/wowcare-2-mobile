@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:path/path.dart' as p;
 
@@ -105,7 +106,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
               ),
               title: const CustomTextWidget(text: 'Photos (multiple allowed)'),
               subtitle: const CustomTextWidget(
-                text: 'JPEG, PNG, HEIC',
+                text: 'JPEG, PNG, WEBP, HEIC, HEIF, AVIF, GIF, BMP, TIFF',
                 fontSize: 12,
                 fontColor: Colors.grey,
               ),
@@ -126,7 +127,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
               ),
               title: const CustomTextWidget(text: 'Document (one file)'),
               subtitle: const CustomTextWidget(
-                text: 'PDF, DOC, DOCX • max 10 MB',
+                text: 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB',
                 fontSize: 12,
                 fontColor: Colors.grey,
               ),
@@ -153,12 +154,20 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   }
 
   Future<void> _pickPhotos() async {
-    final List<XFile>? files = await _picker.pickMultiImage(imageQuality: 85);
-    if (files == null || files.isEmpty) return;
-    await _processFiles(
-      files.map((file) => File(file.path)).toList(),
-      isPhoto: true,
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+      allowMultiple: true,
     );
+    if (result == null || result.files.isEmpty) return;
+    final files = result.files
+        .map((pf) => pf.path)
+        .whereType<String>()
+        .where((p) => p.trim().isNotEmpty)
+        .map((p) => File(p))
+        .toList();
+    if (files.isEmpty) return;
+    await _processFiles(files, isPhoto: true);
   }
 
   Future<void> _pickSinglePhotoFromCamera() async {
@@ -170,7 +179,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   Future<void> _pickSingleDocument() async {
     FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx'],
+      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
       allowMultiple: false,
     );
     if (result == null || result.files.isEmpty) return;
@@ -192,9 +201,18 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
       final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
       final ext = p.extension(file.path).toLowerCase();
 
-      if (isPhoto && !['.jpg', '.jpeg', '.png', '.heic'].contains(ext))
+      if (isPhoto &&
+          !FilePickerUtils.allowedImageExtensions
+              .map((e) => '.$e')
+              .contains(ext)) {
         continue;
-      if (!isPhoto && !['.pdf', '.doc', '.docx'].contains(ext)) continue;
+      }
+      if (!isPhoto &&
+          !FilePickerUtils.allowedDocumentExtensions
+              .map((e) => '.$e')
+              .contains(ext)) {
+        continue;
+      }
 
       valid.add(
         ChatAttachment(

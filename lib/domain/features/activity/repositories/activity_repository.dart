@@ -3,6 +3,7 @@ import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
+import '../entities/activity_type_summary.dart';
 import '../entities/activity_upload_session.dart';
 
 abstract class ActivityRepository {
@@ -18,6 +19,12 @@ abstract class ActivityRepository {
     required String code,
   });
 
+  /// Returns all active activity types for a school via
+  /// `GET /api/v1/activity-types?schoolCode={schoolCode}`.
+  Future<List<ActivityTypeSummary>> getActiveActivityTypesForSchool({
+    required String schoolCode,
+  });
+
   /// Returns currently napping student codes for a classroom via
   /// `GET /api/v1/activities/{classroomCode}/nap-start-students`.
   Future<List<String>> getNapStartStudents({
@@ -29,7 +36,11 @@ abstract class ActivityRepository {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
@@ -40,13 +51,19 @@ abstract class ActivityRepository {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
+    bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
 
-  /// `GET /api/v1/activities/code/{code}`
-  Future<ActivityDetail> getActivity({required String code});
+  /// `GET /api/v2/activities/{cardGroupCode}`
+  Future<ActivityDetail> getActivity({
+    required String code,
+  });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
@@ -63,6 +80,23 @@ abstract class ActivityRepository {
   /// `DELETE /api/v2/activities/{cardGroupCode}`.
   Future<String> deleteActivity({required String code});
 
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/approve`.
+  Future<String> approveActivity({required String code});
+
+  /// `POST /api/v2/admin/activities/{cardGroupCode}/reject`.
+  Future<String> rejectActivity({required String code});
+
+  /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
+  Future<String> acknowledgeActivity({required String code});
+
+  /// `PATCH /api/v2/guardian/activities/{cardGroupCode}/parent-signature`.
+  Future<String> guardianParentSignature({
+    required String code,
+    required String parameterCode,
+    required String guardianCode,
+    String? signatureValue,
+  });
+
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({
     required String activityTypeCode,
@@ -75,6 +109,7 @@ abstract class ActivityRepository {
     required String description,
     bool? napStart,
     bool? napEnd,
+    bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues,
     List<Map<String, dynamic>> attachments,
   });
@@ -91,7 +126,9 @@ abstract class ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? requireAdminApproval,
     required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues,
   });
 
   /// Creates upload sessions via `POST /api/v2/activities/upload-sessions`.
@@ -111,6 +148,7 @@ abstract class ActivityRepository {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,

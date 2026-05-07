@@ -123,7 +123,10 @@ class AttendanceRepositoryImpl
   @override
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
@@ -136,7 +139,10 @@ class AttendanceRepositoryImpl
     // 1. Call remote datasource
     final pageModel = await _remoteDataSource.getStudentAttendanceDaily(
       attendanceDate: attendanceDate,
+      fromAttendanceDate: fromAttendanceDate,
+      toAttendanceDate: toAttendanceDate,
       classroomCodes: classroomCodes,
+      studentCodes: studentCodes,
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
@@ -208,6 +214,7 @@ class AttendanceRepositoryImpl
   ) {
     return StudentAttendanceDailyItem(
       attendanceRecordCode: model.attendanceRecordCode,
+      attendanceDate: model.attendanceDate,
       studentCode: model.studentCode,
       studentName: model.studentName,
       isExpectedToday: model.isExpectedToday,
@@ -830,6 +837,34 @@ class AttendanceRepositoryImpl
       toAbsenceDate: toAbsenceDate,
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
+      search: search,
+      page: page,
+      size: size,
+      allowedClassroomCodes: allowed,
+    );
+
+    return _mapStudentAbsentFormPageModelToEntity(pageModel);
+  }
+
+  @override
+  Future<student_absent.StudentAttendanceAbsentFormPage>
+  getStudentAbsentRecordsActivity({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? studentCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    final pageModel = await _remoteDataSource.getStudentAbsentRecordsActivity(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      studentCodes: studentCodes,
       search: search,
       page: page,
       size: size,

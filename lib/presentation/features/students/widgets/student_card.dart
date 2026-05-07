@@ -12,7 +12,6 @@ class StudentCard extends StatefulWidget {
     required this.studentCode,
     required this.name,
     required this.classroom,
-    this.avatarUrl,
     required this.tags,
     required this.sibling,
     required this.schedule,
@@ -31,7 +30,6 @@ class StudentCard extends StatefulWidget {
   final String studentCode;
   final String name;
   final String classroom;
-  final String? avatarUrl;
   final List<String> tags;
   final Map<String, dynamic> sibling;
   final List<String> schedule;

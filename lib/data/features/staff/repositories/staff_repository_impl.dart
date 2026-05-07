@@ -22,6 +22,15 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   final StaffRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
 
+  final Map<String, Future<StaffProfile>> _inflightStaffProfileByKey = {};
+  final Map<String, Future<StaffPage>> _inflightStaffPageByKey = {};
+
+  @override
+  void clearSessionVolatileCaches() {
+    _inflightStaffProfileByKey.clear();
+    _inflightStaffPageByKey.clear();
+  }
+
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
   static String _staffListCacheKey(
     String schoolCode, {
@@ -72,12 +81,26 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         resource: 'documents',
         identifier: staffCode,
       );
-  static String _staffProfileCacheKey(String staffCode) =>
+  /// [forEditStaff] matches [getStaffProfile] — scoped vs `my-profile` payloads can differ.
+  static String _staffProfileCacheKey(
+    String staffCode, {
+    required bool forEditStaff,
+  }) =>
       CacheManager.buildCacheKey(
         feature: 'staff',
         resource: 'profile',
-        identifier: staffCode,
+        identifier:
+            '${staffCode.trim().isEmpty ? 'unknown' : staffCode.trim()}|${forEditStaff ? 'byCode' : 'my'}',
       );
+
+  Future<void> _invalidateStaffProfileCaches(String staffCode) async {
+    final c = staffCode.trim();
+    if (c.isEmpty) return;
+    await _cacheManager.invalidateCaches([
+      _staffProfileCacheKey(c, forEditStaff: false),
+      _staffProfileCacheKey(c, forEditStaff: true),
+    ]);
+  }
   static String _staffImportantDatesCacheKey(String staffCode) =>
       CacheManager.buildCacheKey(
         feature: 'staff',
@@ -136,12 +159,8 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? classCodes,
     String? sortBy,
   }) async {
-    final staffPageModel = await _remoteDataSource.getStaffPage(
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      code: code,
-      page: page,
-      size: size,
+    final listKey = _staffListCacheKey(
+      schoolCode,
       status: status,
       designation: designation,
       search: search,
@@ -150,10 +169,34 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       sortBy: sortBy,
     );
 
-    // Cache only the first page for simplicity
-    if (page == 0) {
-      await _cacheManager.saveCache(
-        _staffListCacheKey(
+    Future<StaffPage> fetchRemote() async {
+      final staffPageModel = await _remoteDataSource.getStaffPage(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        code: code,
+        page: page,
+        size: size,
+        status: status,
+        designation: designation,
+        search: search,
+        primaryClassroomCodes: primaryClassroomCodes,
+        classCodes: classCodes,
+        sortBy: sortBy,
+      );
+
+      if (page == 0) {
+        await _cacheManager.saveCache(
+          listKey,
+          staffPageModel.toJson(),
+        );
+      }
+
+      return _mapPageModelToEntity(staffPageModel);
+    }
+
+    if (page == 0 && (code ?? '').trim().isEmpty) {
+      try {
+        final cached = await loadCachedStaffPage(
           schoolCode,
           status: status,
           designation: designation,
@@ -161,12 +204,19 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           primaryClassroomCodes: primaryClassroomCodes,
           classCodes: classCodes,
           sortBy: sortBy,
-        ),
-        staffPageModel.toJson(),
-      );
+        );
+        if (cached != null) {
+          return cached;
+        }
+      } catch (_) {}
     }
 
-    return _mapPageModelToEntity(staffPageModel);
+    final future = _inflightStaffPageByKey.putIfAbsent(listKey, () {
+      final f = fetchRemote();
+      f.whenComplete(() => _inflightStaffPageByKey.remove(listKey));
+      return f;
+    });
+    return await future;
   }
 
   @override
@@ -397,18 +447,32 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String staffCode,
     bool forEditStaff = false,
   }) async {
-    final profileModel = await _remoteDataSource.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: forEditStaff,
-    );
+    final trimmed = staffCode.trim();
+    final cacheKey = _staffProfileCacheKey(trimmed, forEditStaff: forEditStaff);
 
-    // Cache the profile
-    await _cacheManager.saveCache(
-      _staffProfileCacheKey(staffCode),
-      profileModel.toJson(),
-    );
+    Future<StaffProfile> fetchRemoteAndSave() async {
+      final profileModel = await _remoteDataSource.getStaffProfile(
+        staffCode: trimmed,
+        forEditStaff: forEditStaff,
+      );
+      await _cacheManager.saveCache(cacheKey, profileModel.toJson());
+      return _mapProfileModelToEntity(profileModel);
+    }
 
-    return _mapProfileModelToEntity(profileModel);
+    try {
+      final payload = await _cacheManager.loadCache(cacheKey);
+      if (payload != null) {
+        final model = StaffProfileModel.fromCacheJson(payload);
+        return _mapProfileModelToEntity(model);
+      }
+    } catch (_) {}
+
+    final future = _inflightStaffProfileByKey.putIfAbsent(cacheKey, () {
+      final f = fetchRemoteAndSave();
+      f.whenComplete(() => _inflightStaffProfileByKey.remove(cacheKey));
+      return f;
+    });
+    return await future;
   }
 
   @override
@@ -421,8 +485,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       body: fields,
     );
 
-    // Invalidate cached profile so subsequent loads use fresh data.
-    await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+    await _invalidateStaffProfileCaches(staffCode);
 
     return message;
   }
@@ -437,8 +500,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       body: fields,
     );
 
-    // Address is part of the profile, so invalidate profile cache as well.
-    await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+    await _invalidateStaffProfileCaches(staffCode);
 
     return message;
   }
@@ -460,13 +522,14 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     try {
       final profileModel = await _remoteDataSource.getStaffProfile(
         staffCode: staffCode,
+        forEditStaff: false,
       );
       await _cacheManager.saveCache(
-        _staffProfileCacheKey(staffCode),
+        _staffProfileCacheKey(staffCode.trim(), forEditStaff: false),
         profileModel.toJson(),
       );
     } catch (_) {
-      await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+      await _invalidateStaffProfileCaches(staffCode);
     }
 
     return message;
@@ -500,8 +563,13 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
-  Future<StaffProfile?> loadCachedStaffProfile(String staffCode) async {
-    final payload = await _cacheManager.loadCache(_staffProfileCacheKey(staffCode));
+  Future<StaffProfile?> loadCachedStaffProfile(
+    String staffCode, {
+    bool forEditStaff = false,
+  }) async {
+    final payload = await _cacheManager.loadCache(
+      _staffProfileCacheKey(staffCode.trim(), forEditStaff: forEditStaff),
+    );
     if (payload == null) return null;
 
     final model = StaffProfileModel.fromCacheJson(payload);
@@ -717,8 +785,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     // Invalidate cache after update
     await _cacheManager.invalidateCache(_staffImportantDatesCacheKey(staffCode));
 
-    // Invalidate profile cache since dates are part of profile
-    await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+    await _invalidateStaffProfileCaches(staffCode);
 
     return response.message;
   }
@@ -739,8 +806,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       body: body,
     );
 
-    // Schedules are part of the profile, so invalidate profile cache.
-    await _cacheManager.invalidateCache(_staffProfileCacheKey(staffCode));
+    await _invalidateStaffProfileCaches(staffCode);
 
     return message;
   }

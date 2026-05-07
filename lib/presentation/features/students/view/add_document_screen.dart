@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
@@ -259,7 +260,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'docx', 'heic'],
+        allowedExtensions: [
+          ...FilePickerUtils.allowedDocumentExtensions,
+          ...FilePickerUtils.allowedImageExtensions,
+        ],
         allowMultiple: false,
       );
 

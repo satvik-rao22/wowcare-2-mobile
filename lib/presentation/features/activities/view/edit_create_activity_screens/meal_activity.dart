@@ -6,6 +6,7 @@ import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -15,19 +16,25 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
+import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class MealActivityScreen extends StatefulWidget {
   const MealActivityScreen({
@@ -49,14 +56,24 @@ class MealActivityScreen extends StatefulWidget {
 class _MealActivityScreenState extends State<MealActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
+  bool get _isAdminDesignation => const {
+        'SCHOOL_ADMIN',
+        'ORGANIZATION_ADMIN',
+        'DIRECTOR',
+        'ADMIN',
+        'ASSISTANT_DIRECTOR',
+        'OWNER',
+      }.contains(_staffType.trim().toUpperCase());
+  bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
   List<String> _selectedStudents = [];
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _mealType = ['Breakfast', 'Lunch', 'Snack'];
-  /// Matches backend Meal "Quantity" dropdown (All / Most / Some / None).
-  final List<String> _quantityOptions = ['All', 'Most', 'Some', 'None'];
+  List<ActivityTypeParameterOption> _mealTypeParamOptions = [];
+  List<ActivityTypeParameterOption> _quantityParamOptions = [];
+  List<String> _mealType = [];
+  List<String> _quantityOptions = [];
 
   String? _selectedMealType;
   String? _selectedQuantity;
@@ -65,10 +82,17 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   TimeOfDay? _activityTime;
   String? _activityTypeCode;
   String _staffName = '';
+  String _staffType = '';
+  bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isApprovingOrRejecting = false;
+  bool _isSavingBeforeApprove = false;
+  bool _lastUpdateSucceeded = false;
+  bool _loadingMealOptions = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
@@ -78,16 +102,34 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _activityDate = DateTime(now.year, now.month, now.day);
-    _activityTime = TimeOfDay.fromDateTime(now);
+    _activityDate = null;
+    _activityTime = null;
+    bootstrapActivitySchoolTimezone();
 
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
@@ -96,39 +138,102 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
-      _selectedMealType = activity.mealType;
+      _selectedMealType = activity.mealType?.trim();
       final q = activity.mealQuantity?.trim();
-      _selectedQuantity =
-          (q != null && q.isNotEmpty && _quantityOptions.contains(q))
-              ? q
-              : null;
+      _selectedQuantity = (q != null && q.isNotEmpty) ? q : null;
       _activityTypeCode = activity.activityTypeCode;
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
+          final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
         } catch (_) {}
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
+        await _loadMealParameterOptions();
       });
     }
     _loadStaffContext();
+  }
+
+  bool get _showAdminApproveRejectActions {
+    if (!widget.isEdit || widget.readOnly) return false;
+    if (!_isAdminDesignation) return false;
+    return canAdminApproveOrRejectActivityItem(
+      _effectiveActivity,
+      isAdminPersona: true,
+    );
+  }
+
+  Future<void> _approvePendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() {
+      _isSavingBeforeApprove = true;
+      _isApprovingOrRejecting = true;
+    });
+    try {
+      await _submitUpdateActivity();
+      if (!_lastUpdateSucceeded) return;
+      final msg = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingBeforeApprove = false;
+          _isApprovingOrRejecting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectPendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      final msg = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
   }
 
   Future<void> _prefetchActivityForEdit() async {
@@ -145,27 +250,27 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text = item.description ?? '';
-        _selectedMealType = item.mealType;
+        _selectedMealType = item.mealType?.trim();
         final q = item.mealQuantity?.trim();
-        _selectedQuantity =
-            (q != null && q.isNotEmpty && _quantityOptions.contains(q))
-                ? q
-                : null;
+        _selectedQuantity = (q != null && q.isNotEmpty) ? q : null;
         _activityTypeCode = item.activityTypeCode;
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
+            final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
         }
       });
+      await _loadMealParameterOptions();
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
     } finally {
@@ -175,18 +280,23 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final staffType =
+        (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
+    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+      staffCode: staffCode,
+    );
 
     if (!mounted) return;
     setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
+      _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
@@ -219,6 +329,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
         setState(() {
           _activityTypeCode = mealSetting!.activityTypeCode;
         });
+        await _loadMealParameterOptions();
       }
     } catch (e) {
       CoreUtils.logApiError('Failed to load activity settings for Meal: $e');
@@ -277,6 +388,72 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     return null;
   }
 
+  String? _canonicalLabelFromOptions(
+    String? rawValue,
+    List<ActivityTypeParameterOption> options,
+  ) {
+    final raw = (rawValue ?? '').trim();
+    if (raw.isEmpty) return null;
+    for (final o in options) {
+      final label = (o.optionLabel ?? '').trim();
+      final optionCode = (o.optionCode ?? o.code).trim();
+      final rawCode = o.code.trim();
+      if (label.isNotEmpty && label.toLowerCase() == raw.toLowerCase()) {
+        return label;
+      }
+      if (optionCode.isNotEmpty &&
+          optionCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+      if (rawCode.isNotEmpty &&
+          rawCode.toLowerCase() == raw.toLowerCase() &&
+          label.isNotEmpty) {
+        return label;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadMealParameterOptions() async {
+    final code = _activityTypeCode?.trim();
+    if (code == null || code.isEmpty || !mounted) return;
+    setState(() => _loadingMealOptions = true);
+    try {
+      final details = await _getActivityTypeDetailsUseCase(code: code);
+      if (!mounted) return;
+      final mealParam = _findMealTypeParameter(details.parameters);
+      final quantityParam = _findQuantityParameter(details.parameters);
+      final mealOptions = List<ActivityTypeParameterOption>.from(
+        mealParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final qtyOptions = List<ActivityTypeParameterOption>.from(
+        quantityParam?.options ?? const <ActivityTypeParameterOption>[],
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      setState(() {
+        _mealTypeParamOptions = mealOptions;
+        _quantityParamOptions = qtyOptions;
+        _mealType = mealOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _quantityOptions = qtyOptions
+            .map((o) => (o.optionLabel ?? '').trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _selectedMealType =
+            _canonicalLabelFromOptions(_selectedMealType, _mealTypeParamOptions);
+        _selectedQuantity =
+            _canonicalLabelFromOptions(_selectedQuantity, _quantityParamOptions);
+        _loadingMealOptions = false;
+      });
+    } catch (e) {
+      CoreUtils.logApiError('Failed to load Meal parameter options: $e');
+      if (!mounted) return;
+      setState(() => _loadingMealOptions = false);
+    }
+  }
+
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -289,6 +466,14 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -309,6 +494,14 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
+    if (description.isNotEmpty && description.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
     if (description.isNotEmpty &&
         description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
@@ -320,12 +513,22 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
 
     if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
+      // When coming from student-selection, DateWidget can be non-editable; ensure we still use
+      // the attendance date carried forward in selectedStudents payload.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
     }
 
     final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
@@ -387,14 +590,18 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
+    // Force activity payload date to match student-selection attendance date.
+    final prefilled = widget.selectedStudents != null
+        ? resolveSelectedAttendanceDate(_selectedStudentsData)
+        : null;
+    if (prefilled != null) {
+      _activityDate = prefilled;
+    }
+
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
     setState(() {
       _isSubmitting = true;
@@ -454,6 +661,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -462,8 +670,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -481,6 +689,9 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
         organizationCode: organizationCode,
         activityDate: activityDateIso,
         description: description,
+        requireAdminApproval: _showRequireAdminApprovalToggle
+            ? _requireAdminApproval
+            : false,
         parameterValues: parameterValues,
         attachments: const [],
       );
@@ -514,6 +725,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
+    _lastUpdateSucceeded = false;
 
     final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
@@ -525,6 +737,14 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       );
       return;
     }
+    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _selectedStudentsData,
+      selectedDate: _activityDate,
+      selectedTime: _activityTime,
+    );
+    if (!isWithinAttendanceWindow) return;
+
 
     if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -545,6 +765,14 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
+    if (description.isNotEmpty && description.length < 5) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Description must be at least 5 characters long',
+        isWarning: true,
+      );
+      return;
+    }
     if (description.isNotEmpty &&
         description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
@@ -586,14 +814,10 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
+    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      date: _activityDate!,
+      time: _activityTime!,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
 
     setState(() => _isSubmitting = true);
     try {
@@ -650,6 +874,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -658,8 +883,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -709,14 +934,17 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       }
 
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: lastMessage ?? 'Updated',
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      _lastUpdateSucceeded = true;
+      if (!_isSavingBeforeApprove) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: lastMessage ?? 'Updated',
+          isSuccess: true,
+        );
+        Navigator.of(context).popUntil((route) {
+          return route.settings.name == ActivityFeedScreen.routeName;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -771,7 +999,10 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            if (_layoutAsEdit)
+            if (_layoutAsEdit &&
+                !(widget.isEdit &&
+                    !widget.readOnly &&
+                    _selectedStudents.length > 1))
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -789,7 +1020,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                   );
                 },
               )
-            else
+            else if (!_layoutAsEdit)
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -810,10 +1041,6 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                 },
               ),
             if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Divider(height: 24),
-              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -833,7 +1060,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               dropDownName: 'Meal Type',
               selectedValue: _selectedMealType,
               isRequired: true,
-              isEnabled: _canInteract,
+              isEnabled:
+                  _canInteract && !_loadingMealOptions && _mealType.isNotEmpty,
               onSelect: (value) {
                 setState(() {
                   _selectedMealType = value;
@@ -846,7 +1074,9 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               dropDownName: 'Quantity',
               selectedValue: _selectedQuantity,
               isRequired: true,
-              isEnabled: _canInteract,
+              isEnabled: _canInteract &&
+                  !_loadingMealOptions &&
+                  _quantityOptions.isNotEmpty,
               onSelect: (value) {
                 setState(() {
                   _selectedQuantity = value;
@@ -871,6 +1101,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
+                          initialDate: formatSelectedDateForDateWidget(_activityDate),
                           onDateChanged: (d) {
                             setState(() {
                               _activityDate = d;
@@ -904,14 +1135,32 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               ],
             ),
             SizedBox(height: responsive.verticalSpacing),
-            StaffPresentWidget(
-              staffName: staffPresentLabelForActivity(
-                layoutAsEdit: _layoutAsEdit,
-                activityCreatedBy:
-                    _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                loggedInDisplayName: _staffName,
-              ),
-              isEditable: _layoutAsEdit ? _canInteract : false,
+            Builder(
+              builder: (context) {
+                final isAdminPersona =
+                    _isAdminDesignation;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                return StaffPresentWidget(
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy: '',
+                    loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _layoutAsEdit
+                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                              ? _staffPresentCode
+                              : _effectiveActivity.staffPresent)
+                        : null,
+                  ),
+                  isEditable: lockToLoggedInStaff
+                      ? false
+                      : _canInteract,
+                  onStaffChanged: (_, selectedCode) {
+                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                        ? selectedCode!.trim()
+                        : (_staffPresentCode ?? _staffCode);
+                  },
+                );
+              },
             ),
             SizedBox(height: responsive.verticalSpacing),
             InputWidget(
@@ -921,6 +1170,19 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
+            if (_showRequireAdminApprovalToggle)
+              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle)
+              CustomToggle(
+                label: 'Requires Admin Approval',
+                isToggled: _requireAdminApproval,
+                labelOnLeftSide: true,
+                onToggle: (value) {
+                  setState(() {
+                    _requireAdminApproval = value;
+                  });
+                },
+              ),
             SizedBox(height: responsive.verticalSpacing),
           ],
         ),
@@ -930,15 +1192,36 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onPressedBottom,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: _isSubmitting || _loadingActivityDetail,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ActivityAdminApproveRejectBar(
+                      visible: _showAdminApproveRejectActions,
+                      isLoading: _isApprovingOrRejecting ||
+                          _isSubmitting ||
+                          _loadingActivityDetail ||
+                          _loadingMealOptions,
+                      onApprove: _approvePendingActivity,
+                      onReject: _rejectPendingActivity,
+                    ),
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
+                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                      onPressedConfirm: _onPressedBottom,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSubmitting ||
+                          _isApprovingOrRejecting ||
+                          _loadingActivityDetail ||
+                          _loadingMealOptions,
+                    ),
+                  ],
                 ),
               ),
             ),
     );
   }
 }
+
+
+

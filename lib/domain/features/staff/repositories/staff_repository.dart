@@ -209,6 +209,9 @@ abstract class StaffRepository {
     required String schoolCode,
     required String role,
   });
+
+  /// Clears in-flight / dedupe maps. Disk caches use [StorageService] (cleared by auth logout).
+  void clearSessionVolatileCaches();
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
@@ -223,7 +226,10 @@ abstract class StaffRepositoryWithCache {
     String? sortBy,
   });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
-  Future<StaffProfile?> loadCachedStaffProfile(String staffCode);
+  Future<StaffProfile?> loadCachedStaffProfile(
+    String staffCode, {
+    bool forEditStaff = false,
+  });
   Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
 }
 

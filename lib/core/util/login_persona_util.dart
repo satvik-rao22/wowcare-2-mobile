@@ -9,6 +9,29 @@ bool roleStringIsGuardianPersona(String role) {
       u.contains('PARENT');
 }
 
+/// True when [rolesJson] is the login roles payload and includes a parent/guardian role.
+///
+/// Handles the common `[{"role":"GUARDIAN",...}]` shape (not matched by naive
+/// `roles.contains('GUARDIAN')` on the raw JSON string when formatting differs).
+bool rolesJsonIndicatesGuardianLogin(String rolesJson) {
+  final raw = rolesJson.trim();
+  if (raw.isEmpty) return false;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded.any((r) {
+        if (r is! Map) return false;
+        final role = (r['role'] ?? r['Role'] ?? '').toString();
+        return roleStringIsGuardianPersona(role);
+      });
+    }
+  } catch (_) {
+    // Fall through to legacy string heuristics.
+  }
+  final u = raw.toUpperCase();
+  return u.contains('GUARDIAN') || u.contains('PARENT');
+}
+
 /// Roles that match [organizationCode] and [schoolCode].
 ///
 /// When [schoolCode] is non-empty, a role must match that school or have an

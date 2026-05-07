@@ -56,6 +56,34 @@ class ActivityFeedPageModel {
 
   static List<ActivityFeedRow> _rowsFromJson(Map<String, dynamic> json) {
     try {
+      bool? asNullableBool(dynamic raw) {
+        if (raw is bool) return raw;
+        final v = (raw ?? '').toString().trim().toLowerCase();
+        if (v == 'true') return true;
+        if (v == 'false') return false;
+        return null;
+      }
+
+      bool? aggregateNapFlagFromStudents(
+        List<Map<String, String>> students,
+        String flagKey,
+      ) {
+        if (students.isEmpty) return null;
+        var sawTrue = false;
+        var sawFalse = false;
+        for (final s in students) {
+          final v = asNullableBool(s[flagKey]);
+          if (v == true) {
+            sawTrue = true;
+          } else if (v == false) {
+            sawFalse = true;
+          }
+        }
+        if (sawTrue && !sawFalse) return true;
+        if (!sawTrue && sawFalse) return false;
+        return sawTrue ? true : null;
+      }
+
       final params = <Map<String, dynamic>>[];
       final rawPv = json['parameterValues'];
       if (rawPv is List<dynamic>) {
@@ -92,6 +120,11 @@ class ActivityFeedPageModel {
       final activityTypeName = (json['activityTypeName'] ?? '').toString();
       final description = (json['description'] ?? '').toString();
       final createdBy = (json['createdBy'] ?? '').toString();
+      final staffCode = (json['staffCode'] ?? '').toString().trim();
+      final approvalStatus =
+          (json['approvalStatus'] ?? json['status'] ?? '').toString().trim();
+      final napStart = asNullableBool(json['napStart']);
+      final napEnd = asNullableBool(json['napEnd']);
 
       final students = <Map<String, String>>[];
       final rawStudents = json['students'];
@@ -103,14 +136,26 @@ class ActivityFeedPageModel {
           final last = (s['lastName'] ?? '').toString().trim();
           final name = [first, middle, last].where((p) => p.isNotEmpty).join(' ');
           final stu = (s['studentCode'] ?? '').toString().trim();
+          final napStartRaw = s['napStart'];
+          final napEndRaw = s['napEnd'];
+          final napStartText = napStartRaw == null
+              ? ''
+              : napStartRaw.toString().trim();
+          final napEndText = napEndRaw == null ? '' : napEndRaw.toString().trim();
           if (name.isNotEmpty || stu.isNotEmpty) {
             students.add({
               if (name.isNotEmpty) 'name': name,
               if (stu.isNotEmpty) 'studentCode': stu,
+              if (napStartText.isNotEmpty) 'napStart': napStartText,
+              if (napEndText.isNotEmpty) 'napEnd': napEndText,
             });
           }
         }
       }
+      final studentNapStart = aggregateNapFlagFromStudents(students, 'napStart');
+      final studentNapEnd = aggregateNapFlagFromStudents(students, 'napEnd');
+      final effectiveNapStart = napStart ?? studentNapStart;
+      final effectiveNapEnd = napEnd ?? studentNapEnd;
       if (students.isNotEmpty) {
         final first = students.first;
         final firstName = (first['name'] ?? '').trim();
@@ -128,9 +173,14 @@ class ActivityFeedPageModel {
             studentMiddleName: null,
             studentLastName: '',
             createdBy: createdBy,
+            staffCode: staffCode.isEmpty ? null : staffCode,
             parameterValues: params,
             attachments: atts,
             students: students,
+            napStart: effectiveNapStart,
+            napEnd: effectiveNapEnd,
+            approvalStatus:
+                approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
           ),
         ];
       }
@@ -150,9 +200,14 @@ class ActivityFeedPageModel {
           studentMiddleName: (json['studentMiddleName'] as String?)?.trim(),
           studentLastName: (json['studentLastName'] ?? '').toString(),
           createdBy: createdBy,
+          staffCode: staffCode.isEmpty ? null : staffCode,
           parameterValues: params,
           attachments: atts,
           students: const [],
+          napStart: effectiveNapStart,
+          napEnd: effectiveNapEnd,
+          approvalStatus:
+              approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
         ),
       ];
     } catch (_) {

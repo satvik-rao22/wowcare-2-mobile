@@ -8,7 +8,10 @@ import '../entities/student_attendance_expected_summary.dart';
 abstract class AttendanceRepository {
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
     required String attendanceDate,
+    String? fromAttendanceDate,
+    String? toAttendanceDate,
     List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
@@ -71,6 +74,22 @@ abstract class AttendanceRepository {
     required String toAbsenceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
+  /// Student Absent records for activities feed (daily/custom tabs).
+  ///
+  /// Backend endpoint:
+  /// `/api/v1/student-attendance/view/absent/records/activity`.
+  /// Response shape matches [StudentAttendanceAbsentFormPage].
+  Future<StudentAttendanceAbsentFormPage> getStudentAbsentRecordsActivity({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? studentCodes,
     String? search,
     int page,
     int size,

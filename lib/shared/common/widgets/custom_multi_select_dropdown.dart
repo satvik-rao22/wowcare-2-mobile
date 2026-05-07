@@ -530,7 +530,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                   }
                                 });
                                 setState(() {});
-                                widget.onChanged(_localSelectedItems);
+                                widget.onChanged(
+                                  List<String>.from(_localSelectedItems),
+                                );
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -573,7 +575,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                 }
                               });
                               setState(() {});
-                              widget.onChanged(_localSelectedItems);
+                              widget.onChanged(
+                                List<String>.from(_localSelectedItems),
+                              );
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(

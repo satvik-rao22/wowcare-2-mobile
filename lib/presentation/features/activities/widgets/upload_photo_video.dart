@@ -946,16 +946,20 @@
 // }
 
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/utils/responsive_helper.dart';
+import '../view/activity_item.dart';
+import '../view/view_activity_screens/show_full_screen_media.dart';
 
 enum MediaType { photos, video }
 
@@ -976,6 +980,7 @@ class MediaUploader extends StatefulWidget {
     this.isPictureBox = true,
     this.photoSizeLimit,
     this.readOnly = false,
+    this.autoReplaceFirstPhotoWhenMaxReached = false,
   });
 
   final List<File>? initialPhotos;
@@ -1001,6 +1006,7 @@ class MediaUploader extends StatefulWidget {
   final bool isPictureBox;
   final int? photoSizeLimit;
   final bool readOnly;
+  final bool autoReplaceFirstPhotoWhenMaxReached;
 
   @override
   State<MediaUploader> createState() => _MediaUploaderState();
@@ -1028,8 +1034,8 @@ class _MediaUploaderState extends State<MediaUploader> {
   static const int videoMaxSizeMB = 200;
   static const int videoMaxDurationSec = 60;
 
-  static const List<String> _photoExt = ['jpg', 'jpeg', 'png', 'heic', 'heif'];
-  static const List<String> _videoExt = ['mp4', 'mov', 'webm'];
+  static const List<String> _photoExt = FilePickerUtils.allowedImageExtensions;
+  static const List<String> _videoExt = FilePickerUtils.allowedVideoExtensions;
 
   bool get _hasMedia =>
       _newPhotos.isNotEmpty ||
@@ -1147,6 +1153,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
+    if (widget.readOnly) return;
     if (_currentType == MediaType.video && !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('photos');
       if (!replace) return;
@@ -1155,30 +1162,72 @@ class _MediaUploaderState extends State<MediaUploader> {
 
     final totalCurrentPhotos = _newPhotos.length + _existingPhotoUrls.length;
     final remaining = maxPhotos - totalCurrentPhotos;
+
+    List<File> candidates = [];
+    if (source == ImageSource.camera) {
+      final XFile? camera = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+      if (camera == null) return;
+      candidates = [File(camera.path)];
+    } else {
+      // Keep one gallery picker flow (same behavior as messaging attachments)
+      // and allow all configured image formats from FilePickerUtils.
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _photoExt,
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      candidates = result.files
+          .map((pf) => pf.path)
+          .whereType<String>()
+          .where((p) => p.trim().isNotEmpty)
+          .map((p) => File(p))
+          .toList();
+    }
+
+    if (candidates.isEmpty) return;
+
+    if (remaining <= 0 && widget.autoReplaceFirstPhotoWhenMaxReached) {
+      final replacement = candidates.first;
+      setState(() {
+        // Replace the first photo in the current list (keep others).
+        // Prefer replacing a newly selected photo; otherwise replace the first existing URL.
+        if (_newPhotos.isNotEmpty) {
+          _newPhotos[0] = replacement;
+        } else if (_existingPhotoUrls.isNotEmpty) {
+          _existingPhotoUrls.removeAt(0);
+          _newPhotos.insert(0, replacement);
+        } else {
+          _newPhotos.add(replacement);
+        }
+        _currentType = MediaType.photos;
+      });
+      _notifyParent();
+      return;
+    }
+
     if (remaining <= 0) {
       _showWarning('Maximum $maxPhotos photos allowed.');
       return;
     }
 
-    final XFile? camera = source == ImageSource.camera
-        ? await _picker.pickImage(source: source, imageQuality: 85)
-        : null;
-
-    final List<XFile> picked = camera != null
-        ? [camera]
-        : await _picker.pickMultiImage(imageQuality: 85);
-
-    if (picked.isEmpty) return;
+    if (source == ImageSource.gallery && candidates.length > remaining) {
+      _showWarning('You can only select up to $maxPhotos photos.');
+      return;
+    }
 
     List<File> valid = [];
-    for (var x in picked.take(remaining)) {
-      final ext = x.path.split('.').last.toLowerCase();
+    for (final f in candidates.take(remaining)) {
+      final ext = f.path.split('.').last.toLowerCase();
       if (!_photoExt.contains(ext)) {
-        _showWarning('Only JPG, PNG, HEIC allowed.');
+        _showWarning('Unsupported image format.');
         continue;
       }
 
-      final file = File(x.path);
+      final file = f;
       final sizeMB = (await file.length()) / (1024 * 1024);
       if (sizeMB > photoMaxSizeMB) {
         _showWarning('Photo too large (${sizeMB.toStringAsFixed(1)} MB). Max: $photoMaxSizeMB MB');
@@ -1197,6 +1246,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (widget.readOnly) return;
     if (!widget.allowVideo) return;
 
     if (_hasMedia &&
@@ -1206,19 +1256,32 @@ class _MediaUploaderState extends State<MediaUploader> {
       if (!replace) return;
     }
 
-    final XFile? picked = await _picker.pickVideo(
-      source: source,
-      maxDuration: const Duration(seconds: videoMaxDurationSec),
-    );
-    if (!mounted || picked == null) return;
+    File? file;
+    if (source == ImageSource.camera) {
+      final XFile? picked = await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: videoMaxDurationSec),
+      );
+      if (!mounted || picked == null) return;
+      file = File(picked.path);
+    } else {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _videoExt,
+        allowMultiple: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final path = result.files.single.path;
+      if (path == null || path.trim().isEmpty) return;
+      file = File(path);
+    }
 
-    final ext = picked.path.split('.').last.toLowerCase();
+    final ext = file.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
-      _showWarning('Only MP4, MOV, WEBM allowed.');
+      _showWarning('Unsupported video format.');
       return;
     }
 
-    final file = File(picked.path);
     final sizeMB = (await file.length()) / (1024 * 1024);
     if (sizeMB > videoMaxSizeMB) {
       _showWarning('Video too large (${sizeMB.toStringAsFixed(1)} MB).');
@@ -1312,7 +1375,37 @@ class _MediaUploaderState extends State<MediaUploader> {
     _notifyParent();
   }
 
+  void _openVideoFullscreen() {
+    final url = _existingVideoUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ShowFullScreenMedia(
+            activity: ActivityItem(
+              time: '',
+              date: '',
+              name: '',
+              studentList: const [],
+              createdBy: '',
+              videoUrl: url,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    final file = _newVideoFile;
+    if (file != null) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => FullscreenLocalVideoPlayerPage(videoFile: file),
+        ),
+      );
+    }
+  }
+
   void _showPickerDialog() {
+    if (widget.readOnly) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -1357,6 +1450,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     final bool showRemoteThumbnail = hasRemoteVideoOnly && _remoteThumbnailReady && !_remoteThumbnailError;
 
     return _previewItem(
+      onTap: _openVideoFullscreen,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1421,6 +1515,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         ],
       ),
       onRemove: _removeVideo,
+      canRemove: !widget.readOnly,
     );
   }
 
@@ -1566,13 +1661,14 @@ class _MediaUploaderState extends State<MediaUploader> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final showUploadControl = !(widget.readOnly && _hasMedia);
+    final canOpenPicker = !widget.readOnly;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.isPictureBox && showUploadControl)
           GestureDetector(
-            onTap: _showPickerDialog,
+            onTap: canOpenPicker ? _showPickerDialog : null,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
@@ -1605,7 +1701,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: _showPickerDialog,
+                onTap: canOpenPicker ? _showPickerDialog : null,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1639,6 +1735,101 @@ class _MediaUploaderState extends State<MediaUploader> {
 
         const SizedBox(height: 12),
       ],
+    );
+  }
+}
+
+/// Full-screen playback for a locally picked video file (preview tap).
+class FullscreenLocalVideoPlayerPage extends StatefulWidget {
+  const FullscreenLocalVideoPlayerPage({super.key, required this.videoFile});
+
+  final File videoFile;
+
+  @override
+  State<FullscreenLocalVideoPlayerPage> createState() =>
+      _FullscreenLocalVideoPlayerPageState();
+}
+
+class _FullscreenLocalVideoPlayerPageState extends State<FullscreenLocalVideoPlayerPage> {
+  VideoPlayerController? _controller;
+
+  void _onCtrlUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final c = VideoPlayerController.file(widget.videoFile);
+    _controller = c;
+    c.initialize().then(
+      (_) {
+        if (!mounted) return;
+        c.addListener(_onCtrlUpdate);
+        setState(() {});
+      },
+      onError: (_, __) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Could not open this video.',
+          isWarning: true,
+        );
+        Navigator.of(context).maybePop();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onCtrlUpdate);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _controller;
+    final ready = c != null && c.value.isInitialized;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Center(
+        child: !ready
+            ? const CircularProgressIndicator(color: Colors.white)
+            : GestureDetector(
+                onTap: () {
+                  if (c.value.isPlaying) {
+                    c.pause();
+                  } else {
+                    c.play();
+                  }
+                },
+                child: AspectRatio(
+                  aspectRatio: c.value.aspectRatio,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      VideoPlayer(c),
+                      AnimatedOpacity(
+                        opacity: c.value.isPlaying ? 0 : 1,
+                        duration: const Duration(milliseconds: 300),
+                        child: const Icon(Icons.play_circle_fill,
+                            color: Colors.white70, size: 72),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }

@@ -32,9 +32,10 @@ class ApiConstantsUat {
   /// Attendance APIs are served under: `$_host/api/v1/attendance/...`
   static const String attendanceBaseUrl = '$_host/api/v1/attendance';
 
-  /// If activity/document are served on the same host in UAT, keep them as `_host`.
+  /// Activity APIs are on the shared UAT host.
   static const String activityBaseUrl = _host;
-  static const String documentMsBaseUrl = _host;
+  /// Document APIs in UAT are rooted under `/api/v1/document`.
+  static const String documentMsBaseUrl = '$_host/api/v1/document';
   static const String communicationBaseUrl = _host;
 
   static String baseUrlForMicroservice(String microserviceKey) {
