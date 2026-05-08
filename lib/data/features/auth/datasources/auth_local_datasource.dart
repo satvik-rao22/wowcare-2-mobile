@@ -321,8 +321,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<void> saveCredentials(String username, String password, bool rememberMe) async {
     if (rememberMe) {
+      final encodedPassword = base64Encode(utf8.encode(password));
       await _storage.saveString(StorageKeys.username, username);
-      await _storage.saveString(StorageKeys.password, password);
+      await _storage.saveString(StorageKeys.password, encodedPassword);
     } else {
       await _storage.remove(StorageKeys.username);
       await _storage.remove(StorageKeys.password);
@@ -333,7 +334,16 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<Map<String, String?>> getSavedCredentials() async {
     final username = await _storage.getString(StorageKeys.username);
-    final password = await _storage.getString(StorageKeys.password);
+    final savedPassword = await _storage.getString(StorageKeys.password);
+    String? password;
+    if (savedPassword != null && savedPassword.isNotEmpty) {
+      try {
+        password = utf8.decode(base64Decode(savedPassword));
+      } catch (_) {
+        // Backward compatibility for previously saved plain-text values.
+        password = savedPassword;
+      }
+    }
     return {
       'username': username,
       'password': password,
