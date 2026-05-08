@@ -11,6 +11,8 @@ class StudentCard extends StatefulWidget {
     super.key,
     required this.studentCode,
     required this.name,
+    this.profileImage,
+    this.profilePhotoAssetCode,
     required this.classroom,
     required this.tags,
     required this.sibling,
@@ -29,6 +31,8 @@ class StudentCard extends StatefulWidget {
 
   final String studentCode;
   final String name;
+  final String? profileImage;
+  final String? profilePhotoAssetCode;
   final String classroom;
   final List<String> tags;
   final Map<String, dynamic> sibling;
@@ -138,10 +142,13 @@ class _StudentCardState extends State<StudentCard> {
                             children: [
                               DocumentImageWidget(
                                 fileUuid: widget.studentCode,
+                                imageUrl: widget.profileImage,
+                                mediaAssetCode: widget.profilePhotoAssetCode,
                                 name: widget.name,
                                 size: 45,
                                 studentCode: widget.studentCode,
                                 studentEnrollmentStatus: widget.status,
+                                disableProfileLookupFallback: true,
                               ),
                             ],
                           ),

@@ -1291,6 +1291,7 @@ class StudentRepositoryImpl
               lastName: m.lastName,
               status: m.status,
               profileImage: m.profilePhotoUrl,
+              profilePhotoAssetCode: m.profilePhotoAssetCode,
               classroom: m.classroom,
               dob: m.dob,
               movementDate: m.movementDate,

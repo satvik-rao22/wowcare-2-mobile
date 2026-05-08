@@ -365,6 +365,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         allowedClassroomCodes: m.allowedClassroomCodes,
         designation: m.designation,
         phoneNumber: m.phoneNumber,
+        profilePhotoAssetCode: m.profilePhotoAssetCode,
         status: m.status,
         email: m.email,
         workScheduleByDay: workByDay,

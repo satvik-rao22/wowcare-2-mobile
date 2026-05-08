@@ -9,6 +9,7 @@ class StaffMember extends Equatable {
     required this.designation,
     required this.phoneNumber,
     this.profileImage,
+    this.profilePhotoAssetCode,
     required this.status,
     required this.email,
     this.workScheduleByDay = const <String, String>{},
@@ -18,6 +19,7 @@ class StaffMember extends Equatable {
   final String code;
   final String name;
   final String? profileImage;
+  final String? profilePhotoAssetCode;
   final String primaryClassroomCode;
   final List<String> allowedClassroomCodes;
   final String designation;
@@ -52,6 +54,7 @@ class StaffMember extends Equatable {
         phoneNumber,
         status,
         email,
+        profilePhotoAssetCode,
         workScheduleByDay,
         breakScheduleByDay,
       ];
