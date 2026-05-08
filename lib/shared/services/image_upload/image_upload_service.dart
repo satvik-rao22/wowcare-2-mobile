@@ -90,23 +90,31 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    final response = await _apiClient.client.post<dynamic>(
-      endpoint,
-      data: <String, dynamic>{
-        'assets': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'fileName': fileName,
-            'contentType': contentType,
-            'contentLengthBytes': contentLengthBytes,
-            if ((checksumSha256 ?? '').trim().isNotEmpty)
-              'checksumSha256': checksumSha256!.trim(),
-            'mediaType': mediaType,
-            'ownerType': ownerType,
-            'ownerCode': ownerCode,
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assets': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'fileName': fileName,
+                'contentType': contentType,
+                'contentLengthBytes': contentLengthBytes,
+                if ((checksumSha256 ?? '').trim().isNotEmpty)
+                  'checksumSha256': checksumSha256!.trim(),
+                'mediaType': mediaType,
+                'ownerType': ownerType,
+                'ownerCode': ownerCode,
+              },
+            ],
           },
-        ],
-      },
-    );
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            final message = _extractErrorMessageFromDio(error);
+            throw Exception(message);
+          }
+          throw error;
+        });
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -155,6 +163,21 @@ class ImageUploadService {
       presignedPutUrl: presignedPutUrl,
       requiredHeaders: requiredHeaders,
     );
+  }
+
+  String _extractErrorMessageFromDio(DioException error) {
+    final data = error.response?.data;
+    if (data is Map) {
+      final message = (data['message'] ?? '').toString().trim();
+      if (message.isNotEmpty) return message;
+      final errorMessage = (data['error'] ?? '').toString().trim();
+      if (errorMessage.isNotEmpty) return errorMessage;
+    }
+    final raw = error.message?.trim() ?? error.toString();
+    if (raw.startsWith('Exception:')) {
+      return raw.replaceFirst('Exception:', '').trim();
+    }
+    return raw;
   }
 
   Future<String> computeFileChecksumSha256(File file) async {

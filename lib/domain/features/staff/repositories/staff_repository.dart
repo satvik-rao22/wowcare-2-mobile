@@ -221,12 +221,25 @@ abstract class StaffRepositoryWithCache {
     List<String>? classCodes,
     String? sortBy,
   });
+  Future<void> invalidateCachedStaffPage(
+    String schoolCode, {
+    String? status,
+    String? designation,
+    String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
+  });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(
     String staffCode, {
     bool forEditStaff = false,
   });
   Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
+  Future<StaffCount?> loadCachedStaffCount({
+    required String organizationCode,
+    required String schoolCode,
+  });
 }
 
 
