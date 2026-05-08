@@ -19,6 +19,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
@@ -66,6 +67,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
+  late final CacheManager _cacheManager;
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
@@ -85,6 +87,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   @override
   void initState() {
     super.initState();
+    _cacheManager = CacheManager(serviceLocator<StorageService>());
     _tabController = TabController(length: 4, vsync: this);
     _activeStudentCode = widget.studentCode;
     _profileTags = List<String>.from(widget.tags);
@@ -424,6 +427,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final refreshed = await dataSource.getStudentProfile(studentCode);
+      await _cacheManager.saveCache(
+        CacheManager.buildCacheKey(
+          feature: 'student',
+          resource: 'profile',
+          identifier: studentCode.trim(),
+        ),
+        refreshed.toJson(),
+      );
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Profile photo updated successfully',

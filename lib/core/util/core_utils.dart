@@ -334,4 +334,26 @@ class CoreUtils {
     }
     return '(${phoneNumber.substring(0, 3)}) ${phoneNumber.substring(3, 6)}-${phoneNumber.substring(6)}';
   }
+
+  /// Reusable inline field-error text widget for form inputs.
+  static Widget buildInlineFieldError(
+    String? message, {
+    EdgeInsetsGeometry padding = const EdgeInsets.only(top: 6),
+  }) {
+    if (message == null || message.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: padding,
+      child: Text(
+        message,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          color: Colors.red,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
 }

@@ -88,27 +88,6 @@ class StaffCubit extends Cubit<StaffState> {
     await refresh();
   }
 
-  Future<void> _refreshStaffCountOnly() async {
-    try {
-      final organizationCode = await _resolveOrganizationCode();
-      final schoolCode = await _resolveSchoolCode();
-      final staffCount = await _getStaffCountUseCase(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          staffCountTotal: staffCount.total,
-          staffCountActive: staffCount.active,
-          staffCountUpcoming: staffCount.upcoming,
-        ),
-      );
-    } catch (_) {
-      // Non-fatal: staff list can still work even if count endpoint fails.
-    }
-  }
-
   Future<void> refresh({bool ignoreRefreshingGuard = false}) async {
     if (state.isRefreshing && !ignoreRefreshingGuard) return;
 
@@ -205,6 +184,22 @@ class StaffCubit extends Cubit<StaffState> {
     }
   }
 
+  Future<void> refreshWithCacheReset() async {
+    final schoolCode = await _resolveSchoolCode();
+    if (_repository is StaffRepositoryWithCache) {
+      await (_repository as StaffRepositoryWithCache).invalidateCachedStaffPage(
+        schoolCode,
+        status: _effectiveStatusFilter(),
+        designation: state.designationFilter,
+        search: state.searchQuery,
+        primaryClassroomCodes: state.primaryClassroomCodes,
+        classCodes: state.classCodes,
+        sortBy: state.sortBy,
+      );
+    }
+    await refresh(ignoreRefreshingGuard: true);
+  }
+
   Future<void> loadNextPage() async {
     // ignore: avoid_print
     print('[StaffCubit] loadNextPage called: '
@@ -287,7 +282,7 @@ class StaffCubit extends Cubit<StaffState> {
         userCode: profile.userCode,
         organizationCode: profile.organizationCode,
       );
-      await refresh();
+      await refreshWithCacheReset();
       return message;
     }
 
@@ -305,7 +300,7 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     // Refresh the list so UI and cache reflect the updated status.
-    await refresh();
+    await refreshWithCacheReset();
 
     return message;
   }
@@ -331,7 +326,7 @@ class StaffCubit extends Cubit<StaffState> {
         organizationCode: profile.organizationCode,
       );
 
-      await refresh();
+      await refreshWithCacheReset();
       return message;
     }
 
@@ -347,7 +342,7 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     // Refresh the list so UI and cache reflect the updated status.
-    await refresh();
+    await refreshWithCacheReset();
 
     return message;
   }
@@ -355,60 +350,12 @@ class StaffCubit extends Cubit<StaffState> {
   /// Performs a lightweight search that only calls the staff list API (no count
   /// refresh or automatic second-page preloading). Intended for rapid typing.
   Future<void> searchStaff(String query) async {
-    final schoolCode = await _resolveSchoolCode();
-    final organizationCode = await _resolveOrganizationCode();
-
     emit(
       state.copyWith(
-        isLoading: state.items.isEmpty,
-        isRefreshing: true,
-        errorMessage: null,
         searchQuery: query,
       ),
     );
-
-    try {
-      final firstPage = await _getStaffPageUseCase(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        page: 0,
-        size: _pageSize,
-        status: _effectiveStatusFilter(),
-        designation: state.designationFilter,
-        search: query,
-        primaryClassroomCodes: state.primaryClassroomCodes,
-        classCodes: state.classCodes,
-        sortBy: state.sortBy,
-      );
-
-      if (isClosed) return;
-
-      // If the search query has changed while this request was in-flight
-      // (e.g. user cleared the field), drop these stale results.
-      if (state.searchQuery != query) {
-        return;
-      }
-
-      emit(
-        state.copyWith(
-          items: List<StaffMember>.from(firstPage.items),
-          currentPage: firstPage.page,
-          hasMore: firstPage.hasMore,
-          isLoading: false,
-          isRefreshing: false,
-          isFromCache: false,
-        ),
-      );
-    } catch (e) {
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
-          errorMessage: e.toString(),
-        ),
-      );
-    }
+    await refresh(ignoreRefreshingGuard: true);
   }
 
   void updateSearch(String query) {
@@ -460,89 +407,7 @@ class StaffCubit extends Cubit<StaffState> {
       ),
     );
 
-    final organizationCode = await _resolveOrganizationCode();
-    final schoolCode = await _resolveSchoolCode();
-
-    try {
-      // Start both requests in parallel with cleared filters
-      final staffCountFuture = _getStaffCountUseCase(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
-      final firstPageFuture = _getStaffPageUseCase(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        page: 0,
-        size: _pageSize,
-        status: 'ACTIVE',
-        designation: null,
-        search: '',
-        primaryClassroomCodes: null,
-        classCodes: null,
-        sortBy: 'desc',
-      );
-
-      if (isClosed) return;
-
-      // Staff count is non-fatal: if it fails, use defaults so list still shows.
-      // Error is already logged by API interceptor -> CoreUtils.
-      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
-      try {
-        staffCount = await staffCountFuture;
-      } catch (_) {}
-
-
-      final firstPage = await firstPageFuture;
-
-      var items = List<StaffMember>.from(firstPage.items);
-      var currentPage = firstPage.page;
-      var hasMore = firstPage.hasMore;
-
-      // Auto-load next page so that page 0 and 1 are both visible initially
-      if (hasMore) {
-        final secondPage = await _getStaffPageUseCase(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          page: 1,
-          size: _pageSize,
-          status: 'ACTIVE',
-          designation: null,
-          search: '',
-          primaryClassroomCodes: null,
-          classCodes: null,
-          sortBy: 'desc',
-        );
-
-        items.addAll(secondPage.items);
-        currentPage = secondPage.page;
-        hasMore = secondPage.hasMore;
-      }
-
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          items: items,
-          currentPage: currentPage,
-          hasMore: hasMore,
-          staffCountTotal: staffCount.total,
-          staffCountActive: staffCount.active,
-          staffCountUpcoming: staffCount.upcoming,
-          isLoading: false,
-          isRefreshing: false,
-          isFromCache: false,
-        ),
-      );
-    } catch (e) {
-      if (isClosed) return;
-      CoreUtils.logApiError(e.toString());
-      emit(
-        state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
-          errorMessage: e.toString(),
-        ),
-      );
-    }
+    await refresh(ignoreRefreshingGuard: true);
   }
 
   // To be called by add/edit/delete flows to keep cache + UI in sync

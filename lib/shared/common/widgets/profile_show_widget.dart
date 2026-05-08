@@ -44,6 +44,10 @@ class DocumentImageWidget extends StatefulWidget {
   /// (E.g. sign-in selection screens want to highlight absences only.)
   final bool showOnlyAbsentAttendanceDot;
 
+  /// If true, widget does not call profile/asset-code endpoints as a fallback
+  /// when both [imageUrl] and [mediaAssetCode] are empty.
+  final bool disableProfileLookupFallback;
+
   const DocumentImageWidget({
     Key? key,
     required this.fileUuid,
@@ -65,6 +69,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.statusColor,
     this.statusTooltip,
     this.showOnlyAbsentAttendanceDot = false,
+    this.disableProfileLookupFallback = false,
   }) : super(key: key);
 
   static void clearProfilePhotoCache({
@@ -194,6 +199,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final staffCode = widget.staffCode?.trim() ?? '';
     final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
     if (studentCode.isEmpty && staffCode.isEmpty && mediaAssetCode.isEmpty) {
+      return;
+    }
+
+    if (widget.disableProfileLookupFallback && mediaAssetCode.isEmpty) {
       return;
     }
 
