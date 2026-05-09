@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -173,22 +174,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   }
 
   void _onSearchChanged() => _filterStaff();
-
-  String _formatDesignationForUi(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return '';
-    final normalized = t.replaceAll('-', '_');
-    final parts = normalized.split('_').where((p) => p.trim().isNotEmpty);
-    return parts
-        .map((p) {
-          final lower = p.trim().toLowerCase();
-          return lower.isEmpty
-              ? ''
-              : '${lower[0].toUpperCase()}${lower.substring(1)}';
-        })
-        .where((p) => p.isNotEmpty)
-        .join(' ');
-  }
 
   Staff _mapApiToUi(StaffClassroomItem item) {
     final statusUpper = item.status.trim().toUpperCase();
@@ -588,6 +573,13 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     }
   }
 
+  void _applyActiveStatusChip() {
+    setState(() {
+      _selectedStatusList = ['ACTIVE'];
+    });
+    _loadForSelectedRoom(refresh: false);
+  }
+
   void _clearAllSelections() {
     setState(() {
       isSelectAllChecked = false;
@@ -745,7 +737,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  onPressed: () {},
+                                  onPressed: _applyActiveStatusChip,
                                   child: const Text(
                                     'Active',
                                     style: TextStyle(
@@ -832,7 +824,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                           todayAttendanceStatusRaw:
                                               _attendanceStatusByStaffCode[staff.staffCode],
                                           designationLabel:
-                                              _formatDesignationForUi(staff.designation),
+                                              formatDesignationForDisplay(
+                                                staff.designation,
+                                              ),
                                           onSelectionChanged: (bool? value) {
                                       _toggleStaffSelection(staff.staffCode, value);
                                           },

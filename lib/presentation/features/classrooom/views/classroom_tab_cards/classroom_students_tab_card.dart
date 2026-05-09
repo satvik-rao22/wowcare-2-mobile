@@ -276,6 +276,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return studentSelections.values.any((selected) => selected);
   }
 
+  /// Quick filter aligned with classroom filter API: STATUS=ACTIVE only.
+  void _applyActiveStatusChip() {
+    setState(() {
+      _selectedStatus = ['ACTIVE'];
+    });
+    _loadForSelectedRoom(refresh: false);
+  }
+
   Future<void> _openClassroomStudentFilter() async {
     final result = await Navigator.push<ClassroomStudentFilterResult>(
       context,
@@ -1080,7 +1088,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  onPressed: () {},
+                                  onPressed: _applyActiveStatusChip,
                                   child: const Text(
                                     'Active',
                                     style: TextStyle(

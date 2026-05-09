@@ -59,10 +59,14 @@ class StudentScreen extends StatefulWidget {
   const StudentScreen({
     super.key,
     this.incomingStatusFilter,
+    this.incomingClassroomSelections,
   });
 
   static const String routeName = '/students';
   final String? incomingStatusFilter;
+
+  /// Classroom names or codes (same as filter sheet / [StudentCubit] — both resolve).
+  final List<String>? incomingClassroomSelections;
 
   @override
   State<StudentScreen> createState() => _StudentScreenState();
@@ -104,6 +108,7 @@ class _StudentScreenState extends State<StudentScreen> {
   void initState(){
     super.initState();
     _applyIncomingStatusFilter();
+    _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -185,6 +190,17 @@ class _StudentScreenState extends State<StudentScreen> {
     final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
     _currentFilters['Status'] = [statusLabel];
     _syncShowInactiveFromStatus(statusLabel);
+  }
+
+  void _applyIncomingClassroomSelections() {
+    final raw = widget.incomingClassroomSelections;
+    if (raw == null || raw.isEmpty) return;
+    final cleaned = raw
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return;
+    _currentFilters['Classroom'] = cleaned;
   }
 
   @override

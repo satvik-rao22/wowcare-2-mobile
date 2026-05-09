@@ -9,6 +9,11 @@ import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom_details.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view/student_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
 // import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -20,6 +25,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
@@ -607,66 +614,40 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             ),
                           _buildRoomDetailsCard(_details!),
                           const SizedBox(height: 16),
-                          _buildInfoCard(
+                          CustomStatBarCard(
                             title: 'Enrolled\nStudents',
                             number: '$_enrolledCount',
                             items: [
-                              _ProgressItem(
+                              ProgressItemHelper(
                                 label: 'Active ($_enrolledActiveCount)',
                                 value: _enrolledActiveCount.toDouble(),
-                                color: Colors.lightBlue,
+                                color: AppColors.lightBlueProgressBar,
+                                filterValue: 'ACTIVE',
                               ),
-                              _ProgressItem(
-                                label:
-                                    'Upcoming ($_enrolledUpcomingCount)',
+                              ProgressItemHelper(
+                                label: 'Upcoming ($_enrolledUpcomingCount)',
                                 value: _enrolledUpcomingCount.toDouble(),
-                                color: Colors.amber,
+                                color: AppColors.mustardProgressBar,
+                                filterValue: 'UPCOMING',
                               ),
                             ],
+                            onLegendTap: (_, filterValue) {
+                              final v = (filterValue ?? '').trim().toUpperCase();
+                              if (v != 'ACTIVE' && v != 'UPCOMING') return;
+                              _openStudentListForClassroomStatus(v);
+                            },
                           ),
                           const SizedBox(height: 16),
-                          _buildInfoCard(
+                          _buildExpectedAttendanceSummaryCard(
                             title: 'Expected\nStudents',
-                            number: (_studentSummary?.expected ?? 0)
-                                .toString(),
-                            items: [
-                              _ProgressItem(
-                                label:
-                                    'Present (${_studentSummary?.present ?? 0})',
-                                value: (_studentSummary?.present ?? 0)
-                                    .toDouble(),
-                                color: Colors.green,
-                              ),
-                              _ProgressItem(
-                                label:
-                                    'Absent (${_studentSummary?.absent ?? 0})',
-                                value: (_studentSummary?.absent ?? 0)
-                                    .toDouble(),
-                                color: Colors.red,
-                              ),
-                            ],
+                            summary: _studentSummary,
+                            forStaff: false,
                           ),
                           const SizedBox(height: 16),
-                          _buildInfoCard(
+                          _buildExpectedAttendanceSummaryCard(
                             title: 'Expected\nStaff',
-                            number:
-                                (_staffSummary?.expected ?? 0).toString(),
-                            items: [
-                              _ProgressItem(
-                                label:
-                                    'Present (${_staffSummary?.present ?? 0})',
-                                value: (_staffSummary?.present ?? 0)
-                                    .toDouble(),
-                                color: Colors.green,
-                              ),
-                              _ProgressItem(
-                                label:
-                                    'Absent (${_staffSummary?.absent ?? 0})',
-                                value: (_staffSummary?.absent ?? 0)
-                                    .toDouble(),
-                                color: Colors.red,
-                              ),
-                            ],
+                            summary: _staffSummary,
+                            forStaff: true,
                           ),
                         ],
                         // Events section (temporarily disabled)
@@ -732,135 +713,125 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     );
   }
 
-  Widget _buildInfoCard({
-    required String title,
-    required String number,
-    required List<_ProgressItem> items,
-  }) {
-    int total = int.tryParse(number) ?? 0;
-    double sumValues = items.fold(0, (sum, item) => sum + item.value);
-    bool hasValidTotal = total > 0;
+  FilterData? _classroomAttendanceFilter() {
+    final code = (_selectedRoom?.code ?? '').trim();
+    if (code.isEmpty) return null;
+    return FilterData(
+      classroomIds: const <int>[],
+      classrooms: [code],
+      statuses: const <String>[],
+      tags: const <String>[],
+    );
+  }
 
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(
-          width: 1.5,
-          color: Color.fromARGB(255, 232, 234, 234),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        child: Row(
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 32,
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    color: const Color(0xff573353),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+  void _openStudentListForClassroomStatus(String statusUpper) {
+    final room = _selectedRoom;
+    final code = (_selectedRoom?.code ?? '').trim();
+    if (room == null || code.isEmpty) return;
+
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StudentCubit>(
+              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
             ),
-            const SizedBox(width: 28),
-            Expanded(
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: SizedBox(
-                      height: 24,
-                      child: Row(
-                        children: !hasValidTotal
-                            ? [
-                                Expanded(
-                                    child: Container(color: Colors.grey[300]))
-                              ]
-                            : [
-                                ...items.map((item) => Expanded(
-                                      flex: hasValidTotal
-                                          ? (item.value * 100 ~/ total)
-                                          : 1,
-                                      child: Container(color: item.color),
-                                    )),
-                                if (sumValues < total)
-                                  Expanded(
-                                    flex: hasValidTotal
-                                        ? ((total - sumValues) * 100 ~/ total)
-                                        : 1,
-                                    child: Container(color: Colors.grey[300]),
-                                  ),
-                              ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: items
-                        .map(
-                          (item) => Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: item.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                item.label,
-                                style: const TextStyle(fontFamily: 'Manrope', fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  onlyTypeClassroom: false,
+                  applyAttendanceStaffScope: true,
+                ),
             ),
           ],
+          child: StudentScreen(
+            incomingStatusFilter: statusUpper,
+            incomingClassroomSelections: [
+              room.name.trim(),
+              room.code.trim(),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
+  void _openAttendanceForClassroom({
+    required bool staff,
+    required String incomingFilter,
+  }) {
+    final filter = _classroomAttendanceFilter();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) {
+          if (staff) {
+            return StaffAttendanceTabbedView(
+              initialTabIndex: 0,
+              dailyIncomingFilter: incomingFilter,
+              classroomFilter: filter,
+            );
+          }
+          return StudentAttendanceTabbedView(
+            initialTabIndex: 0,
+            dailyIncomingFilter: incomingFilter,
+            classroomFilter: filter,
+          );
+        },
+      ),
+    );
+  }
 
-class _ProgressItem {
-  final String label;
-  final double value;
-  final Color color;
+  /// Same stat bar styling as student/staff daily attendance expected cards.
+  Widget _buildExpectedAttendanceSummaryCard({
+    required String title,
+    required StudentAttendanceExpectedSummary? summary,
+    required bool forStaff,
+  }) {
+    final expected = summary?.expected ?? 0;
+    final present = summary?.present ?? 0;
+    final absent = summary?.absent ?? 0;
+    final signedOut = summary?.signOut ?? 0;
+    final notMarked = summary?.notMarked ?? 0;
 
-  _ProgressItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+    return CustomStatBarCard(
+      title: title,
+      number: expected.toString(),
+      normalizeBarByItemSum: true,
+      items: [
+        ProgressItemHelper(
+          label: 'Signed-In ($present)',
+          value: present.toDouble(),
+          color: AppColors.lightGreenProgressBar,
+          filterValue: 'Signed-In',
+        ),
+        ProgressItemHelper(
+          label: 'Absent ($absent)',
+          value: absent.toDouble(),
+          color: AppColors.redProgressBar,
+          filterValue: 'Absent',
+        ),
+        ProgressItemHelper(
+          label: 'Signed Out ($signedOut)',
+          value: signedOut.toDouble(),
+          color: AppColors.lightBlueProgressBar,
+          filterValue: 'Signed Out',
+        ),
+        ProgressItemHelper(
+          label: 'Not Marked ($notMarked)',
+          value: notMarked.toDouble(),
+          color: AppColors.mustardProgressBar,
+          filterValue: 'Not Marked',
+        ),
+      ],
+      onLegendTap: (_, filterValue) {
+        final v = (filterValue ?? '').trim();
+        if (v.isEmpty) return;
+        _openAttendanceForClassroom(staff: forStaff, incomingFilter: v);
+      },
+    );
+  }
 }
 
 class ClassroomInfoShimmer extends StatelessWidget {

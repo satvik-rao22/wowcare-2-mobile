@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -36,8 +37,8 @@ class ClassroomStaffFilterScreen extends StatefulWidget {
 }
 
 class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen> {
-  /// Same backend codes as [StaffFilterScreen] designation list.
-  static const List<String> _designationList = [
+  /// Backend designation codes (same set as legacy staff filter).
+  static const List<String> _designationCodes = [
     'OWNER',
     'DIRECTOR',
     'ADMIN',
@@ -49,37 +50,74 @@ class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen>
     'KIOSK_USER',
   ];
 
-  static const List<String> _statusList = ['ACTIVE', 'UPCOMING'];
+  late final Map<String, String> _labelToDesignationCode;
+  late final List<String> _designationLabels;
 
-  final List<String> _selectedStatus = [];
-  final List<String> _selectedDesignation = [];
+  static const List<String> _statusUiItems = ['Active', 'Upcoming'];
+
+  /// UI strings for status dropdown (matches student filter wording).
+  final List<String> _selectedStatusUi = [];
+
+  /// API codes multi-select from designation labels.
+  final List<String> _selectedDesignationCodes = [];
 
   @override
   void initState() {
     super.initState();
 
+    _labelToDesignationCode = {
+      for (final c in _designationCodes)
+        formatDesignationForDisplay(c): c,
+    };
+    _designationLabels = _labelToDesignationCode.keys.toList()..sort();
+
     final st = widget.initialStatus
         .map((e) => e.trim().toUpperCase())
         .where((e) => e.isNotEmpty)
         .toSet();
-    for (final s in _statusList) {
-      if (st.contains(s)) _selectedStatus.add(s);
-    }
+    if (st.contains('ACTIVE')) _selectedStatusUi.add('Active');
+    if (st.contains('UPCOMING')) _selectedStatusUi.add('Upcoming');
 
     final des = widget.initialDesignation
         .map((e) => e.trim().toUpperCase())
         .where((e) => e.isNotEmpty)
         .toSet();
-    for (final d in _designationList) {
-      if (des.contains(d)) _selectedDesignation.add(d);
+    for (final c in _designationCodes) {
+      if (des.contains(c)) _selectedDesignationCodes.add(c);
     }
   }
 
+  List<String> _designationLabelsSelected() {
+    return _selectedDesignationCodes
+        .map(formatDesignationForDisplay)
+        .where(_labelToDesignationCode.containsKey)
+        .toList();
+  }
+
+  void _onDesignationLabelsChanged(List<String> labels) {
+    setState(() {
+      final codes = <String>{};
+      for (final lb in labels) {
+        final c = _labelToDesignationCode[lb];
+        if (c != null && c.trim().isNotEmpty) codes.add(c.trim());
+      }
+      _selectedDesignationCodes
+        ..clear()
+        ..addAll(codes);
+    });
+  }
+
   void _apply() {
+    final statusApi = <String>[];
+    for (final s in _selectedStatusUi) {
+      if (s == 'Active') statusApi.add('ACTIVE');
+      if (s == 'Upcoming') statusApi.add('UPCOMING');
+    }
+
     Navigator.of(context).pop<ClassroomStaffFilterResult>(
       ClassroomStaffFilterResult(
-        status: List<String>.from(_selectedStatus),
-        designation: List<String>.from(_selectedDesignation),
+        status: statusApi,
+        designation: List<String>.from(_selectedDesignationCodes),
       ),
     );
   }
@@ -130,11 +168,11 @@ class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen>
           return CustomMultiSelectDropdown(
             label: labels[0],
             hintText: 'Select',
-            items: _statusList,
-            selectedItems: List<String>.from(_selectedStatus),
+            items: _statusUiItems,
+            selectedItems: List<String>.from(_selectedStatusUi),
             onChanged: (selectedItems) {
               setState(() {
-                _selectedStatus
+                _selectedStatusUi
                   ..clear()
                   ..addAll(
                     selectedItems.isEmpty
@@ -148,15 +186,9 @@ class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen>
         return CustomMultiSelectDropdown(
           label: labels[1],
           hintText: 'Select',
-          items: _designationList,
-          selectedItems: List<String>.from(_selectedDesignation),
-          onChanged: (selectedItems) {
-            setState(() {
-              _selectedDesignation
-                ..clear()
-                ..addAll(selectedItems);
-            });
-          },
+          items: _designationLabels,
+          selectedItems: _designationLabelsSelected(),
+          onChanged: _onDesignationLabelsChanged,
         );
       },
     );

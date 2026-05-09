@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
+import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
@@ -22,7 +22,6 @@ import '../../../presentation/features/user-profile/view/notification_settings_s
 class _NavSizes {
   _NavSizes(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final w = mq.size.width;
     // shortestSide is always the physical short dimension even in landscape.
     // ≥600 on shortestSide = a genuine tablet, not an iPhone in landscape.
     final shortest = mq.size.shortestSide;
@@ -153,6 +152,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         _index = 3;
       else if (_currentRoute == MessagingScreen.routeName)
         _index = 4;
+      else if (_currentRoute == ClassroomScreen.routeName) _index = 2;
     }
   }
 
@@ -196,9 +196,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           AttendancePopupManager.showAttendancePopup(context);
           break;
         case 2:
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: ClassroomScreen.routeName),
+              builder: (_) => const ClassroomScreen(),
+            ),
           );
           break;
         case 3:
