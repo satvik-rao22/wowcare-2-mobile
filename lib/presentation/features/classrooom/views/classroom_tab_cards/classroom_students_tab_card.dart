@@ -20,6 +20,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
@@ -52,6 +53,7 @@ class ClassroomStudentsTabCard extends StatefulWidget {
 class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final TextEditingController _searchController = TextEditingController();
   late final ClassroomStudentsCubit _cubit;
+  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   bool isSelectAllChecked = false;
   Map<String, bool> studentSelections = {};
   List<String> _selectedStatus = [];
@@ -69,6 +71,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+  bool _isLoadingNapStudents = false;
+  bool _napFilterEmptyResult = false;
+  final Map<String, List<String>> _napStudentCodesByClassroom =
+      <String, List<String>>{};
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
@@ -83,11 +89,16 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void initState() {
     super.initState();
     _cubit = serviceLocator<ClassroomStudentsCubit>();
+    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
   }
 
-  void _loadForSelectedRoom({required bool refresh}) {
+  void _loadForSelectedRoom({
+    required bool refresh,
+    List<String>? statusOverride,
+    List<String>? studentCodes,
+  }) {
     final classroomCode = widget.selectedRoom?.code ?? '';
     if (classroomCode.trim().isEmpty) return;
 
@@ -95,20 +106,79 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         ? null
         : _searchController.text.trim();
 
-    final status = _selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus);
+    final status = statusOverride ??
+        (_selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus));
 
     if (refresh) {
       _cubit.refresh(
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
       );
     } else {
       _cubit.loadInitial(
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
       );
+    }
+  }
+
+  Future<void> _applyNappingFilter({required bool refresh}) async {
+    final classroomCode = widget.selectedRoom?.code.trim() ?? '';
+    if (classroomCode.isEmpty) return;
+
+    setState(() {
+      _isLoadingNapStudents = true;
+      _napFilterEmptyResult = false;
+    });
+
+    try {
+      List<String> napCodes =
+          _napStudentCodesByClassroom[classroomCode] ?? const <String>[];
+      if (refresh || napCodes.isEmpty) {
+        napCodes = await _getNapStartStudentsUseCase(classroomCode: classroomCode);
+        napCodes = napCodes
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList();
+        _napStudentCodesByClassroom[classroomCode] = napCodes;
+      }
+
+      if (napCodes.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _napFilterEmptyResult = true;
+        });
+        return;
+      }
+
+      _loadForSelectedRoom(
+        refresh: refresh,
+        statusOverride: const <String>['ACTIVE'],
+        studentCodes: napCodes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isNappingFilter = false;
+        _napFilterEmptyResult = false;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isWarning: true,
+      );
+      _loadForSelectedRoom(refresh: refresh);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingNapStudents = false;
+        });
+      }
     }
   }
 
@@ -122,6 +192,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         _searchController.clear();
         _selectedStatus = [];
         _isNappingFilter = false;
+        _napFilterEmptyResult = false;
       });
       _loadForSelectedRoom(refresh: false);
     }
@@ -137,7 +208,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   void _onSearchChanged() {
     // Debounce could be added later; for now refresh list from API as user types.
-    _loadForSelectedRoom(refresh: false);
+    if (_isNappingFilter) {
+      _applyNappingFilter(refresh: false);
+    } else {
+      _loadForSelectedRoom(refresh: false);
+    }
   }
 
   void _toggleSelectAll(
@@ -190,6 +265,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _searchController.clear();
       _selectedStatus = ['ACTIVE'];
       _isNappingFilter = false;
+      _napFilterEmptyResult = false;
       _currentPanel = StudentPanelType.none;
     });
     _clearAttendanceEntityCaches();
@@ -728,11 +804,16 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           final visibleStudents = ClassroomStudentsCubit.applyClientFilters(
             state.students,
             presentOnly: _isPresentFilter,
-            nappingOnly: _isNappingFilter,
+            nappingOnly: false,
             searchText: _searchController.text,
           )..sort((a, b) => a.fullName.compareTo(b.fullName));
 
-          final selectedStudents = _getSelectedStudents(visibleStudents);
+          final effectiveVisibleStudents =
+              _isNappingFilter && _napFilterEmptyResult
+                  ? <StudentClassroomItem>[]
+                  : visibleStudents;
+
+          final selectedStudents = _getSelectedStudents(effectiveVisibleStudents);
 
           return Stack(
             children: [
@@ -815,7 +896,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                   AppColors.primaryColor.withValues(alpha: 0.2),
                               value: isSelectAllChecked,
                               onChanged: (val) =>
-                                  _toggleSelectAll(val, visibleStudents),
+                                  _toggleSelectAll(val, effectiveVisibleStudents),
                             ),
                           ),
                           const Text(
@@ -983,7 +1064,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             onToggle: (value) {
                               setState(() {
                                 _isNappingFilter = value;
+                                _napFilterEmptyResult = false;
                               });
+                              if (value) {
+                                _applyNappingFilter(refresh: false);
+                              } else {
+                                _loadForSelectedRoom(refresh: false);
+                              }
                             },
                             labelStyle: const TextStyle(
                               fontFamily: 'Manrope',
@@ -1000,16 +1087,21 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   Expanded(
                     child: Builder(
                       builder: (context) {
-                          if (state.isLoading && visibleStudents.isEmpty) {
+                          if ((state.isLoading || _isLoadingNapStudents) &&
+                              effectiveVisibleStudents.isEmpty) {
                             return const Center(
                               child: PrimaryCircularLoader(),
                             );
                           }
 
-                          if (visibleStudents.isEmpty) {
+                          if (effectiveVisibleStudents.isEmpty) {
                             return CustomRefreshIndicator(
                               onRefresh: () async {
-                                _loadForSelectedRoom(refresh: true);
+                                if (_isNappingFilter) {
+                                  await _applyNappingFilter(refresh: true);
+                                } else {
+                                  _loadForSelectedRoom(refresh: true);
+                                }
                               },
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
@@ -1019,7 +1111,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                         height: constraints.maxHeight,
                                         child: Center(
                                           child: Text(
-                                            _isNappingFilter
+                                            _isNappingFilter && _napFilterEmptyResult
+                                                ? 'No students are currently napping.'
+                                                : _isNappingFilter
                                                 ? 'No students are napping.'
                                                 : 'No students assigned.',
                                 style: TextStyle(
@@ -1040,12 +1134,16 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
                           return CustomRefreshIndicator(
                             onRefresh: () async {
-                              _loadForSelectedRoom(refresh: true);
+                              if (_isNappingFilter) {
+                                await _applyNappingFilter(refresh: true);
+                              } else {
+                                _loadForSelectedRoom(refresh: true);
+                              }
                             },
                             child: ListView.builder(
-                              itemCount: visibleStudents.length,
+                              itemCount: effectiveVisibleStudents.length,
                               itemBuilder: (context, index) {
-                                final student = visibleStudents[index];
+                                final student = effectiveVisibleStudents[index];
                               return ClassroomStudentListItem(
                                     studentId: student.studentCode.hashCode,
                                     isSignedIn: student.signedIn,
@@ -1061,7 +1159,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                       _toggleStudentSelection(
                                         student.studentCode,
                                         value,
-                                        visibleStudents,
+                                        effectiveVisibleStudents,
                                       );
                                     },
                               );

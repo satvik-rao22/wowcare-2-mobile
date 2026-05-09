@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -12,8 +13,13 @@ import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom
 import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
@@ -45,9 +51,21 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   bool _isSummaryLoading = false;
   String? _summaryError;
 
+  late final CacheManager _cacheManager;
+  late final StorageService _storage;
+  int _enrolledCount = 0;
+  int _enrolledActiveCount = 0;
+  int _enrolledUpcomingCount = 0;
+  String? _enrolledFetchInFlightFor;
+  String? _cachedSelectedClassroomCode;
+  String? _cachedSelectedClassroomName;
+
   @override
   void initState() {
     super.initState();
+    _storage = serviceLocator<StorageService>();
+    _cacheManager = CacheManager(_storage);
+    _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -55,19 +73,245 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         setState(() {
           _selectedRoom = args;
         });
+        _saveLastSelectedClassroomToCache(args.code, args.name);
         _loadDetails(args.code);
       }
     });
   }
 
-  Future<void> _loadSummaries() async {
+  String get _lastSelectedClassroomCacheKey => CacheManager.buildCacheKey(
+        feature: 'classroom',
+        resource: 'profile_selected',
+        identifier: 'last',
+      );
+
+  Future<void> _loadLastSelectedClassroomFromCache() async {
+    final cached = await _cacheManager.loadCache(_lastSelectedClassroomCacheKey);
+    if (cached == null || !mounted) return;
+    final code = (cached['classroomCode'] ?? '').toString().trim();
+    final name = (cached['classroomName'] ?? '').toString().trim();
+    if (code.isEmpty && name.isEmpty) return;
+    setState(() {
+      _cachedSelectedClassroomCode = code.isEmpty ? null : code;
+      _cachedSelectedClassroomName = name.isEmpty ? null : name;
+    });
+  }
+
+  Future<void> _saveLastSelectedClassroomToCache(
+    String classroomCode,
+    String classroomName,
+  ) async {
+    final code = classroomCode.trim();
+    final name = classroomName.trim();
+    if (code.isEmpty && name.isEmpty) return;
+    await _cacheManager.saveCache(_lastSelectedClassroomCacheKey, {
+      'classroomCode': code,
+      'classroomName': name,
+    });
+  }
+
+  String _displayClassroomName({
+    required List<Classroom> classrooms,
+  }) {
+    final fromSelected = _selectedRoom?.name.trim() ?? '';
+    if (fromSelected.isNotEmpty) return fromSelected;
+    final cachedName = (_cachedSelectedClassroomName ?? '').trim();
+    if (cachedName.isNotEmpty) return cachedName;
+    if (classrooms.isNotEmpty) return classrooms.first.name;
+    return 'Classroom';
+  }
+
+  Widget _buildRoomDetailsLoadingCard(String classroomName) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(
+          width: 1.5,
+          color: Color.fromARGB(255, 232, 234, 234),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        tileColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+        leading: DocumentImageWidget(
+          fileUuid: '',
+          name: classroomName,
+          size: 60,
+          fontSize: 24,
+        ),
+        title: Text(
+          classroomName.trim().isEmpty ? 'Classroom' : classroomName.trim(),
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerLoader(
+                height: 14,
+                width: 220,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ShimmerLoader(
+                      height: 14,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ShimmerLoader(
+                      height: 14,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _enrolledCountCacheKey(String classroomCode) {
+    return CacheManager.buildCacheKey(
+      feature: 'classroom',
+      resource: 'enrolled_count',
+      identifier: classroomCode.trim(),
+    );
+  }
+
+  Future<void> _hydrateEnrolledCountFromCache(String classroomCode) async {
+    final cached = await _cacheManager.loadCache(_enrolledCountCacheKey(classroomCode));
+    if (cached == null || !mounted) return;
+    final data = cached['data'];
+    if (data is! Map) return;
+    final map = Map<String, dynamic>.from(data);
+    setState(() {
+      _enrolledActiveCount = (map['activeCount'] as num?)?.toInt() ?? 0;
+      _enrolledUpcomingCount = (map['upcomingCount'] as num?)?.toInt() ?? 0;
+      _enrolledCount = (map['enrolledCount'] as num?)?.toInt() ?? 0;
+    });
+  }
+
+  Future<void> _refreshEnrolledCount(String classroomCode) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    final path = '/api/v1/student-classroom/enrolled-count/$code';
+    final endpoint = ApiPaths.url(path);
+    final dio = serviceLocator<ApiClient>().client;
+
+    final response = await dio.get<dynamic>(
+      endpoint,
+      options: Options(
+        headers: <String, dynamic>{
+          'accept': 'application/json',
+          if (orgCode.isNotEmpty) ...{
+            'X-Organization-Code': orgCode,
+            'x-organization-code': orgCode,
+            'organizationCode': orgCode,
+          },
+          if (schoolCode.isNotEmpty) ...{
+            'X-School-Code': schoolCode,
+            'x-school-code': schoolCode,
+            'schoolCode': schoolCode,
+          },
+        },
+      ),
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) return;
+    final data = body['data'];
+    if (data is! Map) return;
+    final map = Map<String, dynamic>.from(data);
+
+    final active = (map['activeCount'] as num?)?.toInt() ?? 0;
+    final upcoming = (map['upcomingCount'] as num?)?.toInt() ?? 0;
+    final enrolled = (map['enrolledCount'] as num?)?.toInt() ?? 0;
+
+    await _cacheManager.saveCache(_enrolledCountCacheKey(code), {
+      'data': {
+        'activeCount': active,
+        'upcomingCount': upcoming,
+        'enrolledCount': enrolled,
+      },
+    });
+
+    if (!mounted) return;
+    final currentSelection = (_selectedRoom?.code ?? '').trim();
+    if (currentSelection.isNotEmpty && currentSelection != code) {
+      return;
+    }
+    setState(() {
+      _enrolledActiveCount = active;
+      _enrolledUpcomingCount = upcoming;
+      _enrolledCount = enrolled;
+    });
+  }
+
+  Future<void> _ensureEnrolledCountLoaded(
+    String classroomCode, {
+    bool forceRefresh = false,
+  }) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    await _hydrateEnrolledCountFromCache(code);
+
+    if (!forceRefresh) {
+      final valid =
+          await _cacheManager.isCacheValid(_enrolledCountCacheKey(code));
+      if (valid) return;
+    }
+
+    if (_enrolledFetchInFlightFor == code) return;
+    _enrolledFetchInFlightFor = code;
+    try {
+      await _refreshEnrolledCount(code);
+    } catch (_) {
+      // Keep hydrated / last known values.
+    } finally {
+      if (_enrolledFetchInFlightFor == code) {
+        _enrolledFetchInFlightFor = null;
+      }
+    }
+  }
+
+  Future<void> _loadSummaries(String classroomCode) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
     setState(() {
       _isSummaryLoading = true;
       _summaryError = null;
     });
     try {
-      final student = await _getStudentAttendanceExpectedSummaryUseCase();
-      final staff = await _getStaffAttendanceExpectedSummaryUseCase();
+      final student = await _getStudentAttendanceExpectedSummaryUseCase(
+        classroomCode: code,
+      );
+      final staff = await _getStaffAttendanceExpectedSummaryUseCase(
+        classroomCode: code,
+      );
       if (!mounted) return;
       setState(() {
         _studentSummary = student;
@@ -83,10 +327,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
-  Future<void> _loadDetails(String code) async {
+  Future<void> _loadDetails(
+    String code, {
+    bool refreshEnrolledCounts = false,
+  }) async {
     setState(() {
       _isDetailsLoading = true;
       _detailsError = null;
+      _studentSummary = null;
+      _staffSummary = null;
     });
     try {
       final details = await _getClassroomByCodeUseCase(code: code);
@@ -95,6 +344,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _details = details;
         _isDetailsLoading = false;
       });
+      await Future.wait<void>([
+        _ensureEnrolledCountLoaded(
+          code,
+          forceRefresh: refreshEnrolledCounts,
+        ),
+        _loadSummaries(code),
+      ]);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -109,6 +365,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
     return Card(
       elevation: 0,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
         side: const BorderSide(
           width: 1.5,
@@ -117,6 +375,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
+        tileColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
@@ -229,7 +488,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         builder: (context, state) {
           final classrooms = state.classrooms;
           if (classrooms.isNotEmpty && _selectedRoom == null) {
-            _selectedRoom = classrooms.first;
+            final cachedCode = (_cachedSelectedClassroomCode ?? '').trim();
+            final match = cachedCode.isEmpty
+                ? null
+                : classrooms.where((c) => c.code.trim() == cachedCode).toList();
+            _selectedRoom = match != null && match.isNotEmpty
+                ? match.first
+                : classrooms.first;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _loadDetails(_selectedRoom!.code);
             });
@@ -244,9 +509,11 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
               onRefresh: () async {
                 await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
                 if (_selectedRoom != null) {
-                  await _loadDetails(_selectedRoom!.code);
+                  await _loadDetails(
+                    _selectedRoom!.code,
+                    refreshEnrolledCounts: true,
+                  );
                 }
-                await _loadSummaries();
               },
               child: Container(
                 color: Colors.white,
@@ -276,6 +543,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                                   setState(() {
                                     _selectedRoom = selected;
                                   });
+                                  _saveLastSelectedClassroomToCache(
+                                    selected.code,
+                                    selected.name,
+                                  );
                                   _loadDetails(selected.code);
                                 },
                               ),
@@ -292,8 +563,41 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                         const SizedBox(height: 8),
                         if (isInitialLoading ||
                             _isDetailsLoading ||
-                            _isSummaryLoading)
-                          const Center(child: PrimaryCircularLoader())
+                            (_isSummaryLoading && _details == null))
+                          Column(
+                            children: [
+                              _buildRoomDetailsLoadingCard(
+                                _displayClassroomName(classrooms: classrooms),
+                              ),
+                              const SizedBox(height: 16),
+                              // Show cached values immediately; do not block behind loader
+                              _buildInfoCard(
+                                title: 'Enrolled\nStudents',
+                                number: '$_enrolledCount',
+                                items: [
+                                  _ProgressItem(
+                                    label: 'Active ($_enrolledActiveCount)',
+                                    value: _enrolledActiveCount.toDouble(),
+                                    color: Colors.lightBlue,
+                                  ),
+                                  _ProgressItem(
+                                    label: 'Upcoming ($_enrolledUpcomingCount)',
+                                    value: _enrolledUpcomingCount.toDouble(),
+                                    color: Colors.amber,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              const SummaryCardShimmer(),
+                              const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              ShimmerLoader(
+                                height: 260,
+                                width: double.infinity,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ],
+                          )
                         else if (_detailsError != null)
                           Padding(
                             padding: const EdgeInsets.all(12.0),
@@ -321,59 +625,74 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                         const SizedBox(height: 16),
                         _buildInfoCard(
                           title: 'Enrolled\nStudents',
-                          number: '0',
+                          number: '$_enrolledCount',
                           items: [
                             _ProgressItem(
-                              label: 'Active (0)',
-                              value: 0,
+                              label: 'Active ($_enrolledActiveCount)',
+                              value: _enrolledActiveCount.toDouble(),
                               color: Colors.lightBlue,
                             ),
                             _ProgressItem(
-                              label: 'Upcoming (0)',
-                              value: 0,
+                              label: 'Upcoming ($_enrolledUpcomingCount)',
+                              value: _enrolledUpcomingCount.toDouble(),
                               color: Colors.amber,
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        _buildInfoCard(
-                          title: 'Expected\nStudents',
-                          number: (_studentSummary?.expected ?? 0).toString(),
-                          items: [
-                            _ProgressItem(
-                              label:
-                                  'Present (${_studentSummary?.present ?? 0})',
-                              value: (_studentSummary?.present ?? 0).toDouble(),
-                              color: Colors.green,
-                            ),
-                            _ProgressItem(
-                              label: 'Absent (${_studentSummary?.absent ?? 0})',
-                              value: (_studentSummary?.absent ?? 0).toDouble(),
-                              color: Colors.red,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInfoCard(
-                          title: 'Expected\nStaff',
-                          number: (_staffSummary?.expected ?? 0).toString(),
-                          items: [
-                            _ProgressItem(
-                              label:
-                                  'Present (${_staffSummary?.present ?? 0})',
-                              value: (_staffSummary?.present ?? 0).toDouble(),
-                              color: Colors.green,
-                            ),
-                            _ProgressItem(
-                              label: 'Absent (${_staffSummary?.absent ?? 0})',
-                              value: (_staffSummary?.absent ?? 0).toDouble(),
-                              color: Colors.red,
-                            ),
-                          ],
-                        ),
+                        if (_isSummaryLoading && _details != null) ...[
+                          const SummaryCardShimmer(),
+                          const SizedBox(height: 16),
+                          const SummaryCardShimmer(),
+                        ] else ...[
+                          _buildInfoCard(
+                            title: 'Expected\nStudents',
+                            number:
+                                (_studentSummary?.expected ?? 0).toString(),
+                            items: [
+                              _ProgressItem(
+                                label:
+                                    'Present (${_studentSummary?.present ?? 0})',
+                                value: (_studentSummary?.present ?? 0)
+                                    .toDouble(),
+                                color: Colors.green,
+                              ),
+                              _ProgressItem(
+                                label:
+                                    'Absent (${_studentSummary?.absent ?? 0})',
+                                value: (_studentSummary?.absent ?? 0)
+                                    .toDouble(),
+                                color: Colors.red,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildInfoCard(
+                            title: 'Expected\nStaff',
+                            number: (_staffSummary?.expected ?? 0).toString(),
+                            items: [
+                              _ProgressItem(
+                                label:
+                                    'Present (${_staffSummary?.present ?? 0})',
+                                value: (_staffSummary?.present ?? 0)
+                                    .toDouble(),
+                                color: Colors.green,
+                              ),
+                              _ProgressItem(
+                                label:
+                                    'Absent (${_staffSummary?.absent ?? 0})',
+                                value: (_staffSummary?.absent ?? 0)
+                                    .toDouble(),
+                                color: Colors.red,
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         Card(
                           elevation: 0,
+                          color: Colors.white,
+                          surfaceTintColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             side: const BorderSide(
                               width: 1.5,
@@ -442,6 +761,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
     return Card(
       elevation: 0,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
         side: const BorderSide(
           width: 1.5,

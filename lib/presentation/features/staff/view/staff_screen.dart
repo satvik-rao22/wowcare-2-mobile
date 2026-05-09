@@ -197,7 +197,13 @@ class _StaffScreenState extends State<StaffScreen> {
     try {
       final useCase =
           serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
-      final summary = await useCase();
+      final primary =
+          context.read<StaffCubit>().state.primaryClassroomCodes ?? const [];
+      final code =
+          primary.isEmpty ? null : primary.first.trim();
+      final summary = await useCase(
+        classroomCode: (code != null && code.isNotEmpty) ? code : null,
+      );
       if (!mounted) return;
       setState(() {
         _expectedStaffTotal = summary.expected;

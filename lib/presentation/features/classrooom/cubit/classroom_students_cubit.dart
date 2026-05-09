@@ -20,6 +20,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
   Future<void> loadInitial({
     required String classroomCode,
     String? search,
+    List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
   }) async {
@@ -40,6 +41,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         schoolCode: schoolCode,
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
         refresh: false,
@@ -71,6 +73,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
   Future<void> refresh({
     required String classroomCode,
     String? search,
+    List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
   }) async {
@@ -91,6 +94,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         schoolCode: schoolCode,
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
         refresh: true,

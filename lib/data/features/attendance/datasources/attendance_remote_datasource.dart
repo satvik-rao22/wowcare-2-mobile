@@ -273,13 +273,13 @@ abstract class AttendanceRemoteDataSource {
   /// Expected attendance summary used for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummaryModel>
   getStudentAttendanceExpectedSummaryCard({
-    required List<String> allowedClassroomCodes,
+    String? classroomCode,
   });
 
   /// Staff expected attendance summary used for the daily "Expected Staff" card.
   Future<StaffAttendanceExpectedSummaryModel>
   getStaffAttendanceExpectedSummaryCard({
-    required List<String> allowedClassroomCodes,
+    String? classroomCode,
   });
 
   /// Current-day sign-in status for one or more staff members.
@@ -1423,7 +1423,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<StudentAttendanceExpectedSummaryModel>
   getStudentAttendanceExpectedSummaryCard({
-    required List<String> allowedClassroomCodes,
+    String? classroomCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceExpectedSummaryCard,
@@ -1431,7 +1431,10 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     final queryParameters = <String, dynamic>{};
-    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+    final code = classroomCode?.trim();
+    if (code != null && code.isNotEmpty) {
+      queryParameters['classroomCode'] = code;
+    }
 
     final response = await _client.get<dynamic>(
       endpoint,
@@ -1453,7 +1456,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<StaffAttendanceExpectedSummaryModel>
   getStaffAttendanceExpectedSummaryCard({
-    required List<String> allowedClassroomCodes,
+    String? classroomCode,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceExpectedSummaryCard,
@@ -1461,7 +1464,10 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     final queryParameters = <String, dynamic>{};
-    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+    final code = classroomCode?.trim();
+    if (code != null && code.isNotEmpty) {
+      queryParameters['classroomCode'] = code;
+    }
 
     final response = await _client.get<dynamic>(
       endpoint,

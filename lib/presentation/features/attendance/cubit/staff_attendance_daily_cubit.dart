@@ -24,6 +24,12 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
   static const int _pageSize = 10;
 
+  String? _classroomCodeForSummary(List<String>? classroomCodes) {
+    if (classroomCodes == null || classroomCodes.isEmpty) return null;
+    final code = classroomCodes.first.trim();
+    return code.isEmpty ? null : code;
+  }
+
   Future<void> loadInitial({
     required DateTime attendanceDate,
     List<String>? classroomCodes,
@@ -85,7 +91,9 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         size: _pageSize,
       );
       final summary =
-          await _getStaffAttendanceExpectedSummaryUseCase();
+          await _getStaffAttendanceExpectedSummaryUseCase(
+        classroomCode: _classroomCodeForSummary(classroomCodes),
+      );
 
       if (isClosed) return;
 
