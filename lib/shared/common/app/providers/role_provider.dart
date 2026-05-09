@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 
 class RoleProvider extends ChangeNotifier {
@@ -151,8 +152,12 @@ class RoleProvider extends ChangeNotifier {
     final org = (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    Map<String, dynamic>? matchedSchool;
+    final candidates = <Map<String, dynamic>>[];
     for (final user in users) {
+      if (org.isNotEmpty) {
+        final userOrg = (user['organizationCode'] ?? '').toString().trim();
+        if (userOrg != org) continue;
+      }
       final schools = user['schools'];
       if (schools is! List) continue;
       for (final s in schools) {
@@ -160,22 +165,46 @@ class RoleProvider extends ChangeNotifier {
         final schoolMap = Map<String, dynamic>.from(s);
         final schoolCode = (schoolMap['schoolCode'] ?? '').toString().trim();
         if (school.isNotEmpty && schoolCode != school) continue;
-        if (org.isNotEmpty) {
-          final userOrg = (user['organizationCode'] ?? '').toString().trim();
-          if (userOrg != org) continue;
-        }
-        matchedSchool = schoolMap;
-        break;
+        final status =
+            (schoolMap['status'] ?? 'ACTIVE').toString().toUpperCase().trim();
+        if (status.isNotEmpty && status != 'ACTIVE') continue;
+        if ((schoolMap['role'] ?? '').toString().trim().isEmpty) continue;
+        candidates.add(schoolMap);
       }
-      if (matchedSchool != null) break;
     }
 
-    if (matchedSchool == null) {
+    if (candidates.isEmpty) {
       await _fallbackFromRole(storage);
       return;
     }
 
-    final backendRole = (matchedSchool['role'] ?? '').toString().toLowerCase();
+    final active = (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    final activeUpper = active.toUpperCase();
+
+    Map<String, dynamic>? matchedSchool;
+    if (activeUpper.isNotEmpty) {
+      for (final c in candidates) {
+        final r = (c['role'] ?? '').toString().trim().toUpperCase();
+        if (r == activeUpper) {
+          matchedSchool = c;
+          break;
+        }
+      }
+    }
+    matchedSchool ??= candidates.first;
+
+    final chosenRole = (matchedSchool['role'] ?? '').toString().trim();
+    if (chosenRole.isEmpty) {
+      await _fallbackFromRole(storage);
+      return;
+    }
+
+    if (activeUpper.isEmpty || activeUpper != chosenRole.toUpperCase()) {
+      await serviceLocator<AuthLocalDataSource>()
+          .persistActiveSchoolPersonaRole(chosenRole);
+    }
+
+    final backendRole = chosenRole.toLowerCase();
     if (backendRole.contains('guardian') || backendRole.contains('parent')) {
       _role = 'parent';
     } else if (backendRole.contains('staff') || backendRole.contains('teacher')) {

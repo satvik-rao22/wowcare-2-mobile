@@ -327,6 +327,23 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: redirectUrl,
           ),
         );
+
+        // Prefetch parent/guardian children upfront so UI doesn't trigger the
+        // guardian/children APIs on first open of dropdown/profile screens.
+        try {
+          final hasGuardian = response.roles.any(
+            (r) => roleStringIsGuardianPersona(r.role),
+          );
+          if (hasGuardian) {
+            final navCtx = CoreUtils.rootNavigatorKey.currentContext;
+            if (navCtx != null && navCtx.mounted) {
+              navCtx.read<ParentChildProvider>().invalidate();
+              await navCtx.read<ParentChildProvider>().ensureLoaded(force: true);
+            }
+          }
+        } catch (_) {
+          // Non-blocking
+        }
       },
     );
   }
@@ -609,6 +626,10 @@ class AuthCubit extends Cubit<AuthState> {
         await storage.saveString(
           StorageKeys.staffType,
           profile.staffType,
+        );
+        await storage.saveString(
+          StorageKeys.staffDesignation,
+          profile.designation,
         );
         await storage.saveString(
           StorageKeys.staffAllowedClassroomCodes,
