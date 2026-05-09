@@ -330,7 +330,10 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
         // Consider API-driven data (classrooms, tags, parents) independently.
         // Even if one API fails, the others can still populate their dropdowns.
+        // Status options are always available; allow rendering when only Status/Tags are shown
+        // even if tag names are still loading (tags dropdown can populate after).
         final hasAnyApiData =
+            widget.sections.contains(StudentFilterSection.status) ||
             (widget.sections.contains(StudentFilterSection.classroom) &&
                 _classroomList.isNotEmpty) ||
             (widget.sections.contains(StudentFilterSection.tags) &&

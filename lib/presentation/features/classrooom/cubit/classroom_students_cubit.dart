@@ -23,6 +23,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
     List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
+    List<String>? studentCodes,
   }) async {
     if (state.isLoading) return;
 
@@ -43,6 +44,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         search: search,
         studentCodes: studentCodes,
         status: status,
+        studentCodes: studentCodes,
         tagCodes: tagCodes,
         refresh: false,
       );
@@ -76,6 +78,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
     List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
+    List<String>? studentCodes,
   }) async {
     if (state.isRefreshing) return;
 
@@ -96,6 +99,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         search: search,
         studentCodes: studentCodes,
         status: status,
+        studentCodes: studentCodes,
         tagCodes: tagCodes,
         refresh: true,
       );
