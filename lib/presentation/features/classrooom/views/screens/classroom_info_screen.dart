@@ -10,7 +10,7 @@ import 'package:wowcare/domain/features/classroom/entities/classroom_details.dar
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
+// import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -36,7 +36,9 @@ class ClassroomInfoScreen extends StatefulWidget {
 class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   Classroom? _selectedRoom;
   ClassroomDetails? _details;
-  bool _isDetailsLoading = false;
+  /// True while classroom details, enrolled counts, and attendance summaries
+  /// for the current selection are still loading (after [classroomCode] is known).
+  bool _isAllClassroomApisLoading = false;
   String? _detailsError;
   final GetClassroomByCodeUseCase _getClassroomByCodeUseCase =
       serviceLocator<GetClassroomByCodeUseCase>();
@@ -48,7 +50,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
   StudentAttendanceExpectedSummary? _studentSummary;
   StudentAttendanceExpectedSummary? _staffSummary;
-  bool _isSummaryLoading = false;
   String? _summaryError;
 
   late final CacheManager _cacheManager;
@@ -302,7 +303,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     if (code.isEmpty) return;
 
     setState(() {
-      _isSummaryLoading = true;
       _summaryError = null;
     });
     try {
@@ -316,12 +316,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       setState(() {
         _studentSummary = student;
         _staffSummary = staff;
-        _isSummaryLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isSummaryLoading = false;
         _summaryError = e.toString();
       });
     }
@@ -332,17 +330,18 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     bool refreshEnrolledCounts = false,
   }) async {
     setState(() {
-      _isDetailsLoading = true;
+      _details = null;
+      _isAllClassroomApisLoading = true;
       _detailsError = null;
       _studentSummary = null;
       _staffSummary = null;
+      _summaryError = null;
     });
     try {
       final details = await _getClassroomByCodeUseCase(code: code);
       if (!mounted) return;
       setState(() {
         _details = details;
-        _isDetailsLoading = false;
       });
       await Future.wait<void>([
         _ensureEnrolledCountLoaded(
@@ -351,10 +350,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         ),
         _loadSummaries(code),
       ]);
+      if (!mounted) return;
+      setState(() {
+        _isAllClassroomApisLoading = false;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isDetailsLoading = false;
+        _details = null;
+        _isAllClassroomApisLoading = false;
         _detailsError = e.toString();
       });
     }
@@ -502,6 +506,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
           final dropdownItems = classrooms.map((e) => e.name).toList();
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
+          final showAllCardsShimmer = isInitialLoading ||
+              (_detailsError == null &&
+                  _selectedRoom != null &&
+                  (_isAllClassroomApisLoading || _details == null));
 
           return GlobalScaffold(
             bodyPadding: EdgeInsets.zero,
@@ -515,12 +523,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                   );
                 }
               },
-              child: Container(
-                color: Colors.white,
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
                       children: [
                         Row(
                           mainAxisSize: MainAxisSize.max,
@@ -552,50 +558,28 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               ),
                             ),
                             IconButton(
+                              tooltip: 'Back',
                               onPressed: () => Navigator.pop(context),
                               icon: SvgPicture.asset(
-                                MediaRes.classroomInfoIcon,
-                                height: 28,
+                                MediaRes.infoButtonIcon,
+                                height: 32,
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        if (isInitialLoading ||
-                            _isDetailsLoading ||
-                            (_isSummaryLoading && _details == null))
+                        if (showAllCardsShimmer)
                           Column(
                             children: [
                               _buildRoomDetailsLoadingCard(
                                 _displayClassroomName(classrooms: classrooms),
                               ),
                               const SizedBox(height: 16),
-                              // Show cached values immediately; do not block behind loader
-                              _buildInfoCard(
-                                title: 'Enrolled\nStudents',
-                                number: '$_enrolledCount',
-                                items: [
-                                  _ProgressItem(
-                                    label: 'Active ($_enrolledActiveCount)',
-                                    value: _enrolledActiveCount.toDouble(),
-                                    color: Colors.lightBlue,
-                                  ),
-                                  _ProgressItem(
-                                    label: 'Upcoming ($_enrolledUpcomingCount)',
-                                    value: _enrolledUpcomingCount.toDouble(),
-                                    color: Colors.amber,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              const SummaryCardShimmer(),
                               const SummaryCardShimmer(),
                               const SizedBox(height: 16),
-                              ShimmerLoader(
-                                height: 260,
-                                width: double.infinity,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const SummaryCardShimmer(),
                             ],
                           )
                         else if (_detailsError != null)
@@ -609,46 +593,42 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                                   ?.copyWith(color: Colors.red),
                             ),
                           )
-                        else if (_summaryError != null)
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'Failed to load summary cards',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: Colors.red),
+                        else if (_details != null) ...[
+                          if (_summaryError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                'Failed to load summary cards',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: Colors.red),
+                              ),
                             ),
-                          )
-                        else if (_details != null)
                           _buildRoomDetailsCard(_details!),
-                        const SizedBox(height: 16),
-                        _buildInfoCard(
-                          title: 'Enrolled\nStudents',
-                          number: '$_enrolledCount',
-                          items: [
-                            _ProgressItem(
-                              label: 'Active ($_enrolledActiveCount)',
-                              value: _enrolledActiveCount.toDouble(),
-                              color: Colors.lightBlue,
-                            ),
-                            _ProgressItem(
-                              label: 'Upcoming ($_enrolledUpcomingCount)',
-                              value: _enrolledUpcomingCount.toDouble(),
-                              color: Colors.amber,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (_isSummaryLoading && _details != null) ...[
-                          const SummaryCardShimmer(),
                           const SizedBox(height: 16),
-                          const SummaryCardShimmer(),
-                        ] else ...[
+                          _buildInfoCard(
+                            title: 'Enrolled\nStudents',
+                            number: '$_enrolledCount',
+                            items: [
+                              _ProgressItem(
+                                label: 'Active ($_enrolledActiveCount)',
+                                value: _enrolledActiveCount.toDouble(),
+                                color: Colors.lightBlue,
+                              ),
+                              _ProgressItem(
+                                label:
+                                    'Upcoming ($_enrolledUpcomingCount)',
+                                value: _enrolledUpcomingCount.toDouble(),
+                                color: Colors.amber,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           _buildInfoCard(
                             title: 'Expected\nStudents',
-                            number:
-                                (_studentSummary?.expected ?? 0).toString(),
+                            number: (_studentSummary?.expected ?? 0)
+                                .toString(),
                             items: [
                               _ProgressItem(
                                 label:
@@ -669,7 +649,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                           const SizedBox(height: 16),
                           _buildInfoCard(
                             title: 'Expected\nStaff',
-                            number: (_staffSummary?.expected ?? 0).toString(),
+                            number:
+                                (_staffSummary?.expected ?? 0).toString(),
                             items: [
                               _ProgressItem(
                                 label:
@@ -688,60 +669,61 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             ],
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        Card(
-                          elevation: 0,
-                          color: Colors.white,
-                          surfaceTintColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            side: const BorderSide(
-                              width: 1.5,
-                              color: Color.fromARGB(255, 232, 234, 234),
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Events',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xff573353),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: const [
-                                    Icon(Icons.chevron_left, color: Colors.grey),
-                                    Text(
-                                      'Nov 2025',
-                                      style: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        color: Color(0xff573353),
-                                      ),
-                                    ),
-                                    Icon(Icons.chevron_right, color: Colors.grey),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                const EventsCard(),
-                                const SizedBox(height: 16),
-                              ],
-                            ),
-                          ),
-                        ),
+                        // Events section (temporarily disabled)
+                        // Card(
+                        //   elevation: 0,
+                        //   color: Colors.white,
+                        //   surfaceTintColor: Colors.white,
+                        //   shape: RoundedRectangleBorder(
+                        //     side: const BorderSide(
+                        //       width: 1.5,
+                        //       color: Color.fromARGB(255, 232, 234, 234),
+                        //     ),
+                        //     borderRadius: BorderRadius.circular(12),
+                        //   ),
+                        //   child: Padding(
+                        //     padding: const EdgeInsets.all(16),
+                        //     child: Column(
+                        //       crossAxisAlignment: CrossAxisAlignment.start,
+                        //       children: [
+                        //         Text(
+                        //           'Events',
+                        //           style: TextStyle(
+                        //             fontFamily: 'Manrope',
+                        //             fontSize: 20,
+                        //             fontWeight: FontWeight.bold,
+                        //             color: const Color(0xff573353),
+                        //           ),
+                        //         ),
+                        //         const SizedBox(height: 16),
+                        //         Row(
+                        //           mainAxisAlignment:
+                        //               MainAxisAlignment.spaceBetween,
+                        //           children: const [
+                        //             Icon(Icons.chevron_left,
+                        //                 color: Colors.grey),
+                        //             Text(
+                        //               'Nov 2025',
+                        //               style: TextStyle(
+                        //                 fontFamily: 'Manrope',
+                        //                 color: Color(0xff573353),
+                        //               ),
+                        //             ),
+                        //             Icon(Icons.chevron_right,
+                        //                 color: Colors.grey),
+                        //           ],
+                        //         ),
+                        //         const SizedBox(height: 16),
+                        //         const EventsCard(),
+                        //         const SizedBox(height: 16),
+                        //       ],
+                        //     ),
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),
                 ),
-              ),
             ),
             hasBackButton: true,
           );

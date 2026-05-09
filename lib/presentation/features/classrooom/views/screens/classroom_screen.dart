@@ -194,16 +194,20 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                         ),
                       ),
                       IconButton(
-                        onPressed: () {
-                          if (selectedRoom == null) return;
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ClassroomInfoScreen(),
-                              settings: RouteSettings(arguments: selectedRoom),
-                            ),
-                          );
-                        },
+                        tooltip: 'Class profile',
+                        onPressed: classrooms.isEmpty
+                            ? null
+                            : () {
+                                final room = selectedRoom ?? classrooms.first;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ClassroomInfoScreen(),
+                                    settings: RouteSettings(arguments: room),
+                                  ),
+                                );
+                              },
                         icon: SvgPicture.asset(
                           MediaRes.infoButtonIcon,
                           height: 32,
