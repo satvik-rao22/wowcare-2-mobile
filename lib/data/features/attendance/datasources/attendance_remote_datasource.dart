@@ -1549,6 +1549,37 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
+  Future<Map<String, String>> getStudentSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String instantIsoUtc,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceSignInStatusAtTime,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.post<Map<String, dynamic>>(
+      endpoint,
+      data: <String, dynamic>{
+        'classroomCode': classroomCode.trim(),
+        'studentCodes': studentCodes,
+        'instant': instantIsoUtc.trim(),
+      },
+    );
+
+    final data = response.data;
+    if (data == null || data['data'] is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected student sign-in status at-time API response format',
+      );
+    }
+
+    final raw = data['data'] as Map<String, dynamic>;
+    return raw.map((key, value) => MapEntry(key, value.toString()));
+  }
+
+  @override
   Future<String> updateStudentAttendanceRecord({
     required String attendanceRecordCode,
     required Map<String, dynamic> payload,

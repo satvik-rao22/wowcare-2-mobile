@@ -16,8 +16,6 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/school_timezone_resolver.dart';
-import '../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
@@ -194,21 +192,22 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
 
-    // Create flow: school-zone calendar date + wall clock (same basis as Add Activity).
+    // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
+    // [resolveForCurrentSchool] (avoid stale [lastKnownTimeZone] from classroom tab).
     if (!widget.isEdit && !widget.readOnly) {
-      final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-      final pair =
-          SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTz);
-      _activityDate = pair.$1;
-      _activityTime = pair.$2;
+      _activityDate = null;
+      _activityTime = null;
     }
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
       _selectedStudents =
           _selectedStudentsData.map((student) => student['name'] as String).toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
       _loadActivityTypeCode();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncSchoolAttendanceDateForCreate();
+      });
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
@@ -238,6 +237,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     }
     _loadStaffContext();
     _restorePendingProcessingPollIfAny();
+  }
+
+  Future<void> _syncSchoolAttendanceDateForCreate() async {
+    if (!mounted || _layoutAsEdit) return;
+    if (_selectedStudentsData.isEmpty) return;
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
+    if (!mounted) return;
+    setState(() {
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+    });
   }
 
   bool get _showAdminApproveRejectActions {
@@ -1382,14 +1391,28 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               Row(
                 children: [
                   Flexible(
-                    child: DateWidget(
-                      isEditable: false,
-                      isRequired: true,
-                      initialDate: _layoutAsEdit
-                          ? _effectiveActivity.date
-                          : formatSelectedDateForDateWidget(_activityDate),
-                      onDateChanged: (d) => _activityDate = d,
-                    ),
+                    child: _layoutAsEdit
+                        ? DateWidget(
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: _effectiveActivity.date,
+                            onDateChanged: (d) {
+                              setState(() => _activityDate = d);
+                            },
+                          )
+                        : DateWidget(
+                            key: ValueKey<String>(
+                              formatSelectedDateForDateWidget(_activityDate) ??
+                                  'school_date',
+                            ),
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate:
+                                formatSelectedDateForDateWidget(_activityDate),
+                            onDateChanged: (d) {
+                              setState(() => _activityDate = d);
+                            },
+                          ),
                   ),
                   const SizedBox(width: 10),
                   Flexible(
@@ -1398,11 +1421,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                       isRequired: true,
                       prefilledTime:
                           _layoutAsEdit ? _effectiveActivity.time : null,
-                      onTimeChanged: (t) => _activityTime = t,
+                      onTimeChanged: (t) {
+                        setState(() => _activityTime = t);
+                      },
                     ),
                   ),
                 ],
               ),
+              const ActivitySchoolTimeZoneHint(),
               SizedBox(height: responsive.verticalSpacing),
               MediaUploader(
                 isRequired: true,

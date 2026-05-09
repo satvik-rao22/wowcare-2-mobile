@@ -13,8 +13,6 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/school_timezone_resolver.dart';
-import '../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
@@ -139,11 +137,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolNow =
-        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTz);
-    _activityDate = schoolNow.$1;
-    _activityTime = schoolNow.$2;
 
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
@@ -161,8 +154,13 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _activityDate = null;
+      _activityTime = null;
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
       _loadActivityContextForCreate();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncSchoolAttendanceDateForCreate();
+      });
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
@@ -195,6 +193,16 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       });
     }
     _loadStaffContext();
+  }
+
+  Future<void> _syncSchoolAttendanceDateForCreate() async {
+    if (!mounted || _layoutAsEdit) return;
+    if (_selectedStudentsData.isEmpty) return;
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
+    if (!mounted) return;
+    setState(() {
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+    });
   }
 
   bool get _showAdminApproveRejectActions {
@@ -1282,6 +1290,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                           },
                         )
                       : DateWidget(
+                          key: ValueKey<String>(
+                            formatSelectedDateForDateWidget(_activityDate) ??
+                                'school_date',
+                          ),
                           isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
@@ -1317,6 +1329,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 ),
               ],
             ),
+            const ActivitySchoolTimeZoneHint(),
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {

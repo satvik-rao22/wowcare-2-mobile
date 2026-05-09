@@ -26,7 +26,6 @@ import 'package:wowcare/domain/features/student_classroom/entities/student_class
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_student_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
@@ -331,8 +330,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     List<StudentClassroomItem> selected,
   ) {
     final roomCode = widget.selectedRoom?.code.trim() ?? '';
-    final roomName = widget.selectedRoom?.name.trim() ?? '';
-    final attendanceDate = attendanceDateYyyyMmDdSchoolToday();
     return selected
         .map(
           (s) {
@@ -342,13 +339,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             return <String, dynamic>{
               'name': s.fullName,
               'studentCode': s.studentCode,
-              'classroom': roomName.isNotEmpty ? roomName : roomCode,
               'classroomCode': s.classroomCode.trim().isNotEmpty
                   ? s.classroomCode.trim()
                   : roomCode,
               'nappingStatus': napping,
               'isNapping': napping,
-              'attendanceDate': attendanceDate,
             };
           },
         )
