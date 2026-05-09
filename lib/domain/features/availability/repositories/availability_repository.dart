@@ -55,6 +55,14 @@ abstract class AvailabilityRepository {
     required DateTime endDate,
     required FutureAvailabilityShift shift,
   });
+
+  /// Triggers manual recomputation of future availability snapshots.
+  /// Must be called before fetching data to ensure latest snapshots.
+  Future<void> recomputeFutureAvailability({
+    required String schoolCode,
+    required DateTime startDate,
+    required DateTime endDate,
+  });
 }
 
 abstract class AvailabilityRepositoryWithCache {

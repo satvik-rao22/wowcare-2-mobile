@@ -64,6 +64,14 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
 
     try {
       final schoolCode = await _resolveSchoolCode();
+
+      // Required flow: POST recompute first, then GET snapshots.
+      await _repository.recomputeFutureAvailability(
+        schoolCode: schoolCode,
+        startDate: normalizedDate,
+        endDate: normalizedDate,
+      );
+
       final grid = await _getFutureAvailabilityUseCase(
         schoolCode: schoolCode,
         startDate: normalizedDate,

@@ -24,7 +24,13 @@ class FutureAvailabilityScreen extends StatefulWidget {
 }
 
 class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
-  static const double _cellHeightRow = 40;
+  static const double _cellHeightRow = 48;
+  static const double _headerHeight = 36;
+  static const double _avatarRadius = 14;
+
+  static const Color _tintOtherColumns = Color.fromRGBO(247, 245, 249, 1);
+  static const Color _tintHeaderOtherColumns = Color.fromRGBO(245, 243, 247, 1);
+  static const Color _classroomColumnBg = Colors.white;
   DateTime _selectedAvailabilityDate = DateTime.now();
   bool _isTwoShifts = true;
   late final FutureAvailabilityCubit _cubit;
@@ -338,11 +344,11 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                 },
           border: TableBorder(
             horizontalInside: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.08),
+              color: AppColors.primaryColor.withValues(alpha: 0.07),
               width: 0.8,
             ),
             verticalInside: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.08),
+              color: AppColors.primaryColor.withValues(alpha: 0.07),
               width: 0.8,
             ),
           ),
@@ -364,16 +370,16 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
         children: <Widget>[
           _buildHeaderCell(
             mainText: 'Classroom',
-            backgroundColor: const Color.fromRGBO(245, 243, 247, 1),
+            backgroundColor: _classroomColumnBg,
             align: TextAlign.left,
           ),
           _buildHeaderCell(
             mainText: 'Morning',
-            backgroundColor: const Color.fromRGBO(237, 230, 244, 1),
+            backgroundColor: _tintHeaderOtherColumns,
           ),
           _buildHeaderCell(
             mainText: 'Afternoon',
-            backgroundColor: const Color.fromRGBO(237, 230, 244, 1),
+            backgroundColor: _tintHeaderOtherColumns,
           ),
         ],
       );
@@ -383,12 +389,12 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
       children: <Widget>[
         _buildHeaderCell(
           mainText: 'Classroom',
-          backgroundColor: const Color.fromRGBO(245, 243, 247, 1),
+          backgroundColor: _classroomColumnBg,
           align: TextAlign.left,
         ),
         _buildHeaderCell(
           mainText: DateFormat('MMM d').format(_selectedAvailabilityDate),
-          backgroundColor: const Color.fromRGBO(237, 230, 244, 1),
+          backgroundColor: _tintHeaderOtherColumns,
         ),
       ],
     );
@@ -400,11 +406,11 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     TextAlign align = TextAlign.center,
   }) {
     return Container(
-      height: 30,
+      height: _headerHeight,
       alignment: Alignment.center,
       color: backgroundColor,
       padding: align == TextAlign.left
-          ? const EdgeInsets.only(left: 12)
+          ? const EdgeInsets.only(left: 14)
           : EdgeInsets.zero,
       child: Text(
         mainText,
@@ -412,8 +418,8 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
         overflow: TextOverflow.ellipsis,
         textAlign: align,
         style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
           color: AppColors.primaryColor.withValues(alpha: 0.8),
         ),
       ),
@@ -442,18 +448,18 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   Widget _buildClassroomCell(String roomName) {
     return Container(
       height: _cellHeightRow,
-      color: const Color.fromRGBO(247, 245, 249, 1),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: _classroomColumnBg,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: <Widget>[
           _buildClassroomAvatar(roomName),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               roomName,
               style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
                 color: AppColors.primaryColor.withValues(alpha: 0.9),
               ),
               maxLines: 1,
@@ -468,13 +474,13 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   Widget _buildValueCell(int value) {
     return Container(
       height: _cellHeightRow,
-      color: const Color.fromRGBO(237, 230, 244, 1),
+      color: _tintOtherColumns,
       alignment: Alignment.center,
       child: Text(
         value.toString(),
         style: TextStyle(
           fontSize: 18,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w700,
           color: _getCountColor(value),
         ),
       ),
@@ -487,13 +493,13 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
 
     return CircleAvatar(
       backgroundColor: color.withValues(alpha: 0.85),
-      radius: 10,
+      radius: _avatarRadius,
       child: Text(
         initials,
         style: TextStyle(
           color: color == Colors.white ? AppColors.primaryColor : Colors.white,
           fontWeight: FontWeight.w700,
-          fontSize: 8,
+          fontSize: 10,
         ),
       ),
     );
