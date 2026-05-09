@@ -48,6 +48,8 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
@@ -1215,8 +1217,12 @@ class _StudentScreenState extends State<StudentScreen> {
                           textAlign: TextAlign.left,
                         ),
                       ),
-                      GradientAddButton(
-                        onTap: () async {
+                      if (ModuleAccess.mayWrite(
+                        context.watch<RoleProvider>(),
+                        AppAccessModules.student,
+                      ))
+                        GradientAddButton(
+                          onTap: () async {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const AddStudentWizardScreen()),
@@ -1252,10 +1258,10 @@ class _StudentScreenState extends State<StudentScreen> {
                               );
                             });
                           }
-                        },
-                        isTablet: MediaQuery.of(context).size.width >= 600,
-                        isLargeTablet: MediaQuery.of(context).size.width >= 900,
-                      ),
+                          },
+                          isTablet: MediaQuery.of(context).size.width >= 600,
+                          isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                        ),
                       SizedBox(width: 10,),
                       // Clock action button
                       // Container(

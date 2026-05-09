@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -74,6 +77,8 @@ class _StudentCardState extends State<StudentCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;
@@ -456,8 +461,9 @@ class _StudentCardState extends State<StudentCard> {
                               ],
                             ),
                             const SizedBox(height: 20),
-                            Row(
-                              children: [
+                            if (canStudentWrite)
+                              Row(
+                                children: [
                                 Expanded(
                                   child: SizedBox(
                                     height: 40,
@@ -586,8 +592,8 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                                ],
+                              ),
                           ],
                         ),
                       ),
