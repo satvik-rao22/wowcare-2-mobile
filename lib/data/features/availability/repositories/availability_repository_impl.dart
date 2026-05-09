@@ -177,6 +177,19 @@ class AvailabilityRepositoryImpl
   }
 
   @override
+  Future<void> recomputeFutureAvailability({
+    required String schoolCode,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    return _remoteDataSource.recomputeFutureAvailability(
+      schoolCode: schoolCode,
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
+  @override
   Future<FutureAvailabilityGrid?> loadCachedFutureAvailability({
     required String schoolCode,
     required DateTime startDate,

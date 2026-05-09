@@ -397,6 +397,8 @@ class ApiPaths {
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String futureAvailability = '/api/v1/future-availability';
+  static const String futureAvailabilityRecompute =
+      '/api/v1/future-availability/recompute';
   static String individualMovementById(int id) =>
       '/api/v1/individual-movements/$id';
   static String individualMovementStatusById(int id) =>
