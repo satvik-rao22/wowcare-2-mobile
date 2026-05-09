@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
+import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/classroom_visibility.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -15,10 +16,49 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     required StorageService storageService,
   })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _storageService = storageService,
+        _cacheManager = CacheManager(storageService),
         super(const ClassroomState.initial());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StorageService _storageService;
+  final CacheManager _cacheManager;
+
+  String _activeClassroomsCacheKey(
+    String schoolCode,
+    bool onlyTypeClassroom,
+    bool applyAttendanceStaffScope,
+  ) {
+    return CacheManager.buildCacheKey(
+      feature: 'classroom',
+      resource: 'active_classrooms_list',
+      identifier:
+          '${schoolCode.trim()}|onlyClass=$onlyTypeClassroom|staffScope=$applyAttendanceStaffScope',
+    );
+  }
+
+  Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) => {
+        'items': classrooms
+            .map(
+              (e) => <String, dynamic>{'code': e.code, 'name': e.name},
+            )
+            .toList(),
+      };
+
+  List<Classroom> _decodeClassroomsFromCache(Map<String, dynamic>? payload) {
+    if (payload == null) return [];
+    final raw = payload['items'];
+    if (raw is! List) return [];
+    final result = <Classroom>[];
+    for (final it in raw) {
+      if (it is! Map) continue;
+      final m = Map<String, dynamic>.from(it);
+      final code = (m['code'] ?? '').toString().trim();
+      final name = (m['name'] ?? '').toString().trim();
+      if (code.isEmpty) continue;
+      result.add(Classroom(code: code, name: name.isEmpty ? code : name));
+    }
+    return result;
+  }
 
   Future<void> loadActiveClassrooms({
     bool force = false,
@@ -26,8 +66,6 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     bool applyAttendanceStaffScope = false,
   }) async {
     if (state.isLoading) return;
-    // If we already have classrooms for the same filter mode,
-    // avoid reloading unless explicitly forced.
     if (!force &&
         state.classrooms.isNotEmpty &&
         state.onlyTypeClassroom == onlyTypeClassroom &&
@@ -35,19 +73,43 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       return;
     }
 
-    emit(
-      state.copyWith(
-        isLoading: true,
-        errorMessage: null,
-        onlyTypeClassroom: onlyTypeClassroom,
-        applyAttendanceStaffScope: applyAttendanceStaffScope,
-      ),
+    final schoolCode =
+        await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    final cacheKey = _activeClassroomsCacheKey(
+      schoolCode,
+      onlyTypeClassroom,
+      applyAttendanceStaffScope,
     );
 
+    var hydratedClassrooms = <Classroom>[];
+    if (!force && schoolCode.isNotEmpty) {
+      final cached = await _cacheManager.loadCache(cacheKey);
+      hydratedClassrooms = _decodeClassroomsFromCache(cached);
+      if (hydratedClassrooms.isNotEmpty) {
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            classrooms: hydratedClassrooms,
+            isLoading: false,
+            errorMessage: null,
+            onlyTypeClassroom: onlyTypeClassroom,
+            applyAttendanceStaffScope: applyAttendanceStaffScope,
+          ),
+        );
+      }
+    }
+
     try {
-      // Take school from login-context API (saved in storage) only.
-      final schoolCode =
-          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (hydratedClassrooms.isEmpty && !isClosed) {
+        emit(
+          state.copyWith(
+            isLoading: true,
+            errorMessage: null,
+            onlyTypeClassroom: onlyTypeClassroom,
+            applyAttendanceStaffScope: applyAttendanceStaffScope,
+          ),
+        );
+      }
 
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: schoolCode,
@@ -74,12 +136,20 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         }
       }
 
+      if (schoolCode.isNotEmpty) {
+        await _cacheManager.saveCache(
+          cacheKey,
+          _encodeClassroomsForCache(visibleClassrooms),
+        );
+      }
+
       if (isClosed) return;
 
       emit(
         state.copyWith(
           classrooms: visibleClassrooms,
           isLoading: false,
+          errorMessage: null,
           onlyTypeClassroom: onlyTypeClassroom,
           applyAttendanceStaffScope: applyAttendanceStaffScope,
         ),
@@ -89,7 +159,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       emit(
         state.copyWith(
           isLoading: false,
-          errorMessage: e.toString(),
+          errorMessage: hydratedClassrooms.isEmpty ? e.toString() : null,
         ),
       );
     }

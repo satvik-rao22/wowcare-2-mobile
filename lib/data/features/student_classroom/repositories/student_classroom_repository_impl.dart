@@ -15,7 +15,7 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
   final StudentClassroomRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
 
-  // activity_students_cache_{schoolCode|classroomCode|tags|status|attendanceStatus}
+  // classroom_student_roster_cache_{schoolCode|classroomCode|filters...}
   static String _studentClassroomCacheKey({
     required String schoolCode,
     required String classroomCode,
@@ -88,8 +88,8 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     final identifier = parts.join('|');
 
     return CacheManager.buildCacheKey(
-      feature: 'activity',
-      resource: 'students',
+      feature: 'classroom',
+      resource: 'student_roster',
       identifier: identifier,
     );
   }

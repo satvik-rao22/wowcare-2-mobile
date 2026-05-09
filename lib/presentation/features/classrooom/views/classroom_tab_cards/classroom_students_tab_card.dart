@@ -73,6 +73,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   bool _isPresentFilter = false; // Toggle for present students
   Set<String> _nappingStudentCodes = <String>{};
   int _napCodesFetchToken = 0;
+  bool _napCodesLoading = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
   bool _showActivitiesPanel = false;
   bool _isAttendanceActionLoading = false;
@@ -152,9 +153,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     if (classroomCode.isEmpty) return;
 
     final token = ++_napCodesFetchToken;
+    if (mounted) {
+      setState(() => _napCodesLoading = true);
+    }
     try {
-      final useCase = serviceLocator<GetNapStartStudentsUseCase>();
-      final codes = await useCase(classroomCode: classroomCode);
+      final codes =
+          await _getNapStartStudentsUseCase(classroomCode: classroomCode);
       final normalized = codes
           .map((e) => e.trim().toUpperCase())
           .where((e) => e.isNotEmpty)
@@ -167,8 +171,32 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     } catch (_) {
       if (!mounted || token != _napCodesFetchToken) return;
       // Keep existing set on failure to avoid flicker.
+    } finally {
+      if (mounted && token == _napCodesFetchToken) {
+        setState(() => _napCodesLoading = false);
+      }
     }
   }
+
+  /// Refreshes nap-start codes (when [refresh]) and reloads the roster, optionally scoped to nappers.
+  Future<void> _applyNappingFilter({required bool refresh}) async {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    if (classroomCode.isEmpty || !_isNappingFilter) return;
+
+    await _loadNapStartStudentCodes(refresh: refresh);
+    if (!mounted) return;
+
+    final codes = _nappingStudentCodes.isEmpty
+        ? null
+        : List<String>.from(_nappingStudentCodes);
+    _loadForSelectedRoom(refresh: refresh, studentCodes: codes);
+  }
+
+  bool get _isLoadingNapStudents => _napCodesLoading;
+
+  /// Nap-start returned no students while the napping filter is on (show empty / copy).
+  bool get _napFilterEmptyResult =>
+      _isNappingFilter && !_napCodesLoading && _nappingStudentCodes.isEmpty;
 
   @override
   void didUpdateWidget(ClassroomStudentsTabCard oldWidget) {
@@ -199,7 +227,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void _onSearchChanged() {
     // Debounce could be added later; for now refresh list from API as user types.
     if (_isNappingFilter) {
-      _applyNappingFilter(refresh: false);
+      Future.microtask(() => _applyNappingFilter(refresh: false));
     } else {
       _loadForSelectedRoom(refresh: false);
     }
@@ -362,6 +390,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     setState(() {
       _isNappingFilter = enabled;
     });
+    if (enabled) {
+      Future.microtask(() => _applyNappingFilter(refresh: false));
+    } else {
+      _loadForSelectedRoom(refresh: false);
+    }
   }
 
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
