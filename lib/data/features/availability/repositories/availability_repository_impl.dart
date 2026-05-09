@@ -258,7 +258,8 @@ String _movementTypeToApi(IndividualMovementType value) {
     case IndividualMovementType.leaveSchool:
       return 'LEAVE_SCHOOL';
     case IndividualMovementType.moveToNextClassroom:
-      return 'MOVE_TO_NEXT_CLASSROOM';
+      // Backend enum uses CLASSROOM_PROMOTION for "move to next classroom".
+      return 'CLASSROOM_PROMOTION';
   }
 }
 
