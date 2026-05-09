@@ -460,8 +460,8 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
-                            if (canStudentWrite)
+                            if (canStudentWrite) ...[
+                              const SizedBox(height: 20),
                               Row(
                                 children: [
                                 Expanded(
@@ -594,6 +594,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                                 ],
                               ),
+                            ],
                           ],
                         ),
                       ),
