@@ -45,6 +45,44 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
   final StorageService _storageService;
   _MovementFilters _lastFilters = const _MovementFilters();
 
+  Future<Set<String>> _resolveAllowedClassroomsForStaff() async {
+    try {
+      final raw =
+          (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ?? '')
+              .trim();
+      if (raw.isEmpty) return const <String>{};
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toSet();
+      }
+    } catch (_) {}
+    return const <String>{};
+  }
+
+  IndividualMovementBoard _filterBoardForAllowedClassrooms(
+    IndividualMovementBoard board,
+    Set<String> allowed,
+  ) {
+    if (allowed.isEmpty) return board;
+
+    bool touchesAllowed(IndividualMovement m) {
+      final from = m.fromClassroomCode.trim();
+      final to = m.toClassroomCode.trim();
+      return (from.isNotEmpty && allowed.contains(from)) ||
+          (to.isNotEmpty && allowed.contains(to));
+    }
+
+    return IndividualMovementBoard(
+      overdue: board.overdue.where(touchesAllowed).toList(growable: false),
+      upcoming: board.upcoming.where(touchesAllowed).toList(growable: false),
+      confirmed: board.confirmed.where(touchesAllowed).toList(growable: false),
+      rejected: board.rejected.where(touchesAllowed).toList(growable: false),
+    );
+  }
+
   Future<void> loadInitial({
     List<String>? studentCodes,
     List<String>? fromClassroomCodes,
@@ -75,7 +113,13 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
         : Future.value(null));
 
     if (cached != null && !isClosed) {
-      emit(IndividualMovementsState.loaded(board: cached, isFromCache: true));
+      final allowed = await _resolveAllowedClassroomsForStaff();
+      emit(
+        IndividualMovementsState.loaded(
+          board: _filterBoardForAllowedClassrooms(cached, allowed),
+          isFromCache: true,
+        ),
+      );
       // ignore: unawaited_futures
       refresh(
         studentCodes: studentCodes,
@@ -129,8 +173,14 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
         dateTo: dateTo,
         status: status,
       );
+      final allowed = await _resolveAllowedClassroomsForStaff();
       if (isClosed) return;
-      emit(IndividualMovementsState.loaded(board: board, isFromCache: false));
+      emit(
+        IndividualMovementsState.loaded(
+          board: _filterBoardForAllowedClassrooms(board, allowed),
+          isFromCache: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(isLoading: false, isRefreshing: false, errorMessage: e.toString()));

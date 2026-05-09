@@ -122,6 +122,7 @@ class IndividualMovementPager extends StatelessWidget {
     required this.onNext,
     required this.onActionSelected,
     required this.onDropToBucket,
+    this.isViewOnly = false,
     this.canDragItem,
     this.onDragStarted,
     this.onDragEnded,
@@ -137,6 +138,7 @@ class IndividualMovementPager extends StatelessWidget {
   final void Function(MovementItem item, IndividualMovementAction action)
       onActionSelected;
   final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
+  final bool isViewOnly;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
@@ -169,6 +171,7 @@ class IndividualMovementPager extends StatelessWidget {
                         section: sections[index],
                         onActionSelected: onActionSelected,
                         onDropToBucket: onDropToBucket,
+                        isViewOnly: isViewOnly,
                         canDragItem: canDragItem,
                         onDragStarted: onDragStarted,
                         onDragEnded: onDragEnded,
@@ -233,6 +236,7 @@ class _MovementSectionCard extends StatelessWidget {
     required this.section,
     required this.onActionSelected,
     required this.onDropToBucket,
+    this.isViewOnly = false,
     this.canDragItem,
     this.onDragStarted,
     this.onDragEnded,
@@ -243,6 +247,7 @@ class _MovementSectionCard extends StatelessWidget {
   final void Function(MovementItem item, IndividualMovementAction action)
       onActionSelected;
   final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
+  final bool isViewOnly;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
@@ -251,8 +256,10 @@ class _MovementSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DragTarget<_DraggedMovementPayload>(
-      onWillAcceptWithDetails: (details) => details.data.item.id != 0,
+      onWillAcceptWithDetails: (details) =>
+          !isViewOnly && details.data.item.id != 0,
       onAcceptWithDetails: (details) {
+        if (isViewOnly) return;
         onDropToBucket(details.data.item, section.bucket);
       },
       builder: (context, candidateData, rejectedData) {
@@ -306,7 +313,9 @@ class _MovementSectionCard extends StatelessWidget {
                             item: item,
                             bucket: section.bucket,
                             onActionSelected: onActionSelected,
-                            canDrag: canDragItem?.call(item) ?? true,
+                            isViewOnly: isViewOnly,
+                            canDrag:
+                                !isViewOnly && (canDragItem?.call(item) ?? true),
                             cardBackgroundColor: section.backgroundColor,
                             onDragStarted: onDragStarted,
                             onDragEnded: onDragEnded,
@@ -328,6 +337,7 @@ class _MovementRow extends StatelessWidget {
     required this.item,
     required this.bucket,
     required this.onActionSelected,
+    required this.isViewOnly,
     required this.canDrag,
     required this.cardBackgroundColor,
     this.onDragStarted,
@@ -339,6 +349,7 @@ class _MovementRow extends StatelessWidget {
   final MovementBucket bucket;
   final void Function(MovementItem item, IndividualMovementAction action)
       onActionSelected;
+  final bool isViewOnly;
   final bool canDrag;
   final Color cardBackgroundColor;
   final VoidCallback? onDragStarted;
@@ -519,25 +530,26 @@ class _MovementRow extends StatelessWidget {
                 child: _buildFromToRow(context),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: PopupMenuButton<IndividualMovementAction>(
-                  tooltip: 'More',
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(
-                    Icons.more_horiz,
-                    size: 22,
-                    color: AppColors.primaryColor,
+              if (!isViewOnly)
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  onSelected: (action) => onActionSelected(item, action),
-                  itemBuilder: (_) => _buildMenuEntries(),
+                  child: PopupMenuButton<IndividualMovementAction>(
+                    tooltip: 'More',
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(
+                      Icons.more_horiz,
+                      size: 22,
+                      color: AppColors.primaryColor,
+                    ),
+                    onSelected: (action) => onActionSelected(item, action),
+                    itemBuilder: (_) => _buildMenuEntries(),
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),

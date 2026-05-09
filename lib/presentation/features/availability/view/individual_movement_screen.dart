@@ -118,7 +118,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     if (roles.isParent) return false;
     if (roles.role == 'staff') {
       return roles.canWriteModule('availability') ||
-          roles.canWriteModule('individual_movements');
+          roles.canWriteModule('individual_movements') ||
+          // Backend sometimes sends `INDIVISUAL_MOVEMENTS` (typo) in user-details.
+          roles.canWriteModule('indivisual_movements');
     }
     return true;
   }
@@ -644,14 +646,19 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   bool _canDragItem(MovementItem item) {
-    // Drag enablement is validated again at drop-time by allowed-moves matrix.
-    return true;
+    final roles = context.read<RoleProvider>();
+    return _canMutateMovements(roles);
   }
 
   Future<void> _handleDropToBucket(
     MovementItem item,
     MovementBucket targetBucket,
   ) async {
+    final RoleProvider roles = context.read<RoleProvider>();
+    if (!_canMutateMovements(roles)) {
+      _toastViewOnly(context);
+      return;
+    }
     final sourceBucket = item.bucketFor(DateTime.now());
     if (sourceBucket == targetBucket) return;
 
@@ -743,6 +750,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           final students = _uniqueStudents(state.board);
           final classrooms = _uniqueClassrooms(state.board);
           final roles = context.watch<RoleProvider>();
+          final bool isViewOnly = !_canMutateMovements(roles);
 
           return GlobalScaffold(
             hasBackButton: true,
@@ -951,6 +959,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                       onNext: _goToNextSection,
                       onActionSelected: _onMovementAction,
                       onDropToBucket: _handleDropToBucket,
+                      isViewOnly: isViewOnly,
                       canDragItem: _canDragItem,
                       onDragStarted: _onCardDragStarted,
                       onDragEnded: _onCardDragEnded,
