@@ -8,6 +8,7 @@ class StaffModel {
   final int totalHours;
   final String shift;
   final Color? statusColor;
+  final String shiftDate;
 
   StaffModel({
     required this.name,
@@ -16,5 +17,6 @@ class StaffModel {
     required this.totalHours,
     required this.shift,
     this.statusColor,
+    this.shiftDate = '',
   });
 }

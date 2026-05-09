@@ -12,6 +12,7 @@ import '../model/staff_model.dart';
 import '../widgets/schedule_card.dart';
 import '../widgets/expandable_schedule_card.dart';
 import 'add-schedule.dart';
+import 'classroom/classroom-view.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../app/di/di.dart';
 import '../../classroom/cubit/classroom_cubit.dart';
@@ -28,6 +29,70 @@ class SchedulingScreen extends StatefulWidget {
 }
 
 class _SchedulingScreenState extends State<SchedulingScreen> {
+  String _classroomNameForCode(
+    String code,
+    StaffSchedulingLoaded state,
+    ClassroomState classroomState,
+  ) {
+    if (code.trim().isEmpty || code == '-') return '-';
+
+    final fromAllClassrooms = state.allClassrooms
+        .where((c) => (c['classroomCode'] ?? c['code']) == code)
+        .firstOrNull;
+
+    final nameFromAllClassrooms =
+        (fromAllClassrooms?['classroomName'] ?? fromAllClassrooms?['name'])
+            ?.toString();
+    if (nameFromAllClassrooms != null &&
+        nameFromAllClassrooms.trim().isNotEmpty) {
+      return nameFromAllClassrooms;
+    }
+
+    final fromCubit = classroomState.classrooms
+        .where((c) => c.code == code)
+        .firstOrNull;
+    final cubitName = fromCubit?.name;
+    if (cubitName != null && cubitName.trim().isNotEmpty) {
+      return cubitName;
+    }
+
+    return code;
+  }
+
+  void _openFirstClassroomForDailyView(
+    BuildContext context,
+    StaffSchedulingLoaded state,
+    ClassroomState classroomState,
+  ) {
+    if (state.staffShifts.isEmpty) return;
+
+    final selectedDate = DateFormat(
+      'yyyy-MM-dd',
+    ).format(state.selectedDate ?? DateTime.now());
+
+    final targetShift =
+        state.staffShifts
+            .where((s) => s.shiftDate == selectedDate)
+            .firstOrNull ??
+        state.staffShifts.first;
+
+    final classroomName = _classroomNameForCode(
+      targetShift.classroomCode,
+      state,
+      classroomState,
+    );
+
+    Navigator.pushNamed(
+      context,
+      ClassroomViewScreen.routeName,
+      arguments: ClassroomViewArgs(
+        classroomCode: targetShift.classroomCode,
+        classroomName: classroomName,
+        date: targetShift.shiftDate,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -168,6 +233,18 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                             DateTime.now(),
                                         isDaily: isDaily,
                                       );
+
+                                  final classroomState = context
+                                      .read<ClassroomCubit>()
+                                      .state;
+
+                                  if (isDaily && !state.isDailyView) {
+                                    _openFirstClassroomForDailyView(
+                                      context,
+                                      state,
+                                      classroomState,
+                                    );
+                                  }
                                 }
                               },
                               items: const [
@@ -221,7 +298,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                         String dateRangeTitle = "Weekly Schedule";
                         if (state.isDailyView) {
                           dateRangeTitle = DateFormat(
-                            'EEEE, MMM dd, yyyy',
+                            'EE, MMM dd',
                           ).format(state.selectedDate ?? DateTime.now());
                         } else if (state.staffShifts.isNotEmpty) {
                           final sortedDates =
@@ -251,19 +328,11 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                         final classroomsWithShifts = shiftsByClassroom.keys.map((
                           code,
                         ) {
-                          final classroomName =
-                              state.allClassrooms
-                                  .where(
-                                    (c) =>
-                                        (c['classroomCode'] ?? c['code']) ==
-                                        code,
-                                  )
-                                  .firstOrNull?['classroomName'] ??
-                              classroomState.classrooms
-                                  .where((c) => c.code == code)
-                                  .firstOrNull
-                                  ?.name ??
-                              'Classroom $code';
+                          final classroomName = _classroomNameForCode(
+                            code,
+                            state,
+                            classroomState,
+                          );
 
                           final classroomShifts = shiftsByClassroom[code]!;
 
@@ -292,13 +361,6 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                               } catch (_) {}
                               return timeStr;
                             }
-
-                            String formattedDate = shift.shiftDate;
-                            try {
-                              formattedDate = DateFormat(
-                                'EEE, MMM dd',
-                              ).format(DateTime.parse(shift.shiftDate));
-                            } catch (_) {}
 
                             // --- STATUS COLOR LOGIC ---
                             Color? statusColor;
@@ -362,15 +424,15 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                   '${shift.staffFirstName} ${shift.staffLastName}'
                                       .trim(),
                               image: DocumentImageWidget(fileUuid: shift.image),
-
                               workedHours: shift.scheduledHours.toInt(),
                               totalHours:
                                   (shift.scheduledHours +
                                           shift.unscheduledHours)
                                       .toInt(),
                               shift:
-                                  '$formattedDate • ${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}',
+                                  '${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}',
                               statusColor: statusColor,
+                              shiftDate: shift.shiftDate,
                             );
                           }).toList();
 
@@ -379,7 +441,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                             classroomCode: code,
                             staffList: mappedStaff,
                             showWarning: false,
-                            isExpanded: state.expandAll,
+                            isExpanded: state.isDailyView || state.expandAll,
                           );
                         }).toList();
 
@@ -390,7 +452,8 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                         // Single Card for the whole week
                         return ExpandableScheduleCard(
                           title: dateRangeTitle,
-                          isInitiallyExpanded: state.expandAll,
+                          isInitiallyExpanded:
+                              state.isDailyView || state.expandAll,
                           classrooms: classroomsWithShifts,
                         );
                       },

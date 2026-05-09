@@ -12,6 +12,8 @@ class PublishOptionCard extends StatelessWidget {
   final String untilDateTitle;
   final String publishAllTitle;
   final String? dateLabel;
+  final ValueChanged<DateTime>? onDateSelected;
+  final DateTime? initialDate;
 
   /// Controls layout: `false` = horizontal row (default, like screenshot), `true` = vertical column
   final bool isVertical;
@@ -26,6 +28,8 @@ class PublishOptionCard extends StatelessWidget {
     required this.untilDateTitle,
     required this.publishAllTitle,
     this.dateLabel,
+    this.onDateSelected,
+    this.initialDate,
     this.isVertical = false, // Default: horizontal like screenshot
     this.showDateField = true, // Default: show date field
   });
@@ -85,8 +89,10 @@ class PublishOptionCard extends StatelessWidget {
             if (showDateField && isUntilDateSelected) ...[
               const SizedBox(height: 24),
               CustomDateTimeField(
-                initialDate: DateTime(2024, 12, 31),
+                initialDate: initialDate,
                 isRequired: true,
+                fetchInitialTime: false,
+                onDateSelected: onDateSelected,
               ),
             ],
           ],

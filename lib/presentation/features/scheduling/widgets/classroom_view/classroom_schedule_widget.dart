@@ -40,7 +40,10 @@ class _ClassroomScheduleWidgetState extends State<ClassroomScheduleWidget> {
     '07:00 PM',
   ];
 
-  final List<Color> _topSummaryColors = List.generate(13, (index) => AppColors.colorBox);
+  final List<Color> _topSummaryColors = List.generate(
+    13,
+    (index) => AppColors.colorBox,
+  );
 
   @override
   void initState() {
@@ -100,9 +103,7 @@ class _ClassroomScheduleWidgetState extends State<ClassroomScheduleWidget> {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
-      child: Column(
-        children: List.generate(5, (index) => _buildShimmerRow()),
-      ),
+      child: Column(children: List.generate(5, (index) => _buildShimmerRow())),
     );
   }
 

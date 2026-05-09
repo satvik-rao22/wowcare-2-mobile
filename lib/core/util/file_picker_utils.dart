@@ -108,18 +108,12 @@ class FilePickerUtils {
       'tif': 'image/tiff',
       'tiff': 'image/tiff',
       'xls': 'application/vnd.ms-excel',
-<<<<<<< HEAD
-      'xlsx':
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'ppt': 'application/vnd.ms-powerpoint',
-      'pptx':
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-=======
+
       'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'mp4': 'video/mp4',
       'mov': 'video/quicktime',
       'webm': 'video/webm',
->>>>>>> develop
+
     };
 
     return mimeTypes[ext] ?? 'application/octet-stream';

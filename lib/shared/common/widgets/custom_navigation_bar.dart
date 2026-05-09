@@ -106,11 +106,10 @@ class _NavSizes {
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
 
-  static final GlobalKey<_CustomNavigationBarState> navBarKey =
-      GlobalKey<_CustomNavigationBarState>();
+  static double _lastMeasuredHeight = 0.0;
 
   static double get navBarHeight =>
-      navBarKey.currentState?._navBarHeight ?? 0.0;
+      _lastMeasuredHeight;
 
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
@@ -151,6 +150,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       final newHeight = renderBox.size.height;
       if (newHeight != _navBarHeight) {
         setState(() => _navBarHeight = newHeight);
+        CustomNavigationBar._lastMeasuredHeight = newHeight;
       }
     }
   }

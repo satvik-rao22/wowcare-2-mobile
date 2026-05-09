@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:dotted_border/dotted_border.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
@@ -106,23 +107,40 @@ class StaffScheduleRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: List.generate(timeLabels.length, (index) {
               final color = _getSlotColor(timeLabels[index]);
+              final isInShiftRange = color != Colors.transparent;
+              final isPublished = _isPublishedShift();
+
+              final baseSlot = Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(6),
+                  border: isInShiftRange
+                      ? (isPublished
+                            ? Border.all(color: AppColors.themeColor, width: 1)
+                            : null)
+                      : Border.all(color: Colors.grey.withOpacity(0.2)),
+                ),
+              );
+
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: SizedBox(
                   width: 30,
                   height: 30,
                   child: Center(
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(6),
-                        border: color == Colors.transparent 
-                            ? Border.all(color: Colors.grey.withOpacity(0.2)) 
-                            : null,
-                      ),
-                    ),
+                    child: (!isPublished && isInShiftRange)
+                        ? DottedBorder(
+                            options: RoundedRectDottedBorderOptions(
+                              radius: const Radius.circular(6),
+                              dashPattern: const [3, 2],
+                              strokeWidth: 1,
+                              color: AppColors.themeColor,
+                            ),
+                            child: baseSlot,
+                          )
+                        : baseSlot,
                   ),
                 ),
               );
@@ -206,5 +224,10 @@ class StaffScheduleRow extends StatelessWidget {
     final s = start.hour * 60 + start.minute;
     final e = end.hour * 60 + end.minute;
     return t >= s && t <= e;
+  }
+
+  bool _isPublishedShift() {
+    final normalized = shift.shiftStatus.trim().toUpperCase();
+    return normalized == 'PUBLISHED';
   }
 }

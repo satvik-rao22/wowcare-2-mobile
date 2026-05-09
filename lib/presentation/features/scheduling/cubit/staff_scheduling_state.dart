@@ -28,7 +28,7 @@ class StaffSchedulingLoaded extends StaffSchedulingState {
     this.selectedPublish,
     this.expandedMap = const {},
     this.activeMessageMap = const {},
-    this.isDailyView = true,
+    this.isDailyView = false,
     this.selectedDate,
   });
 

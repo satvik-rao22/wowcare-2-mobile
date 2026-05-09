@@ -10,28 +10,28 @@ class StaffShiftCollection {
       fastHash(shiftCode ?? '${staffCode}_${shiftDate}_${startTime}');
 
   String? shiftCode;
-  late String staffCode;
-  late String staffFirstName;
-  late String staffLastName;
-  late String classroomCode;
-  late String schoolCode;
-  late String organizationCode;
-  late String shiftDate;
-  late String startTime;
-  late String endTime;
+  String staffCode = '';
+  String staffFirstName = '';
+  String staffLastName = '';
+  String classroomCode = '';
+  String schoolCode = '';
+  String organizationCode = '';
+  String shiftDate = '';
+  String startTime = '';
+  String endTime = '';
   String? breakStartTime;
   String? breakEndTime;
-  late String shiftStatus;
-  late bool publish;
-  late bool repeat;
-  late bool overrideConflicts;
-  late bool forceAdd;
+  String shiftStatus = 'PUBLISHED';
+  bool publish = true;
+  bool repeat = false;
+  bool overrideConflicts = true;
+  bool forceAdd = true;
   String? notes;
   String? seriesCode;
-  late double availableHours;
-  late double scheduledHours;
-  late double unscheduledHours;
-  late String image;
+  double availableHours = 0.0;
+  double scheduledHours = 0.0;
+  double unscheduledHours = 0.0;
+  String image = '';
 
   StaffShiftCollection();
 

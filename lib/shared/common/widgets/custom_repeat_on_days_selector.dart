@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
+import 'custom_date_time_field.dart';
+
 class CustomRepeatOnDaysSelector extends StatefulWidget {
   final List<String> selectedDays;
   final ValueChanged<List<String>> onSelectionChanged;
@@ -28,6 +30,7 @@ class _CustomRepeatOnDaysSelectorState
   ];
 
   late List<String> _selectedDays;
+  DateTime? _repeatUntil;
 
   @override
   void initState() {
@@ -146,6 +149,18 @@ class _CustomRepeatOnDaysSelectorState
             itemBuilder: (context, index) {
               final day = _allDays[index];
               return _buildDayCheckbox(day);
+            },
+          ),
+        const SizedBox(height: 16),
+        if (_isRepeatEnabled)
+          CustomDateTimeField(
+            label: 'Until Date',
+            isRequired: true,
+            fetchInitialTime: false,
+            onDateSelected: (date) {
+              setState(() {
+                _repeatUntil = date;
+              });
             },
           ),
       ],

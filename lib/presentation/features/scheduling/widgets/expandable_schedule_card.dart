@@ -4,7 +4,6 @@ import 'package:dotted_border/dotted_border.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../model/staff_model.dart';
-import '../view/classroom/classroom-view.dart';
 import '../view/edit-schedule.dart';
 
 class ExpandableScheduleCard extends StatefulWidget {
@@ -29,10 +28,20 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
   int? activePopupIndex; // Which row's popup is open
   bool? activeIsWarning;
 
+  bool _areAllExpanded() {
+    if (widget.classrooms.isEmpty) return false;
+    return widget.classrooms.every((classroom) => classroom.isExpanded);
+  }
+
   @override
   void initState() {
     super.initState();
-    isExpanded = widget.isInitiallyExpanded;
+    if (widget.isInitiallyExpanded) {
+      for (var classroom in widget.classrooms) {
+        classroom.isExpanded = true;
+      }
+    }
+    isExpanded = _areAllExpanded();
   }
 
   @override
@@ -40,17 +49,21 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isInitiallyExpanded != widget.isInitiallyExpanded) {
       setState(() {
-        isExpanded = widget.isInitiallyExpanded;
+        for (var classroom in widget.classrooms) {
+          classroom.isExpanded = widget.isInitiallyExpanded;
+        }
+        isExpanded = _areAllExpanded();
       });
     }
   }
 
   void toggleAll() {
+    final nextExpanded = !_areAllExpanded();
     setState(() {
-      isExpanded = !isExpanded;
       for (var classroom in widget.classrooms) {
-        classroom.isExpanded = isExpanded;
+        classroom.isExpanded = nextExpanded;
       }
+      isExpanded = nextExpanded;
     });
   }
 
@@ -90,8 +103,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                 return Column(
                   children: [
                     _buildClassroomRow(classroom: classroom, index: index),
-                    if (isExpanded && classroom.isExpanded)
-                      _buildStaffList(classroom),
+                    if (classroom.isExpanded) _buildStaffList(classroom),
                     const Divider(height: 1, color: Color(0xFFE5E5E5)),
                   ],
                 );
@@ -148,7 +160,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                       alignment: Alignment.centerLeft,
                     ),
                     child: Text(
-                      isExpanded ? "Collapse All" : "Expand All",
+                      _areAllExpanded() ? "Collapse All" : "Expand All",
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -190,6 +202,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
               onTap: () {
                 setState(() {
                   classroom.isExpanded = !classroom.isExpanded;
+                  isExpanded = _areAllExpanded();
                 });
               },
               child: Padding(
@@ -267,43 +280,38 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        ClassroomViewScreen.routeName,
-                                        arguments: ClassroomViewArgs(
-                                          classroomCode:
-                                              classroom.classroomCode,
-                                          classroomName: classroom.title,
-                                          date:
-                                              '2026-04-24', // Use actual date if available
-                                        ),
-                                      );
-                                    },
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (staff.statusColor != null) ...[
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              color: staff.statusColor,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                        ],
-                                        Text(
-                                          staff.name,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF4B2E4C),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (staff.statusColor != null) ...[
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: staff.statusColor,
+                                            shape: BoxShape.circle,
                                           ),
                                         ),
+                                        const SizedBox(width: 8),
                                       ],
+                                      Text(
+                                        staff.name,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF4B2E4C),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    classroom.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF7A627A),
                                     ),
                                   ),
                                   const SizedBox(height: 6),
@@ -367,10 +375,10 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                   EditShiftScreen.routeName,
                                 );
                               },
-                              child: const Text(
-                                "07:00 AM -\n05:00 PM",
+                              child: Text(
+                                staff.shift,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 12.5,
                                   height: 1.4,
                                   color: Color(0xFF4B2E4C),

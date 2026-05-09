@@ -16,6 +16,7 @@ import '../../classroom/cubit/classroom_cubit.dart';
 import '../../staff/cubit/staff_cubit.dart';
 import '../cubit/schedule_form_cubit.dart';
 import '../cubit/schedule_form_state.dart';
+import 'publish-shift-schedule.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -31,7 +32,6 @@ class AddShiftScreen extends StatefulWidget {
 }
 
 class _AddShiftScreenState extends State<AddShiftScreen> {
-  bool _isRepeatEnabled = false;
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -70,7 +70,6 @@ class AddShiftForm extends StatefulWidget {
 }
 
 class _AddShiftFormState extends State<AddShiftForm> {
-  bool _isSubmitting = false;
   DateTime? _shiftDate;
   String? _selectedClassroomCode;
   String? _selectedStaffCode;
@@ -84,6 +83,78 @@ class _AddShiftFormState extends State<AddShiftForm> {
   List<String> _allowedClassroomCodes = [];
   List<AllowedClassroom> _allowedClassrooms = [];
   bool _isLoadingProfile = false;
+
+  static const Map<String, int> _weekdayCodeByName = {
+    'Monday': DateTime.monday,
+    'Tuesday': DateTime.tuesday,
+    'Wednesday': DateTime.wednesday,
+    'Thursday': DateTime.thursday,
+    'Friday': DateTime.friday,
+    'Saturday': DateTime.saturday,
+    'Sunday': DateTime.sunday,
+  };
+
+  List<int> get _selectedRepeatDayCodes => _selectedDays
+      .map((day) => _weekdayCodeByName[day])
+      .whereType<int>()
+      .toList(growable: false);
+
+  int _toMinutes(TimeOfDay time) => (time.hour * 60) + time.minute;
+
+  String _formatTime(TimeOfDay? t) {
+    if (t == null) return '00:00:00';
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+  }
+
+  bool _isWithinShift(TimeOfDay t, TimeOfDay start, TimeOfDay end) {
+    final value = _toMinutes(t);
+    return value >= _toMinutes(start) && value <= _toMinutes(end);
+  }
+
+  bool _validateShiftAndBreakTimes() {
+    if (_startTime == null || _endTime == null) return true;
+
+    if (_toMinutes(_startTime!) >= _toMinutes(_endTime!)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Shift end time must be after shift start time',
+        isWarning: true,
+      );
+      return false;
+    }
+
+    if ((_breakStartTime == null) != (_breakEndTime == null)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select both break start and break end time',
+        isWarning: true,
+      );
+      return false;
+    }
+
+    if (_breakStartTime != null && _breakEndTime != null) {
+      if (!_isWithinShift(_breakStartTime!, _startTime!, _endTime!) ||
+          !_isWithinShift(_breakEndTime!, _startTime!, _endTime!)) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Break time must be within the selected shift range',
+          isWarning: true,
+        );
+        return false;
+      }
+
+      if (_toMinutes(_breakStartTime!) >= _toMinutes(_breakEndTime!)) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Break end time must be after break start time',
+          isWarning: true,
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
 
   void _onConfirm() async {
     if (_shiftDate == null ||
@@ -99,15 +170,25 @@ class _AddShiftFormState extends State<AddShiftForm> {
       return;
     }
 
+    if (!_validateShiftAndBreakTimes()) {
+      return;
+    }
+
     final storage = serviceLocator<StorageService>();
     final schoolCode = await storage.getString(StorageKeys.schoolCode);
     final organizationCode = await storage.getString(
       StorageKeys.organizationCode,
     );
 
-    String formatTime(TimeOfDay? t) {
-      if (t == null) return "00:00:00";
-      return "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00";
+    final repeatDayCodes = _selectedRepeatDayCodes;
+
+    if (repeatDayCodes.isNotEmpty && _repeatUntil == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select until date for repeating schedule',
+        isWarning: true,
+      );
+      return;
     }
 
     final data = {
@@ -116,24 +197,26 @@ class _AddShiftFormState extends State<AddShiftForm> {
       "schoolCode": schoolCode,
       "organizationCode": organizationCode,
       "shiftDate": DateFormat('yyyy-MM-dd').format(_shiftDate!),
-      "startTime": formatTime(_startTime),
-      "endTime": formatTime(_endTime),
+      "startTime": _formatTime(_startTime),
+      "endTime": _formatTime(_endTime),
       if (_breakStartTime != null)
-        "breakStartTime": formatTime(_breakStartTime),
-      if (_breakEndTime != null) "breakEndTime": formatTime(_breakEndTime),
-      "publish": true,
-      "repeat": _selectedDays.isNotEmpty,
-      if (_selectedDays.isNotEmpty) "repeatDays": _selectedDays,
-      if (_selectedDays.isNotEmpty && _repeatUntil != null)
+        "breakStartTime": _formatTime(_breakStartTime),
+      if (_breakEndTime != null) "breakEndTime": _formatTime(_breakEndTime),
+      "repeat": repeatDayCodes.isNotEmpty,
+      if (repeatDayCodes.isNotEmpty) "repeatDays": repeatDayCodes,
+      if (repeatDayCodes.isNotEmpty && _repeatUntil != null)
         "repeatUntil": DateFormat('yyyy-MM-dd').format(_repeatUntil!),
       "overrideConflicts": true,
       "forceAdd": true,
       if (_notes.isNotEmpty) "notes": _notes,
     };
 
-    if (mounted) {
-      context.read<ScheduleFormCubit>().saveSchedule(data: data);
-    }
+    if (!mounted) return;
+    Navigator.pushNamed(
+      context,
+      PublishShiftScheduleScreen.routeName,
+      arguments: data,
+    );
   }
 
   Future<void> _loadStaffProfile(String staffCode) async {
@@ -192,7 +275,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
@@ -281,6 +364,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                         child: CustomDateTimeField(
                                           label: 'Date',
                                           isRequired: true,
+                                          fetchInitialTime: false,
                                           onDateSelected: (date) {
                                             setState(() {
                                               _shiftDate = date;
@@ -367,9 +451,33 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                           label: 'Shift Start',
                                           isTime: true,
                                           isRequired: true,
+                                          fetchInitialTime: false,
                                           onTimeSelected: (time) {
                                             setState(() {
                                               _startTime = time;
+                                              if (_endTime != null &&
+                                                  _toMinutes(_startTime!) >=
+                                                      _toMinutes(_endTime!)) {
+                                                _endTime = null;
+                                              }
+                                              if (_breakStartTime != null &&
+                                                  _endTime != null &&
+                                                  !_isWithinShift(
+                                                    _breakStartTime!,
+                                                    _startTime!,
+                                                    _endTime!,
+                                                  )) {
+                                                _breakStartTime = null;
+                                              }
+                                              if (_breakEndTime != null &&
+                                                  _endTime != null &&
+                                                  !_isWithinShift(
+                                                    _breakEndTime!,
+                                                    _startTime!,
+                                                    _endTime!,
+                                                  )) {
+                                                _breakEndTime = null;
+                                              }
                                             });
                                           },
                                         ),
@@ -380,9 +488,37 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                           label: 'Shift End',
                                           isTime: true,
                                           isRequired: true,
+                                          fetchInitialTime: false,
                                           onTimeSelected: (time) {
+                                            if (_startTime != null &&
+                                                _toMinutes(time) <=
+                                                    _toMinutes(_startTime!)) {
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Shift end time must be after shift start time',
+                                                isWarning: true,
+                                              );
+                                              return;
+                                            }
                                             setState(() {
                                               _endTime = time;
+                                              if (_breakStartTime != null &&
+                                                  !_isWithinShift(
+                                                    _breakStartTime!,
+                                                    _startTime!,
+                                                    _endTime!,
+                                                  )) {
+                                                _breakStartTime = null;
+                                              }
+                                              if (_breakEndTime != null &&
+                                                  !_isWithinShift(
+                                                    _breakEndTime!,
+                                                    _startTime!,
+                                                    _endTime!,
+                                                  )) {
+                                                _breakEndTime = null;
+                                              }
                                             });
                                           },
                                         ),
@@ -397,9 +533,40 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                           label: 'Break Start',
                                           isTime: true,
                                           isRequired: true,
+                                          fetchInitialTime: false,
                                           onTimeSelected: (time) {
+                                            if (_startTime == null ||
+                                                _endTime == null) {
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Please select shift start and end time first',
+                                                isWarning: true,
+                                              );
+                                              return;
+                                            }
+                                            if (!_isWithinShift(
+                                              time,
+                                              _startTime!,
+                                              _endTime!,
+                                            )) {
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Break start must be within shift start and end time',
+                                                isWarning: true,
+                                              );
+                                              return;
+                                            }
                                             setState(() {
                                               _breakStartTime = time;
+                                              if (_breakEndTime != null &&
+                                                  _toMinutes(_breakEndTime!) <=
+                                                      _toMinutes(
+                                                        _breakStartTime!,
+                                                      )) {
+                                                _breakEndTime = null;
+                                              }
                                             });
                                           },
                                         ),
@@ -410,7 +577,42 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                           label: 'Break End',
                                           isTime: true,
                                           isRequired: true,
+                                          fetchInitialTime: false,
                                           onTimeSelected: (time) {
+                                            if (_startTime == null ||
+                                                _endTime == null ||
+                                                _breakStartTime == null) {
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Please select shift times and break start first',
+                                                isWarning: true,
+                                              );
+                                              return;
+                                            }
+                                            if (!_isWithinShift(
+                                              time,
+                                              _startTime!,
+                                              _endTime!,
+                                            )) {
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Break end must be within shift start and end time',
+                                                isWarning: true,
+                                              );
+                                              return;
+                                            }
+                                            if (_toMinutes(time) <=
+                                                _toMinutes(_breakStartTime!)) {
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Break end time must be after break start time',
+                                                isWarning: true,
+                                              );
+                                              return;
+                                            }
                                             setState(() {
                                               _breakEndTime = time;
                                             });
@@ -428,16 +630,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                       });
                                     },
                                   ),
-                                  const SizedBox(height: 16),
-                                  CustomDateTimeField(
-                                    label: 'Until Date',
-                                    isRequired: true,
-                                    onDateSelected: (date) {
-                                      setState(() {
-                                        _repeatUntil = date;
-                                      });
-                                    },
-                                  ),
+
                                   const SizedBox(height: 16),
                                   CustomAddNoteButton(
                                     onSubmitted: (value) {

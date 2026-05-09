@@ -257,7 +257,7 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
         floatingActionButton: widget.floatingActionButton,
         bottomNavigationBar: widget.showCustomNavigationBar
             ? _showBars
-                  ? CustomNavigationBar(key: CustomNavigationBar.navBarKey)
+                  ? const CustomNavigationBar()
                   : const SizedBox.shrink()
             : widget.customButtonLayout,
       ),

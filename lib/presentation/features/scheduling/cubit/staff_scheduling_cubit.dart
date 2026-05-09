@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
-import '../model/staff_model.dart';
 import 'staff_scheduling_state.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -14,11 +13,11 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
 
   StaffSchedulingCubit(this._repository, this._storageService)
     : super(StaffSchedulingInitial()) {
-    // Default to daily view and current date
-    loadInitialData(date: DateTime.now(), isDaily: true);
+    // Default to weekly view and current date
+    loadInitialData(date: DateTime.now(), isDaily: false);
   }
 
-  void loadInitialData({DateTime? date, bool isDaily = true}) async {
+  void loadInitialData({DateTime? date, bool isDaily = false}) async {
     final targetDate = date ?? DateTime.now();
 
     emit(

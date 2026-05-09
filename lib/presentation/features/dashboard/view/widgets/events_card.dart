@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
@@ -9,6 +11,7 @@ class EventsCard extends StatefulWidget {
 }
 
 class _EventsCardState extends State<EventsCard> {
+  bool minimizer = false;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -24,19 +27,36 @@ class _EventsCardState extends State<EventsCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Events',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  const Text(
+                    'Events',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {},
+                    icon: ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return const LinearGradient(
+                          colors: AppColors.primaryGradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds);
+                      },
+                      child: const Icon(
+                        Icons.arrow_outward_outlined,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color.fromRGBO(254, 241, 195, 1),
                   borderRadius: BorderRadius.circular(6),
@@ -94,8 +114,9 @@ class _EventsCardState extends State<EventsCard> {
                           child: Text(
                             (13 + index).toString(),
                             style: TextStyle(
-                              color:
-                                  isSelected ? Colors.white : Colors.grey[600],
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey[600],
                             ),
                           ),
                         ),
@@ -162,10 +183,7 @@ class EventItem extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  month,
-                  style: TextStyle(color: Colors.grey[500]),
-                ),
+                Text(month, style: TextStyle(color: Colors.grey[500])),
                 Text(
                   date,
                   style: const TextStyle(
@@ -177,11 +195,7 @@ class EventItem extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            width: 3,
-            height: 48,
-            color: borderColor,
-          ),
+          Container(width: 3, height: 48, color: borderColor),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
@@ -197,10 +211,7 @@ class EventItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          CircleAvatar(
-            radius: 20,
-            backgroundImage: NetworkImage(imageUrl),
-          ),
+          CircleAvatar(radius: 20, backgroundImage: NetworkImage(imageUrl)),
         ],
       ),
     );

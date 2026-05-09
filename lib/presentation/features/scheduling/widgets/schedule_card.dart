@@ -39,8 +39,14 @@ class _ScheduleCardState extends State<ScheduleCard> {
 
   /// 🔹 Schedule Card
   Widget _staffScheduleCard() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrowScreen = screenWidth < 390;
+    final horizontalGap = isNarrowScreen ? 8.0 : 12.0;
+    final cardPadding = isNarrowScreen ? 12.0 : 16.0;
+    final gridSpacing = isNarrowScreen ? 8.0 : 12.0;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -79,7 +85,7 @@ class _ScheduleCardState extends State<ScheduleCard> {
                   },
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: horizontalGap),
               Expanded(
                 child: CustomDropdown(
                   // label: "Publish",
@@ -96,18 +102,18 @@ class _ScheduleCardState extends State<ScheduleCard> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: isNarrowScreen ? 14 : 20),
 
           /// 🔹 Status Section (Responsive)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: 6,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3, // ✅ 3 items per row
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 3, // controls width/height ratio
+              mainAxisSpacing: gridSpacing,
+              crossAxisSpacing: gridSpacing,
+              childAspectRatio: isNarrowScreen ? 2.6 : 3.0,
             ),
             itemBuilder: (context, index) {
               const items = [
@@ -122,6 +128,7 @@ class _ScheduleCardState extends State<ScheduleCard> {
               return StatusItem(
                 iconPath: items[index]["icon"] as String,
                 label: items[index]["label"] as String,
+                isNarrowScreen: isNarrowScreen,
               );
             },
           ),
@@ -134,34 +141,51 @@ class _ScheduleCardState extends State<ScheduleCard> {
 class StatusItem extends StatelessWidget {
   final String iconPath;
   final String label;
+  final bool isNarrowScreen;
 
-  const StatusItem({super.key, required this.iconPath, required this.label});
+  const StatusItem({
+    super.key,
+    required this.iconPath,
+    required this.label,
+    required this.isNarrowScreen,
+  });
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final iconSize = isNarrowScreen ? 12.0 : 18.0;
+        final gap = isNarrowScreen ? 4.0 : 6.0;
+        final baseFontSize = constraints.maxWidth < 95
+            ? 10.5
+            : (constraints.maxWidth < 115 ? 11.5 : 13.0);
+
         return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            /// Icon (fixed size)
             SizedBox(
-              width: 30,
-              height: 30,
+              width: iconSize,
+              height: iconSize,
               child: SvgPicture.asset(iconPath, fit: BoxFit.contain),
             ),
-
-            const SizedBox(width: 6),
-
-            /// Text (takes remaining space safely)
+            SizedBox(width: gap),
             Expanded(
-              child: AppText.body(
-                label,
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w600,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AppText.body(
+                    label,
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: baseFontSize,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
