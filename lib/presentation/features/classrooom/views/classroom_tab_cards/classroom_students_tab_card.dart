@@ -114,7 +114,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   void _loadForSelectedRoom({
     required bool refresh,
-    List<String>? statusOverride,
     List<String>? studentCodes,
   }) {
     final classroomCode = widget.selectedRoom?.code ?? '';
@@ -333,12 +332,19 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     final roomCode = widget.selectedRoom?.code.trim() ?? '';
     return selected
         .map(
-          (s) => <String, dynamic>{
-            'name': s.fullName,
-            'studentCode': s.studentCode,
-            'classroomCode': s.classroomCode.trim().isNotEmpty
-                ? s.classroomCode.trim()
-                : roomCode,
+          (s) {
+            final norm = s.studentCode.trim().toUpperCase();
+            final napping =
+                s.nap || _nappingStudentCodes.contains(norm);
+            return <String, dynamic>{
+              'name': s.fullName,
+              'studentCode': s.studentCode,
+              'classroomCode': s.classroomCode.trim().isNotEmpty
+                  ? s.classroomCode.trim()
+                  : roomCode,
+              'nappingStatus': napping,
+              'isNapping': napping,
+            };
           },
         )
         .toList();
@@ -397,9 +403,62 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
   }
 
+  /// Mirrors [ClassroomStudentListItem]: activities only when green signed-in
+  /// dot (today's status). Grey rows, absent (red), or missing/other status → off.
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
     if (!hasSelectedStudents) return false;
-    return selectedStudents.every((student) => student.signedIn);
+    if (_attendanceStatusLoading || _attendanceStatusError) return false;
+
+    if (selectedStudents.length > 1) {
+      final roomFallback = (widget.selectedRoom?.code ?? '').trim();
+      final firstCc = selectedStudents.first.classroomCode.trim();
+      final canonical =
+          firstCc.isNotEmpty ? firstCc : roomFallback;
+      if (canonical.isEmpty) return false;
+      final sameRoom = selectedStudents.every((s) {
+        final c = s.classroomCode.trim().isNotEmpty
+            ? s.classroomCode.trim()
+            : roomFallback;
+        return c == canonical;
+      });
+      if (!sameRoom) return false;
+    }
+
+    return selectedStudents.every((s) {
+      final raw = _todayStatusForStudentCode(s.studentCode);
+      return (raw ?? '').trim().toUpperCase() == 'SIGNED_IN';
+    });
+  }
+
+  String? _activitiesDisabledHint(
+    List<StudentClassroomItem> selectedStudents,
+  ) {
+    if (!hasSelectedStudents) return null;
+    if (_attendanceStatusLoading) {
+      return 'Hang on—we are loading attendance. Try Activities again in a moment.';
+    }
+    if (_attendanceStatusError) {
+      return "Today's attendance could not be loaded. Pull to refresh, then try again.";
+    }
+    if (selectedStudents.length > 1) {
+      final roomFallback = (widget.selectedRoom?.code ?? '').trim();
+      final firstCc = selectedStudents.first.classroomCode.trim();
+      final canonical = firstCc.isNotEmpty ? firstCc : roomFallback;
+      if (canonical.isEmpty) {
+        return 'Select students in the same classroom to record activities together.';
+      }
+      final sameRoom = selectedStudents.every((s) {
+        final c = s.classroomCode.trim().isNotEmpty
+            ? s.classroomCode.trim()
+            : roomFallback;
+        return c == canonical;
+      });
+      if (!sameRoom) {
+        return 'Select students in the same classroom to record activities together.';
+      }
+    }
+    return 'You cannot record activities for absent, not marked, or not signed-in '
+        'students. Only students with green signed-in status today can be selected.';
   }
 
   // Backend disabled
@@ -962,6 +1021,18 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   : visibleStudents;
 
           final selectedStudents = _getSelectedStudents(effectiveVisibleStudents);
+          final canStudentActivities = _canShowActivitiesPanel(selectedStudents);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (!canStudentActivities &&
+                (_showActivitiesPanel ||
+                    _currentPanel == StudentPanelType.activities)) {
+              setState(() {
+                _showActivitiesPanel = false;
+                _currentPanel = StudentPanelType.none;
+              });
+            }
+          });
 
           return Stack(
             children: [
@@ -1318,7 +1389,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                 children: [
                   StudentActionPanel(
                     currentPanel: _currentPanel,
-                    activityStudentMaps: _canShowActivitiesPanel(selectedStudents)
+                    activityStudentMaps: canStudentActivities
                         ? _activityStudentMaps(selectedStudents)
                         : null,
                     attendanceAvailability:
@@ -1333,7 +1404,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       });
                     },
                     onMessageTap: () {},
-                    onActivitiesTap: _canShowActivitiesPanel(selectedStudents)
+                    onActivitiesTap: canStudentActivities
                         ? () {
                             setState(() {
                               _showActivitiesPanel = !_showActivitiesPanel;
@@ -1384,7 +1455,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       });
                     },
                     isProfileEnabled: _selectedCount == 1,
-                    activitiesEnabled: _canShowActivitiesPanel(selectedStudents),
+                    activitiesEnabled: canStudentActivities,
+                    activitiesDisabledHint:
+                        canStudentActivities
+                            ? null
+                            : _activitiesDisabledHint(selectedStudents),
                     showAttendanceActions:
                         _currentPanel == StudentPanelType.attendance,
                     isAttendanceActionLoading:

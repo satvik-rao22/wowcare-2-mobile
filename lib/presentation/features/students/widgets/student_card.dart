@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -30,6 +32,7 @@ class StudentCard extends StatefulWidget {
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
+    this.isNapping = false,
   });
 
   final String studentCode;
@@ -50,6 +53,8 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+  /// From nap-start API (current classroom roster); shown on avatar like classroom list.
+  final bool isNapping;
 
   @override
   State<StudentCard> createState() => _StudentCardState();
@@ -144,6 +149,7 @@ class _StudentCardState extends State<StudentCard> {
                               label: null,
                             ),
                           Stack(
+                            clipBehavior: Clip.none,
                             children: [
                               DocumentImageWidget(
                                 fileUuid: widget.studentCode,
@@ -155,6 +161,21 @@ class _StudentCardState extends State<StudentCard> {
                                 studentEnrollmentStatus: widget.status,
                                 disableProfileLookupFallback: true,
                               ),
+                              if (widget.isNapping)
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Tooltip(
+                                    message: 'Student is currently napping',
+                                    child: SvgPicture.asset(
+                                      MediaRes.napIcon.isNotEmpty
+                                          ? MediaRes.napIcon
+                                          : MediaRes.sleepIcon,
+                                      height: 18,
+                                      width: 18,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),

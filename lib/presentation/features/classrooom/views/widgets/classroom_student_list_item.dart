@@ -100,66 +100,71 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
               onChanged: widget.onSelectionChanged,
             ),
           ),
-          Opacity(
-            opacity: shouldGreyOut ? 0.5 : 1,
-            child: AbsorbPointer(
-              absorbing: shouldGreyOut,
-              child: GestureDetector(
-                onTap: () => widget.onSelectionChanged(!widget.isSelected),
-                child: Row(
-                  children: [
-                    Stack(
-                      children: [
-                        DocumentImageWidget(
-                          fileUuid: widget.studentCode.trim().isNotEmpty
-                              ? widget.studentCode
-                              : widget.studentId.toString(),
-                          imageUrl: widget.imageUrl.trim().isNotEmpty
-                              ? widget.imageUrl
-                              : null,
-                          name: widget.name,
-                          studentEnrollmentStatus: enrollmentStatus,
-                          statusColor: attendanceDotColor,
-                          statusTooltip: attendanceTooltip,
-                          disableAttendanceStatusLookup: true,
-                          size: 50,
-                        ),
-                        if (widget.icons.containsKey('napping'))
-                          Positioned(
-                            right: 0, // Moved to top right
-                            top: 0,
-                            child: Tooltip(
-                              message: 'Student is currently napping',
-                              child: SvgPicture.asset(
-                                // Guard against empty path in assets
-                                MediaRes.napIcon.isNotEmpty
-                                    ? MediaRes.napIcon
-                                    : MediaRes.sleepIcon,
-                                height: 18,
-                                width: 18,
+          Expanded(
+            child: Opacity(
+              opacity: shouldGreyOut ? 0.5 : 1,
+              child: AbsorbPointer(
+                absorbing: shouldGreyOut,
+                child: GestureDetector(
+                  onTap: () => widget.onSelectionChanged(!widget.isSelected),
+                  child: Row(
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: widget.studentCode.trim().isNotEmpty
+                                ? widget.studentCode
+                                : widget.studentId.toString(),
+                            imageUrl: widget.imageUrl.trim().isNotEmpty
+                                ? widget.imageUrl
+                                : null,
+                            name: widget.name,
+                            studentEnrollmentStatus: enrollmentStatus,
+                            statusColor: attendanceDotColor,
+                            statusTooltip: attendanceTooltip,
+                            disableAttendanceStatusLookup: true,
+                            size: 50,
+                          ),
+                          if (widget.icons.containsKey('napping'))
+                            Positioned(
+                              right: 0, // Moved to top right
+                              top: 0,
+                              child: Tooltip(
+                                message: 'Student is currently napping',
+                                child: SvgPicture.asset(
+                                  // Guard against empty path in assets
+                                  MediaRes.napIcon.isNotEmpty
+                                      ? MediaRes.napIcon
+                                      : MediaRes.sleepIcon,
+                                  height: 18,
+                                  width: 18,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      widget.name.isNotEmpty
-                          ? widget.name.split(' ').first
-                          : '',
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: AppColors.primaryColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.name.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            color: AppColors.primaryColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const Spacer(),
           GestureDetector(
             onTap: () {
               showDialog(

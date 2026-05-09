@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/students/widgets/student_attendanc
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
@@ -99,6 +100,11 @@ class _StudentScreenState extends State<StudentScreen> {
   final Set<String> _classroomDetailFetchInFlight = <String>{};
   final Set<String> _classroomDetailFetchFailed = <String>{};
   String _lastClassroomPrefetchFingerprint = '';
+  final GetNapStartStudentsUseCase _getNapStartStudentsUseCase =
+      serviceLocator<GetNapStartStudentsUseCase>();
+  Set<String> _nappingStudentCodes = <String>{};
+  int _napCodesFetchToken = 0;
+  String _lastNapPrefetchFingerprint = '';
 
   @override
   void initState(){
@@ -301,6 +307,9 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _refreshAllStudentApis() async {
     final studentCubit = context.read<StudentCubit>();
+    if (mounted) {
+      setState(() => _lastNapPrefetchFingerprint = '');
+    }
     await Future.wait([
       studentCubit.refreshWithCacheReset(),
       _loadTagNameCodeMap(),
@@ -606,6 +615,62 @@ class _StudentScreenState extends State<StudentScreen> {
     });
   }
 
+  void _scheduleNapStartFetchIfNeeded(
+    List<Student> students,
+    Map<String, String> classroomCodeByName,
+  ) {
+    final codes = <String>{};
+    for (final s in students) {
+      final cc = _resolveClassroomCodeForStudent(
+        s,
+        classroomCodeByName: classroomCodeByName,
+      ).trim();
+      if (cc.toUpperCase().startsWith('CLS_')) {
+        codes.add(cc);
+      }
+    }
+    final fingerprint = codes.toList()..sort();
+    final fp = fingerprint.join('\u0001');
+    if (fp == _lastNapPrefetchFingerprint) return;
+    _lastNapPrefetchFingerprint = fp;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadNapStartStudentCodesForClassrooms(codes);
+    });
+  }
+
+  Future<void> _loadNapStartStudentCodesForClassrooms(
+      Set<String> classroomCodes) async {
+    final token = ++_napCodesFetchToken;
+    if (classroomCodes.isEmpty) {
+      if (!mounted || token != _napCodesFetchToken) return;
+      setState(() => _nappingStudentCodes = <String>{});
+      return;
+    }
+    final merged = <String>{};
+    await Future.wait(classroomCodes.map((cc) async {
+      try {
+        final list =
+            await _getNapStartStudentsUseCase(classroomCode: cc);
+        merged.addAll(
+          list.map((e) => e.trim().toUpperCase()).where((e) => e.isNotEmpty),
+        );
+      } catch (_) {
+        // Per-class failure: keep partial results from other classrooms.
+      }
+    }));
+    if (!mounted || token != _napCodesFetchToken) return;
+    setState(() {
+      _nappingStudentCodes = merged;
+    });
+  }
+
+  bool _isStudentNapping(Student s) {
+    final n = _normalizeStudentCode(s.code.trim());
+    if (n.isEmpty) return false;
+    return _nappingStudentCodes.contains(n);
+  }
+
   Future<void> _fetchMissingClassroomNamesFromDetailApi(
     List<Student> students,
     Map<String, String> cubitNameByCode,
@@ -681,13 +746,18 @@ class _StudentScreenState extends State<StudentScreen> {
   }) {
     return _getSelectedStudents(students)
         .map(
-          (s) => <String, dynamic>{
-            'name': s.fullName,
-            'studentCode': s.code,
-            'classroomCode': _resolveClassroomCodeForStudent(
-              s,
-              classroomCodeByName: classroomCodeByName,
-            ),
+          (s) {
+            final napping = _isStudentNapping(s);
+            return <String, dynamic>{
+              'name': s.fullName,
+              'studentCode': s.code,
+              'classroomCode': _resolveClassroomCodeForStudent(
+                s,
+                classroomCodeByName: classroomCodeByName,
+              ),
+              'nappingStatus': napping,
+              'isNapping': napping,
+            };
           },
         )
         .toList();
@@ -1039,14 +1109,45 @@ class _StudentScreenState extends State<StudentScreen> {
 
     if (selectedIndices.isEmpty) return false;
 
-    // Note: Attendance check removed since API doesn't provide it yet
     // If more than one selected → must be in same classroom
     if (selectedCount > 1) {
       final firstClassroom = students[selectedIndices.first].classroom;
       return selectedIndices.every((i) => students[i].classroom == firstClassroom);
     }
 
-    return true; // Single student → allowed
+    return true;
+  }
+
+  /// Activities match [ClassroomStudentListItem] rules: enabled only when every
+  /// selected student shows signed-in today (green status). Disabled while
+  /// attendance status map is loading/errored, or for absent (red), grey rows, or missing status.
+  bool _canEnableActivitiesForSelection(
+    List<Student> students,
+    int selectedCount,
+  ) {
+    if (!_canShowActivitiesButton(selectedCount, students)) return false;
+    if (_attendanceStatusLoading || _attendanceStatusError) return false;
+    final selected = _getSelectedStudents(students);
+    if (selected.isEmpty) return false;
+    return selected.every((s) {
+      final raw = _todayStatusForStudentCode(s.code);
+      return (raw ?? '').trim().toUpperCase() == 'SIGNED_IN';
+    });
+  }
+
+  String? _activitiesDisabledHint(List<Student> students, int selectedCount) {
+    if (selectedCount == 0) return null;
+    if (!_canShowActivitiesButton(selectedCount, students)) {
+      return 'Select students in the same classroom to record activities together.';
+    }
+    if (_attendanceStatusLoading) {
+      return 'Hang on—we are loading attendance. Try Activities again in a moment.';
+    }
+    if (_attendanceStatusError) {
+      return "Today's attendance could not be loaded. Pull to refresh, then try again.";
+    }
+    return 'You cannot record activities for absent, not marked, or not signed-in '
+        'students. Only students with green signed-in status today can be selected.';
   }
 
   @override
@@ -1065,8 +1166,28 @@ class _StudentScreenState extends State<StudentScreen> {
         final mergedClassroomNames =
             _mergedClassroomDisplayNames(classroomNameByCode);
         _scheduleClassroomDetailFetchesIfNeeded(students, classroomNameByCode);
+        _scheduleNapStartFetchIfNeeded(
+          students,
+          {
+            for (final c in classroomState.classrooms)
+              c.name.trim(): c.code.trim(),
+          },
+        );
         final bool anySelected = _selectedDemo.any((e) => e);
         final int selectedCount = _selectedDemo.where((e) => e).length;
+        final canStudentActivities =
+            _canEnableActivitiesForSelection(students, selectedCount);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (!canStudentActivities &&
+              (_showActivitiesPanel ||
+                  _currentPanel == StudentPanelType.activities)) {
+            setState(() {
+              _showActivitiesPanel = false;
+              _currentPanel = StudentPanelType.none;
+            });
+          }
+        });
 
         // Update selection list when students list changes
         if (_selectedDemo.length != students.length) {
@@ -1088,16 +1209,15 @@ class _StudentScreenState extends State<StudentScreen> {
                   children: [
                     StudentActionPanel(
                       currentPanel: _currentPanel,
-                      activityStudentMaps:
-                          _canShowActivitiesButton(selectedCount, students)
-                              ? _activityStudentMaps(
-                                  students,
-                                  classroomCodeByName: {
-                                    for (final c in classroomState.classrooms)
-                                      c.name.trim(): c.code.trim(),
-                                  },
-                                )
-                              : null,
+                      activityStudentMaps: canStudentActivities
+                          ? _activityStudentMaps(
+                              students,
+                              classroomCodeByName: {
+                                for (final c in classroomState.classrooms)
+                                  c.name.trim(): c.code.trim(),
+                              },
+                            )
+                          : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),
                       onAttendanceTap: (){
@@ -1107,12 +1227,16 @@ class _StudentScreenState extends State<StudentScreen> {
                           _showActivitiesPanel = false;
                         });
                       },
-                      onActivitiesTap: _canShowActivitiesButton(selectedCount, students) ? () {
-                        setState(() {
-                          _showActivitiesPanel = !_showActivitiesPanel;
-                          _currentPanel = _showActivitiesPanel ? StudentPanelType.activities : StudentPanelType.none;
-                        });
-                      } : null,
+                      onActivitiesTap: canStudentActivities
+                          ? () {
+                              setState(() {
+                                _showActivitiesPanel = !_showActivitiesPanel;
+                                _currentPanel = _showActivitiesPanel
+                                    ? StudentPanelType.activities
+                                    : StudentPanelType.none;
+                              });
+                            }
+                          : null,
                       onMessageTap: (){},
                       onProfileTap: selectedCount == 1 ? (){
                         final idx = _selectedDemo.indexWhere((e) => e);
@@ -1160,7 +1284,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         _refreshAttendanceStatusForSelection(students);
                       },
                       isProfileEnabled: selectedCount == 1,
-                      activitiesEnabled: _canShowActivitiesButton(selectedCount, students),
+                      activitiesEnabled: canStudentActivities,
+                      activitiesDisabledHint: canStudentActivities
+                          ? null
+                          : _activitiesDisabledHint(students, selectedCount),
                       showAttendanceActions: _currentPanel == StudentPanelType.attendance,
                       isAttendanceActionLoading: _isAttendanceActionLoading,
                       onSignInTap: () => _openAttendanceActionFlow(
@@ -1192,6 +1319,7 @@ class _StudentScreenState extends State<StudentScreen> {
                 setState(() {
                   _classroomDetailFetchFailed.clear();
                   _lastClassroomPrefetchFingerprint = '';
+                  _lastNapPrefetchFingerprint = '';
                 });
               }
               await Future.wait([
@@ -1700,6 +1828,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             StudentCard(
                               studentCode: studentMap['code'] as String,
                               name: studentMap['name'] as String,
+                              isNapping: _isStudentNapping(student),
                               profileImage:
                                   studentMap['profileImage'] as String?,
                               profilePhotoAssetCode:
