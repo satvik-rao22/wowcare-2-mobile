@@ -13,6 +13,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/school_timezone_resolver.dart';
+import '../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
@@ -137,9 +139,11 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    final now = DateTime.now();
-    _activityDate = DateTime(now.year, now.month, now.day);
-    _activityTime = TimeOfDay.fromDateTime(now);
+    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+    final schoolNow =
+        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTz);
+    _activityDate = schoolNow.$1;
+    _activityTime = schoolNow.$2;
 
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();

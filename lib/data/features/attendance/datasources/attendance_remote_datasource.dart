@@ -300,6 +300,14 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
+  /// Same contract as activity [activity_attendance_window_validator]: `instant` is UTC ISO.
+  /// Returns `studentCode ->` status strings (or normalized from bool `data` values).
+  Future<Map<String, String>> getStudentSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String instantIsoUtc,
+  });
+
   /// Updates a single student attendance record (sign-in/sign-out entry).
   Future<String> updateStudentAttendanceRecord({
     required String attendanceRecordCode,

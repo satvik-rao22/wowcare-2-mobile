@@ -16,6 +16,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/school_timezone_resolver.dart';
+import '../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
@@ -192,11 +194,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
 
-    // Keep create flow aligned with other activity forms where date/time default
-    // to "now" and are not blocked by initial widget callback timing.
+    // Create flow: school-zone calendar date + wall clock (same basis as Add Activity).
     if (!widget.isEdit && !widget.readOnly) {
-      _activityDate = DateTime.now();
-      _activityTime = TimeOfDay.now();
+      final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+      final pair =
+          SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTz);
+      _activityDate = pair.$1;
+      _activityTime = pair.$2;
     }
 
     if (widget.selectedStudents != null) {

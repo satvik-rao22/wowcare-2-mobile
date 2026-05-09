@@ -24,6 +24,7 @@ import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
@@ -743,20 +744,31 @@ class _StudentScreenState extends State<StudentScreen> {
   List<Map<String, dynamic>> _activityStudentMaps(
     List<Student> students, {
     required Map<String, String> classroomCodeByName,
+    required Map<String, String> classroomNameByCode,
   }) {
+    final attendanceDate = attendanceDateYyyyMmDdSchoolToday();
     return _getSelectedStudents(students)
         .map(
           (s) {
             final napping = _isStudentNapping(s);
+            final cc = _resolveClassroomCodeForStudent(
+              s,
+              classroomCodeByName: classroomCodeByName,
+            ).trim();
+            final classroomLabel =
+                classroomNameByCode[cc]?.trim().isNotEmpty == true
+                    ? classroomNameByCode[cc]!.trim()
+                    : (s.classroom.trim().isNotEmpty
+                        ? s.classroom.trim()
+                        : cc);
             return <String, dynamic>{
               'name': s.fullName,
               'studentCode': s.code,
-              'classroomCode': _resolveClassroomCodeForStudent(
-                s,
-                classroomCodeByName: classroomCodeByName,
-              ),
+              'classroom': classroomLabel,
+              'classroomCode': cc,
               'nappingStatus': napping,
               'isNapping': napping,
+              'attendanceDate': attendanceDate,
             };
           },
         )
@@ -1216,6 +1228,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 for (final c in classroomState.classrooms)
                                   c.name.trim(): c.code.trim(),
                               },
+                              classroomNameByCode: mergedClassroomNames,
                             )
                           : null,
                       attendanceAvailability:
