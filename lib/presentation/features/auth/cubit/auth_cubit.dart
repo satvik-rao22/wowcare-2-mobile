@@ -243,14 +243,14 @@ class AuthCubit extends Cubit<AuthState> {
                   (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
             }
 
-            var effectiveSchoolCode = schoolCode.trim();
-            if (effectiveSchoolCode.isEmpty && orgCode.isNotEmpty) {
-              // Prefer a concrete school mapped to the selected org.
-              effectiveSchoolCode = response.roles
-                  .where((r) => r.organizationCode.trim() == orgCode)
-                  .map((r) => r.schoolCode.trim())
-                  .firstWhere((c) => c.isNotEmpty, orElse: () => '');
-            }
+            const orgAdminRole = 'ORGANIZATION_ADMIN';
+            final isOrgAdminForSelectedOrg = response.roles.any(
+              (r) =>
+                  r.organizationCode.trim() == orgCode &&
+                  r.role.toUpperCase() == orgAdminRole,
+            );
+            final effectiveSchoolCode =
+                isOrgAdminForSelectedOrg ? '-' : schoolCode;
 
             final rolesJson =
                 jsonEncode(response.roles.map((e) => e.toJson()).toList());

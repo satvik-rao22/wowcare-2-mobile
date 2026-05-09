@@ -377,9 +377,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
     final canMutateStudent =
-        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
