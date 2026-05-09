@@ -197,7 +197,8 @@ IndividualMovementType _parseMovementType(String value) {
       return IndividualMovementType.startSchool;
     case 'LEAVE_SCHOOL':
       return IndividualMovementType.leaveSchool;
-    case 'MOVE_TO_NEXT_CLASSROOM':
+    case 'CLASSROOM_PROMOTION':
+    case 'MOVE_TO_NEXT_CLASSROOM': // legacy backend value
     default:
       return IndividualMovementType.moveToNextClassroom;
   }
@@ -210,7 +211,8 @@ String _movementTypeToApi(IndividualMovementType value) {
     case IndividualMovementType.leaveSchool:
       return 'LEAVE_SCHOOL';
     case IndividualMovementType.moveToNextClassroom:
-      return 'MOVE_TO_NEXT_CLASSROOM';
+      // Backend enum uses CLASSROOM_PROMOTION for "move to next classroom".
+      return 'CLASSROOM_PROMOTION';
   }
 }
 
