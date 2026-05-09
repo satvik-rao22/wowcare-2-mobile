@@ -53,7 +53,11 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         schoolCode: schoolCode,
         onlyTypeClassroom: onlyTypeClassroom,
       );
-      var visibleClassrooms = filterSelectableClassrooms(classrooms);
+      // Keep legacy "hide Office" behavior only for strict classroom lists.
+      // Staff flows call with onlyTypeClassroom=false and must include Office.
+      var visibleClassrooms = onlyTypeClassroom
+          ? filterSelectableClassrooms(classrooms)
+          : classrooms.toList(growable: false);
 
       if (applyAttendanceStaffScope) {
         final shouldScope = await isAttendanceScopedStaffPersona(

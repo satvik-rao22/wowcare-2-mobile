@@ -858,15 +858,17 @@ class _StaffScreenState extends State<StaffScreen> {
                                         final initialPrimaryNames = primaryCodes
                                             .map(
                                               (c) =>
-                                                  classroomNameByCode[c] ?? c,
+                                                  classroomNameByCode[c]?.trim(),
                                             )
+                                            .whereType<String>()
                                             .where((n) => n.isNotEmpty)
                                             .toList();
                                         final initialAllowedNames = allowedCodes
                                             .map(
                                               (c) =>
-                                                  classroomNameByCode[c] ?? c,
+                                                  classroomNameByCode[c]?.trim(),
                                             )
+                                            .whereType<String>()
                                             .where((n) => n.isNotEmpty)
                                             .toList();
 
@@ -1238,16 +1240,19 @@ class _StaffScreenState extends State<StaffScreen> {
                                         .allowedClassroomCodes
                                         .map(
                                           (code) =>
-                                              classroomNameByCode[code] ?? code,
+                                              classroomNameByCode[code]?.trim(),
                                         )
+                                        .whereType<String>()
+                                        .where((name) => name.isNotEmpty)
                                         .toList();
 
                                     final primaryClassroomCode =
                                         staff.primaryClassroomOrFirstAllowed;
                                     final primaryClassroomName =
                                         primaryClassroomCode.isNotEmpty
-                                        ? (classroomNameByCode[primaryClassroomCode] ??
-                                              primaryClassroomCode)
+                                        ? (classroomNameByCode[primaryClassroomCode]
+                                                  ?.trim() ??
+                                              '')
                                         : (allowedClassroomNames.isNotEmpty
                                               ? allowedClassroomNames.first
                                               : '');
@@ -1389,15 +1394,18 @@ class _StaffScreenState extends State<StaffScreen> {
                             final allowedClassroomNames = staff
                                 .allowedClassroomCodes
                                 .map(
-                                  (code) => classroomNameByCode[code] ?? code,
+                                  (code) => classroomNameByCode[code]?.trim(),
                                 )
+                                .whereType<String>()
+                                .where((name) => name.isNotEmpty)
                                 .toList();
                             final primaryClassroomCode =
                                 staff.primaryClassroomOrFirstAllowed;
                             final classroomName =
                                 primaryClassroomCode.isNotEmpty
-                                ? (classroomNameByCode[primaryClassroomCode] ??
-                                      primaryClassroomCode)
+                                ? (classroomNameByCode[primaryClassroomCode]
+                                          ?.trim() ??
+                                      '')
                                 : (allowedClassroomNames.isNotEmpty
                                       ? allowedClassroomNames.first
                                       : '');
