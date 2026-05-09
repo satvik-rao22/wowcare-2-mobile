@@ -41,6 +41,12 @@ abstract class AuthLocalDataSource {
     required String userCode,
     required String staffCode,
   });
+
+  /// Clears staff/guardian and session caches without logging out (e.g. same-school persona switch).
+  Future<void> clearPersonaVolatileCaches();
+
+  /// Sets [activeSchoolRole] and rewrites [StorageKeys.roles] so the active org+school uses only this role.
+  Future<void> persistActiveSchoolPersonaRole(String backendRole);
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
@@ -153,17 +159,26 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String schoolName,
     String? schoolCode,
   }) async {
+    final prevOrg =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final prevSchool =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final orgChanged = prevOrg != orgCode.trim();
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
     if (schoolCode != null && schoolCode.isNotEmpty) {
       final next = schoolCode.trim();
-      if (prevSchool != next) {
+      final schoolChanged = prevSchool != next;
+      if (schoolChanged) {
         await _storage.remove(StorageKeys.schoolTimeZone);
         await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
       }
+      if (orgChanged || schoolChanged) {
+        await _storage.remove(StorageKeys.activeSchoolRole);
+      }
       await _storage.saveString(StorageKeys.schoolCode, next);
+    } else if (orgChanged) {
+      await _storage.remove(StorageKeys.activeSchoolRole);
     }
     await _storage.saveBool(StorageKeys.loginCompleted, true);
   }
@@ -183,11 +198,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       return false;
     }
 
+    final prevOrg =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final prevSchool =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (prevSchool != schoolCode) {
+    final schoolChanged = prevSchool != schoolCode;
+    final orgChanged = prevOrg != orgCode;
+    if (schoolChanged) {
       await _storage.remove(StorageKeys.schoolTimeZone);
       await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
+    }
+    if (schoolChanged || orgChanged) {
+      await _storage.remove(StorageKeys.activeSchoolRole);
     }
 
     // Save selected
@@ -271,6 +293,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String schoolCode,
     String? schoolName,
   }) async {
+    final prevOrg =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final newOrg = organizationCode.trim();
     final prev =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final next = schoolCode.trim();
@@ -278,12 +303,81 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       await _storage.remove(StorageKeys.schoolTimeZone);
       await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
     }
+    if (prev != next || prevOrg != newOrg) {
+      await _storage.remove(StorageKeys.activeSchoolRole);
+    }
     await _storage.saveString(StorageKeys.organizationCode, organizationCode);
     await _storage.saveString(StorageKeys.schoolCode, next);
     await _storage.saveString(
       StorageKeys.selectedSchoolName,
       schoolName ?? next,
     );
+  }
+
+  @override
+  Future<void> clearPersonaVolatileCaches() async {
+    await _storage.remove(StorageKeys.staffCode);
+    await _storage.remove(StorageKeys.staffType);
+    await _storage.remove(StorageKeys.staffDesignation);
+    await _storage.remove(StorageKeys.staffAllowedClassroomCodes);
+    await _storage.remove(StorageKeys.staffCodeUser);
+    await _storage.remove(StorageKeys.staffCodeOrganization);
+    await _storage.remove(StorageKeys.staffCodeSchool);
+    await _storage.remove(StorageKeys.staffPin);
+    await _storage.remove(StorageKeys.guardianCode);
+    await _storage.remove(StorageKeys.guardianCodeUser);
+    await _storage.remove(StorageKeys.guardianCodeSchool);
+    await _storage.remove(StorageKeys.guardianCodeOrganization);
+    await _storage.remove(StorageKeys.guardianProfileFirstName);
+    await _storage.remove(StorageKeys.guardianProfileLastName);
+    await _storage.remove(StorageKeys.guardianProfilePhotoUrl);
+    await _storage.remove(StorageKeys.guardianProfileAssetCode);
+    await _storage.remove(StorageKeys.userAccessDetails);
+    try {
+      await _sessionLocalCacheWiper?.wipe();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> persistActiveSchoolPersonaRole(String backendRole) async {
+    final org =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final school =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final normalizedRole = backendRole.trim();
+    if (normalizedRole.isEmpty || org.isEmpty || school.isEmpty) return;
+
+    await _storage.saveString(StorageKeys.activeSchoolRole, normalizedRole);
+
+    final raw = await _storage.getString(StorageKeys.roles);
+    List<dynamic> list;
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        list = decoded is List ? List<dynamic>.from(decoded) : <dynamic>[];
+      } catch (_) {
+        list = <dynamic>[];
+      }
+    } else {
+      list = <dynamic>[];
+    }
+
+    final out = <Map<String, dynamic>>[];
+    for (final e in list) {
+      if (e is! Map) continue;
+      final m = Map<String, dynamic>.from(e);
+      final o = (m['organizationCode'] ?? '').toString().trim();
+      final s = (m['schoolCode'] ?? '').toString().trim();
+      if (o == org && s == school) continue;
+      out.add(m);
+    }
+    // Current school first — several screens still read roles.first for display.
+    out.insert(0, <String, dynamic>{
+      'role': normalizedRole,
+      'organizationCode': org,
+      'schoolCode': school,
+    });
+    await _storage.saveString(StorageKeys.roles, jsonEncode(out));
   }
 
   @override

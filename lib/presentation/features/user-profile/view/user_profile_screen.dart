@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -22,6 +24,16 @@ import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_user_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -59,6 +71,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
   double _profilePhotoUploadPercent = 0;
+  List<String> _distinctRolesForCurrentSchool = const [];
+  bool _switchPersonasLoading = false;
+  String? _cachedActiveSchoolRole;
+  String _guardianPhone = '';
+  String _guardianAddress = '';
 
   String _formatPhoneForDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
@@ -71,6 +88,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // Seed from navigation arguments so we don't render '-' while storage loads.
+    _loginDisplayName = widget.userName.trim();
+    _loginEmail = widget.userEmail.trim();
+    _loginPersona = widget.userPersona.trim();
     // Load profile for logged-in user.
     // If staffCode is provided, use it; otherwise resolve staffCode from cached login info.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -85,15 +106,38 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       _loginDisplayName =
           (await storage.getString(StorageKeys.displayName) ?? '').trim();
       _loginEmail = (await storage.getString(StorageKeys.email) ?? '').trim();
+      final cachedDesignation =
+          (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
 
+      final activeSchoolRole =
+          (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
       final rolesJson =
           await storage.getString(StorageKeys.roles); // JSON array from login
       String persona = '';
-      if (rolesJson != null && rolesJson.isNotEmpty) {
+      if (activeSchoolRole.isNotEmpty) {
+        persona = StringUtils.staffTypeToDisplayRole(activeSchoolRole);
+      }
+      // For staff personas, show designation instead of staffType/role when available.
+      if (persona.isEmpty && cachedDesignation.isNotEmpty) {
+        persona = StringUtils.staffTypeToDisplayRole(cachedDesignation);
+      }
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      if (persona.isEmpty &&
+          rolesJson != null &&
+          rolesJson.isNotEmpty) {
         try {
           final List<dynamic> roles =
               (jsonDecode(rolesJson) as List<dynamic>);
-          if (roles.isNotEmpty) {
+          final matches =
+              matchingRolesForOrgSchool(roles, org, school).toList();
+          if (matches.isNotEmpty) {
+            persona = StringUtils.staffTypeToDisplayRole(
+              matches.first['role'] ?? '',
+            );
+          } else if (roles.isNotEmpty) {
             final first = roles.first as Map<String, dynamic>;
             final roleCode = (first['role'] ?? '').toString();
             persona = StringUtils.staffTypeToDisplayRole(roleCode);
@@ -101,15 +145,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         } catch (_) {}
       }
       _loginPersona = persona;
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
       if (mounted) {
         setState(() {
           _schoolCode = school.isEmpty ? null : school;
           _organizationCode = org.isEmpty ? null : org;
+          _cachedActiveSchoolRole =
+              activeSchoolRole.isEmpty ? null : activeSchoolRole;
         });
+      }
+      await _refreshSwitchProfileAvailability();
+    } catch (_) {}
+
+    // For guardian/parent persona, load guardian profile fields for phone/address
+    // and skip staff profile fetches.
+    try {
+      if (mounted && context.read<RoleProvider>().isParent) {
+        await _loadGuardianProfileForParent();
+        if (!mounted) return;
+        setState(() => _profile = null);
+        return;
       }
     } catch (_) {}
 
@@ -121,7 +175,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     final resolved = await _resolveLoggedInStaffCode();
     if (!mounted) return;
-    if (resolved.isNotEmpty) {
+    if (resolved.isEmpty) {
+      setState(() => _profile = null);
+    } else {
       await _loadStaffProfile(resolved);
     }
   }
@@ -157,6 +213,154 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  Future<void> _refreshSwitchProfileAvailability() async {
+    final org = (_organizationCode ?? '').trim();
+    final school = (_schoolCode ?? '').trim();
+    if (org.isEmpty || school.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _distinctRolesForCurrentSchool = const [];
+          _switchPersonasLoading = false;
+        });
+      }
+      return;
+    }
+    if (mounted) setState(() => _switchPersonasLoading = true);
+    try {
+      final storage = serviceLocator<StorageService>();
+      var users = await readCachedUserAccessDetailsUsers(storage);
+      if (users.isEmpty) {
+        final token =
+            (await storage.getString(StorageKeys.accessToken) ?? '').trim();
+        if (token.isNotEmpty) {
+          users = await serviceLocator<AuthRemoteDataSource>().getUserDetails(
+            accessToken: token,
+          );
+          await storage.saveString(
+            StorageKeys.userAccessDetails,
+            jsonEncode(users),
+          );
+        }
+      }
+      final distinct = distinctActiveRolesForCurrentSchoolFromUserDetails(
+        users,
+        org,
+        school,
+      );
+      final active =
+          (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+      if (!mounted) return;
+      setState(() {
+        _distinctRolesForCurrentSchool = distinct;
+        _cachedActiveSchoolRole = active.isEmpty ? null : active;
+        _switchPersonasLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _distinctRolesForCurrentSchool = const [];
+        _switchPersonasLoading = false;
+      });
+    }
+  }
+
+  String _effectiveActiveBackendRoleForSwitch() {
+    final cached = (_cachedActiveSchoolRole ?? '').trim();
+    if (cached.isNotEmpty) return cached;
+    if (_distinctRolesForCurrentSchool.length == 1) {
+      return _distinctRolesForCurrentSchool.first;
+    }
+    return '';
+  }
+
+  Future<void> _onSwitchProfilePressed() async {
+    final org = (_organizationCode ?? '').trim();
+    final school = (_schoolCode ?? '').trim();
+    if (org.isEmpty || school.isEmpty) return;
+
+    if (_distinctRolesForCurrentSchool.length <= 1) return;
+
+    final roles = _distinctRolesForCurrentSchool
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    if (roles.length <= 1) return;
+
+    final current = _effectiveActiveBackendRoleForSwitch().trim().toUpperCase();
+    var currentIndex = -1;
+    if (current.isNotEmpty) {
+      for (var i = 0; i < roles.length; i++) {
+        if (roles[i].toUpperCase() == current) {
+          currentIndex = i;
+          break;
+        }
+      }
+    }
+    final nextIndex = (currentIndex < 0) ? 0 : ((currentIndex + 1) % roles.length);
+    final nextRole = roles[nextIndex];
+    await _applyPersonaSwitch(nextRole);
+  }
+
+  Future<void> _applyPersonaSwitch(String backendRole) async {
+    if (backendRole.isEmpty) return;
+    if (mounted) setState(() => _switchPersonasLoading = true);
+    try {
+      // IMPORTANT: do not change visible persona/profile until required
+      // APIs are done. Only show the button loader.
+      final authLocal = serviceLocator<AuthLocalDataSource>();
+      await authLocal.clearPersonaVolatileCaches();
+      await authLocal.persistActiveSchoolPersonaRole(backendRole);
+      if (!mounted) return;
+      context.read<ParentChildProvider>().invalidate();
+      // Preload guardian data BEFORE RoleProvider flips to parent so the global
+      // dropdown doesn't show a loading state.
+      final targetIsGuardian = roleStringIsGuardianPersona(backendRole);
+      if (targetIsGuardian) {
+        // Also fetch guardian profile so phone/address appear immediately.
+        await _loadGuardianProfileForParent();
+        if (!mounted) return;
+        await context.read<ParentChildProvider>().ensureLoaded(force: true);
+      }
+      if (!mounted) return;
+      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      final org = (_organizationCode ?? '').trim();
+      final school = (_schoolCode ?? '').trim();
+      if (org.isNotEmpty && school.isNotEmpty) {
+        try {
+          await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
+                organizationCode: org,
+                schoolCode: school,
+              );
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      // Now that prefetch is complete, apply the persona to UI.
+      setState(() {
+        _profile = null;
+        _cachedActiveSchoolRole = backendRole;
+        _loginPersona = StringUtils.staffTypeToDisplayRole(backendRole);
+      });
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Switched to ${StringUtils.staffTypeToDisplayRole(backendRole)}',
+        isSuccess: true,
+      );
+      await _refreshSwitchProfileAvailability();
+      await _initProfileLoad();
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not switch profile: $e',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _switchPersonasLoading = false);
+    }
+  }
+
   Future<void> _loadStaffProfile(String staffCode) async {
     try {
       final repo = serviceLocator<StaffRepository>();
@@ -174,6 +378,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             final storage = serviceLocator<StorageService>();
             await storage.saveString(StorageKeys.staffType, cached.staffType);
           }
+          if (cached.designation.trim().isNotEmpty) {
+            final storage = serviceLocator<StorageService>();
+            await storage.saveString(
+              StorageKeys.staffDesignation,
+              cached.designation.trim(),
+            );
+          }
           setState(() {});
         }
       }
@@ -186,6 +397,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         if (fresh.staffType.isNotEmpty) {
           final storage = serviceLocator<StorageService>();
           await storage.saveString(StorageKeys.staffType, fresh.staffType);
+        }
+        if (fresh.designation.trim().isNotEmpty) {
+          final storage = serviceLocator<StorageService>();
+          await storage.saveString(
+            StorageKeys.staffDesignation,
+            fresh.designation.trim(),
+          );
         }
         setState(() {
           _profile = fresh;
@@ -211,6 +429,61 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           isError: true,
         );
       }
+    }
+  }
+
+  Future<void> _loadGuardianProfileForParent() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final userCode =
+          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      if (schoolCode.isEmpty || userCode.isEmpty) return;
+
+      final remote = serviceLocator<StudentRemoteDataSource>();
+      final profile = await remote.getGuardianProfile(
+        schoolCode: schoolCode,
+        userCode: userCode,
+      );
+
+      final firstName = (profile['firstName'] ?? '').toString().trim();
+      final lastName = (profile['lastName'] ?? '').toString().trim();
+      final fullName = (profile['fullName'] ?? '').toString().trim();
+      final resolvedName = fullName.isNotEmpty
+          ? fullName
+          : ('$firstName $lastName').trim();
+      final resolvedEmail = (profile['email'] ?? '').toString().trim();
+      final resolvedPhone = ((profile['mobile'] ?? profile['phone'] ?? '')
+              .toString()
+              .trim());
+
+      String resolvedAddress = '';
+      final rawAddress = profile['address'];
+      if (rawAddress is Map) {
+        final m = Map<String, dynamic>.from(rawAddress);
+        final parts = <String>[
+          (m['street'] ?? m['addressStreet'] ?? '').toString().trim(),
+          (m['line2'] ?? m['addressLine2'] ?? '').toString().trim(),
+          (m['city'] ?? m['addressCity'] ?? '').toString().trim(),
+          (m['state'] ?? m['addressState'] ?? '').toString().trim(),
+          (m['zipCode'] ?? m['addressZipCode'] ?? '').toString().trim(),
+          (m['country'] ?? m['addressCountry'] ?? '').toString().trim(),
+        ].where((e) => e.isNotEmpty).toList(growable: false);
+        resolvedAddress = parts.join(', ');
+      } else if (rawAddress is String) {
+        resolvedAddress = rawAddress.trim();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        if (resolvedName.isNotEmpty) _loginDisplayName = resolvedName;
+        if (resolvedEmail.isNotEmpty) _loginEmail = resolvedEmail;
+        _guardianPhone = resolvedPhone;
+        _guardianAddress = resolvedAddress;
+      });
+    } catch (_) {
+      // Non-blocking: profile still renders with cached/login values.
     }
   }
 
@@ -425,11 +698,80 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  Future<void> _viewStudentProfileForParent() async {
+    final parentChild = context.read<ParentChildProvider>();
+    if (!parentChild.isLoaded && !parentChild.isLoading) {
+      await parentChild.ensureLoaded();
+    }
+    final selected = parentChild.selectedChild;
+    if (selected == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'No child selected. Choose a child from the menu first.',
+        isError: true,
+      );
+      return;
+    }
+
+    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+    if (!mounted) return;
+
+    final resolvedClassroom =
+        await _resolveClassroomNameForStudent(selected.classroom);
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => StudentProfileScreen(
+          name: selected.name,
+          classroom: resolvedClassroom,
+          tags: selected.tags,
+          schedule: selected.schedule,
+          sibling: const <String, dynamic>{
+            'name': [],
+            'relation': [],
+            'status': [],
+          },
+          studentCode: selected.code,
+          syncWithParentChildSelection: true,
+        ),
+      ),
+    );
+  }
+
+  Future<String> _resolveClassroomNameForStudent(String classroomRaw) async {
+    final raw = classroomRaw.trim();
+    if (raw.isEmpty) return '-';
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return raw;
+
+      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getActiveClassrooms(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+      for (final c in classrooms) {
+        if (c.code.trim() == raw) {
+          final name = c.name.trim();
+          return name.isNotEmpty ? name : raw;
+        }
+      }
+      return raw;
+    } catch (_) {
+      return raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final responsive = ResponsiveHelper(context);
+    final isParentPersona = context.watch<RoleProvider>().isParent;
     final String displayName =
         _profile?.fullName.isNotEmpty == true
             ? _profile!.fullName
@@ -438,20 +780,36 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _profile?.email.isNotEmpty == true
             ? _profile!.email
             : (_loginEmail.isNotEmpty ? _loginEmail : '-');
-    final String displayPhone =
-        _profile?.phoneNumber.isNotEmpty == true
-            ? _formatPhoneForDisplay(_profile!.phoneNumber)
-            : '-';
-    final String displayAddressRaw =
-        _profile?.address.formattedAddress.isNotEmpty == true
-            ? _profile!.address.formattedAddress
-            : '-';
+    final String displayPhone = _profile?.phoneNumber.isNotEmpty == true
+        ? _formatPhoneForDisplay(_profile!.phoneNumber)
+        : (isParentPersona && _guardianPhone.trim().isNotEmpty
+            ? _formatPhoneForDisplay(_guardianPhone.trim())
+            : '-');
+    final String displayAddressRaw = _profile?.address.formattedAddress.isNotEmpty == true
+        ? _profile!.address.formattedAddress
+        : (isParentPersona && _guardianAddress.trim().isNotEmpty
+            ? _guardianAddress.trim()
+            : '-');
     // Show address in a more readable multi-line format by breaking on commas.
     final String displayAddress =
         displayAddressRaw == '-' ? '-' : displayAddressRaw.replaceAll(', ', '\n');
-    final String roleDisplay = _profile != null
-        ? StringUtils.staffTypeToDisplayRole(_profile!.staffType)
-        : _loginPersona;
+    final activeRoleForDisplay =
+        _effectiveActiveBackendRoleForSwitch().trim().isNotEmpty
+            ? _effectiveActiveBackendRoleForSwitch().trim()
+            : (_cachedActiveSchoolRole ?? '').trim();
+    final String roleDisplay = isParentPersona
+        ? StringUtils.staffTypeToDisplayRole(
+            activeRoleForDisplay.isNotEmpty ? activeRoleForDisplay : 'GUARDIAN',
+          )
+        : _profile != null
+            ? StringUtils.staffTypeToDisplayRole(
+                _profile!.designation.trim().isNotEmpty
+                    ? _profile!.designation
+                    : _profile!.staffType,
+              )
+            : (activeRoleForDisplay.isNotEmpty
+                ? StringUtils.staffTypeToDisplayRole(activeRoleForDisplay)
+                : _loginPersona);
     final String displayPersona =
         roleDisplay.isNotEmpty ? roleDisplay : '-';
 
@@ -704,50 +1062,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           const SizedBox(height: 20),
                           Row(
                             children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 48,
-                                  child: OutlinedButton(
-                                    onPressed: () {},
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
-                                        color: Color(0xFF6C7FD8),
-                                      ),
-                                      alignment: Alignment.center,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          8,
-                                        ),
-                                      ),
-                                      padding: EdgeInsets.symmetric(horizontal: 8),
+                              if (_distinctRolesForCurrentSchool.length > 1) ...[
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: CustomButtonLayout(
+                                      confirmButtonLabel: 'Switch Profile',
+                                      onPressedConfirm: _switchPersonasLoading
+                                          ? null
+                                          : _onSwitchProfilePressed,
+                                      showCancelButton: false,
+                                      isForm: false,
+                                      isLoading: _switchPersonasLoading,
                                     ),
-                                    child: CustomTextWidget(
-                                      text: 'Switch Profile',
-                                      textStyle:  TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF6C7FD8),
-                                        height: 16 / 16,
-                                      ),
-                                      maxLines: 1,
-                                    ),
-                                    // child: const Text(
-                                    //   'Switch Profile',
-                                    //   style: TextStyle(
-                                    //     fontFamily: 'Manrope',
-                                    //     fontSize: 16,
-                                    //     fontWeight: FontWeight.w700,
-                                    //     color: Color(0xFF6C7FD8),
-                                    //     height: 16 / 16,
-                                    //   ),
-                                    //   maxLines: 1,
-                                    //   overflow: TextOverflow.ellipsis,
-                                    // ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
+                                const SizedBox(width: 10),
+                              ],
                               Expanded(
                                 child: Container(
                                   height: 48,
@@ -758,9 +1089,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   ),
                                   child: TextButton(
                                     onPressed: () async {
+                                      if (isParentPersona) {
+                                        await _viewStudentProfileForParent();
+                                        return;
+                                      }
                                       // For staff persona, open StaffProfileScreen.
-                                      if (displayPersona != 'Admin' &&
-                                          displayPersona != 'Parent') {
+                                      if (displayPersona != 'Admin') {
                                         await _openStaffProfile();
                                       }
                                     },
@@ -769,10 +1103,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       alignment: Alignment.center
                                     ),
                                     child: CustomTextWidget(
-                                      text: displayPersona == 'Admin'
-                                          ? 'View Admin Profile'
-                                          : displayPersona == 'Parent'
-                                              ? "View Child's Profile"
+                                      text: isParentPersona
+                                          ? 'View Student Profile'
+                                          : displayPersona == 'Admin'
+                                              ? 'View Admin Profile'
                                               : 'View Staff Profile',
                                       textStyle: TextStyle(
                                         fontFamily: 'Manrope',
