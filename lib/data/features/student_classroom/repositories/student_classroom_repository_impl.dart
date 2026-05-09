@@ -73,7 +73,7 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
       parts.add('tags=${normTags.join(',')}');
     }
     if (normStudentCodes.isNotEmpty) {
-      parts.add('students=${normStudentCodes.join(',')}');
+      parts.add('studentCodes=${normStudentCodes.join(',')}');
     }
     if (normGuardians.isNotEmpty) {
       parts.add('guardians=${normGuardians.join(',')}');

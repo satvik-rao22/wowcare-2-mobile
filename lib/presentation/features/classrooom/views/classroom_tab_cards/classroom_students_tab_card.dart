@@ -64,6 +64,7 @@ class ClassroomStudentsTabCard extends StatefulWidget {
 class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final TextEditingController _searchController = TextEditingController();
   late final ClassroomStudentsCubit _cubit;
+  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   bool isSelectAllChecked = false;
   Map<String, bool> studentSelections = {};
   List<String> _selectedStatus = [];
@@ -104,12 +105,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void initState() {
     super.initState();
     _cubit = serviceLocator<ClassroomStudentsCubit>();
+    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
   }
 
-  void _loadForSelectedRoom({required bool refresh}) {
+  void _loadForSelectedRoom({
+    required bool refresh,
+    List<String>? statusOverride,
+    List<String>? studentCodes,
+  }) {
     final classroomCode = widget.selectedRoom?.code ?? '';
     if (classroomCode.trim().isEmpty) return;
 
@@ -126,6 +132,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _cubit.refresh(
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
       );
@@ -133,6 +140,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _cubit.loadInitial(
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
       );
@@ -190,7 +198,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   void _onSearchChanged() {
     // Debounce could be added later; for now refresh list from API as user types.
-    _loadForSelectedRoom(refresh: false);
+    if (_isNappingFilter) {
+      _applyNappingFilter(refresh: false);
+    } else {
+      _loadForSelectedRoom(refresh: false);
+    }
   }
 
   void _toggleSelectAll(
@@ -911,7 +923,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             _refreshAttendanceStatusForVisibleStudents(visibleStudents);
           });
 
-          final selectedStudents = _getSelectedStudents(visibleStudents);
+          final effectiveVisibleStudents =
+              _isNappingFilter && _napFilterEmptyResult
+                  ? <StudentClassroomItem>[]
+                  : visibleStudents;
+
+          final selectedStudents = _getSelectedStudents(effectiveVisibleStudents);
 
           return Stack(
             children: [
@@ -992,7 +1009,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                   AppColors.primaryColor.withValues(alpha: 0.2),
                               value: isSelectAllChecked,
                               onChanged: (val) =>
-                                  _toggleSelectAll(val, visibleStudents),
+                                  _toggleSelectAll(val, effectiveVisibleStudents),
                             ),
                           ),
                           const Text(
@@ -1175,13 +1192,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   Expanded(
                     child: Builder(
                       builder: (context) {
-                          if (state.isLoading && visibleStudents.isEmpty) {
+                          if ((state.isLoading || _isLoadingNapStudents) &&
+                              effectiveVisibleStudents.isEmpty) {
                             return const Center(
                               child: PrimaryCircularLoader(),
                             );
                           }
 
-                          if (visibleStudents.isEmpty) {
+                          if (effectiveVisibleStudents.isEmpty) {
                             return CustomRefreshIndicator(
                               onRefresh: () async {
                                 _loadForSelectedRoom(refresh: true);
@@ -1195,7 +1213,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                         height: constraints.maxHeight,
                                         child: Center(
                                           child: Text(
-                                            _isNappingFilter
+                                            _isNappingFilter && _napFilterEmptyResult
+                                                ? 'No students are currently napping.'
+                                                : _isNappingFilter
                                                 ? 'No students are napping.'
                                                 : 'No students assigned.',
                                 style: TextStyle(
@@ -1220,9 +1240,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                               await _loadNapStartStudentCodes(refresh: true);
                             },
                             child: ListView.builder(
-                              itemCount: visibleStudents.length,
+                              itemCount: effectiveVisibleStudents.length,
                               itemBuilder: (context, index) {
-                                final student = visibleStudents[index];
+                                final student = effectiveVisibleStudents[index];
                               return ClassroomStudentListItem(
                                     studentId: student.studentCode.hashCode,
                                     studentCode: student.studentCode,
@@ -1242,7 +1262,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                       _toggleStudentSelection(
                                         student.studentCode,
                                         value,
-                                        visibleStudents,
+                                        effectiveVisibleStudents,
                                       );
                                     },
                               );

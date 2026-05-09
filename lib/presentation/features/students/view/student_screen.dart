@@ -660,14 +660,34 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  String _resolveClassroomCodeForStudent(
+    Student student, {
+    required Map<String, String> classroomCodeByName,
+  }) {
+    final raw = student.classroom.trim();
+    if (raw.isEmpty) return '';
+    if (raw.toUpperCase().startsWith('CLS_')) return raw;
+    final mapped = classroomCodeByName[raw];
+    if (mapped != null && mapped.trim().isNotEmpty) {
+      return mapped.trim();
+    }
+    return raw;
+  }
+
   /// Same shape as [ChooseActivity.selectedStudents] for class-scoped activity list + create flow.
-  List<Map<String, dynamic>> _activityStudentMaps(List<Student> students) {
+  List<Map<String, dynamic>> _activityStudentMaps(
+    List<Student> students, {
+    required Map<String, String> classroomCodeByName,
+  }) {
     return _getSelectedStudents(students)
         .map(
           (s) => <String, dynamic>{
             'name': s.fullName,
             'studentCode': s.code,
-            'classroomCode': s.classroom.trim(),
+            'classroomCode': _resolveClassroomCodeForStudent(
+              s,
+              classroomCodeByName: classroomCodeByName,
+            ),
           },
         )
         .toList();
@@ -1070,7 +1090,13 @@ class _StudentScreenState extends State<StudentScreen> {
                       currentPanel: _currentPanel,
                       activityStudentMaps:
                           _canShowActivitiesButton(selectedCount, students)
-                              ? _activityStudentMaps(students)
+                              ? _activityStudentMaps(
+                                  students,
+                                  classroomCodeByName: {
+                                    for (final c in classroomState.classrooms)
+                                      c.name.trim(): c.code.trim(),
+                                  },
+                                )
                               : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),

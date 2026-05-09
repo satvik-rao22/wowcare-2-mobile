@@ -101,6 +101,12 @@ class StudentClassroomRemoteDataSourceImpl
     if (search != null && search.trim().isNotEmpty) {
       queryParameters['search'] = search.trim();
     }
+    if (studentCodes != null && studentCodes.isNotEmpty) {
+      queryParameters['studentCodes'] = studentCodes
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
     }
@@ -126,7 +132,10 @@ class StudentClassroomRemoteDataSourceImpl
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
-      options: Options(headers: headers),
+      options: Options(
+        headers: headers,
+        listFormat: ListFormat.multiCompatible,
+      ),
     );
 
     final body = response.data;
