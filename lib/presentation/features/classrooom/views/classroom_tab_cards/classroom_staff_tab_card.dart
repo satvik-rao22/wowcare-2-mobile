@@ -532,6 +532,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
                 ),
+                color: Colors.white,
                 child: Column(
                   children: [
                     Padding(
@@ -545,6 +546,14 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   controller: _searchController,
                                   constraints:
                                       const BoxConstraints(minHeight: 36),
+                                  backgroundColor:
+                                      const WidgetStatePropertyAll<Color>(
+                                    Colors.white,
+                                  ),
+                                  surfaceTintColor:
+                                      const WidgetStatePropertyAll<Color>(
+                                    Colors.white,
+                                  ),
                                   hintText: 'Search',
                                   hintStyle: const WidgetStatePropertyAll(
                                     TextStyle(
@@ -907,25 +916,25 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.primaryColor.withValues(alpha: 0.1),
+          fillColor: Colors.white,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
         ),

@@ -67,92 +67,102 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
           final details = _details;
           return GlobalScaffold(
             hasBackButton: false,
-            body: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            bodyPadding: EdgeInsets.zero,
+            body: Container(
+              color: Colors.white,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: ClassroomDropdown(
-                          items: dropdownItems.isEmpty
-                              ? const ['Loading...']
-                              : dropdownItems,
-                          value: dropdownItems.isEmpty
-                              ? 'Loading...'
-                              : (_selectedRoom?.name ?? dropdownItems.first),
-                          onChanged: (value) {
-                            if (dropdownItems.isEmpty) return;
-                            final selected =
-                                classrooms.firstWhere((c) => c.name == value);
-                            setState(() {
-                              _selectedRoom = selected;
-                            });
-                            _loadDetails(selected.code);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      details?.name.isNotEmpty == true
-                          ? details!.name
-                          : 'Classroom Overview',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (isInitialLoading || _isDetailsLoading)
-                    const Center(child: PrimaryCircularLoader())
-                  else ...[
-                    if (_detailsError != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          'Failed to load classroom details',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.red,
-                              ),
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
+                      Row(
                         children: [
-                          _OverviewStatCard(
-                            title: 'Capacity',
-                            value: (details?.capacity ?? 0).toString(),
-                          ),
-                          _OverviewStatCard(
-                            title: 'Ratio',
-                            value: '${details?.studentsPerTeacher ?? 0}:1',
-                          ),
-                          _OverviewStatCard(
-                            title: 'Status',
-                            value: details?.status.isNotEmpty == true
-                                ? details!.status
-                                : 'ACTIVE',
+                          Expanded(
+                            child: ClassroomDropdown(
+                              items: dropdownItems.isEmpty
+                                  ? const ['Loading...']
+                                  : dropdownItems,
+                              value: dropdownItems.isEmpty
+                                  ? 'Loading...'
+                                  : (_selectedRoom?.name ?? dropdownItems.first),
+                              onChanged: (value) {
+                                if (dropdownItems.isEmpty) return;
+                                final selected = classrooms
+                                    .firstWhere((c) => c.name == value);
+                                setState(() {
+                                  _selectedRoom = selected;
+                                });
+                                _loadDetails(selected.code);
+                              },
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: _ClassroomApiDetailsCard(details: details),
-                    ),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: _RatioMonitoringPlaceholder(),
-                    ),
-                  ],
-                ],
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          details?.name.isNotEmpty == true
+                              ? details!.name
+                              : 'Classroom Overview',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (isInitialLoading || _isDetailsLoading)
+                        const Center(child: PrimaryCircularLoader())
+                      else ...[
+                        if (_detailsError != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              'Failed to load classroom details',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.red,
+                                  ),
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              _OverviewStatCard(
+                                title: 'Capacity',
+                                value: (details?.capacity ?? 0).toString(),
+                              ),
+                              _OverviewStatCard(
+                                title: 'Ratio',
+                                value: '${details?.studentsPerTeacher ?? 0}:1',
+                              ),
+                              _OverviewStatCard(
+                                title: 'Status',
+                                value: details?.status.isNotEmpty == true
+                                    ? details!.status
+                                    : 'ACTIVE',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: _ClassroomApiDetailsCard(details: details),
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: _RatioMonitoringPlaceholder(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           );

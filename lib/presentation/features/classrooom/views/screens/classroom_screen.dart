@@ -166,126 +166,130 @@ class _ClassroomScreenState extends State<ClassroomScreen>
           final dropdownItems = classrooms.map((c) => c.name).toList();
 
           return GlobalScaffold(
+            bodyPadding: EdgeInsets.zero,
             floatingActionButton: _buildTabFab(context),
-            body: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: ClassroomDropdown(
-                        items: dropdownItems.isEmpty
-                            ? const ['Loading...']
-                            : dropdownItems,
-                        value: dropdownItems.isEmpty
-                            ? 'Loading...'
-                            : (selectedRoom?.name ?? dropdownItems.first),
-                        onChanged: (value) {
-                          if (dropdownItems.isEmpty) return;
-                          setState(() {
-                            selectedRoom =
-                                classrooms.firstWhere((c) => c.name == value);
-                          });
+            body: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: ClassroomDropdown(
+                          items: dropdownItems.isEmpty
+                              ? const ['Loading...']
+                              : dropdownItems,
+                          value: dropdownItems.isEmpty
+                              ? 'Loading...'
+                              : (selectedRoom?.name ?? dropdownItems.first),
+                          onChanged: (value) {
+                            if (dropdownItems.isEmpty) return;
+                            setState(() {
+                              selectedRoom =
+                                  classrooms.firstWhere((c) => c.name == value);
+                            });
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          if (selectedRoom == null) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ClassroomInfoScreen(),
+                              settings: RouteSettings(arguments: selectedRoom),
+                            ),
+                          );
                         },
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        if (selectedRoom == null) return;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ClassroomInfoScreen(),
-                            settings: RouteSettings(arguments: selectedRoom),
-                          ),
-                        );
-                      },
-                      icon: SvgPicture.asset(
-                        MediaRes.infoButtonSelectedIcon,
-                        height: 32,
-                      ),
-                    ),
-                  ],
-                ),
-                Transform.translate(
-                  offset: const Offset(0, 4),
-                  child: TabBar(
-                    controller: _tabController,
-                    dividerHeight: 0,
-                    indicator: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(12),
-                      ),
-                      border: Border.all(
-                        color: AppColors.classroomStudentTabColor
-                            .withValues(alpha: 1),
-                      ),
-                    ),
-                    labelStyle: TextTheme.of(context).titleSmall!.copyWith(
-                          color: AppColors.primaryColor,
-                          fontSize: 15,
-                        ),
-                    unselectedLabelStyle: TextTheme.of(context)
-                        .titleSmall!
-                        .copyWith(
-                          color:
-                              AppColors.primaryColor.withValues(alpha: 0.5),
-                          fontSize: 15,
-                        ),
-                    labelPadding: const EdgeInsets.all(0),
-                    indicatorPadding: _tabController.index == 0
-                        ? const EdgeInsets.only(right: 4)
-                        : _tabController.index == 1
-                            ? const EdgeInsets.symmetric(horizontal: 2)
-                            : const EdgeInsets.only(left: 4),
-                    splashFactory: NoSplash.splashFactory,
-                    tabs: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: _buildTab(
-                          label: 'Students',
-                          color: AppColors.classroomStudentTabColor,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: _buildTab(
-                          label: 'Staff',
-                          color: AppColors.classroomStaffTabColor,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: _builtNotesTab(
-                          label: 'Notes',
-                          color: AppColors.classroomNotesTabColor,
+                        icon: SvgPicture.asset(
+                          MediaRes.infoButtonIcon,
+                          height: 32,
                         ),
                       ),
                     ],
                   ),
-                ),
-                Expanded(
-                  child: isInitialLoading
-                      ? const Center(child: PrimaryCircularLoader())
-                      : TabBarView(
-                          controller: _tabController,
-                          children: [
-                            ClassroomStudentsTabCard(
-                              scrollController: _studentsScrollController,
-                              selectedRoom: selectedRoom,
-                            ),
-                            ClassroomStaffTabCard(
-                              scrollController: _staffScrollController,
-                              selectedRoom: selectedRoom,
-                            ),
-                            ClassroomNotesTabCard(
-                              scrollController: _notesScrollController,
-                              selectedRoom: selectedRoom,
-                            ),
-                          ],
+                  Transform.translate(
+                    offset: const Offset(0, 4),
+                    child: TabBar(
+                      controller: _tabController,
+                      dividerHeight: 0,
+                      indicator: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
                         ),
-                ),
-              ],
+                        border: Border.all(
+                          color: AppColors.classroomStudentTabColor
+                              .withValues(alpha: 1),
+                        ),
+                      ),
+                      labelStyle: TextTheme.of(context).titleSmall!.copyWith(
+                            color: AppColors.primaryColor,
+                            fontSize: 15,
+                          ),
+                      unselectedLabelStyle: TextTheme.of(context)
+                          .titleSmall!
+                          .copyWith(
+                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            fontSize: 15,
+                          ),
+                      labelPadding: const EdgeInsets.all(0),
+                      indicatorPadding: _tabController.index == 0
+                          ? const EdgeInsets.only(right: 4)
+                          : _tabController.index == 1
+                              ? const EdgeInsets.symmetric(horizontal: 2)
+                              : const EdgeInsets.only(left: 4),
+                      splashFactory: NoSplash.splashFactory,
+                      tabs: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: _buildTab(
+                            label: 'Students',
+                            color: AppColors.classroomStudentTabColor,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: _buildTab(
+                            label: 'Staff',
+                            color: AppColors.classroomStaffTabColor,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: _builtNotesTab(
+                            label: 'Notes',
+                            color: AppColors.classroomNotesTabColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: isInitialLoading
+                        ? const Center(child: PrimaryCircularLoader())
+                        : TabBarView(
+                            controller: _tabController,
+                            children: [
+                              ClassroomStudentsTabCard(
+                                scrollController: _studentsScrollController,
+                                selectedRoom: selectedRoom,
+                              ),
+                              ClassroomStaffTabCard(
+                                scrollController: _staffScrollController,
+                                selectedRoom: selectedRoom,
+                              ),
+                              ClassroomNotesTabCard(
+                                scrollController: _notesScrollController,
+                                selectedRoom: selectedRoom,
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
           );
         },

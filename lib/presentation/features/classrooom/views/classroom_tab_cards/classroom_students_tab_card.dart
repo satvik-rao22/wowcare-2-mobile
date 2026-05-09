@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
@@ -743,6 +744,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
                 ),
+                color: Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -753,6 +755,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             child: SearchBar(
                               controller: _searchController,
                               constraints: const BoxConstraints(minHeight: 36),
+                              backgroundColor:
+                                  const WidgetStatePropertyAll<Color>(
+                                Colors.white,
+                              ),
+                              surfaceTintColor:
+                                  const WidgetStatePropertyAll<Color>(
+                                Colors.white,
+                              ),
                               hintText: 'Search',
                               hintStyle: const WidgetStatePropertyAll(
                                 TextStyle(
@@ -992,7 +1002,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       builder: (context) {
                           if (state.isLoading && visibleStudents.isEmpty) {
                             return const Center(
-                              child: CircularProgressIndicator(),
+                              child: PrimaryCircularLoader(),
                             );
                           }
 
@@ -1226,25 +1236,25 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.primaryColor.withValues(alpha: 0.1),
+          fillColor: Colors.white,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
         ),

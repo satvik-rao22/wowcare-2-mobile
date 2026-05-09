@@ -239,6 +239,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
 
           return GlobalScaffold(
+            bodyPadding: EdgeInsets.zero,
             body: CustomRefreshIndicator(
               onRefresh: () async {
                 await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
@@ -247,158 +248,179 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 }
                 await _loadSummaries();
               },
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Container(
+                color: Colors.white,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: ClassroomDropdown(
-                            items: dropdownItems.isEmpty ? const ['Loading...'] : dropdownItems,
-                            value: dropdownItems.isEmpty
-                                ? 'Loading...'
-                                : (_selectedRoom?.name ?? dropdownItems.first),
-                            onChanged: (value) {
-                              if (dropdownItems.isEmpty) return;
-                              final selected = classrooms.firstWhere((c) => c.name == value);
-                              setState(() {
-                                _selectedRoom = selected;
-                              });
-                              _loadDetails(selected.code);
-                            },
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: SvgPicture.asset(
-                            MediaRes.classroomInfoIcon,
-                            height: 28,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (isInitialLoading || _isDetailsLoading || _isSummaryLoading)
-                      const Center(child: PrimaryCircularLoader())
-                    else if (_detailsError != null)
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(
-                          'Failed to load classroom details',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red),
-                        ),
-                      )
-                    else if (_summaryError != null)
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(
-                          'Failed to load summary cards',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red),
-                        ),
-                      )
-                    else if (_details != null)
-                      _buildRoomDetailsCard(_details!),
-                    const SizedBox(height: 16),
-                    _buildInfoCard(
-                      title: 'Enrolled\nStudents',
-                      number: '0',
-                      items: [
-                        _ProgressItem(
-                          label: 'Active (0)',
-                          value: 0,
-                          color: Colors.lightBlue,
-                        ),
-                        _ProgressItem(
-                          label: 'Upcoming (0)',
-                          value: 0,
-                          color: Colors.amber,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfoCard(
-                      title: 'Expected\nStudents',
-                      number: (_studentSummary?.expected ?? 0).toString(),
-                      items: [
-                        _ProgressItem(
-                          label: 'Present (${_studentSummary?.present ?? 0})',
-                          value: (_studentSummary?.present ?? 0).toDouble(),
-                          color: Colors.green,
-                        ),
-                        _ProgressItem(
-                          label: 'Absent (${_studentSummary?.absent ?? 0})',
-                          value: (_studentSummary?.absent ?? 0).toDouble(),
-                          color: Colors.red,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfoCard(
-                      title: 'Expected\nStaff',
-                      number: (_staffSummary?.expected ?? 0).toString(),
-                      items: [
-                        _ProgressItem(
-                          label: 'Present (${_staffSummary?.present ?? 0})',
-                          value: (_staffSummary?.present ?? 0).toDouble(),
-                          color: Colors.green,
-                        ),
-                        _ProgressItem(
-                          label: 'Absent (${_staffSummary?.absent ?? 0})',
-                          value: (_staffSummary?.absent ?? 0).toDouble(),
-                          color: Colors.red,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                          width: 1.5,
-                          color: Color.fromARGB(255, 232, 234, 234),
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Events',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff573353),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: ClassroomDropdown(
+                                items: dropdownItems.isEmpty
+                                    ? const ['Loading...']
+                                    : dropdownItems,
+                                value: dropdownItems.isEmpty
+                                    ? 'Loading...'
+                                    : (_selectedRoom?.name ??
+                                        dropdownItems.first),
+                                onChanged: (value) {
+                                  if (dropdownItems.isEmpty) return;
+                                  final selected = classrooms
+                                      .firstWhere((c) => c.name == value);
+                                  setState(() {
+                                    _selectedRoom = selected;
+                                  });
+                                  _loadDetails(selected.code);
+                                },
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Icon(Icons.chevron_left, color: Colors.grey),
-                                Text(
-                                  'Nov 2025',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    color: Color(0xff573353),
-                                  ),
-                                ),
-                                Icon(Icons.chevron_right, color: Colors.grey),
-                              ],
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: SvgPicture.asset(
+                                MediaRes.classroomInfoIcon,
+                                height: 28,
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            const EventsCard(),
-                            const SizedBox(height: 16),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        if (isInitialLoading ||
+                            _isDetailsLoading ||
+                            _isSummaryLoading)
+                          const Center(child: PrimaryCircularLoader())
+                        else if (_detailsError != null)
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Text(
+                              'Failed to load classroom details',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.red),
+                            ),
+                          )
+                        else if (_summaryError != null)
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Text(
+                              'Failed to load summary cards',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.red),
+                            ),
+                          )
+                        else if (_details != null)
+                          _buildRoomDetailsCard(_details!),
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          title: 'Enrolled\nStudents',
+                          number: '0',
+                          items: [
+                            _ProgressItem(
+                              label: 'Active (0)',
+                              value: 0,
+                              color: Colors.lightBlue,
+                            ),
+                            _ProgressItem(
+                              label: 'Upcoming (0)',
+                              value: 0,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          title: 'Expected\nStudents',
+                          number: (_studentSummary?.expected ?? 0).toString(),
+                          items: [
+                            _ProgressItem(
+                              label:
+                                  'Present (${_studentSummary?.present ?? 0})',
+                              value: (_studentSummary?.present ?? 0).toDouble(),
+                              color: Colors.green,
+                            ),
+                            _ProgressItem(
+                              label: 'Absent (${_studentSummary?.absent ?? 0})',
+                              value: (_studentSummary?.absent ?? 0).toDouble(),
+                              color: Colors.red,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          title: 'Expected\nStaff',
+                          number: (_staffSummary?.expected ?? 0).toString(),
+                          items: [
+                            _ProgressItem(
+                              label:
+                                  'Present (${_staffSummary?.present ?? 0})',
+                              value: (_staffSummary?.present ?? 0).toDouble(),
+                              color: Colors.green,
+                            ),
+                            _ProgressItem(
+                              label: 'Absent (${_staffSummary?.absent ?? 0})',
+                              value: (_staffSummary?.absent ?? 0).toDouble(),
+                              color: Colors.red,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            side: const BorderSide(
+                              width: 1.5,
+                              color: Color.fromARGB(255, 232, 234, 234),
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Events',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xff573353),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: const [
+                                    Icon(Icons.chevron_left, color: Colors.grey),
+                                    Text(
+                                      'Nov 2025',
+                                      style: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        color: Color(0xff573353),
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right, color: Colors.grey),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                const EventsCard(),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
