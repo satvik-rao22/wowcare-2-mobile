@@ -1259,6 +1259,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                           staffCode: staff.code,
                                           name: staff.name,
                                           classroom: primaryClassroomName,
+                                          profilePhotoAssetCode:
+                                              staff.profilePhotoAssetCode,
                                           allowedClassrooms:
                                               allowedClassroomNames,
                                           // Days with any work/break schedule from staff list API.

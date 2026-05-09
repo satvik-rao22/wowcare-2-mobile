@@ -522,6 +522,8 @@ class _StudentScreenState extends State<StudentScreen> {
   }) {
     return {
       'name': student.fullName,
+      'profileImage': student.profileImage,
+      'profilePhotoAssetCode': student.profilePhotoAssetCode,
       'Classroom': _classroomDisplayName(
         student.classroom,
         classroomNameByCode: classroomNameByCode,
@@ -1666,6 +1668,10 @@ class _StudentScreenState extends State<StudentScreen> {
                             StudentCard(
                               studentCode: studentMap['code'] as String,
                               name: studentMap['name'] as String,
+                              profileImage:
+                                  studentMap['profileImage'] as String?,
+                              profilePhotoAssetCode:
+                                  studentMap['profilePhotoAssetCode'] as String?,
                               classroom: studentMap['Classroom'] as String,
                               tags: studentMap['Tags'] as List<String>,
                               sibling:

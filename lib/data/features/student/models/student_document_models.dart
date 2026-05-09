@@ -11,6 +11,7 @@ class StudentDocumentRequestModel extends Equatable {
     required this.size,
     required this.ownerType,
     required this.ownerId,
+    this.assetCode,
     this.uploadedBy,
     this.notes,
   });
@@ -23,6 +24,7 @@ class StudentDocumentRequestModel extends Equatable {
   final int size;
   final String ownerType;
   final String ownerId;
+  final String? assetCode;
   final String? uploadedBy;
   final String? notes;
 
@@ -36,6 +38,8 @@ class StudentDocumentRequestModel extends Equatable {
       'size': size,
       'ownerType': ownerType,
       'ownerId': ownerId,
+      if (assetCode != null && assetCode!.trim().isNotEmpty)
+        'assetCode': assetCode!.trim(),
       if (uploadedBy != null && uploadedBy!.trim().isNotEmpty)
         'uploadedBy': uploadedBy!.trim(),
       'notes': notes ?? '',
@@ -52,6 +56,7 @@ class StudentDocumentRequestModel extends Equatable {
         size,
         ownerType,
         ownerId,
+        assetCode,
         uploadedBy,
         notes,
       ];

@@ -15,6 +15,7 @@ class StaffCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.avatarUrl,
+    this.profilePhotoAssetCode,
     required this.allowedClassrooms,
     required this.schedule,
     required this.designation,
@@ -36,6 +37,7 @@ class StaffCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? avatarUrl;
+  final String? profilePhotoAssetCode;
   final List<String> allowedClassrooms;
   final List<String> schedule;
   final String designation;
@@ -162,9 +164,12 @@ class _StaffCardState extends State<StaffCard> {
                           */
                           DocumentImageWidget(
                             fileUuid: widget.staffCode,
+                            imageUrl: widget.avatarUrl,
+                            mediaAssetCode: widget.profilePhotoAssetCode,
                             name: widget.name,
                             staffCode: widget.staffCode,
                             staffEmploymentStatus: widget.status,
+                            disableProfileLookupFallback: true,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),

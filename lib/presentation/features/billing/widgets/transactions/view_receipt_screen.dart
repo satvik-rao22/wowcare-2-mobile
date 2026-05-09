@@ -22,9 +22,6 @@ class ViewReceiptScreen extends StatefulWidget {
 class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   // Dummy data for UI
   Map<String, dynamic>? _addressEntity;
-  bool _isAddressLoading = false;
-  bool _isInvoiceLoading = false;
-  bool _isInvoiceItemsLoading = false;
   Map<String, dynamic>? _invoiceDetails;
   List<Map<String, dynamic>>? _invoiceItems;
 
@@ -34,17 +31,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     _initializeDummyData();
   }
 
-  Future<void> _initializeDummyData() async {
-    // Simulate loading
-    setState(() {
-      _isAddressLoading = true;
-      _isInvoiceLoading = true;
-      _isInvoiceItemsLoading = true;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
+  void _initializeDummyData() {
     // Load dummy data
     setState(() {
       _addressEntity = {
@@ -82,55 +69,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
           },
         ],
       ];
-
-      _isAddressLoading = false;
-      _isInvoiceLoading = false;
-      _isInvoiceItemsLoading = false;
     });
-  }
-
-  String _getInvoiceDate() {
-    if (_invoiceDetails != null && _invoiceDetails!['date'] != null) {
-      try {
-        final dateParsed = DateTime.parse(_invoiceDetails!['date'].toString());
-        return DateUtilsNew.formatToReadableDate(dateParsed);
-      } catch (e) {
-        // Fall through to transaction date
-      }
-    }
-    return DateUtilsNew.formatToReadableDate(widget.transaction.date);
-  }
-
-  String _getInvoicePeriod() {
-    if (_invoiceDetails == null) {
-      return 'Not available';
-    }
-
-    final startDate = _invoiceDetails!['startDate'];
-    final endDate = _invoiceDetails!['endDate'];
-
-    if (startDate == null && endDate == null) {
-      return 'Not available';
-    }
-
-    try {
-      String startText = 'Not available';
-      String endText = 'Not available';
-
-      if (startDate != null) {
-        final startParsed = DateTime.parse(startDate.toString());
-        startText = DateUtilsNew.formatToReadableDate(startParsed);
-      }
-
-      if (endDate != null) {
-        final endParsed = DateTime.parse(endDate.toString());
-        endText = DateUtilsNew.formatToReadableDate(endParsed);
-      }
-
-      return '$startText - $endText';
-    } catch (e) {
-      return 'Not available';
-    }
   }
 
   String _getDueDate() {
@@ -613,31 +552,6 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Invoice loading indicators
-          if (_isInvoiceLoading || _isInvoiceItemsLoading)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _isInvoiceLoading
-                        ? 'Loading invoice details...'
-                        : 'Loading invoice items...',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.billingGrey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           // Invoice details section (when available)
           if (_invoiceDetails != null) ...[
             // Show invoice number only for invoice view
