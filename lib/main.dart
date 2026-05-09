@@ -289,6 +289,16 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           await context.read<RoleProvider>().refreshAccessFromServer(
             force: true,
           );
+          // Guardian persona: preload children on app reopen so the global
+          // dropdown never triggers loading on first render.
+          try {
+            if (context.mounted && context.read<RoleProvider>().isParent) {
+              context.read<ParentChildProvider>().invalidate();
+              await context.read<ParentChildProvider>().ensureLoaded(force: true);
+            }
+          } catch (_) {
+            // Non-blocking
+          }
           final orgCode =
               (await storage.getString(StorageKeys.organizationCode) ?? '')
                   .trim();
