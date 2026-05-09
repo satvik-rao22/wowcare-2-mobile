@@ -15,6 +15,7 @@ abstract class StudentClassroomRemoteDataSource {
     String? firstName,
     String? lastName,
     String? search,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -75,6 +76,7 @@ class StudentClassroomRemoteDataSourceImpl
     String? firstName,
     String? lastName,
     String? search,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -101,6 +103,15 @@ class StudentClassroomRemoteDataSourceImpl
     }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
+    }
+    if (studentCodes != null && studentCodes.isNotEmpty) {
+      final normalized = studentCodes
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (normalized.isNotEmpty) {
+        queryParameters['studentCodes'] = normalized;
+      }
     }
     // Keep payload strictly aligned with backend request DTO for this API.
     if (tagCodes != null && tagCodes.isNotEmpty) {

@@ -20,11 +20,13 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_student_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
@@ -33,6 +35,16 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as transfer_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
+
+class _AttendanceCacheEntry {
+  const _AttendanceCacheEntry({
+    required this.fetchedAt,
+    required this.statusByCode,
+  });
+
+  final DateTime fetchedAt;
+  final Map<String, String> statusByCode;
+}
 
 class ClassroomStudentsTabCard extends StatefulWidget {
   const ClassroomStudentsTabCard({
@@ -55,8 +67,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   bool isSelectAllChecked = false;
   Map<String, bool> studentSelections = {};
   List<String> _selectedStatus = [];
+  List<String> _selectedTagCodes = [];
   bool _isNappingFilter = false; // Toggle for napping students
   bool _isPresentFilter = false; // Toggle for present students
+  Set<String> _nappingStudentCodes = <String>{};
+  int _napCodesFetchToken = 0;
   StudentPanelType _currentPanel = StudentPanelType.none;
   bool _showActivitiesPanel = false;
   bool _isAttendanceActionLoading = false;
@@ -69,6 +84,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+  int _visibleAttendanceFetchToken = 0;
+  Set<String> _lastVisibleAttendanceCodes = <String>{};
+
+  static const Duration _attendanceCacheTtl = Duration(minutes: 10);
+  static final Map<String, _AttendanceCacheEntry> _attendanceCacheByKey =
+      <String, _AttendanceCacheEntry>{};
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
@@ -85,6 +106,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _cubit = serviceLocator<ClassroomStudentsCubit>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
+    _loadNapStartStudentCodes(refresh: false);
   }
 
   void _loadForSelectedRoom({required bool refresh}) {
@@ -95,20 +117,48 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         ? null
         : _searchController.text.trim();
 
-    final status = _selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus);
+    final status =
+        _selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus);
+    final tagCodes =
+        _selectedTagCodes.isEmpty ? null : List<String>.from(_selectedTagCodes);
 
     if (refresh) {
       _cubit.refresh(
         classroomCode: classroomCode,
         search: search,
         status: status,
+        tagCodes: tagCodes,
       );
     } else {
       _cubit.loadInitial(
         classroomCode: classroomCode,
         search: search,
         status: status,
+        tagCodes: tagCodes,
       );
+    }
+  }
+
+  Future<void> _loadNapStartStudentCodes({required bool refresh}) async {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    if (classroomCode.isEmpty) return;
+
+    final token = ++_napCodesFetchToken;
+    try {
+      final useCase = serviceLocator<GetNapStartStudentsUseCase>();
+      final codes = await useCase(classroomCode: classroomCode);
+      final normalized = codes
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      if (!mounted || token != _napCodesFetchToken) return;
+      setState(() {
+        _nappingStudentCodes = normalized;
+      });
+    } catch (_) {
+      if (!mounted || token != _napCodesFetchToken) return;
+      // Keep existing set on failure to avoid flicker.
     }
   }
 
@@ -121,9 +171,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         studentSelections.updateAll((key, val) => false);
         _searchController.clear();
         _selectedStatus = [];
+        _selectedTagCodes = [];
         _isNappingFilter = false;
+        _isPresentFilter = false;
       });
       _loadForSelectedRoom(refresh: false);
+      _loadNapStartStudentCodes(refresh: true);
     }
   }
 
@@ -183,13 +236,35 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return studentSelections.values.any((selected) => selected);
   }
 
+  Future<void> _openClassroomStudentFilter() async {
+    final result = await Navigator.push<ClassroomStudentFilterResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ClassroomStudentFilterScreen(
+          initialStatus: _selectedStatus,
+          initialTagCodes: _selectedTagCodes,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    setState(() {
+      _selectedStatus = List<String>.from(result.status);
+      _selectedTagCodes = List<String>.from(result.tagCodes);
+    });
+    _loadForSelectedRoom(refresh: false);
+  }
+
   void _clearAllSelections() {
     setState(() {
       isSelectAllChecked = false;
       studentSelections.updateAll((key, val) => false);
       _searchController.clear();
       _selectedStatus = ['ACTIVE'];
+      _selectedTagCodes = [];
       _isNappingFilter = false;
+      _isPresentFilter = false;
       _currentPanel = StudentPanelType.none;
     });
     _clearAttendanceEntityCaches();
@@ -232,7 +307,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   Map<String, dynamic> _getStudentIcons(StudentClassroomItem student) {
     final icons = <String, dynamic>{};
 
-    if (student.nap) {
+    final normalized = student.studentCode.trim().toUpperCase();
+    final isNapping = student.nap || _nappingStudentCodes.contains(normalized);
+    if (isNapping) {
       icons["napping"] = {
         "icon": 'assets/images/icons/sleep.png',
         "info": 'Student is napping',
@@ -269,6 +346,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return icons;
   }
 
+  void _applyNappingToggle(bool enabled) {
+    setState(() {
+      _isNappingFilter = enabled;
+    });
+  }
+
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
     if (!hasSelectedStudents) return false;
     return selectedStudents.every((student) => student.signedIn);
@@ -284,6 +367,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  String _attendanceCacheKeyForRoomToday() {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    final date = _formatDate(DateTime.now());
+    return 'students:$classroomCode:$date';
+  }
+
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
 
   String? _todayStatusForStudentCode(String code) {
@@ -297,6 +386,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       if (_normalizeStudentCode(e.key) == u) return e.value;
     }
     return null;
+  }
+
+  bool _isSignedInFromAttendanceStatus(StudentClassroomItem student) {
+    final raw = _todayStatusForStudentCode(student.studentCode);
+    final normalized = (raw ?? '').trim().toUpperCase();
+    if (normalized == 'SIGNED_IN') return true;
+    // Fallback to classroom list flag when map isn't loaded yet.
+    return student.signedIn;
   }
 
   Future<void> _refreshAttendanceStatusForSelection(
@@ -347,6 +444,74 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       });
     } catch (_) {
       if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  Future<void> _refreshAttendanceStatusForVisibleStudents(
+    List<StudentClassroomItem> visibleStudents,
+  ) async {
+    final codes = visibleStudents
+        .map((s) => s.studentCode.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet();
+
+    final cacheKey = _attendanceCacheKeyForRoomToday();
+    final cached = _attendanceCacheByKey[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(cached.statusByCode);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    }
+
+    if (codes.isEmpty) {
+      _lastVisibleAttendanceCodes = <String>{};
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (setEquals(codes, _lastVisibleAttendanceCodes)) return;
+    _lastVisibleAttendanceCodes = codes;
+
+    final token = ++_visibleAttendanceFetchToken;
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: codes.toList());
+      if (!mounted || token != _visibleAttendanceFetchToken) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      _attendanceCacheByKey[cacheKey] = _AttendanceCacheEntry(
+        fetchedAt: DateTime.now(),
+        statusByCode: Map<String, String>.from(map),
+      );
+    } catch (_) {
+      if (!mounted || token != _visibleAttendanceFetchToken) return;
       setState(() {
         _attendanceStatusByStudentCode.clear();
         _attendanceStatusLoading = false;
@@ -725,12 +890,26 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       value: _cubit,
       child: BlocBuilder<ClassroomStudentsCubit, ClassroomStudentsState>(
         builder: (context, state) {
-          final visibleStudents = ClassroomStudentsCubit.applyClientFilters(
-            state.students,
-            presentOnly: _isPresentFilter,
-            nappingOnly: _isNappingFilter,
-            searchText: _searchController.text,
-          )..sort((a, b) => a.fullName.compareTo(b.fullName));
+          final q = _searchController.text.trim().toLowerCase();
+          final visibleStudents = state.students.where((s) {
+            if (_isPresentFilter && !_isSignedInFromAttendanceStatus(s)) {
+              return false;
+            }
+            if (_isNappingFilter) {
+              final code = s.studentCode.trim().toUpperCase();
+              final isNapping = s.nap || _nappingStudentCodes.contains(code);
+              if (!isNapping) return false;
+            }
+            if (q.isNotEmpty && !s.fullName.toLowerCase().contains(q)) {
+              return false;
+            }
+            return true;
+          }).toList()
+            ..sort((a, b) => a.fullName.compareTo(b.fullName));
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _refreshAttendanceStatusForVisibleStudents(visibleStudents);
+          });
 
           final selectedStudents = _getSelectedStudents(visibleStudents);
 
@@ -792,9 +971,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            onPressed: () {
-                              // TODO: open filter modal
-                            },
+                            onPressed: _openClassroomStudentFilter,
                             icon: SvgPicture.asset(
                               MediaRes.filterIcon,
                               height: 22,
@@ -962,7 +1139,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       Row(
                         children: [
                           CustomToggle(
-                            label: 'Present',
+                            label: 'Signed In',
                             isToggled: _isPresentFilter,
                             onToggle: (value) {
                               setState(() {
@@ -981,9 +1158,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             label: 'Napping',
                             isToggled: _isNappingFilter,
                             onToggle: (value) {
-                              setState(() {
-                                _isNappingFilter = value;
-                              });
+                              _applyNappingToggle(value);
                             },
                             labelStyle: const TextStyle(
                               fontFamily: 'Manrope',
@@ -1010,6 +1185,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             return CustomRefreshIndicator(
                               onRefresh: () async {
                                 _loadForSelectedRoom(refresh: true);
+                                await _loadNapStartStudentCodes(refresh: true);
                               },
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
@@ -1041,6 +1217,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           return CustomRefreshIndicator(
                             onRefresh: () async {
                               _loadForSelectedRoom(refresh: true);
+                              await _loadNapStartStudentCodes(refresh: true);
                             },
                             child: ListView.builder(
                               itemCount: visibleStudents.length,
@@ -1048,10 +1225,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                 final student = visibleStudents[index];
                               return ClassroomStudentListItem(
                                     studentId: student.studentCode.hashCode,
+                                    studentCode: student.studentCode,
                                     isSignedIn: student.signedIn,
                                     isAbsent: student.absent,
                                     isExpectedToday: student.expectedToday,
                                     studentStatus: student.status,
+                                    todayAttendanceStatusRaw: _todayStatusForStudentCode(
+                                      student.studentCode,
+                                    ),
                                     name: student.fullName,
                                     imageUrl: student.profilePictureUrl ?? '',
                                     icons: _getStudentIcons(student),
