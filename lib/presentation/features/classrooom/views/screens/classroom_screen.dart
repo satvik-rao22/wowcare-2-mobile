@@ -5,6 +5,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
@@ -38,6 +40,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   final ScrollController _staffScrollController = ScrollController();
   final ScrollController _notesScrollController = ScrollController();
   Classroom? selectedRoom;
+  bool _hideAssignFabForStaffPersona = false;
 
   @override
   void initState() {
@@ -51,6 +54,20 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     _tabController.addListener(() {
       setState(() {});
     });
+
+    _resolveStaffPersonaRestrictions();
+  }
+
+  Future<void> _resolveStaffPersonaRestrictions() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final shouldScope =
+          await isAttendanceScopedStaffPersona(storage: storage);
+      if (!mounted) return;
+      setState(() => _hideAssignFabForStaffPersona = shouldScope);
+    } catch (_) {
+      // Fail open: keep FAB visible.
+    }
   }
 
   @override
@@ -154,7 +171,8 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
@@ -304,6 +322,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   Widget? _buildTabFab(BuildContext context) {
     // Show respective FAB only on Students (0) and Staff (1) tabs
     if (selectedRoom == null) return null;
+    if (_hideAssignFabForStaffPersona) return null;
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;

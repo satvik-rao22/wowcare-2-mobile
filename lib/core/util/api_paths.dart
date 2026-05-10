@@ -518,6 +518,12 @@ class ApiPaths {
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
+  static const String classroomLogoAssetCodes =
+      '/api/v1/classroom/classroom-logo/asset-codes';
+  static String classroomLogoUploadSessionPath(String classroomCode) =>
+      '/api/v1/classroom/${classroomCode.trim()}/logo/upload-session';
+  static String classroomLogoFinalizePath(String classroomCode) =>
+      '/api/v1/classroom/${classroomCode.trim()}/logo/finalize';
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
 
   // —— Activity host ——

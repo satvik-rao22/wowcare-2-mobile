@@ -99,7 +99,8 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final totalClassrooms = state.classrooms.length;

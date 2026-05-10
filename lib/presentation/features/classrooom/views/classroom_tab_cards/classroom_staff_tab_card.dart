@@ -943,8 +943,22 @@ class _StaffListItem extends StatelessWidget {
                 child: DocumentImageWidget(
                   fileUuid:
                       staff.staffCode.trim().isNotEmpty ? staff.staffCode : staff.name,
-                  imageUrl: staff.photoUuid.trim().isNotEmpty ? staff.photoUuid : null,
+                    imageUrl: (() {
+                      final raw = staff.photoUuid.trim();
+                      final looksLikeUrl =
+                          raw.startsWith('http://') || raw.startsWith('https://');
+                      return looksLikeUrl ? raw : null;
+                    })(),
+                    mediaAssetCode: (() {
+                      final raw = staff.photoUuid.trim();
+                      final looksLikeUrl =
+                          raw.startsWith('http://') || raw.startsWith('https://');
+                      return (!looksLikeUrl && raw.isNotEmpty) ? raw : null;
+                    })(),
                   name: staff.name,
+                    staffCode: staff.staffCode.trim().isNotEmpty
+                        ? staff.staffCode.trim()
+                        : null,
                   staffEmploymentStatus: staff.profileStatus,
                   statusColor: attendanceDotColor,
                   statusTooltip: attendanceTooltip,

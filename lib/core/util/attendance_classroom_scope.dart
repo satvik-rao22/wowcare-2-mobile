@@ -8,6 +8,32 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import '../storage/storage_service.dart';
 import 'storage_keys.dart';
 
+bool _isGuardianPersonaRole(String role) {
+  final r = role.trim().toUpperCase();
+  return r.contains('GUARDIAN') || r.contains('PARENT');
+}
+
+bool _isStaffPersonaRole(String role) {
+  final r = role.trim().toUpperCase();
+  return r.contains('STAFF') || r.contains('TEACHER');
+}
+
+Future<String> _resolveActivePersonaRole(StorageService storage) async {
+  final activeRole =
+      (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+  if (activeRole.isNotEmpty) return activeRole;
+
+  // Fallback for older sessions: infer from available role payload.
+  final roleJson = (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+  if (roleJson.contains('STAFF') || roleJson.contains('TEACHER')) {
+    return 'STAFF';
+  }
+  if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
+    return 'GUARDIAN';
+  }
+  return '';
+}
+
 /// Encode list query params (e.g. `allowedClassroomCodes`) like the attendance datasource.
 final Options attendanceListQueryOptions = Options(
   listFormat: ListFormat.multiCompatible,
@@ -20,10 +46,13 @@ final Options attendanceListQueryOptions = Options(
 Future<List<String>> resolveAttendanceAllowedClassroomCodes({
   required StorageService storage,
 }) async {
-  final roleJson =
-      (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+  final activeRole = await _resolveActivePersonaRole(storage);
   // Parent/guardian persona must never send scoped classroom codes.
-  if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
+  if (_isGuardianPersonaRole(activeRole)) {
+    return <String>[];
+  }
+  // Non-staff personas should not be classroom-scoped.
+  if (!_isStaffPersonaRole(activeRole)) {
     return <String>[];
   }
 
@@ -104,9 +133,11 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
 Future<bool> isAttendanceScopedStaffPersona({
   required StorageService storage,
 }) async {
-  final roleJson =
-      (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
-  if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
+  final activeRole = await _resolveActivePersonaRole(storage);
+  if (_isGuardianPersonaRole(activeRole)) {
+    return false;
+  }
+  if (!_isStaffPersonaRole(activeRole)) {
     return false;
   }
 

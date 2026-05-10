@@ -81,6 +81,12 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
     final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
         ? 'Student is signed in'
         : (normalizedAttendance == 'ABSENT' ? 'Student is absent' : null);
+    final rawPhoto = widget.imageUrl.trim();
+    final bool looksLikeUrl =
+        rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
+    final String? directUrl = looksLikeUrl ? rawPhoto : null;
+    final String? assetCode =
+        (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -116,10 +122,12 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                             fileUuid: widget.studentCode.trim().isNotEmpty
                                 ? widget.studentCode
                                 : widget.studentId.toString(),
-                            imageUrl: widget.imageUrl.trim().isNotEmpty
-                                ? widget.imageUrl
-                                : null,
+                            imageUrl: directUrl,
+                            mediaAssetCode: assetCode,
                             name: widget.name,
+                            studentCode: widget.studentCode.trim().isNotEmpty
+                                ? widget.studentCode.trim()
+                                : null,
                             studentEnrollmentStatus: enrollmentStatus,
                             statusColor: attendanceDotColor,
                             statusTooltip: attendanceTooltip,

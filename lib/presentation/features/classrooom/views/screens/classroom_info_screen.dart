@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,14 +24,17 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class ClassroomInfoScreen extends StatefulWidget {
   const ClassroomInfoScreen({super.key});
@@ -58,6 +63,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   StudentAttendanceExpectedSummary? _studentSummary;
   StudentAttendanceExpectedSummary? _staffSummary;
   String? _summaryError;
+
+  String _classroomLogoUrl = '';
+  bool _isLogoLoading = false;
 
   late final CacheManager _cacheManager;
   late final StorageService _storage;
@@ -147,12 +155,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           horizontal: 14,
           vertical: 10,
         ),
-        leading: DocumentImageWidget(
-          fileUuid: '',
-          name: classroomName,
-          size: 60,
-          fontSize: 24,
-        ),
+        leading: _buildClassroomLogoAvatar(name: classroomName),
         title: Text(
           classroomName.trim().isEmpty ? 'Classroom' : classroomName.trim(),
           style: const TextStyle(
@@ -332,6 +335,70 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
+  Future<void> _loadClassroomLogo(String classroomCode) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    final schoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return;
+
+    try {
+      setState(() {
+        _isLogoLoading = true;
+      });
+
+      final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
+      final dio = serviceLocator<ApiClient>().client;
+      final response = await dio.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'classroomCode': code,
+          'schoolCode': schoolCode,
+        },
+      );
+
+      final body = response.data;
+      if (body is! Map<String, dynamic> || body['success'] == false) {
+        return;
+      }
+      final data = body['data'];
+      if (data is! List) return;
+
+      final matched = data.whereType<Map>().firstWhere(
+            (row) =>
+                (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
+                code.toUpperCase(),
+            orElse: () => <String, dynamic>{},
+          );
+      final assetCode =
+          (matched['logoAssetCode'] ?? '').toString().trim().toUpperCase();
+      if (!mounted) return;
+
+      if (assetCode.isEmpty) {
+        setState(() {
+          _classroomLogoUrl = '';
+        });
+        return;
+      }
+
+      final uploadService = serviceLocator<ImageUploadService>();
+      final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
+      if (!mounted) return;
+      setState(() {
+        _classroomLogoUrl = url;
+      });
+    } catch (_) {
+      // Non-fatal: fall back to initials circle.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLogoLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _loadDetails(
     String code, {
     bool refreshEnrolledCounts = false,
@@ -356,6 +423,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           forceRefresh: refreshEnrolledCounts,
         ),
         _loadSummaries(code),
+        _loadClassroomLogo(code),
       ]);
       if (!mounted) return;
       setState(() {
@@ -368,6 +436,213 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _isAllClassroomApisLoading = false;
         _detailsError = e.toString();
       });
+    }
+  }
+
+  Widget _buildClassroomLogoAvatar({required String name}) {
+    final trimmedName = name.trim();
+
+    final content = _classroomLogoUrl.trim().isNotEmpty
+        ? CircleAvatar(
+            radius: 30,
+            backgroundColor: const Color.fromARGB(255, 232, 234, 234),
+            backgroundImage: NetworkImage(_classroomLogoUrl.trim()),
+          )
+        : DocumentImageWidget(
+            fileUuid: '',
+            name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
+            size: 60,
+            fontSize: 24,
+          );
+
+    return GestureDetector(
+      onTap: _isLogoLoading ? null : _onPickAndUploadClassroomLogo,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          content,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color.fromARGB(255, 232, 234, 234),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                _classroomLogoUrl.trim().isNotEmpty
+                    ? Icons.edit_rounded
+                    : Icons.camera_alt_rounded,
+                size: 14,
+                color: AppColors.themeColor,
+              ),
+            ),
+          ),
+          if (_isLogoLoading)
+            const Positioned.fill(
+              child: Center(
+                child: SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onPickAndUploadClassroomLogo() async {
+    final classroom = _selectedRoom;
+    final classroomCode = (classroom?.code ?? '').trim();
+    if (classroomCode.isEmpty) return;
+
+    final organizationCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (organizationCode.isEmpty || schoolCode.isEmpty) return;
+
+    try {
+      final file = await CoreUtils.pickImage();
+      if (file == null) return;
+
+      if (!mounted) return;
+      CoreUtils.showLoadingDialog(context);
+      setState(() {
+        _isLogoLoading = true;
+      });
+
+      final dio = serviceLocator<ApiClient>().client;
+      final uploadService = serviceLocator<ImageUploadService>();
+
+      final uploadSessionEndpoint =
+          ApiPaths.url(ApiPaths.classroomLogoUploadSessionPath(classroomCode));
+      final sessionResponse = await dio.post<dynamic>(
+        uploadSessionEndpoint,
+        queryParameters: <String, dynamic>{
+          'organizationCode': organizationCode,
+          'schoolCode': schoolCode,
+        },
+      );
+      final sessionBody = sessionResponse.data;
+      if (sessionBody is! Map<String, dynamic> || sessionBody['success'] == false) {
+        throw Exception(
+          (sessionBody is Map ? (sessionBody['message'] ?? '') : '')
+              .toString()
+              .trim()
+              .isNotEmpty
+              ? (sessionBody['message'] ?? '').toString().trim()
+              : 'Unable to create upload session',
+        );
+      }
+      final sessionData = sessionBody['data'];
+      if (sessionData is! Map<String, dynamic>) {
+        throw Exception('Missing upload session data');
+      }
+      final sessionCode = (sessionData['sessionCode'] ?? '').toString().trim();
+      final documentApiBasePath =
+          (sessionData['documentApiBasePath'] ?? '/api/v1').toString().trim();
+      if (sessionCode.isEmpty) {
+        throw Exception('Upload session code is missing');
+      }
+
+      final lowerPath = file.path.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'classroom-logo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'CLASSROOM',
+        ownerCode: classroomCode,
+      );
+
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+      );
+
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+      );
+
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+
+      final finalizeEndpoint =
+          ApiPaths.url(ApiPaths.classroomLogoFinalizePath(classroomCode));
+      final finalizeResponse = await dio.post<dynamic>(
+        finalizeEndpoint,
+        data: <String, dynamic>{'assetCode': presign.assetCode.trim()},
+      );
+      final finalizeBody = finalizeResponse.data;
+      if (finalizeBody is! Map<String, dynamic> || finalizeBody['success'] == false) {
+        throw Exception(
+          (finalizeBody is Map ? (finalizeBody['message'] ?? '') : '')
+              .toString()
+              .trim()
+              .isNotEmpty
+              ? (finalizeBody['message'] ?? '').toString().trim()
+              : 'Unable to finalize classroom logo',
+        );
+      }
+      final finalizeData = finalizeBody['data'];
+      String resolvedUrl = '';
+      if (finalizeData is Map) {
+        resolvedUrl = (finalizeData['url'] ?? finalizeData['thumbnailUrl'] ?? '')
+            .toString()
+            .trim();
+      }
+      if (resolvedUrl.isEmpty) {
+        resolvedUrl = await uploadService.getMediaAssetUrlByCode(
+          assetCode: presign.assetCode,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _classroomLogoUrl = resolvedUrl;
+      });
+      Navigator.of(context).pop(); // loading
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Classroom logo updated successfully',
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).maybePop();
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLogoLoading = false;
+        });
+      }
     }
   }
 
@@ -391,12 +666,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           horizontal: 14,
           vertical: 10,
         ),
-        leading: DocumentImageWidget(
-          fileUuid: '',
-          name: details.name,
-          size: 60,
-          fontSize: 24,
-        ),
+        leading: _buildClassroomLogoAvatar(name: details.name),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
