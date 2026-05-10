@@ -22,6 +22,8 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
     this.initialData,
     this.isEditing = false,
     this.editingMovementId,
+    this.disablePastDates = false,
+    this.lockClassroomSelection = false,
   });
 
   /// Items are **codes**; UI can display names via [studentNamesByCode]/[classroomNamesByCode].
@@ -35,6 +37,8 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
   final MovementFormResult? initialData;
   final bool isEditing;
   final int? editingMovementId;
+  final bool disablePastDates;
+  final bool lockClassroomSelection;
 
   @override
   State<AddEditIndividualMovementScreen> createState() =>
@@ -246,6 +250,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                               ? null
                               : classroomOptions.codeToDisplay[_currentClassroom!.trim()],
                           showAsterisk: false,
+                          isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
                                 () => _currentClassroom = classroomOptions
                                     .displayToCode[(value ?? '').trim()],
@@ -268,6 +273,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                               ? null
                               : classroomOptions.codeToDisplay[_nextClassroom!.trim()],
                           showAsterisk: false,
+                          isEnabled: !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
                                 () => _nextClassroom = classroomOptions
                                     .displayToCode[(value ?? '').trim()],
@@ -291,6 +297,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                         ? null
                         : classroomOptions.codeToDisplay[_nextClassroom!.trim()],
                     showAsterisk: false,
+                    isEnabled: !widget.lockClassroomSelection,
                     onSelect: (value) => setState(
                           () => _nextClassroom = classroomOptions
                               .displayToCode[(value ?? '').trim()],
@@ -311,6 +318,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                         ? null
                         : classroomOptions.codeToDisplay[_currentClassroom!.trim()],
                     showAsterisk: false,
+                    isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
                     onSelect: (value) => setState(
                           () => _currentClassroom = classroomOptions
                               .displayToCode[(value ?? '').trim()],
@@ -324,6 +332,9 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               hasLabel: false,
               initialDate: _movementDate,
               fetchInitialTime: false,
+              firstDate: widget.disablePastDates
+                  ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
+                  : null,
               onDateSelected: (date) => setState(() => _movementDate = date),
             ),
             const SizedBox(height: 12),

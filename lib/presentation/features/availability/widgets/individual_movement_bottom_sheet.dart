@@ -31,6 +31,7 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
       break;
     case MovementBucket.confirmed:
       actions.add(IndividualMovementAction.edit);
+      actions.add(IndividualMovementAction.reject);
       actions.add(IndividualMovementAction.delete);
       break;
     case MovementBucket.rejected:

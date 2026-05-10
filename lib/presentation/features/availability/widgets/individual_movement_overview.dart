@@ -59,26 +59,28 @@ class IndividualMovementFilterCard extends StatelessWidget {
             selectedItems: selectedStudents,
             onChanged: onStudentsChanged,
             showSelectAll: true,
+            enableSearch: true,
+            searchHintText: 'Search students',
           ),
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'To Classrooms',
+                  hintText: 'From Classrooms',
                   items: classrooms,
-                  selectedItems: toClassrooms,
-                  onChanged: onToClassroomsChanged,
+                  selectedItems: fromClassrooms,
+                  onChanged: onFromClassroomsChanged,
                   showSelectAll: true,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'From Classrooms',
+                  hintText: 'To Classrooms',
                   items: classrooms,
-                  selectedItems: fromClassrooms,
-                  onChanged: onFromClassroomsChanged,
+                  selectedItems: toClassrooms,
+                  onChanged: onToClassroomsChanged,
                   showSelectAll: true,
                 ),
               ),
@@ -375,6 +377,12 @@ class _MovementRow extends StatelessWidget {
         ]);
         break;
       case MovementBucket.confirmed:
+        actions.addAll(const [
+          IndividualMovementAction.edit,
+          IndividualMovementAction.reject,
+          IndividualMovementAction.delete,
+        ]);
+        break;
       case MovementBucket.rejected:
         actions.addAll(const [
           IndividualMovementAction.edit,
