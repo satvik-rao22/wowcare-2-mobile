@@ -776,6 +776,15 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
     final sourceBucket = item.bucketFor(DateTime.now());
     if (sourceBucket == targetBucket) return;
+    if (sourceBucket == MovementBucket.overdue &&
+        targetBucket == MovementBucket.confirmed) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot transition from Overdue to Confirmed.',
+        isWarning: true,
+      );
+      return;
+    }
 
     if (targetBucket == MovementBucket.confirmed) {
       DateTime? newDate;
