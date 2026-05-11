@@ -13,7 +13,7 @@ import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -80,8 +80,7 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
 
       if (!mounted) return;
       setState(() {
-        _showSwitchProfile =
-            decoded.length > 1 || (hasGuardian && hasOther);
+        _showSwitchProfile = decoded.length > 1 || (hasGuardian && hasOther);
       });
     } catch (_) {
       // Keep default false.
@@ -92,18 +91,18 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
     setState(() => _loading = true);
 
     final storage = serviceLocator<StorageService>();
-    final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final loginEmail = (await storage.getString(StorageKeys.email) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final loginEmail = (await storage.getString(StorageKeys.email) ?? '')
+        .trim();
 
     try {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
-      if (guardianCode.isEmpty ||
-          schoolCode.isEmpty ||
-          userCode.isEmpty) {
+      if (guardianCode.isEmpty || schoolCode.isEmpty || userCode.isEmpty) {
         if (!mounted) return;
         setState(() {
           _fullName = displayName;
@@ -121,15 +120,13 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
         schoolCode: schoolCode,
         userCode: userCode,
       );
-      final firstName =
-          (guardianProfile['firstName'] ?? '').toString().trim();
+      final firstName = (guardianProfile['firstName'] ?? '').toString().trim();
       final lastName = (guardianProfile['lastName'] ?? '').toString().trim();
       final profileName = _firstNonEmptyString(<String>[
         (guardianProfile['fullName'] ?? '').toString(),
         '$firstName $lastName',
       ]);
-      final profileEmail =
-          (guardianProfile['email'] ?? '').toString().trim();
+      final profileEmail = (guardianProfile['email'] ?? '').toString().trim();
       final profilePhone = _firstNonEmptyString(<String>[
         (guardianProfile['mobile'] ?? '').toString(),
         (guardianProfile['phone'] ?? '').toString(),
@@ -262,7 +259,11 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                   color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.camera_alt, color: Colors.blue[600], size: 24),
+                child: Icon(
+                  Icons.camera_alt,
+                  color: Colors.blue[600],
+                  size: 24,
+                ),
               ),
               title: const Text(
                 'Take Photo',
@@ -284,7 +285,11 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                   color: Colors.green[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.photo_library, color: Colors.green[600], size: 24),
+                child: Icon(
+                  Icons.photo_library,
+                  color: Colors.green[600],
+                  size: 24,
+                ),
               ),
               title: const Text(
                 'Photo Gallery',
@@ -300,7 +305,12 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
               },
             ),
             if (_photoUuid.isNotEmpty) ...[
-              Divider(color: Colors.grey[200], thickness: 1, indent: 16, endIndent: 16),
+              Divider(
+                color: Colors.grey[200],
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+              ),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -308,7 +318,11 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                     color: Colors.red[50],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.delete_outline, color: Colors.red[600], size: 24),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: Colors.red[600],
+                    size: 24,
+                  ),
                 ),
                 title: Text(
                   'Delete Current Photo',
@@ -499,7 +513,9 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                                           shape: BoxShape.circle,
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.1),
+                                              color: Colors.black.withValues(
+                                                alpha: 0.1,
+                                              ),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -536,8 +552,9 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black
-                                                    .withValues(alpha: 0.2),
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.2,
+                                                ),
                                                 blurRadius: 4,
                                                 offset: const Offset(0, 2),
                                               ),
@@ -555,7 +572,9 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                                       Positioned.fill(
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.3),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.3,
+                                            ),
                                             shape: BoxShape.circle,
                                           ),
                                           child: const Center(
@@ -575,7 +594,8 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         name,
@@ -700,11 +720,12 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
     });
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final organizationCode =
           (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+          .trim();
       final guardianCode = (_guardianCode ?? '').trim().isNotEmpty
           ? (_guardianCode ?? '').trim()
           : (await resolveGuardianCodeForLoggedInUser()).trim();
@@ -716,15 +737,18 @@ class _GuardianUserProfileScreenState extends State<GuardianUserProfileScreen> {
       }
 
       final uploadService = serviceLocator<ImageUploadService>();
-      final sessionCode = await uploadService.createGuardianProfilePhotoUploadSession(
-        guardianCode: guardianCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
+      final sessionCode = await uploadService
+          .createGuardianProfilePhotoUploadSession(
+            guardianCode: guardianCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
 
       final lowerPath = file.path.toLowerCase();
       final fileName = p.basename(file.path);
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',

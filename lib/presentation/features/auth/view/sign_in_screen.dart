@@ -11,7 +11,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';

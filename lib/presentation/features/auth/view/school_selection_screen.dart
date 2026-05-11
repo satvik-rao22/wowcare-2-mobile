@@ -5,7 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -21,6 +21,7 @@ class SchoolSelectionScreen extends StatefulWidget {
     required this.selectedOrg,
     this.isSwitchFlow = false,
     this.schoolsForOrg,
+
     /// True when org comes from login-context (redirect select-school).
     /// Only then do we call names-by-org API for that org.
     this.orgFromLoginContext = false,
@@ -28,6 +29,7 @@ class SchoolSelectionScreen extends StatefulWidget {
 
   final String selectedOrg;
   final bool isSwitchFlow;
+
   /// When switching org from Dashboard: list of {schoolCode, schoolName} for selected org.
   final List<Map<String, String>>? schoolsForOrg;
   final bool orgFromLoginContext;
@@ -46,8 +48,11 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
     final cleaned = role.toLowerCase().replaceAll('_', ' ');
     return cleaned
         .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -84,7 +89,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
         if (!context.mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => const OrganizationSelectionScreen(isSwitchFlow: true),
+            builder: (_) =>
+                const OrganizationSelectionScreen(isSwitchFlow: true),
           ),
         );
         return;
@@ -123,12 +129,12 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
               .toSet()
               .toList();
           final orgNames = state is AuthLoaded ? state.orgNames : <String>[];
-          
+
           // Find the organization name for the selected org code
           String orgDisplayName = widget.selectedOrg; // fallback to code
           final orgIndex = orgCodes.indexOf(widget.selectedOrg);
-          if (orgIndex != -1 && 
-              orgIndex < orgNames.length && 
+          if (orgIndex != -1 &&
+              orgIndex < orgNames.length &&
               orgNames.isNotEmpty &&
               orgNames.length == orgCodes.length) {
             orgDisplayName = orgNames[orgIndex];
@@ -136,15 +142,16 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
 
           final List<Map<String, String>> schoolEntries =
               widget.schoolsForOrg != null
-                  ? widget.schoolsForOrg!
-                  : (state is AuthLoaded
-                      ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
-                      : const <Map<String, String>>[]);
+              ? widget.schoolsForOrg!
+              : (state is AuthLoaded
+                    ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
+                    : const <Map<String, String>>[]);
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
               .toList();
-          final isLoading = state is AuthLoaded &&
+          final isLoading =
+              state is AuthLoaded &&
               state.isPrefetchingSchools &&
               schools.isEmpty;
 
@@ -232,7 +239,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   ),
                                   SizedBox(width: screenWidth * 0.03),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
@@ -308,15 +316,17 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               SizedBox(height: screenHeight * 0.02),
                               if (isLoading)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: screenHeight * 0.02),
+                                  padding: EdgeInsets.only(
+                                    bottom: screenHeight * 0.02,
+                                  ),
                                   child: const LinearProgressIndicator(),
                                 ),
                               CustomDropdown(
                                 hintText: isLoading
                                     ? 'Loading schools...'
                                     : (schools.isNotEmpty
-                                        ? 'Select school'
-                                        : 'No schools found'),
+                                          ? 'Select school'
+                                          : 'No schools found'),
                                 items: schools,
                                 selectedItem: _selectedSchool,
                                 height: screenHeight * 0.06,
@@ -348,15 +358,18 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 onSelect: (value) {
                                   setState(() {
                                     _selectedSchool = value;
-                                    if (value != null && schoolEntries.isNotEmpty) {
+                                    if (value != null &&
+                                        schoolEntries.isNotEmpty) {
                                       final entry = schoolEntries.firstWhere(
                                         (e) =>
-                                            (e['schoolName'] ?? e['schoolCode']) ==
+                                            (e['schoolName'] ??
+                                                e['schoolCode']) ==
                                             value,
                                         orElse: () => <String, String>{},
                                       );
                                       _selectedSchoolCode =
-                                          entry['schoolCode'] ?? entry['schoolName'];
+                                          entry['schoolCode'] ??
+                                          entry['schoolName'];
                                     }
                                   });
                                 },
@@ -377,8 +390,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                             ? () async {
                                 if (_selectedSchool == null) return;
                                 final authCubit = context.read<AuthCubit>();
-                                final schoolCode = _selectedSchoolCode ??
-                                    _selectedSchool!;
+                                final schoolCode =
+                                    _selectedSchoolCode ?? _selectedSchool!;
                                 await authCubit.updateLoginContext(
                                   lastLoginOrganizationCode: widget.selectedOrg,
                                   lastLoginSchoolCode: schoolCode,
@@ -400,16 +413,19 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 // or when switching organisation), prefetch the
                                 // staff profile for this context so that My Profile
                                 // loads instantly from cache.
-                                await authCubit.prefetchStaffProfileForOrgAndSchool(
-                                  organizationCode: widget.selectedOrg,
-                                  schoolCode: schoolCode,
-                                );
+                                await authCubit
+                                    .prefetchStaffProfileForOrgAndSchool(
+                                      organizationCode: widget.selectedOrg,
+                                      schoolCode: schoolCode,
+                                    );
                                 if (!context.mounted) return;
                                 await context
                                     .read<RoleProvider>()
                                     .refreshAccessFromServer(force: true);
                                 if (!context.mounted) return;
-                                context.read<ParentChildProvider>().invalidate();
+                                context
+                                    .read<ParentChildProvider>()
+                                    .invalidate();
                                 await context
                                     .read<ParentChildProvider>()
                                     .ensureLoaded(force: true);

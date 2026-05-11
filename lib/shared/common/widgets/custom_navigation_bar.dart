@@ -7,7 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
@@ -108,8 +108,7 @@ class CustomNavigationBar extends StatefulWidget {
 
   static double _lastMeasuredHeight = 0.0;
 
-  static double get navBarHeight =>
-      _lastMeasuredHeight;
+  static double get navBarHeight => _lastMeasuredHeight;
 
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
