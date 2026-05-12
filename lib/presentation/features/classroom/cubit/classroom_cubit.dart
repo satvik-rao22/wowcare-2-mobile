@@ -25,7 +25,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     bool onlyTypeClassroom = true,
     bool applyAttendanceStaffScope = false,
   }) async {
-    if (state.isLoading) return;
+    if (state.isLoading && !force) return;
     // If we already have classrooms for the same filter mode,
     // avoid reloading unless explicitly forced.
     if (!force &&

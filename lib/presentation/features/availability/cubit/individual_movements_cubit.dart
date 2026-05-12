@@ -98,6 +98,9 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       dateTo: dateTo,
       status: status,
     );
+    if (state.board == null) {
+      emit(state.copyWith(isLoading: true, clearError: true));
+    }
     final schoolCode = await _resolveSchoolCode();
     final cached = await (_repository is AvailabilityRepositoryWithCache
         ? (_repository as AvailabilityRepositoryWithCache).loadCachedIndividualMovements(

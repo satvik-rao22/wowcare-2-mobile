@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 // import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -36,14 +37,6 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
     case IndividualMovementType.moveToNextClassroom:
       return MovementType.moveToNextClassroom;
   }
-}
-
-/// Lets [RefreshIndicator] react when a nested vertical [ListView] scrolls
-/// (bucket lists inside [IndividualMovementPager]).
-bool _individualMovementNestedVerticalPredicate(
-  ScrollNotification notification,
-) {
-  return notification.metrics.axis == Axis.vertical;
 }
 
 class IndividualMovementScreen extends StatefulWidget {
@@ -116,8 +109,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     _individualMovementsCubit = serviceLocator<IndividualMovementsCubit>();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadPersistedFilters();
-      await _loadFilterOptions();
+      if (!mounted) return;
+      // Load movements before heavy student/classroom metadata so the list
+      // (and loader) appear immediately instead of an empty board for ~1s+.
       await _fetchMovements(initialLoad: true);
+      if (!mounted) return;
+      await _loadFilterOptions();
     });
   }
 
@@ -200,7 +197,8 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   Future<void> _onPullRefreshBuckets() async {
     await _fetchMovements();
     if (!mounted) return;
-    await _loadFilterOptions();
+    // Do not block pull-to-refresh on heavy student/classroom paging; list is the priority.
+    unawaited(_loadFilterOptions());
   }
 
   Future<void> _loadFilterOptions() async {
@@ -942,12 +940,8 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           return GlobalScaffold(
             hasBackButton: false,
             showCustomNavigationBar: true,
-            body: RefreshIndicator(
-              color: AppColors.themeColor,
-              backgroundColor: Colors.white,
-              strokeWidth: 3,
+            body: CustomRefreshIndicator(
               displacement: 28,
-              notificationPredicate: _individualMovementNestedVerticalPredicate,
               onRefresh: _onPullRefreshBuckets,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -1014,26 +1008,6 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    if (state.isRefreshing)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            const PrimaryCircularLoader(size: 28, strokeWidth: 3),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Refreshing movements…',
-                              style: TextStyle(
-                                fontFamily: Fonts.manrope,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primaryColor.withValues(alpha: 0.85),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     if (state.isLoading)
                       const Center(
                         child: Padding(
