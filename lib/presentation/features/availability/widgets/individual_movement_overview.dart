@@ -543,15 +543,24 @@ class _MovementRow extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withValues(alpha: 0.06),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primaryColor.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
                   ),
                   child: PopupMenuButton<IndividualMovementAction>(
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
+                    color: Colors.white,
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     icon: const Icon(
                       Icons.more_horiz,
-                      size: 22,
+                      size: 20,
                       color: AppColors.primaryColor,
                     ),
                     onSelected: (action) => onActionSelected(item, action),
