@@ -29,14 +29,16 @@ class StudentEntity {
   final int id;
   final String code;
   final String fullName;
-  final String photoUuid;
+  final String? profileImageUrl;
+  final String? profilePhotoAssetCode;
   final String? roomName;
   final List<_TagEntity> tags;
   const StudentEntity({
     required this.id,
     required this.code,
     required this.fullName,
-    this.photoUuid = '',
+    this.profileImageUrl,
+    this.profilePhotoAssetCode,
     this.roomName,
     this.tags = const [],
   });
@@ -127,7 +129,12 @@ class _AssignStudentToClassroomFormState
               id: fetchedStudents.length + 1,
               code: s.code,
               fullName: s.fullName,
-              photoUuid: '',
+              profileImageUrl: (s.profileImage ?? '').trim().isEmpty
+                  ? null
+                  : s.profileImage!.trim(),
+              profilePhotoAssetCode: (s.profilePhotoAssetCode ?? '').trim().isEmpty
+                  ? null
+                  : s.profilePhotoAssetCode!.trim(),
               roomName: s.classroom,
               tags: tagEntities,
             ),
@@ -551,10 +558,14 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                     child: Row(
                       children: [
                         DocumentImageWidget(
-                          fileUuid: student.photoUuid,
+                          fileUuid: '',
+                          imageUrl: student.profileImageUrl,
+                          mediaAssetCode: student.profilePhotoAssetCode,
                           name: student.fullName,
+                          studentCode: student.code,
                           size: 32,
-                          placeholderAsset: MediaRes.userImageMale,
+                          fontSize: 12,
+                          disableAttendanceStatusLookup: true,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -691,10 +702,14 @@ class StudentListItem extends StatelessWidget {
                 ),
               ),
               DocumentImageWidget(
-                fileUuid: student.photoUuid,
+                fileUuid: '',
+                imageUrl: student.profileImageUrl,
+                mediaAssetCode: student.profilePhotoAssetCode,
                 name: student.fullName,
+                studentCode: student.code,
                 size: 32,
-                placeholderAsset: MediaRes.userImageMale,
+                fontSize: 12,
+                disableAttendanceStatusLookup: true,
               ),
               const SizedBox(width: 8),
               Expanded(

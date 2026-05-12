@@ -646,9 +646,50 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
-  Widget _buildRoomDetailsCard(ClassroomDetails details) {
-    final isRatioGood = (details.status.toUpperCase() == 'ACTIVE');
+  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher]
+  /// (N in N:1). Returns null when ratio is not configured or attendance summaries are missing.
+  bool? _signedInStaffingMeetsConfiguredRatio(ClassroomDetails details) {
+    final maxStudentsPerStaff = details.studentsPerTeacher;
+    if (maxStudentsPerStaff <= 0) return null;
 
+    final students = _studentSummary;
+    final staff = _staffSummary;
+    if (students == null || staff == null) return null;
+
+    final signedInStudents = students.present;
+    final signedInStaff = staff.present;
+
+    if (signedInStaff <= 0) {
+      return signedInStudents <= 0;
+    }
+    return signedInStudents <= signedInStaff * maxStudentsPerStaff;
+  }
+
+  Widget _buildSignedInRatioStatusIcon(ClassroomDetails details) {
+    final ok = _signedInStaffingMeetsConfiguredRatio(details);
+    if (ok == null) {
+      final message = details.studentsPerTeacher <= 0
+          ? 'Classroom student–staff ratio is not set.'
+          : 'Signed-in attendance is not available to evaluate staffing.';
+      return Tooltip(
+        message: message,
+        child: const Icon(Icons.help_outline, color: Colors.grey),
+      );
+    }
+    final signedInStudents = _studentSummary?.present;
+    final signedInStaff = _staffSummary?.present;
+    return Tooltip(
+      message: ok
+          ? 'Signed-in staffing meets or exceeds ${details.studentTeacherRatioDisplay} ($signedInStudents students, $signedInStaff staff).'
+          : 'Not enough signed-in staff for $signedInStudents signed-in students at ${details.studentTeacherRatioDisplay}.',
+      child: Icon(
+        ok ? Icons.thumb_up : Icons.thumb_down,
+        color: ok ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  Widget _buildRoomDetailsCard(ClassroomDetails details) {
     return Card(
       elevation: 0,
       color: Colors.white,
@@ -680,10 +721,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             ),
             Row(
               children: [
-                Icon(
-                  isRatioGood ? Icons.thumb_up : Icons.thumb_down,
-                  color: isRatioGood ? Colors.green : Colors.red,
-                ),
+                _buildSignedInRatioStatusIcon(details),
                 const SizedBox(width: 8),
                 // Uncomment the next line if you want to show the edit icon for admins or directors or when the functionality is implemented
                 // if (context.isAdminOrDirector) const Icon(Icons.edit_outlined),
@@ -697,9 +735,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                details.minAgeYear + details.minAgeMonths + details.maxAgeYear + details.maxAgeMonths > 0
-                    ? '${details.minAgeYear}-${details.maxAgeYear} Years'
-                    : 'No Age Limit',
+                details.ageRangeCompactDisplay,
                 style: const TextStyle(
                   fontFamily: 'Manrope',
                   color: Color(0xff573353),
@@ -741,7 +777,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       ),
                       children: [
                         TextSpan(
-                          text: '${details.studentsPerTeacher}:1',
+                          text: details.studentTeacherRatioDisplay,
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,

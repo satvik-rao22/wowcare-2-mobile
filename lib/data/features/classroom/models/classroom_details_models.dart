@@ -47,9 +47,13 @@ class ClassroomDetailsDataModel {
     final direct = _asPositiveInt(json['studentsPerTeacher']);
     if (direct > 0) return direct;
 
+    final fromApiRatio = _asPositiveInt(json['studentsTeacherRatio']);
+    if (fromApiRatio > 0) return fromApiRatio;
+
     final ratioRawCandidates = <dynamic>[
       json['ratio'],
       json['studentTeacherRatio'],
+      json['studentsTeacherRatio'],
       json['studentsToTeacherRatio'],
       json['teacherStudentRatio'],
     ];
@@ -101,36 +105,68 @@ class ClassroomDetailsDataModel {
     return 0;
   }
 
+  static int? _optionalWholeYears(dynamic v) {
+    if (v is num) {
+      return v.round().clamp(0, 200).toInt();
+    }
+    final parsed = int.tryParse((v ?? '').toString().trim());
+    if (parsed == null) return null;
+    return parsed.clamp(0, 200);
+  }
+
   factory ClassroomDetailsDataModel.fromJson(Map<String, dynamic> json) {
+    var minAgeYear = _parseAgePart(
+      json,
+      canonicalKey: 'minAgeYear',
+      fallbacks: const ['minAgeYears', 'minAgeY', 'minYear', 'min_age_year'],
+      nestedKey: 'minAge',
+    );
+    var minAgeMonths = _parseAgePart(
+      json,
+      canonicalKey: 'minAgeMonths',
+      fallbacks: const ['minAgeMonth', 'minAgeM', 'minMonth', 'min_age_months'],
+      nestedKey: 'minAge',
+    );
+    var maxAgeYear = _parseAgePart(
+      json,
+      canonicalKey: 'maxAgeYear',
+      fallbacks: const ['maxAgeYears', 'maxAgeY', 'maxYear', 'max_age_year'],
+      nestedKey: 'maxAge',
+    );
+    var maxAgeMonths = _parseAgePart(
+      json,
+      canonicalKey: 'maxAgeMonths',
+      fallbacks: const ['maxAgeMonth', 'maxAgeM', 'maxMonth', 'max_age_months'],
+      nestedKey: 'maxAge',
+    );
+
+    // UAT payload uses top-level numeric minAge / maxAge (years), not nested maps.
+    final structuredMin = minAgeYear > 0 || minAgeMonths > 0;
+    final structuredMax = maxAgeYear > 0 || maxAgeMonths > 0;
+    if (!structuredMin) {
+      final y = _optionalWholeYears(json['minAge']);
+      if (y != null) {
+        minAgeYear = y;
+        minAgeMonths = 0;
+      }
+    }
+    if (!structuredMax) {
+      final y = _optionalWholeYears(json['maxAge']);
+      if (y != null) {
+        maxAgeYear = y;
+        maxAgeMonths = 0;
+      }
+    }
+
     return ClassroomDetailsDataModel(
       code: (json['code'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       capacity: (json['capacity'] as num?)?.toInt() ?? 0,
       studentsPerTeacher: _parseStudentsPerTeacher(json),
-      minAgeYear: _parseAgePart(
-        json,
-        canonicalKey: 'minAgeYear',
-        fallbacks: const ['minAgeYears', 'minAgeY', 'minYear', 'min_age_year'],
-        nestedKey: 'minAge',
-      ),
-      minAgeMonths: _parseAgePart(
-        json,
-        canonicalKey: 'minAgeMonths',
-        fallbacks: const ['minAgeMonth', 'minAgeM', 'minMonth', 'min_age_months'],
-        nestedKey: 'minAge',
-      ),
-      maxAgeYear: _parseAgePart(
-        json,
-        canonicalKey: 'maxAgeYear',
-        fallbacks: const ['maxAgeYears', 'maxAgeY', 'maxYear', 'max_age_year'],
-        nestedKey: 'maxAge',
-      ),
-      maxAgeMonths: _parseAgePart(
-        json,
-        canonicalKey: 'maxAgeMonths',
-        fallbacks: const ['maxAgeMonth', 'maxAgeM', 'maxMonth', 'max_age_months'],
-        nestedKey: 'maxAge',
-      ),
+      minAgeYear: minAgeYear,
+      minAgeMonths: minAgeMonths,
+      maxAgeYear: maxAgeYear,
+      maxAgeMonths: maxAgeMonths,
       type: (json['type'] ?? '').toString(),
       school: (json['school'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
