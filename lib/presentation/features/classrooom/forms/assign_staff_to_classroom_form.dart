@@ -38,14 +38,16 @@ class Staff {
   final String code;
   final String name;
   final String designation;
-  final String photoUuid;
+  final String? profileImageUrl;
+  final String? profilePhotoAssetCode;
   final List<RoomDTO> rooms;
   const Staff({
     required this.id,
     required this.code,
     required this.name,
     required this.designation,
-    this.photoUuid = '',
+    this.profileImageUrl,
+    this.profilePhotoAssetCode,
     this.rooms = const [],
   });
 }
@@ -160,7 +162,12 @@ class _AssignStaffToClassroomFormState
               code: s.code,
               name: s.name,
               designation: s.designation,
-              photoUuid: '',
+              profileImageUrl: (s.profileImage ?? '').trim().isEmpty
+                  ? null
+                  : s.profileImage!.trim(),
+              profilePhotoAssetCode: (s.profilePhotoAssetCode ?? '').trim().isEmpty
+                  ? null
+                  : s.profilePhotoAssetCode!.trim(),
               rooms: rooms,
             ),
           );
@@ -583,10 +590,14 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                     child: Row(
                       children: [
                         DocumentImageWidget(
-                          fileUuid: staff.photoUuid,
+                          fileUuid: '',
+                          imageUrl: staff.profileImageUrl,
+                          mediaAssetCode: staff.profilePhotoAssetCode,
                           name: staff.name,
+                          staffCode: staff.code,
                           size: 32,
-                          placeholderAsset: MediaRes.userImageMale,
+                          fontSize: 12,
+                          disableAttendanceStatusLookup: true,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -716,10 +727,14 @@ class StaffListItem extends StatelessWidget {
                 ),
               ),
               DocumentImageWidget(
-                fileUuid: staff.photoUuid,
+                fileUuid: '',
+                imageUrl: staff.profileImageUrl,
+                mediaAssetCode: staff.profilePhotoAssetCode,
                 name: staff.name,
+                staffCode: staff.code,
                 size: 32,
-                placeholderAsset: MediaRes.userImageMale,
+                fontSize: 12,
+                disableAttendanceStatusLookup: true,
               ),
               const SizedBox(width: 8),
               Expanded(

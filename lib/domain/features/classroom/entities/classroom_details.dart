@@ -38,6 +38,23 @@ class ClassroomDetails extends Equatable {
   String get ageRangeLabel =>
       '$minAgeYear y $minAgeMonths m - $maxAgeYear y $maxAgeMonths m';
 
+  /// True when any age bound is set (including a minimum of zero years when max is set).
+  bool get hasDefinedAgeBounds =>
+      minAgeYear > 0 ||
+      minAgeMonths > 0 ||
+      maxAgeYear > 0 ||
+      maxAgeMonths > 0;
+
+  /// Short label for profile-style cards (years-only vs full y/m).
+  String get ageRangeCompactDisplay {
+    if (!hasDefinedAgeBounds) return 'No Age Limit';
+    if (minAgeMonths > 0 || maxAgeMonths > 0) return ageRangeLabel;
+    return '$minAgeYear-$maxAgeYear Months';
+  }
+
+  String get studentTeacherRatioDisplay =>
+      studentsPerTeacher > 0 ? '$studentsPerTeacher:1' : '—';
+
   @override
   List<Object?> get props => [
         code,
