@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
@@ -99,6 +98,9 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       dateTo: dateTo,
       status: status,
     );
+    if (state.board == null) {
+      emit(state.copyWith(isLoading: true, clearError: true));
+    }
     final schoolCode = await _resolveSchoolCode();
     final cached = await (_repository is AvailabilityRepositoryWithCache
         ? (_repository as AvailabilityRepositoryWithCache).loadCachedIndividualMovements(
@@ -119,15 +121,6 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
           board: _filterBoardForAllowedClassrooms(cached, allowed),
           isFromCache: true,
         ),
-      );
-      // ignore: unawaited_futures
-      refresh(
-        studentCodes: studentCodes,
-        fromClassroomCodes: fromClassroomCodes,
-        toClassroomCodes: toClassroomCodes,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        status: status,
       );
       return;
     }
@@ -198,6 +191,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     }
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _transitionIndividualMovementStatusUseCase(
         id: id,
         status: status,
@@ -254,13 +253,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
             }
           }
         }
-      } catch (_) {
-        // Non-blocking: continue with dev fallback / error.
-      }
-    }
-
-    if (DebugDefaults.schoolCode.trim().isNotEmpty) {
-      return DebugDefaults.schoolCode.trim();
+      } catch (_) {}
     }
 
     if (schoolCode.isEmpty || schoolCode == '-') {
@@ -294,6 +287,11 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     try {
       final schoolCode = await _resolveSchoolCode();
       final organizationCode = await _resolveOrganizationCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _createIndividualMovementUseCase(
         schoolCode: schoolCode,
         organizationCode: organizationCode,
@@ -338,6 +336,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _updateIndividualMovementUseCase(
         id: id,
         movementType: movementType,
@@ -375,6 +379,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _deleteIndividualMovementUseCase(id: id);
       await refresh(
         studentCodes: _lastFilters.studentCodes,

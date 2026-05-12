@@ -81,9 +81,7 @@ class StorageKeys {
   /// snapshots are ignored until refetched.
   static const String activityFeedCacheRevision = 'activity_feed_cache_revision';
 
-  // Temporary default until school selection is fully wired
-  // static const String defaultOrganizationCode = 'ORG_FA144927-1';
-  // static const String defaultSchoolCode = 'SCH_8A889124-7';
+
 }
 
 

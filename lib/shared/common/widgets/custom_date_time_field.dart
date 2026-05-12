@@ -28,6 +28,8 @@ class CustomDateTimeField extends StatefulWidget {
     this.fetchInitialTime = true, // New property to control fetch behavior
     this.isDisabled = false,
     this.isRequired = false, // ✅ ADD THIS
+    this.firstDate,
+    this.lastDate,
     super.key,
   });
 
@@ -42,6 +44,8 @@ class CustomDateTimeField extends StatefulWidget {
   final TimeOfDay? initialTime;
   final bool fetchInitialTime; // Control whether to fetch current time
   final bool isDisabled;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
 
   // Add callbacks for individual time components
   final ValueChanged<String>? onHourChanged;
@@ -243,6 +247,8 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                 initialDate: selectedDate,
                 initialTime: selectedTime,
                 initialEndDate: rangeEndDate,
+                firstDate: widget.firstDate,
+                lastDate: widget.lastDate,
               ),
             );
             if (result != null) {

@@ -77,6 +77,26 @@ Future<MovementDragDropDecision?> showMovementDateDropDialog(
   );
 }
 
+Future<MovementDragDropDecision?> showMovementDeleteNotAllowedDialog(
+  BuildContext context, {
+  required String movementTitle,
+}) {
+  return showDialog<MovementDragDropDecision>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    builder: (ctx) {
+      return _MovementDragDropDialogBody(
+        title: 'Delete Not Allowed',
+        message:
+            'Confirmed movements cannot be deleted directly.\n$movementTitle\n\n'
+            'Please reject this movement first. Do you want to move it to Rejected now?',
+        confirmLabel: 'Reject Movement',
+      );
+    },
+  );
+}
+
 class _MovementDragDropDialogBody extends StatefulWidget {
   const _MovementDragDropDialogBody({
     required this.title,
@@ -112,10 +132,11 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final picked = await pickNormalDate(
       context: context,
       initialDate: _selectedDate ?? now,
-      firstDate: DateTime(now.year - 2),
+      firstDate: widget.requireDate ? today : DateTime(now.year - 2),
       lastDate: DateTime(now.year + 5),
     );
     if (picked == null || !mounted) return;
@@ -133,12 +154,12 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
       }
       final today = DateTime.now();
       final dateOnlyToday = DateTime(today.year, today.month, today.day);
-      if (widget.mustBeFuture && !_selectedDate!.isAfter(dateOnlyToday)) {
-        setState(() => _error = 'Date must be in the future.');
+      if (_selectedDate!.isBefore(dateOnlyToday)) {
+        setState(() => _error = 'Back dates are not allowed.');
         return;
       }
-      if (!widget.mustBeFuture && !_selectedDate!.isBefore(dateOnlyToday)) {
-        setState(() => _error = 'Date must be in the past.');
+      if (widget.mustBeFuture && !_selectedDate!.isAfter(dateOnlyToday)) {
+        setState(() => _error = 'Date must be in the future.');
         return;
       }
     }

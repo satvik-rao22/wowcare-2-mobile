@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/text_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -22,6 +20,8 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
     this.initialData,
     this.isEditing = false,
     this.editingMovementId,
+    this.disablePastDates = false,
+    this.lockClassroomSelection = false,
   });
 
   /// Items are **codes**; UI can display names via [studentNamesByCode]/[classroomNamesByCode].
@@ -35,6 +35,8 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
   final MovementFormResult? initialData;
   final bool isEditing;
   final int? editingMovementId;
+  final bool disablePastDates;
+  final bool lockClassroomSelection;
 
   @override
   State<AddEditIndividualMovementScreen> createState() =>
@@ -151,9 +153,62 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
     );
   }
 
+  TextStyle _labelStyle(ResponsiveHelper responsive) {
+    return TextStyle(
+      fontSize: responsive.labelFontSize,
+      fontFamily: Fonts.manrope,
+      fontWeight: FontWeight.w400,
+      color: const Color(0xff573353),
+    );
+  }
+
+  Widget _commentField(ResponsiveHelper responsive) {
+    final labelStyle = _labelStyle(responsive);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('Comment', style: labelStyle),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0x66573353)),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
+          ),
+          child: TextField(
+            controller: _commentController,
+            keyboardType: TextInputType.multiline,
+            minLines: 1,
+            maxLines: 4,
+            style: TextStyle(
+              fontFamily: Fonts.manrope,
+              fontSize: responsive.inputFontSize,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff573353),
+              height: 19 / 14,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Enter Comment',
+              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final studentOptions = _buildDisplayOnlyOptions(
       codes: widget.students,
       nameForCode: _nameForStudentCode,
@@ -166,34 +221,52 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
       title: widget.isEditing
           ? 'Individual Student Movement'
           : 'Add Individual Student Movement',
-      bottomBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            responsive.horizontalSpacing,
-            0,
-            responsive.horizontalSpacing,
-            12,
+      bottomBar: Container(
+        padding: EdgeInsets.only(
+          bottom: safeAreaBottom,
+          left: 16,
+          right: 16,
+          top: 8,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              offset: const Offset(0, -4),
+              blurRadius: 16,
+            ),
+          ],
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
-          child: CustomConfirmButton(
-            label: 'Save',
-            onPressed: _onSavePressed,
-          ),
+        ),
+        child: CustomConfirmButton(
+          label: 'Save',
+          onPressed: _onSavePressed,
         ),
       ),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _fieldLabel('Movement Type'),
+            Text('Movement Type', style: _labelStyle(responsive)),
+            SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(
+                  responsive.isTablet ? 12.0 : 8.0,
+                ),
                 border: Border.all(
-                  color: AppColors.primaryColor.withValues(alpha: 0.12),
+                  color: const Color(0x66573353),
                 ),
               ),
               child: Text(
@@ -206,30 +279,39 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                   workflowStatus: MovementWorkflowStatus.pending,
                   movementType: widget.movementType,
                 ).movementTypeLabel,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: Fonts.manrope,
-                  fontSize: 14,
+                  fontSize: responsive.inputFontSize,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.primaryColor,
+                  color: const Color(0xff573353),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            _fieldLabel('Select Student'),
+            SizedBox(height: responsive.verticalSpacing),
             CustomDropdown(
+              label: 'Select Student',
               hintText: 'Select',
               items: studentOptions.items,
               selectedItem: (_selectedStudent == null ||
                       _selectedStudent!.trim().isEmpty)
                   ? null
                   : studentOptions.codeToDisplay[_selectedStudent!.trim()],
-              showAsterisk: false,
+              showAsterisk: true,
+              labelStyle: _labelStyle(responsive),
+              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+              selectedTextStyle: TextStyle(
+                fontFamily: Fonts.manrope,
+                fontSize: responsive.inputFontSize,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff573353),
+                height: 19 / 14,
+              ),
               isEnabled: !widget.isEditing,
               onSelect: (value) => setState(
                 () => _selectedStudent = studentOptions.displayToCode[(value ?? '').trim()],
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: responsive.verticalSpacing),
             if (widget.movementType == MovementType.moveToNextClassroom)
               Row(
                 children: <Widget>[
@@ -237,15 +319,25 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        _fieldLabel('Current Classroom'),
                         CustomDropdown(
+                          label: 'Current Classroom',
                           hintText: 'Select',
                           items: classroomOptions.items,
                           selectedItem: (_currentClassroom == null ||
                                   _currentClassroom!.trim().isEmpty)
                               ? null
                               : classroomOptions.codeToDisplay[_currentClassroom!.trim()],
-                          showAsterisk: false,
+                          showAsterisk: true,
+                          labelStyle: _labelStyle(responsive),
+                          labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                          selectedTextStyle: TextStyle(
+                            fontFamily: Fonts.manrope,
+                            fontSize: responsive.inputFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
                                 () => _currentClassroom = classroomOptions
                                     .displayToCode[(value ?? '').trim()],
@@ -259,15 +351,25 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        _fieldLabel('Next to Classroom'),
                         CustomDropdown(
+                          label: 'Next to Classroom',
                           hintText: 'Select',
                           items: classroomOptions.items,
                           selectedItem: (_nextClassroom == null ||
                                   _nextClassroom!.trim().isEmpty)
                               ? null
                               : classroomOptions.codeToDisplay[_nextClassroom!.trim()],
-                          showAsterisk: false,
+                          showAsterisk: true,
+                          labelStyle: _labelStyle(responsive),
+                          labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                          selectedTextStyle: TextStyle(
+                            fontFamily: Fonts.manrope,
+                            fontSize: responsive.inputFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          isEnabled: !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
                                 () => _nextClassroom = classroomOptions
                                     .displayToCode[(value ?? '').trim()],
@@ -282,15 +384,25 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _fieldLabel('Classroom'),
                   CustomDropdown(
+                    label: 'Classroom',
                     hintText: 'Select',
                     items: classroomOptions.items,
                     selectedItem: (_nextClassroom == null ||
                             _nextClassroom!.trim().isEmpty)
                         ? null
                         : classroomOptions.codeToDisplay[_nextClassroom!.trim()],
-                    showAsterisk: false,
+                    showAsterisk: true,
+                    labelStyle: _labelStyle(responsive),
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    selectedTextStyle: TextStyle(
+                      fontFamily: Fonts.manrope,
+                      fontSize: responsive.inputFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff573353),
+                      height: 19 / 14,
+                    ),
+                    isEnabled: !widget.lockClassroomSelection,
                     onSelect: (value) => setState(
                           () => _nextClassroom = classroomOptions
                               .displayToCode[(value ?? '').trim()],
@@ -302,15 +414,25 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _fieldLabel('Classroom'),
                   CustomDropdown(
+                    label: 'Classroom',
                     hintText: 'Select',
                     items: classroomOptions.items,
                     selectedItem: (_currentClassroom == null ||
                             _currentClassroom!.trim().isEmpty)
                         ? null
                         : classroomOptions.codeToDisplay[_currentClassroom!.trim()],
-                    showAsterisk: false,
+                    showAsterisk: true,
+                    labelStyle: _labelStyle(responsive),
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    selectedTextStyle: TextStyle(
+                      fontFamily: Fonts.manrope,
+                      fontSize: responsive.inputFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff573353),
+                      height: 19 / 14,
+                    ),
+                    isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
                     onSelect: (value) => setState(
                           () => _currentClassroom = classroomOptions
                               .displayToCode[(value ?? '').trim()],
@@ -318,39 +440,21 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                   ),
                 ],
               ),
-            const SizedBox(height: 12),
-            _fieldLabel('Movement Date'),
+            SizedBox(height: responsive.verticalSpacing),
             CustomDateTimeField(
-              hasLabel: false,
+              hasLabel: true,
+              label: 'Movement Date',
+              isRequired: true,
               initialDate: _movementDate,
               fetchInitialTime: false,
+              firstDate: widget.disablePastDates
+                  ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
+                  : null,
               onDateSelected: (date) => setState(() => _movementDate = date),
             ),
-            const SizedBox(height: 12),
-            _fieldLabel('Comment'),
-            CustomTextField(
-              controller: _commentController,
-              hintText: 'Enter Comment',
-              isFilled: true,
-              fillColor: Colors.white,
-              keyboardType: TextInputType.multiline,
-            ),
+            SizedBox(height: responsive.verticalSpacing),
+            _commentField(responsive),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _fieldLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: Fonts.manrope,
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          color: AppColors.primaryColor.withValues(alpha: 0.6),
         ),
       ),
     );

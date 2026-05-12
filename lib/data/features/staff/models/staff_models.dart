@@ -5,7 +5,11 @@ class StaffListItemModel extends Equatable {
     required this.code,
     required this.name,
     required this.primaryClassroomCode,
+    /// Display name from list API when `primaryClassroom` is an object (e.g. admin location).
+    this.primaryClassroomName = '',
     required this.allowedClassroomCodes,
+    /// Names keyed by classroom code from `allowedClassrooms` objects (when present).
+    this.allowedClassroomNameByCode = const <String, String>{},
     required this.designation,
     required this.phoneNumber,
     required this.status,
@@ -19,8 +23,10 @@ class StaffListItemModel extends Equatable {
   final String name;
   /// Classroom code (from API field `primaryClassroom`).
   final String primaryClassroomCode;
+  final String primaryClassroomName;
   /// Classroom codes (from API field `allowedClassrooms`).
   final List<String> allowedClassroomCodes;
+  final Map<String, String> allowedClassroomNameByCode;
   final String designation;
   final String phoneNumber;
   final String status;
@@ -41,23 +47,50 @@ class StaffListItemModel extends Equatable {
       return value?.toString() ?? '';
     }
 
+    String _extractClassroomName(dynamic value) {
+      if (value is Map<String, dynamic>) {
+        return (value['name'] ?? value['classroomName'])?.toString().trim() ?? '';
+      }
+      return '';
+    }
+
+    Map<String, String> _allowedNamesFromList(List<dynamic>? raw) {
+      if (raw == null) return const <String, String>{};
+      final out = <String, String>{};
+      for (final e in raw) {
+        if (e is Map<String, dynamic>) {
+          final c = e['code']?.toString().trim() ?? '';
+          final n =
+              (e['name'] ?? e['classroomName'])?.toString().trim() ?? '';
+          if (c.isNotEmpty && n.isNotEmpty) out[c] = n;
+        }
+      }
+      return out;
+    }
+
     // Backend contract (new):
     // - `primaryClassroom`: {code,name} or nulls
     // - `allowedClassrooms`: [{code,name}, ...]
     // Legacy fallback (old):
     // - `primaryClassroomCode`: "CLS_..."
     // - `classroomCodes`: ["CLS_...", ...]
-    final primaryClassroomCode = _extractClassroomCode(json['primaryClassroom']);
+    final primaryRaw = json['primaryClassroom'];
+    final primaryClassroomCode = _extractClassroomCode(primaryRaw);
+    final primaryClassroomName = _extractClassroomName(primaryRaw);
 
-    final allowed = (json['allowedClassrooms'] as List<dynamic>?)
-            ?.map(_extractClassroomCode)
+    final allowedList = json['allowedClassrooms'] as List<dynamic>?;
+    final allowedNamesByCode = _allowedNamesFromList(allowedList);
+
+    final allowed = allowedList != null
+        ? allowedList
+            .map(_extractClassroomCode)
             .where((c) => c.isNotEmpty)
-            .toList() ??
-        (json['classroomCodes'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .where((c) => c.isNotEmpty)
-            .toList() ??
-        const <String>[];
+            .toList()
+        : (json['classroomCodes'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .where((c) => c.isNotEmpty)
+                .toList() ??
+            const <String>[];
 
     // Optional schedule arrays on list API
     final workSchedulesJson =
@@ -71,7 +104,9 @@ class StaffListItemModel extends Equatable {
       primaryClassroomCode: primaryClassroomCode.isNotEmpty
           ? primaryClassroomCode
           : (json['primaryClassroomCode'] as String?) ?? '',
+      primaryClassroomName: primaryClassroomName,
       allowedClassroomCodes: allowed,
+      allowedClassroomNameByCode: allowedNamesByCode,
       designation: json['designation'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
       status: json['status'] as String? ?? '',
@@ -111,7 +146,9 @@ class StaffListItemModel extends Equatable {
         code,
         name,
         primaryClassroomCode,
+        primaryClassroomName,
         allowedClassroomCodes,
+        allowedClassroomNameByCode,
         designation,
         phoneNumber,
         status,

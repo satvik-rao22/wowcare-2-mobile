@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
@@ -10,6 +9,9 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/presentation/features/availability/view/add_edit_individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/confirm_individual_movement_screen.dart';
@@ -20,6 +22,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 // import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -49,6 +52,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   List<String> _selectedStudents = const <String>[];
   List<String> _toClassrooms = const <String>[];
   List<String> _fromClassrooms = const <String>[];
+  List<String> _filterStudentCodes = const <String>[];
+  List<String> _filterClassroomCodes = const <String>[];
+  Map<String, String> _studentNamesByCode = const <String, String>{};
+  Map<String, String> _classroomNamesByCode = const <String, String>{};
   DateTime? _filterRangeStart;
   DateTime? _filterRangeEnd;
 
@@ -102,7 +109,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     _individualMovementsCubit = serviceLocator<IndividualMovementsCubit>();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadPersistedFilters();
+      if (!mounted) return;
+      // Load movements before heavy student/classroom metadata so the list
+      // (and loader) appear immediately instead of an empty board for ~1s+.
       await _fetchMovements(initialLoad: true);
+      if (!mounted) return;
+      await _loadFilterOptions();
     });
   }
 
@@ -173,6 +185,96 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         _filterRangeEnd = e != null ? DateTime.fromMillisecondsSinceEpoch(e) : null;
       });
     } catch (_) {}
+  }
+
+  Future<String> _resolveSchoolCode() async {
+    final storage = serviceLocator<StorageService>();
+    final stored = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (stored.isNotEmpty && stored != '-') return stored;
+    return '';
+  }
+
+  Future<void> _onPullRefreshBuckets() async {
+    await _fetchMovements();
+    if (!mounted) return;
+    // Do not block pull-to-refresh on heavy student/classroom paging; list is the priority.
+    unawaited(_loadFilterOptions());
+  }
+
+  Future<void> _loadFilterOptions() async {
+    final schoolCode = await _resolveSchoolCode();
+    if (schoolCode.isEmpty || !mounted) return;
+    final roles = context.read<RoleProvider>();
+    final allowedClassrooms = await _resolveAllowedClassroomsForStaff(roles);
+
+    final getStudents = serviceLocator<GetStudentPageUseCase>();
+    final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
+
+    Future<List<Student>> fetchStudentsByStatus(String status) async {
+      final out = <Student>[];
+      var page = 0;
+      const size = 200;
+      while (true) {
+        final res = await getStudents(
+          schoolCode: schoolCode,
+          status: status,
+          classroomCodes: allowedClassrooms.isNotEmpty ? allowedClassrooms.toList() : null,
+          page: page,
+          size: size,
+        );
+        out.addAll(res.items);
+        if (!res.hasMore || page >= (res.totalPages - 1)) break;
+        page += 1;
+      }
+      return out;
+    }
+
+    try {
+      final activeStudents = await fetchStudentsByStatus('ACTIVE');
+      final upcomingStudents = await fetchStudentsByStatus('UPCOMING');
+      final allStudents = [...activeStudents, ...upcomingStudents];
+      final studentNamesByCode = <String, String>{};
+      for (final s in allStudents) {
+        final code = s.code.trim();
+        if (code.isEmpty) continue;
+        final full = '${s.firstName.trim()} ${s.lastName.trim()}'.trim();
+        studentNamesByCode[code] = full.isNotEmpty ? full : code;
+      }
+
+      final classroomsRaw = await getClassrooms(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: true,
+      );
+      final classroomNamesByCode = <String, String>{};
+      for (final c in classroomsRaw) {
+        final code = c.code.trim();
+        if (code.isEmpty) continue;
+        if (allowedClassrooms.isNotEmpty && !allowedClassrooms.contains(code)) continue;
+        final name = c.name.trim();
+        classroomNamesByCode[code] = name.isNotEmpty ? name : code;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _studentNamesByCode = studentNamesByCode;
+        _classroomNamesByCode = classroomNamesByCode;
+        _filterStudentCodes = studentNamesByCode.keys.toList()
+          ..sort((a, b) => (studentNamesByCode[a] ?? a)
+              .toLowerCase()
+              .compareTo((studentNamesByCode[b] ?? b).toLowerCase()));
+        _filterClassroomCodes = classroomNamesByCode.keys.toList()
+          ..sort((a, b) => (classroomNamesByCode[a] ?? a)
+              .toLowerCase()
+              .compareTo((classroomNamesByCode[b] ?? b).toLowerCase()));
+
+        _selectedStudents = _selectedStudents.where(studentNamesByCode.containsKey).toList();
+        _fromClassrooms = _fromClassrooms.where(classroomNamesByCode.containsKey).toList();
+        _toClassrooms = _toClassrooms.where(classroomNamesByCode.containsKey).toList();
+      });
+      await _persistFilters();
+    } catch (_) {
+      // Keep existing board-derived fallback options if API metadata fails.
+    }
   }
 
   List<MovementSection> _buildSections(IndividualMovementBoard? board) {
@@ -336,6 +438,22 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       _toastViewOnly(context);
       return;
     }
+    if (item.workflowStatus == MovementWorkflowStatus.confirmed) {
+      final decision = await showMovementDeleteNotAllowedDialog(
+        context,
+        movementTitle: item.name,
+      );
+      if (decision?.confirmed == true) {
+        await _transitionMovementStatus(
+          id: item.id,
+          status: IndividualMovementWorkflowStatus.rejected,
+          comment: item.comment.isEmpty
+              ? 'Moved to rejected from confirmed via delete flow'
+              : item.comment,
+        );
+      }
+      return;
+    }
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -401,11 +519,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    final students = _uniqueStudents(board);
-    final classrooms = _uniqueClassrooms(board);
+    final students = _filterStudentCodes.isNotEmpty ? _filterStudentCodes : _uniqueStudents(board);
+    final classrooms =
+        _filterClassroomCodes.isNotEmpty ? _filterClassroomCodes : _uniqueClassrooms(board);
     final existing = board.all.map(MovementItem.fromEntity).toList();
-    final studentNamesByCode = <String, String>{};
-    final classroomNamesByCode = <String, String>{};
+    final studentNamesByCode = <String, String>{..._studentNamesByCode};
+    final classroomNamesByCode = <String, String>{..._classroomNamesByCode};
     for (final m in board.all) {
       final sCode = m.studentCode.trim();
       final sName = m.studentName.trim();
@@ -432,6 +551,11 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           existingMovements: existing,
           isEditing: true,
           editingMovementId: resolvedMovement.id,
+          disablePastDates: true,
+          lockClassroomSelection:
+              resolvedMovement.status == IndividualMovementWorkflowStatus.confirmed &&
+                  resolvedMovement.movementType !=
+                      IndividualMovementType.moveToNextClassroom,
           movementType: _movementTypeFromEntity(resolvedMovement.movementType),
           studentNamesByCode: studentNamesByCode,
           classroomNamesByCode: classroomNamesByCode,
@@ -661,6 +785,15 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
     final sourceBucket = item.bucketFor(DateTime.now());
     if (sourceBucket == targetBucket) return;
+    if (sourceBucket == MovementBucket.overdue &&
+        targetBucket == MovementBucket.confirmed) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Cannot transition from Overdue to Confirmed.',
+        isWarning: true,
+      );
+      return;
+    }
 
     if (targetBucket == MovementBucket.confirmed) {
       DateTime? newDate;
@@ -747,226 +880,176 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       child: BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
         builder: (BuildContext context, IndividualMovementsState state) {
           final sections = _buildSections(state.board);
-          final students = _uniqueStudents(state.board);
-          final classrooms = _uniqueClassrooms(state.board);
+          final students = _filterStudentCodes.isNotEmpty
+              ? _filterStudentCodes
+              : _uniqueStudents(state.board);
+          final classrooms = _filterClassroomCodes.isNotEmpty
+              ? _filterClassroomCodes
+              : _uniqueClassrooms(state.board);
           final roles = context.watch<RoleProvider>();
           final bool isViewOnly = !_canMutateMovements(roles);
+          final studentNamesByCode = <String, String>{..._studentNamesByCode};
+          final classroomNamesByCode = <String, String>{..._classroomNamesByCode};
+          if (state.board != null) {
+            for (final m in state.board!.all) {
+              final sCode = m.studentCode.trim();
+              final sName = m.studentName.trim();
+              if (sCode.isNotEmpty && sName.isNotEmpty) {
+                studentNamesByCode[sCode] = sName;
+              }
+              final fromCode = m.fromClassroomCode.trim();
+              final fromName = m.fromClassroomName.trim();
+              if (fromCode.isNotEmpty && fromName.isNotEmpty) {
+                classroomNamesByCode[fromCode] = fromName;
+              }
+              final toCode = m.toClassroomCode.trim();
+              final toName = m.toClassroomName.trim();
+              if (toCode.isNotEmpty && toName.isNotEmpty) {
+                classroomNamesByCode[toCode] = toName;
+              }
+            }
+          }
+
+          String studentNameForCode(String code) =>
+              (studentNamesByCode[code.trim()] ?? '').trim();
+          String classroomNameForCode(String code) =>
+              (classroomNamesByCode[code.trim()] ?? '').trim();
+
+          final studentOptions = _buildDisplayOnlyOptions(
+            codes: students,
+            nameForCode: studentNameForCode,
+          );
+          final classroomOptions = _buildDisplayOnlyOptions(
+            codes: classrooms,
+            nameForCode: classroomNameForCode,
+          );
+
+          final selectedStudentDisplays = _selectedStudents
+              .map((c) => studentOptions.codeToDisplay[c.trim()])
+              .whereType<String>()
+              .toList();
+          final selectedFromDisplays = _fromClassrooms
+              .map((c) => classroomOptions.codeToDisplay[c.trim()])
+              .whereType<String>()
+              .toList();
+          final selectedToDisplays = _toClassrooms
+              .map((c) => classroomOptions.codeToDisplay[c.trim()])
+              .whereType<String>()
+              .toList();
 
           return GlobalScaffold(
-            hasBackButton: true,
+            hasBackButton: false,
             showCustomNavigationBar: true,
-            body: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: <Widget>[
-                        const Expanded(
-                          child: Text(
-                            'Overview',
-                            style: TextStyle(
-                              fontFamily: Fonts.manrope,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primaryColor,
+            body: CustomRefreshIndicator(
+              displacement: 28,
+              onRefresh: _onPullRefreshBuckets,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: <Widget>[
+                          const Expanded(
+                            child: Text(
+                              'Overview',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primaryColor,
+                              ),
                             ),
                           ),
-                        ),
-                        // Temporarily disabled: add movement flow is not needed.
-                        // GradientAddButton(
-                        //   wantedButtonSize: 30,
-                        //   iconSize: 18,
-                        //   borderRadius: 8,
-                        //   onTap: _openAddMovementScreen,
-                        // ),
-                      ],
-                    ),
-                  ),
-                  FutureBuilder<Set<String>>(
-                    future: _resolveAllowedClassroomsForStaff(roles),
-                    builder: (ctx, snap) {
-                      final allowed = snap.data ?? const <String>{};
-                      final bool isStaff = roles.role == 'staff';
-
-                      // If staff has allowed classrooms, restrict the available classroom filters.
-                      final filteredClassrooms = (!isStaff || allowed.isEmpty)
-                          ? classrooms
-                          : classrooms.where((c) => allowed.contains(c.trim())).toList();
-
-                      // Student options: for staff, restrict to movements that touch allowed classrooms.
-                      // (best-effort based on loaded board)
-                      List<String> filteredStudents = students;
-                      if (isStaff && allowed.isNotEmpty && state.board != null) {
-                        final set = <String>{};
-                        for (final m in state.board!.all) {
-                          final from = m.fromClassroomCode.trim();
-                          final to = m.toClassroomCode.trim();
-                          final touches = (from.isNotEmpty && allowed.contains(from)) ||
-                              (to.isNotEmpty && allowed.contains(to));
-                          if (touches) {
-                            final s = m.studentCode.trim();
-                            if (s.isNotEmpty) set.add(s);
-                          }
-                        }
-                        filteredStudents = set.toList()..sort();
-                      }
-
-                      // Clamp selected filters to allowed sets (prevents persisted stale values).
-                      final selectedStudents = isStaff && allowed.isNotEmpty
-                          ? _selectedStudents.where((s) => filteredStudents.contains(s)).toList()
-                          : _selectedStudents;
-                      final froms = isStaff && allowed.isNotEmpty
-                          ? _fromClassrooms.where((c) => filteredClassrooms.contains(c)).toList()
-                          : _fromClassrooms;
-                      final tos = isStaff && allowed.isNotEmpty
-                          ? _toClassrooms.where((c) => filteredClassrooms.contains(c)).toList()
-                          : _toClassrooms;
-
-                      // Build code->name maps from loaded board to display friendly names in filters.
-                      final studentNamesByCode = <String, String>{};
-                      final classroomNamesByCode = <String, String>{};
-                      if (state.board != null) {
-                        for (final m in state.board!.all) {
-                          final sCode = m.studentCode.trim();
-                          final sName = m.studentName.trim();
-                          if (sCode.isNotEmpty && sName.isNotEmpty) {
-                            studentNamesByCode[sCode] = sName;
-                          }
-                          final fromCode = m.fromClassroomCode.trim();
-                          final fromName = m.fromClassroomName.trim();
-                          if (fromCode.isNotEmpty && fromName.isNotEmpty) {
-                            classroomNamesByCode[fromCode] = fromName;
-                          }
-                          final toCode = m.toClassroomCode.trim();
-                          final toName = m.toClassroomName.trim();
-                          if (toCode.isNotEmpty && toName.isNotEmpty) {
-                            classroomNamesByCode[toCode] = toName;
-                          }
-                        }
-                      }
-
-                      String studentNameForCode(String code) =>
-                          (studentNamesByCode[code.trim()] ?? '').trim();
-                      String classroomNameForCode(String code) =>
-                          (classroomNamesByCode[code.trim()] ?? '').trim();
-
-                      final studentOptions = _buildDisplayOnlyOptions(
-                        codes: filteredStudents,
-                        nameForCode: studentNameForCode,
-                      );
-                      final classroomOptions = _buildDisplayOnlyOptions(
-                        codes: filteredClassrooms,
-                        nameForCode: classroomNameForCode,
-                      );
-
-                      final selectedStudentDisplays = selectedStudents
-                          .map((c) => studentOptions.codeToDisplay[c.trim()])
-                          .whereType<String>()
-                          .toList();
-                      final selectedFromDisplays = froms
-                          .map((c) => classroomOptions.codeToDisplay[c.trim()])
-                          .whereType<String>()
-                          .toList();
-                      final selectedToDisplays = tos
-                          .map((c) => classroomOptions.codeToDisplay[c.trim()])
-                          .whereType<String>()
-                          .toList();
-
-                      if (selectedStudents.length != _selectedStudents.length ||
-                          froms.length != _fromClassrooms.length ||
-                          tos.length != _toClassrooms.length) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!mounted) return;
-                          setState(() {
-                            _selectedStudents = selectedStudents;
-                            _fromClassrooms = froms;
-                            _toClassrooms = tos;
-                          });
-                          _persistFilters();
-                          _fetchMovements();
-                        });
-                      }
-
-                      return _buildFilterCard(
-                        students: studentOptions.items,
-                        classrooms: classroomOptions.items,
-                        selectedStudents: selectedStudentDisplays,
-                        fromClassrooms: selectedFromDisplays,
-                        toClassrooms: selectedToDisplays,
-                        onStudentsChanged: (List<String> displays) {
-                          final codes = displays
-                              .map((d) => studentOptions.displayToCode[d.trim()])
-                              .whereType<String>()
-                              .toList();
-                          setState(() => _selectedStudents = codes);
-                          _persistFilters();
-                          _fetchMovements();
-                        },
-                        onFromClassroomsChanged: (List<String> displays) {
-                          final codes = displays
-                              .map((d) => classroomOptions.displayToCode[d.trim()])
-                              .whereType<String>()
-                              .toList();
-                          setState(() => _fromClassrooms = codes);
-                          _persistFilters();
-                          _fetchMovements();
-                        },
-                        onToClassroomsChanged: (List<String> displays) {
-                          final codes = displays
-                              .map((d) => classroomOptions.displayToCode[d.trim()])
-                              .whereType<String>()
-                              .toList();
-                          setState(() => _toClassrooms = codes);
-                          _persistFilters();
-                          _fetchMovements();
-                        },
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: PrimaryCircularLoader(),
+                          // Temporarily disabled: add movement flow is not needed.
+                          // GradientAddButton(
+                          //   wantedButtonSize: 30,
+                          //   iconSize: 18,
+                          //   borderRadius: 8,
+                          //   onTap: _openAddMovementScreen,
+                          // ),
+                        ],
                       ),
-                    )
-                  else if (state.errorMessage != null && state.board == null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      child: Center(
-                        child: Text(
-                          state.errorMessage!,
-                          style: const TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 14,
-                            color: AppColors.primaryColor,
+                    ),
+                    _buildFilterCard(
+                      students: studentOptions.items,
+                      classrooms: classroomOptions.items,
+                      selectedStudents: selectedStudentDisplays,
+                      fromClassrooms: selectedFromDisplays,
+                      toClassrooms: selectedToDisplays,
+                      onStudentsChanged: (List<String> displays) {
+                        final codes = displays
+                            .map((d) => studentOptions.displayToCode[d.trim()])
+                            .whereType<String>()
+                            .toList();
+                        setState(() => _selectedStudents = codes);
+                        _persistFilters();
+                        _fetchMovements();
+                      },
+                      onFromClassroomsChanged: (List<String> displays) {
+                        final codes = displays
+                            .map((d) => classroomOptions.displayToCode[d.trim()])
+                            .whereType<String>()
+                            .toList();
+                        setState(() => _fromClassrooms = codes);
+                        _persistFilters();
+                        _fetchMovements();
+                      },
+                      onToClassroomsChanged: (List<String> displays) {
+                        final codes = displays
+                            .map((d) => classroomOptions.displayToCode[d.trim()])
+                            .whereType<String>()
+                            .toList();
+                        setState(() => _toClassrooms = codes);
+                        _persistFilters();
+                        _fetchMovements();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (state.isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: PrimaryCircularLoader(),
+                        ),
+                      )
+                    else if (state.errorMessage != null && state.board == null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        child: Center(
+                          child: Text(
+                            state.errorMessage!,
+                            style: const TextStyle(
+                              fontFamily: Fonts.manrope,
+                              fontSize: 14,
+                              color: AppColors.primaryColor,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
+                      )
+                    else
+                      IndividualMovementPager(
+                        sections: sections,
+                        currentSectionIndex: _currentSectionIndex,
+                        sectionPageController: _sectionPageController,
+                        onPageChanged: (int index) =>
+                            setState(() => _currentSectionIndex = index),
+                        onPrevious: _goToPreviousSection,
+                        onNext: _goToNextSection,
+                        onActionSelected: _onMovementAction,
+                        onDropToBucket: _handleDropToBucket,
+                        isViewOnly: isViewOnly,
+                        canDragItem: _canDragItem,
+                        onDragStarted: _onCardDragStarted,
+                        onDragEnded: _onCardDragEnded,
+                        onDragGlobalUpdate: _onCardDragGlobalUpdate,
                       ),
-                    )
-                  else
-                    IndividualMovementPager(
-                      sections: sections,
-                      currentSectionIndex: _currentSectionIndex,
-                      sectionPageController: _sectionPageController,
-                      onPageChanged: (int index) =>
-                          setState(() => _currentSectionIndex = index),
-                      onPrevious: _goToPreviousSection,
-                      onNext: _goToNextSection,
-                      onActionSelected: _onMovementAction,
-                      onDropToBucket: _handleDropToBucket,
-                      isViewOnly: isViewOnly,
-                      canDragItem: _canDragItem,
-                      onDragStarted: _onCardDragStarted,
-                      onDragEnded: _onCardDragEnded,
-                      onDragGlobalUpdate: _onCardDragGlobalUpdate,
-                    ),
-                  const SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           );

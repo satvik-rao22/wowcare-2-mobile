@@ -82,4 +82,12 @@ abstract class AvailabilityRepositoryWithCache {
     required DateTime endDate,
     required FutureAvailabilityShift shift,
   });
+
+  /// Invalidates cached availability data for a school.
+  ///
+  /// Call this after any mutation (edit/delete/reject/confirm/recompute) so the
+  /// next load/refresh never reuses stale cached snapshots.
+  Future<void> invalidateAvailabilityCache({
+    required String schoolCode,
+  });
 }

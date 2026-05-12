@@ -59,26 +59,28 @@ class IndividualMovementFilterCard extends StatelessWidget {
             selectedItems: selectedStudents,
             onChanged: onStudentsChanged,
             showSelectAll: true,
+            enableSearch: true,
+            searchHintText: 'Search students',
           ),
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'To Classrooms',
+                  hintText: 'From Classrooms',
                   items: classrooms,
-                  selectedItems: toClassrooms,
-                  onChanged: onToClassroomsChanged,
+                  selectedItems: fromClassrooms,
+                  onChanged: onFromClassroomsChanged,
                   showSelectAll: true,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: CustomMultiSelectDropdown(
-                  hintText: 'From Classrooms',
+                  hintText: 'To Classrooms',
                   items: classrooms,
-                  selectedItems: fromClassrooms,
-                  onChanged: onFromClassroomsChanged,
+                  selectedItems: toClassrooms,
+                  onChanged: onToClassroomsChanged,
                   showSelectAll: true,
                 ),
               ),
@@ -375,6 +377,12 @@ class _MovementRow extends StatelessWidget {
         ]);
         break;
       case MovementBucket.confirmed:
+        actions.addAll(const [
+          IndividualMovementAction.edit,
+          IndividualMovementAction.reject,
+          IndividualMovementAction.delete,
+        ]);
+        break;
       case MovementBucket.rejected:
         actions.addAll(const [
           IndividualMovementAction.edit,
@@ -391,9 +399,7 @@ class _MovementRow extends StatelessWidget {
               title: _labelForAction(a),
               icon: Icon(
                 _iconForAction(a),
-                color: a == IndividualMovementAction.delete
-                    ? Colors.red
-                    : AppColors.themeColor,
+                color: AppColors.themeColor,
               ),
             ),
           ),
@@ -419,15 +425,15 @@ class _MovementRow extends StatelessWidget {
   IconData _iconForAction(IndividualMovementAction a) {
     switch (a) {
       case IndividualMovementAction.edit:
-        return Icons.edit_outlined;
+        return Icons.edit;
       case IndividualMovementAction.confirm:
-        return Icons.check_circle_outline_rounded;
+        return Icons.check_circle_outline;
       case IndividualMovementAction.reject:
-        return Icons.block_outlined;
+        return Icons.cancel_outlined;
       case IndividualMovementAction.moveToPending:
         return Icons.schedule_rounded;
       case IndividualMovementAction.delete:
-        return Icons.delete_outline_rounded;
+        return Icons.delete;
     }
   }
 
@@ -535,17 +541,22 @@ class _MovementRow extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withValues(alpha: 0.06),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primaryColor.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
                   ),
                   child: PopupMenuButton<IndividualMovementAction>(
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      size: 22,
-                      color: AppColors.primaryColor,
+                    color: Colors.white,
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    icon: const Icon(Icons.more_horiz, size: 20),
                     onSelected: (action) => onActionSelected(item, action),
                     itemBuilder: (_) => _buildMenuEntries(),
                   ),
