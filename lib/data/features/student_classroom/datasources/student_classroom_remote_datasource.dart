@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/debug_defaults.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../models/student_classroom_models.dart';
 
@@ -45,9 +44,7 @@ class StudentClassroomRemoteDataSourceImpl
     final storedSchoolCode =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    final resolvedOrganizationCode = storedOrganizationCode.isNotEmpty
-        ? storedOrganizationCode
-        : DebugDefaults.organizationCode;
+    final resolvedOrganizationCode = storedOrganizationCode;
     final resolvedSchoolCode = storedSchoolCode.isNotEmpty
         ? storedSchoolCode
         : fallbackSchoolCode.trim();

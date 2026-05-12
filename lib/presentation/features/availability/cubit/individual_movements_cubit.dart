@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
@@ -251,13 +250,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
             }
           }
         }
-      } catch (_) {
-        // Non-blocking: continue with dev fallback / error.
-      }
-    }
-
-    if (DebugDefaults.schoolCode.trim().isNotEmpty) {
-      return DebugDefaults.schoolCode.trim();
+      } catch (_) {}
     }
 
     if (schoolCode.isEmpty || schoolCode == '-') {

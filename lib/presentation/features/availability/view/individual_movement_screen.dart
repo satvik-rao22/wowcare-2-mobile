@@ -6,7 +6,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
@@ -37,6 +36,14 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
     case IndividualMovementType.moveToNextClassroom:
       return MovementType.moveToNextClassroom;
   }
+}
+
+/// Lets [RefreshIndicator] react when a nested vertical [ListView] scrolls
+/// (bucket lists inside [IndividualMovementPager]).
+bool _individualMovementNestedVerticalPredicate(
+  ScrollNotification notification,
+) {
+  return notification.metrics.axis == Axis.vertical;
 }
 
 class IndividualMovementScreen extends StatefulWidget {
@@ -187,8 +194,13 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     final storage = serviceLocator<StorageService>();
     final stored = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     if (stored.isNotEmpty && stored != '-') return stored;
-    if (DebugDefaults.schoolCode.trim().isNotEmpty) return DebugDefaults.schoolCode.trim();
     return '';
+  }
+
+  Future<void> _onPullRefreshBuckets() async {
+    await _fetchMovements();
+    if (!mounted) return;
+    await _loadFilterOptions();
   }
 
   Future<void> _loadFilterOptions() async {
@@ -930,111 +942,140 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           return GlobalScaffold(
             hasBackButton: false,
             showCustomNavigationBar: true,
-            body: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: <Widget>[
-                        const Expanded(
-                          child: Text(
-                            'Overview',
-                            style: TextStyle(
-                              fontFamily: Fonts.manrope,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primaryColor,
+            body: RefreshIndicator(
+              color: AppColors.themeColor,
+              backgroundColor: Colors.white,
+              strokeWidth: 3,
+              displacement: 28,
+              notificationPredicate: _individualMovementNestedVerticalPredicate,
+              onRefresh: _onPullRefreshBuckets,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: <Widget>[
+                          const Expanded(
+                            child: Text(
+                              'Overview',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primaryColor,
+                              ),
                             ),
                           ),
-                        ),
-                        // Temporarily disabled: add movement flow is not needed.
-                        // GradientAddButton(
-                        //   wantedButtonSize: 30,
-                        //   iconSize: 18,
-                        //   borderRadius: 8,
-                        //   onTap: _openAddMovementScreen,
-                        // ),
-                      ],
-                    ),
-                  ),
-                  _buildFilterCard(
-                    students: studentOptions.items,
-                    classrooms: classroomOptions.items,
-                    selectedStudents: selectedStudentDisplays,
-                    fromClassrooms: selectedFromDisplays,
-                    toClassrooms: selectedToDisplays,
-                    onStudentsChanged: (List<String> displays) {
-                      final codes = displays
-                          .map((d) => studentOptions.displayToCode[d.trim()])
-                          .whereType<String>()
-                          .toList();
-                      setState(() => _selectedStudents = codes);
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                    onFromClassroomsChanged: (List<String> displays) {
-                      final codes = displays
-                          .map((d) => classroomOptions.displayToCode[d.trim()])
-                          .whereType<String>()
-                          .toList();
-                      setState(() => _fromClassrooms = codes);
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                    onToClassroomsChanged: (List<String> displays) {
-                      final codes = displays
-                          .map((d) => classroomOptions.displayToCode[d.trim()])
-                          .whereType<String>()
-                          .toList();
-                      setState(() => _toClassrooms = codes);
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: PrimaryCircularLoader(),
+                          // Temporarily disabled: add movement flow is not needed.
+                          // GradientAddButton(
+                          //   wantedButtonSize: 30,
+                          //   iconSize: 18,
+                          //   borderRadius: 8,
+                          //   onTap: _openAddMovementScreen,
+                          // ),
+                        ],
                       ),
-                    )
-                  else if (state.errorMessage != null && state.board == null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      child: Center(
-                        child: Text(
-                          state.errorMessage!,
-                          style: const TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 14,
-                            color: AppColors.primaryColor,
+                    ),
+                    _buildFilterCard(
+                      students: studentOptions.items,
+                      classrooms: classroomOptions.items,
+                      selectedStudents: selectedStudentDisplays,
+                      fromClassrooms: selectedFromDisplays,
+                      toClassrooms: selectedToDisplays,
+                      onStudentsChanged: (List<String> displays) {
+                        final codes = displays
+                            .map((d) => studentOptions.displayToCode[d.trim()])
+                            .whereType<String>()
+                            .toList();
+                        setState(() => _selectedStudents = codes);
+                        _persistFilters();
+                        _fetchMovements();
+                      },
+                      onFromClassroomsChanged: (List<String> displays) {
+                        final codes = displays
+                            .map((d) => classroomOptions.displayToCode[d.trim()])
+                            .whereType<String>()
+                            .toList();
+                        setState(() => _fromClassrooms = codes);
+                        _persistFilters();
+                        _fetchMovements();
+                      },
+                      onToClassroomsChanged: (List<String> displays) {
+                        final codes = displays
+                            .map((d) => classroomOptions.displayToCode[d.trim()])
+                            .whereType<String>()
+                            .toList();
+                        setState(() => _toClassrooms = codes);
+                        _persistFilters();
+                        _fetchMovements();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (state.isRefreshing)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            const PrimaryCircularLoader(size: 28, strokeWidth: 3),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Refreshing movements…',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primaryColor.withValues(alpha: 0.85),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (state.isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: PrimaryCircularLoader(),
+                        ),
+                      )
+                    else if (state.errorMessage != null && state.board == null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        child: Center(
+                          child: Text(
+                            state.errorMessage!,
+                            style: const TextStyle(
+                              fontFamily: Fonts.manrope,
+                              fontSize: 14,
+                              color: AppColors.primaryColor,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
+                      )
+                    else
+                      IndividualMovementPager(
+                        sections: sections,
+                        currentSectionIndex: _currentSectionIndex,
+                        sectionPageController: _sectionPageController,
+                        onPageChanged: (int index) =>
+                            setState(() => _currentSectionIndex = index),
+                        onPrevious: _goToPreviousSection,
+                        onNext: _goToNextSection,
+                        onActionSelected: _onMovementAction,
+                        onDropToBucket: _handleDropToBucket,
+                        isViewOnly: isViewOnly,
+                        canDragItem: _canDragItem,
+                        onDragStarted: _onCardDragStarted,
+                        onDragEnded: _onCardDragEnded,
+                        onDragGlobalUpdate: _onCardDragGlobalUpdate,
                       ),
-                    )
-                  else
-                    IndividualMovementPager(
-                      sections: sections,
-                      currentSectionIndex: _currentSectionIndex,
-                      sectionPageController: _sectionPageController,
-                      onPageChanged: (int index) =>
-                          setState(() => _currentSectionIndex = index),
-                      onPrevious: _goToPreviousSection,
-                      onNext: _goToNextSection,
-                      onActionSelected: _onMovementAction,
-                      onDropToBucket: _handleDropToBucket,
-                      isViewOnly: isViewOnly,
-                      canDragItem: _canDragItem,
-                      onDragStarted: _onCardDragStarted,
-                      onDragEnded: _onCardDragEnded,
-                      onDragGlobalUpdate: _onCardDragGlobalUpdate,
-                    ),
-                  const SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           );
