@@ -120,15 +120,6 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
           isFromCache: true,
         ),
       );
-      // ignore: unawaited_futures
-      refresh(
-        studentCodes: studentCodes,
-        fromClassroomCodes: fromClassroomCodes,
-        toClassroomCodes: toClassroomCodes,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        status: status,
-      );
       return;
     }
 
@@ -198,6 +189,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     }
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _transitionIndividualMovementStatusUseCase(
         id: id,
         status: status,
@@ -294,6 +291,11 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     try {
       final schoolCode = await _resolveSchoolCode();
       final organizationCode = await _resolveOrganizationCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _createIndividualMovementUseCase(
         schoolCode: schoolCode,
         organizationCode: organizationCode,
@@ -338,6 +340,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _updateIndividualMovementUseCase(
         id: id,
         movementType: movementType,
@@ -375,6 +383,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _deleteIndividualMovementUseCase(id: id);
       await refresh(
         studentCodes: _lastFilters.studentCodes,

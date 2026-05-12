@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/availability/cubit/future_availabi
 import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_toggle_button.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class FutureAvailabilityScreen extends StatefulWidget {
   const FutureAvailabilityScreen({super.key});
@@ -150,7 +151,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     return BlocProvider<FutureAvailabilityCubit>.value(
       value: _cubit,
       child: GlobalScaffold(
-        hasBackButton: true,
+        hasBackButton: false,
         showCustomNavigationBar: true,
         body: Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
@@ -249,7 +250,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                               builder: (context, state) {
                                 if (state.isLoading) {
                                   return const Center(
-                                    child: CircularProgressIndicator(),
+                                    child: PrimaryCircularLoader(),
                                   );
                                 }
 

@@ -399,9 +399,7 @@ class _MovementRow extends StatelessWidget {
               title: _labelForAction(a),
               icon: Icon(
                 _iconForAction(a),
-                color: a == IndividualMovementAction.delete
-                    ? Colors.red
-                    : AppColors.themeColor,
+                color: AppColors.themeColor,
               ),
             ),
           ),
@@ -427,15 +425,15 @@ class _MovementRow extends StatelessWidget {
   IconData _iconForAction(IndividualMovementAction a) {
     switch (a) {
       case IndividualMovementAction.edit:
-        return Icons.edit_outlined;
+        return Icons.edit;
       case IndividualMovementAction.confirm:
-        return Icons.check_circle_outline_rounded;
+        return Icons.check_circle_outline;
       case IndividualMovementAction.reject:
-        return Icons.block_outlined;
+        return Icons.cancel_outlined;
       case IndividualMovementAction.moveToPending:
         return Icons.schedule_rounded;
       case IndividualMovementAction.delete:
-        return Icons.delete_outline_rounded;
+        return Icons.delete;
     }
   }
 
@@ -558,11 +556,7 @@ class _MovementRow extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      size: 20,
-                      color: AppColors.primaryColor,
-                    ),
+                    icon: const Icon(Icons.more_horiz, size: 20),
                     onSelected: (action) => onActionSelected(item, action),
                     itemBuilder: (_) => _buildMenuEntries(),
                   ),

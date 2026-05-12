@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
@@ -929,7 +928,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
               .toList();
 
           return GlobalScaffold(
-            hasBackButton: true,
+            hasBackButton: false,
             showCustomNavigationBar: true,
             body: SingleChildScrollView(
               child: Column(
