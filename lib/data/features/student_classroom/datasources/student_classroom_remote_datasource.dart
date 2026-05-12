@@ -14,6 +14,7 @@ abstract class StudentClassroomRemoteDataSource {
     String? firstName,
     String? lastName,
     String? search,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -72,6 +73,7 @@ class StudentClassroomRemoteDataSourceImpl
     String? firstName,
     String? lastName,
     String? search,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -96,8 +98,23 @@ class StudentClassroomRemoteDataSourceImpl
     if (search != null && search.trim().isNotEmpty) {
       queryParameters['search'] = search.trim();
     }
+    if (studentCodes != null && studentCodes.isNotEmpty) {
+      queryParameters['studentCodes'] = studentCodes
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
+    }
+    if (studentCodes != null && studentCodes.isNotEmpty) {
+      final normalized = studentCodes
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (normalized.isNotEmpty) {
+        queryParameters['studentCodes'] = normalized;
+      }
     }
     // Keep payload strictly aligned with backend request DTO for this API.
     if (tagCodes != null && tagCodes.isNotEmpty) {
@@ -112,7 +129,10 @@ class StudentClassroomRemoteDataSourceImpl
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
-      options: Options(headers: headers),
+      options: Options(
+        headers: headers,
+        listFormat: ListFormat.multiCompatible,
+      ),
     );
 
     final body = response.data;

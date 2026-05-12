@@ -40,8 +40,11 @@ class StudentListItemModel extends Equatable {
     if (classroomRaw is String) {
       classroomCodeOrName = classroomRaw;
     } else if (classroomRaw is Map) {
+      final name = classroomRaw['name']?.toString().trim() ?? '';
       final code = classroomRaw['code'];
-      classroomCodeOrName = code?.toString().trim() ?? '';
+      classroomCodeOrName = name.isNotEmpty
+          ? name
+          : (code?.toString().trim() ?? '');
     }
 
     final rawTags = json['tags'];

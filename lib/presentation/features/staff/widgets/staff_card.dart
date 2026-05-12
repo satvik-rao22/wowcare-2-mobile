@@ -90,6 +90,17 @@ class _StaffCardState extends State<StaffCard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final primaryClassroomName = widget.classroom.trim();
+    final orderedAllowedClassrooms = <String>[
+      if (primaryClassroomName.isNotEmpty) primaryClassroomName,
+      ...widget.allowedClassrooms
+          .map((name) => name.trim())
+          .where(
+            (name) =>
+                name.isNotEmpty &&
+                name.toLowerCase() != primaryClassroomName.toLowerCase(),
+          ),
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -244,7 +255,7 @@ class _StaffCardState extends State<StaffCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        if (widget.allowedClassrooms.isNotEmpty)
+                                        if (orderedAllowedClassrooms.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
@@ -252,7 +263,7 @@ class _StaffCardState extends State<StaffCard> {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.allowedClassrooms[0],
+                                              orderedAllowedClassrooms[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -261,9 +272,11 @@ class _StaffCardState extends State<StaffCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.allowedClassrooms.length > 1)
+                                        if (orderedAllowedClassrooms.length > 1)
                                           Tooltip(
-                                            message: widget.allowedClassrooms.skip(1).join(', '),
+                                            message: orderedAllowedClassrooms
+                                                .skip(1)
+                                                .join(', '),
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
@@ -271,7 +284,7 @@ class _StaffCardState extends State<StaffCard> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${widget.allowedClassrooms.length - 1}',
+                                                '+${orderedAllowedClassrooms.length - 1}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,

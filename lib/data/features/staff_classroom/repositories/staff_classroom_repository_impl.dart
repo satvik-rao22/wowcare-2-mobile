@@ -54,8 +54,8 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     if (q.isNotEmpty) parts.add('search=$q');
 
     return CacheManager.buildCacheKey(
-      feature: 'staff',
-      resource: 'classrooms',
+      feature: 'classroom',
+      resource: 'staff_roster',
       identifier: parts.join('|'),
     );
   }

@@ -59,10 +59,14 @@ class StudentScreen extends StatefulWidget {
   const StudentScreen({
     super.key,
     this.incomingStatusFilter,
+    this.incomingClassroomSelections,
   });
 
   static const String routeName = '/students';
   final String? incomingStatusFilter;
+
+  /// Classroom names or codes (same as filter sheet / [StudentCubit] — both resolve).
+  final List<String>? incomingClassroomSelections;
 
   @override
   State<StudentScreen> createState() => _StudentScreenState();
@@ -104,6 +108,7 @@ class _StudentScreenState extends State<StudentScreen> {
   void initState(){
     super.initState();
     _applyIncomingStatusFilter();
+    _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -185,6 +190,17 @@ class _StudentScreenState extends State<StudentScreen> {
     final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
     _currentFilters['Status'] = [statusLabel];
     _syncShowInactiveFromStatus(statusLabel);
+  }
+
+  void _applyIncomingClassroomSelections() {
+    final raw = widget.incomingClassroomSelections;
+    if (raw == null || raw.isEmpty) return;
+    final cleaned = raw
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return;
+    _currentFilters['Classroom'] = cleaned;
   }
 
   @override
@@ -660,14 +676,34 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  String _resolveClassroomCodeForStudent(
+    Student student, {
+    required Map<String, String> classroomCodeByName,
+  }) {
+    final raw = student.classroom.trim();
+    if (raw.isEmpty) return '';
+    if (raw.toUpperCase().startsWith('CLS_')) return raw;
+    final mapped = classroomCodeByName[raw];
+    if (mapped != null && mapped.trim().isNotEmpty) {
+      return mapped.trim();
+    }
+    return raw;
+  }
+
   /// Same shape as [ChooseActivity.selectedStudents] for class-scoped activity list + create flow.
-  List<Map<String, dynamic>> _activityStudentMaps(List<Student> students) {
+  List<Map<String, dynamic>> _activityStudentMaps(
+    List<Student> students, {
+    required Map<String, String> classroomCodeByName,
+  }) {
     return _getSelectedStudents(students)
         .map(
           (s) => <String, dynamic>{
             'name': s.fullName,
             'studentCode': s.code,
-            'classroomCode': s.classroom.trim(),
+            'classroomCode': _resolveClassroomCodeForStudent(
+              s,
+              classroomCodeByName: classroomCodeByName,
+            ),
           },
         )
         .toList();
@@ -1070,7 +1106,13 @@ class _StudentScreenState extends State<StudentScreen> {
                       currentPanel: _currentPanel,
                       activityStudentMaps:
                           _canShowActivitiesButton(selectedCount, students)
-                              ? _activityStudentMaps(students)
+                              ? _activityStudentMaps(
+                                  students,
+                                  classroomCodeByName: {
+                                    for (final c in classroomState.classrooms)
+                                      c.name.trim(): c.code.trim(),
+                                  },
+                                )
                               : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),

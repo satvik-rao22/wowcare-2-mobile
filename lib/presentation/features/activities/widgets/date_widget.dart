@@ -36,7 +36,9 @@ class _DateWidgetState extends State<DateWidget> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialDate != null && widget.initialDate!.trim().isNotEmpty) {
+    final hasInitial =
+        widget.initialDate != null && widget.initialDate!.trim().isNotEmpty;
+    if (hasInitial) {
       try {
         _selectedDate = DateFormat('dd MMM yyyy').parseLoose(widget.initialDate!.trim());
       } catch (e) {
@@ -46,14 +48,24 @@ class _DateWidgetState extends State<DateWidget> {
           _selectedDate = DateTime.now(); // fallback
         }
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onDateChanged?.call(_selectedDate);
+      });
     } else {
-      _selectedDate = DateTime.now();
+      // Prefer school calendar from last resolved tz (warm after Activities tab);
+      // avoid pushing device-local "today" into parent before async resolve.
+      final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
+      if (tz.isNotEmpty &&
+          tz.toUpperCase() != SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
+        _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(tz);
+      } else {
+        _selectedDate = DateTime.now();
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onDateChanged?.call(_selectedDate);
+      });
     }
     _setSchoolDefaultDateIfNeeded();
-    // Notify initial value.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.onDateChanged?.call(_selectedDate);
-    });
   }
 
   Future<void> _setSchoolDefaultDateIfNeeded() async {

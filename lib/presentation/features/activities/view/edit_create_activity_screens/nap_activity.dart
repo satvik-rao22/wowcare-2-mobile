@@ -157,16 +157,21 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         await _prefetchActivityForEdit();
       });
     } else {
-      final now = DateTime.now();
-      _activityDate = DateTime(now.year, now.month, now.day);
-      _activityTime = TimeOfDay.fromDateTime(now);
+      // Create flow: do not seed from [lastKnownTimeZone] before async bootstrap
+      // finishes (same as Meal). Let [DateWidget]/[TimeWidget] apply school zone,
+      // or use [attendanceDate] from student maps when present.
+      _activityDate = null;
+      _activityTime = null;
       if (widget.selectedStudents != null) {
         _selectedStudentsData = List.from(widget.selectedStudents!);
         _selectedStudents = _selectedStudentsData
             .map((s) => s['name'] as String)
             .toList();
-        _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
-      _loadActivityContextForCreate();
+        _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+        _loadActivityContextForCreate();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _syncSchoolAttendanceDateForCreate();
+        });
       } else {
         _selectedStudentsData = [];
         _selectedStudents = [];
@@ -174,6 +179,16 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     }
 
     _loadStaffContext();
+  }
+
+  Future<void> _syncSchoolAttendanceDateForCreate() async {
+    if (!mounted || _layoutAsEdit) return;
+    if (_selectedStudentsData.isEmpty) return;
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
+    if (!mounted) return;
+    setState(() {
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+    });
   }
 
   bool get _showAdminApproveRejectActions {
@@ -500,15 +515,20 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     return nappingSelectedCount == selectedSet.length;
   }
 
+  static bool _isStudentMapNapping(Map<String, dynamic> student) {
+    final dynamic raw = student['nappingStatus'] ?? student['isNapping'];
+    if (raw == true) return true;
+    if (raw is String && raw.toLowerCase() == 'true') return true;
+    return false;
+  }
+
   bool? _resolveNapEndFromSelectedStudentsData() {
     if (_selectedStudentsData.isEmpty) return null;
     var hasNapping = false;
     var hasNotNapping = false;
 
     for (final student in _selectedStudentsData) {
-      final raw = student['nappingStatus'];
-      final isNapping = raw == true;
-      if (isNapping) {
+      if (_isStudentMapNapping(student)) {
         hasNapping = true;
       } else {
         hasNotNapping = true;
@@ -1095,6 +1115,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : DateWidget(
+                          key: ValueKey<String>(
+                            formatSelectedDateForDateWidget(_activityDate) ?? 'school_date',
+                          ),
                           isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
@@ -1132,6 +1155,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                 ),
               ],
             ),
+            const ActivitySchoolTimeZoneHint(),
             if (!_isNapEndContextForUi()) ...[
               SizedBox(height: responsive.verticalSpacing * 0.6),
               Padding(

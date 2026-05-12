@@ -48,6 +48,10 @@ class DocumentImageWidget extends StatefulWidget {
   /// when both [imageUrl] and [mediaAssetCode] are empty.
   final bool disableProfileLookupFallback;
 
+  /// If true, widget will NOT call attendance APIs for status dot.
+  /// You can provide [statusColor] + [statusTooltip] instead (e.g. from a cached map).
+  final bool disableAttendanceStatusLookup;
+
   const DocumentImageWidget({
     Key? key,
     required this.fileUuid,
@@ -70,6 +74,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.statusTooltip,
     this.showOnlyAbsentAttendanceDot = false,
     this.disableProfileLookupFallback = false,
+    this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
 
   static void clearProfilePhotoCache({
@@ -254,8 +259,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }) async {
     final apiClient = serviceLocator<ApiClient>();
     if (mediaAssetCode.isNotEmpty) {
+      // Try document service first (when caller provides an asset code),
+      // but fall back to profile endpoints if the document lookup fails.
       final documentUrl = await _fetchDocumentAssetUrl(mediaAssetCode);
-      return documentUrl.isEmpty ? null : documentUrl;
+      if (documentUrl.isNotEmpty) return documentUrl;
     }
     if (studentCode.isNotEmpty) {
       final endpoint = ApiPaths.urlWithBase(
@@ -473,6 +480,15 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
+    if (widget.disableAttendanceStatusLookup) {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = null;
+        _statusLabel = null;
+      });
+      return;
+    }
+
     final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
     if (employment == 'UPCOMING') {
       if (!mounted) return;

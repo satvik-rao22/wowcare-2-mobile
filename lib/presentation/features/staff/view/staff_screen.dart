@@ -278,7 +278,13 @@ class _StaffScreenState extends State<StaffScreen> {
     try {
       final useCase =
           serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
-      final summary = await useCase();
+      final primary =
+          context.read<StaffCubit>().state.primaryClassroomCodes ?? const [];
+      final code =
+          primary.isEmpty ? null : primary.first.trim();
+      final summary = await useCase(
+        classroomCode: (code != null && code.isNotEmpty) ? code : null,
+      );
       if (!mounted) return;
       setState(() {
         _expectedStaffTotal = summary.expected;
@@ -946,15 +952,17 @@ class _StaffScreenState extends State<StaffScreen> {
                                         final initialPrimaryNames = primaryCodes
                                             .map(
                                               (c) =>
-                                                  classroomNameByCode[c] ?? c,
+                                                  classroomNameByCode[c]?.trim(),
                                             )
+                                            .whereType<String>()
                                             .where((n) => n.isNotEmpty)
                                             .toList();
                                         final initialAllowedNames = allowedCodes
                                             .map(
                                               (c) =>
-                                                  classroomNameByCode[c] ?? c,
+                                                  classroomNameByCode[c]?.trim(),
                                             )
+                                            .whereType<String>()
                                             .where((n) => n.isNotEmpty)
                                             .toList();
 

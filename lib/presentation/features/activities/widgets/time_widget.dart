@@ -40,12 +40,28 @@ class _TimeWidgetState extends State<TimeWidget> {
   @override
   void initState() {
     super.initState();
-    _selectedTime = _parseTimeOfDay(widget.prefilledTime) ?? widget.initialTime ?? TimeOfDay.now();
+    final hasPreset = _parseTimeOfDay(widget.prefilledTime) != null ||
+        widget.initialTime != null;
+    if (hasPreset) {
+      _selectedTime =
+          _parseTimeOfDay(widget.prefilledTime) ?? widget.initialTime!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onTimeChanged?.call(_selectedTime);
+      });
+    } else {
+      final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
+      if (tz.isNotEmpty &&
+          tz.toUpperCase() != SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
+        _selectedTime =
+            SchoolZoneDateTime.schoolCalendarDateAndTimeNow(tz).$2;
+      } else {
+        _selectedTime = TimeOfDay.now();
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onTimeChanged?.call(_selectedTime);
+      });
+    }
     _setSchoolDefaultTimeIfNeeded();
-    // Notify initial value.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.onTimeChanged?.call(_selectedTime);
-    });
   }
 
   Future<void> _setSchoolDefaultTimeIfNeeded() async {

@@ -28,6 +28,12 @@ class StudentAttendanceDailyCubit
 
   static const int _pageSize = 10;
 
+  String? _classroomCodeForSummary(List<String>? classroomCodes) {
+    if (classroomCodes == null || classroomCodes.isEmpty) return null;
+    final code = classroomCodes.first.trim();
+    return code.isEmpty ? null : code;
+  }
+
   // Initial load: Try cache first, then API
   Future<void> loadInitial({
     required DateTime attendanceDate,
@@ -70,7 +76,9 @@ class StudentAttendanceDailyCubit
     if (cached != null && !isClosed) {
       try {
         final summary =
-            await _getStudentAttendanceExpectedSummaryUseCase();
+            await _getStudentAttendanceExpectedSummaryUseCase(
+          classroomCode: _classroomCodeForSummary(classroomCodes),
+        );
         if (isClosed) return;
         emit(StudentAttendanceDailyState.loaded(
           items: cached.items,
@@ -156,7 +164,9 @@ class StudentAttendanceDailyCubit
         size: _pageSize,
       );
       final summary =
-          await _getStudentAttendanceExpectedSummaryUseCase();
+          await _getStudentAttendanceExpectedSummaryUseCase(
+        classroomCode: _classroomCodeForSummary(classroomCodes),
+      );
 
       if (isClosed) return;
 
