@@ -22,60 +22,26 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// AGP 8+ requires `android.namespace` on every Android module.
-// Some older third-party plugins (e.g. isar_flutter_libs 3.1.0+1) still omit it.
+// isar_flutter_libs 3.1.0+1 still ships compileSdkVersion 30 after its android {} block.
+// Transitive AndroidX can reference android:attr/lStar (API 31+). Plugin callbacks that
+// run at apply-plugin time run *before* that block and get overwritten — bump here.
+// `evaluationDependsOn(":app")` above can leave some subprojects already evaluated, so
+// registering afterEvaluate on them throws; run the same logic immediately in that case.
 subprojects {
-    if (name == "isar_flutter_libs") {
-        plugins.withId("com.android.library") {
-            extensions.configure<LibraryExtension>("android") {
-                compileSdk = 36
+    fun Project.bumpAndroidLibraryCompileSdkAndNamespace() {
+        if (!plugins.hasPlugin("com.android.library")) return
+        extensions.configure<LibraryExtension>("android") {
+            compileSdk = 36
+            if (namespace.isNullOrBlank()) {
+                namespace =
+                    "autogen.${name.replace('-', '_').replace('.', '_')}"
             }
         }
     }
-
-    plugins.withId("com.android.library") {
-        val androidExt = extensions.findByName("android") ?: return@withId
-        val extensionClass = androidExt.javaClass
-
-        // Ensure all Android library modules compile against a modern SDK.
-        // Fixes AAPT errors like: `android:attr/lStar not found` when a plugin
-        // is compiled with an older compileSdk than the app.
-        run {
-            val candidates = extensionClass.methods.filter {
-                (it.name == "setCompileSdk" || it.name == "setCompileSdkVersion") &&
-                    it.parameterTypes.size == 1
-            }
-
-            for (m in candidates) {
-                val paramType = m.parameterTypes.firstOrNull() ?: continue
-                try {
-                    when (paramType) {
-                        Int::class.javaPrimitiveType,
-                        java.lang.Integer::class.java,
-                        Number::class.java,
-                        java.lang.Number::class.java -> m.invoke(androidExt, 36)
-                        String::class.java -> m.invoke(androidExt, "android-36")
-                        else -> continue
-                    }
-                    break
-                } catch (_: Throwable) {
-                    // Try next compatible setter candidate.
-                }
-            }
-        }
-
-        val getNamespace = extensionClass.methods.firstOrNull { it.name == "getNamespace" }
-        val setNamespace = extensionClass.methods.firstOrNull {
-            it.name == "setNamespace" && it.parameterTypes.size == 1
-        }
-        if (getNamespace == null || setNamespace == null) return@withId
-
-        val current = getNamespace.invoke(androidExt) as? String
-        if (current.isNullOrBlank()) {
-            val fallbackNamespace =
-                "autogen.${project.name.replace('-', '_').replace('.', '_')}"
-            setNamespace.invoke(androidExt, fallbackNamespace)
-        }
+    if (state.executed) {
+        bumpAndroidLibraryCompileSdkAndNamespace()
+    } else {
+        afterEvaluate { bumpAndroidLibraryCompileSdkAndNamespace() }
     }
 }
 
@@ -98,36 +64,11 @@ subprojects {
         }
     }
 
-    val patchIsarCompileSdk = tasks.register("patchIsarCompileSdkVersion") {
-        doLast {
-            val gradleFile = file("build.gradle")
-            if (!gradleFile.exists()) return@doLast
-            val original = gradleFile.readText()
-            val patched = original.replace(
-                Regex("""compileSdkVersion\s+\d+"""),
-                "compileSdkVersion 36",
-            )
-            if (patched != original) {
-                gradleFile.writeText(patched)
-            }
-        }
-    }
-
     tasks.configureEach {
         if (name.contains("process", ignoreCase = true) &&
             name.contains("manifest", ignoreCase = true)
         ) {
             dependsOn(patchIsarManifest)
-        }
-        if (name.contains("merge", ignoreCase = true) &&
-            name.contains("resources", ignoreCase = true)
-        ) {
-            dependsOn(patchIsarCompileSdk)
-        }
-        if (name.contains("verify", ignoreCase = true) &&
-            name.contains("resources", ignoreCase = true)
-        ) {
-            dependsOn(patchIsarCompileSdk)
         }
     }
 }
