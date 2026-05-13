@@ -100,118 +100,112 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
         borderRadius: BorderRadius.circular(12),
         color: shouldGreyOut ? Colors.grey[100] : null,
       ),
-      // Whole-tile tap toggles selection. Nested GestureDetectors — the
-      // checkbox itself and the icon strip (opens details dialog) — win the
-      // gesture arena because they're deeper hit targets, so they don't
-      // double-fire this handler.
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: shouldGreyOut
-            ? null
-            : () => widget.onSelectionChanged(!widget.isSelected),
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: CustomCheckbox(
-                borderColor: AppColors.primaryColor.withValues(alpha: 0.2),
-                value: widget.isSelected,
-                onChanged: shouldGreyOut ? null : widget.onSelectionChanged,
-              ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: CustomCheckbox(
+              borderColor: AppColors.primaryColor.withValues(alpha: 0.2),
+              value: widget.isSelected,
+              onChanged: widget.onSelectionChanged,
             ),
-            Expanded(
-              child: Opacity(
-                opacity: shouldGreyOut ? 0.5 : 1,
-                child: Row(
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        DocumentImageWidget(
-                          fileUuid: widget.studentCode.trim().isNotEmpty
-                              ? widget.studentCode
-                              : widget.studentId.toString(),
-                          imageUrl: directUrl,
-                          mediaAssetCode: assetCode,
-                          name: widget.name,
-                          studentCode: widget.studentCode.trim().isNotEmpty
-                              ? widget.studentCode.trim()
-                              : null,
-                          studentEnrollmentStatus: enrollmentStatus,
-                          statusColor: attendanceDotColor,
-                          statusTooltip: attendanceTooltip,
-                          disableAttendanceStatusLookup: true,
-                          size: 50,
-                        ),
-                        if (widget.icons.containsKey('napping'))
-                          Positioned(
-                            right: 0, // Moved to top right
-                            top: 0,
-                            child: Tooltip(
-                              message: 'Student is currently napping',
-                              child: SvgPicture.asset(
-                                // Guard against empty path in assets
-                                MediaRes.napIcon.isNotEmpty
-                                    ? MediaRes.napIcon
-                                    : MediaRes.sleepIcon,
-                                height: 18,
-                                width: 18,
+          ),
+          Expanded(
+            child: Opacity(
+              opacity: shouldGreyOut ? 0.5 : 1,
+              child: AbsorbPointer(
+                absorbing: shouldGreyOut,
+                child: GestureDetector(
+                  onTap: () => widget.onSelectionChanged(!widget.isSelected),
+                  child: Row(
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: widget.studentCode.trim().isNotEmpty
+                                ? widget.studentCode
+                                : widget.studentId.toString(),
+                            imageUrl: directUrl,
+                            mediaAssetCode: assetCode,
+                            name: widget.name,
+                            studentCode: widget.studentCode.trim().isNotEmpty
+                                ? widget.studentCode.trim()
+                                : null,
+                            studentEnrollmentStatus: enrollmentStatus,
+                            statusColor: attendanceDotColor,
+                            statusTooltip: attendanceTooltip,
+                            disableAttendanceStatusLookup: true,
+                            size: 50,
+                          ),
+                          if (widget.icons.containsKey('napping'))
+                            Positioned(
+                              right: 0, // Moved to top right
+                              top: 0,
+                              child: Tooltip(
+                                message: 'Student is currently napping',
+                                child: SvgPicture.asset(
+                                  // Guard against empty path in assets
+                                  MediaRes.napIcon.isNotEmpty
+                                      ? MediaRes.napIcon
+                                      : MediaRes.sleepIcon,
+                                  height: 18,
+                                  width: 18,
+                                ),
                               ),
                             ),
+                        ],
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.name.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            color: AppColors.primaryColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            height: 1.25,
                           ),
-                      ],
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        widget.name.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          color: AppColors.primaryColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          height: 1.25,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                showDialog<void>(
-                  context: context,
-                  builder: (_) => _StudentDetailsDialog(
-                    studentCode: widget.studentCode,
-                    studentName: widget.name,
-                    iconKeys: widget.icons.keys.toList(),
+          ),
+          GestureDetector(
+            onTap: () {
+              showDialog<void>(
+                context: context,
+                builder: (_) => _StudentDetailsDialog(
+                  studentCode: widget.studentCode,
+                  studentName: widget.name,
+                  iconKeys: widget.icons.keys.toList(),
+                ),
+              );
+            },
+            child: Row(
+              children: widget.icons.entries.map((entry) {
+                final String iconPath = entry.value["icon"];
+                final bool isSvg = iconPath.toLowerCase().endsWith('.svg');
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: Tooltip(
+                    message:
+                        entry.value["info"] ?? getDefaultIconDetail(entry.key),
+                    child: isSvg
+                        ? SvgPicture.asset(iconPath, height: 18)
+                        : Image.asset(iconPath, height: 18),
                   ),
                 );
-              },
-              child: Row(
-                children: widget.icons.entries.map((entry) {
-                  final String iconPath = entry.value["icon"];
-                  final bool isSvg =
-                      iconPath.toLowerCase().endsWith('.svg');
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    child: Tooltip(
-                      message: entry.value["info"] ??
-                          getDefaultIconDetail(entry.key),
-                      child: isSvg
-                          ? SvgPicture.asset(iconPath, height: 18)
-                          : Image.asset(iconPath, height: 18),
-                    ),
-                  );
-                }).toList(),
-              ),
+              }).toList(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
