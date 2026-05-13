@@ -31,6 +31,10 @@ class ClassroomStudentListItem extends StatefulWidget {
   final String studentStatus;
   final String? todayAttendanceStatusRaw;
 
+  /// When the classroom roster is filtered to upcoming students only, show the
+  /// amber profile dot even if [studentStatus] from the API is missing or varies.
+  final bool forceUpcomingProfileStatusDot;
+
   const ClassroomStudentListItem({
     super.key,
     this.isSelected = false,
@@ -45,6 +49,7 @@ class ClassroomStudentListItem extends StatefulWidget {
     required this.icons,
     required this.studentStatus,
     this.todayAttendanceStatusRaw,
+    this.forceUpcomingProfileStatusDot = false,
   });
 
   @override
@@ -78,7 +83,9 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
         !widget.isSignedIn &&
         !widget.isAbsent &&
         !hasAttendanceStatus;
-    final enrollmentStatus = widget.studentStatus.trim();
+    final enrollmentStatus = widget.forceUpcomingProfileStatusDot
+        ? 'UPCOMING'
+        : widget.studentStatus.trim();
     final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
         ? Colors.green
         : (normalizedAttendance == 'ABSENT' ? Colors.red : null);

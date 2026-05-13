@@ -480,15 +480,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
-    if (widget.disableAttendanceStatusLookup) {
-      if (!mounted) return;
-      setState(() {
-        _statusDotColor = null;
-        _statusLabel = null;
-      });
-      return;
-    }
-
+    // Employment / enrollment "upcoming" must apply even when attendance API
+    // lookups are disabled (e.g. classroom roster rows pass today's status via
+    // [statusColor] and set [disableAttendanceStatusLookup] to avoid N+1 calls).
     final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
     if (employment == 'UPCOMING') {
       if (!mounted) return;
@@ -506,6 +500,15 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       setState(() {
         _statusDotColor = AppColors.mustardProgressBar;
         _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
+    if (widget.disableAttendanceStatusLookup) {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = null;
+        _statusLabel = null;
       });
       return;
     }

@@ -1409,6 +1409,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             );
                           }
 
+                          final upcomingOnlyFilter = _selectedStatus.length == 1 &&
+                              _selectedStatus.first.trim().toUpperCase() ==
+                                  'UPCOMING';
+
                           return CustomRefreshIndicator(
                             onRefresh: () async {
                               _loadForSelectedRoom(refresh: true);
@@ -1431,6 +1435,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                     name: student.fullName,
                                     imageUrl: student.profilePictureUrl ?? '',
                                     icons: _getStudentIcons(student),
+                                    forceUpcomingProfileStatusDot: upcomingOnlyFilter,
                                     isSelected:
                                     studentSelections[student.studentCode] ?? false,
                                     onSelectionChanged: (bool? value) {
