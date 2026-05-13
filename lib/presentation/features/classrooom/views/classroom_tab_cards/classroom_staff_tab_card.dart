@@ -112,8 +112,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   ];
 
   void _loadForSelectedRoom({required bool refresh}) {
-    final classroomCode = widget.selectedRoom?.code ?? '';
-    if (classroomCode.trim().isEmpty) return;
+    final primaryClassroomCode = widget.selectedRoom?.code ?? '';
+    if (primaryClassroomCode.trim().isEmpty) return;
 
     final search =
         _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
@@ -125,14 +125,14 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
     if (refresh) {
       _cubit.refresh(
-        classroomCode: classroomCode,
+        classroomCode: primaryClassroomCode,
         search: search,
         status: status,
         designation: designation,
       );
     } else {
       _cubit.loadInitial(
-        classroomCode: classroomCode,
+        classroomCode: primaryClassroomCode,
         search: search,
         status: status,
         designation: designation,

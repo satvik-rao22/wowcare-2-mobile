@@ -78,7 +78,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
 
       final items = await _getStaffClassroomsUseCase(
         schoolCode: schoolCode,
-        classCodes: [classroomCode],
+        primaryClassroomCodes: [classroomCode],
         search: search,
         status: status,
         designation: designation,
@@ -138,7 +138,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
 
       final items = await _getStaffClassroomsUseCase(
         schoolCode: schoolCode,
-        classCodes: [classroomCode],
+        primaryClassroomCodes: [classroomCode],
         search: search,
         status: status,
         designation: designation,

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 // UI-only: use wowcare widgets and theme; backend/bloc imports removed
@@ -13,8 +11,9 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
+import 'package:wowcare/domain/features/staff_classroom/usecases/get_staff_classrooms_usecase.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -71,8 +70,6 @@ class AssignStaffToClassroomForm extends StatefulWidget {
 
 class _AssignStaffToClassroomFormState
     extends State<AssignStaffToClassroomForm> {
-  static const int _pageSize = 100;
-
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
   List<String> _selectedDesignations = [];
@@ -108,10 +105,13 @@ class _AssignStaffToClassroomFormState
     try {
       final storage = serviceLocator<StorageService>();
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      final organizationCode =
-          await storage.getString(StorageKeys.organizationCode) ?? '';
-      if (schoolCode.trim().isEmpty || organizationCode.trim().isEmpty) {
-        throw 'Missing school/organization code. Please sign in again.';
+      if (schoolCode.trim().isEmpty) {
+        throw 'Missing school code. Please sign in again.';
+      }
+
+      final excludeClassroomCode = widget.classroomCode.trim();
+      if (excludeClassroomCode.isEmpty) {
+        throw 'Missing classroom code.';
       }
 
       final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
@@ -123,66 +123,56 @@ class _AssignStaffToClassroomFormState
         for (final c in classrooms) c.code: c.name,
       };
 
-      final getStaffPageUseCase = serviceLocator<GetStaffPageUseCase>();
+      final getStaffClassrooms = serviceLocator<GetStaffClassroomsUseCase>();
+      final roster = await getStaffClassrooms(
+        schoolCode: schoolCode,
+        excludeClassroomCode: excludeClassroomCode,
+        status: const ['ACTIVE'],
+        refresh: true,
+      );
+
+      final byStaffCode = <String, StaffClassroomItem>{};
+      for (final item in roster) {
+        final code = item.staffCode.trim();
+        if (code.isEmpty) continue;
+        byStaffCode[code] = item;
+      }
+
+      final rows = byStaffCode.values.toList()
+        ..sort((a, b) => a.fullName.compareTo(b.fullName));
+
       final fetchedStaffs = <Staff>[];
       final uniqueRoomNames = <String>{};
       final uniqueDesignations = <String>{};
-
-      int page = 0;
-      bool hasMore = true;
-      while (hasMore) {
-        final staffPage = await getStaffPageUseCase(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          page: page,
-          size: _pageSize,
-          status: 'ACTIVE',
-        );
-
-        for (final s in staffPage.items) {
-          final roomCodes = <String>{
-            if (s.primaryClassroomCode.trim().isNotEmpty)
-              s.primaryClassroomCode.trim(),
-            ...s.allowedClassroomCodes
-                .where((code) => code.trim().isNotEmpty)
-                .map((code) => code.trim()),
-          };
-          final rooms = roomCodes
-              .map(
-                (code) => RoomDTO(
-                  code: code,
-                  name: classroomNameByCode[code] ?? code,
-                ),
-              )
-              .toList();
-
-          fetchedStaffs.add(
-            Staff(
-              id: fetchedStaffs.length + 1,
-              code: s.code,
-              name: s.name,
-              designation: s.designation,
-              profileImageUrl: (s.profileImage ?? '').trim().isEmpty
-                  ? null
-                  : s.profileImage!.trim(),
-              profilePhotoAssetCode: (s.profilePhotoAssetCode ?? '').trim().isEmpty
-                  ? null
-                  : s.profilePhotoAssetCode!.trim(),
-              rooms: rooms,
-            ),
-          );
-          if (s.designation.trim().isNotEmpty) {
-            uniqueDesignations.add(s.designation.trim());
-          }
-          for (final r in rooms) {
-            if (r.name.trim().isNotEmpty) {
-              uniqueRoomNames.add(r.name.trim());
-            }
-          }
+      var id = 0;
+      for (final s in rows) {
+        final cc = s.classroomCode.trim();
+        final rooms = <RoomDTO>[];
+        if (cc.isNotEmpty) {
+          final name = classroomNameByCode[cc] ?? cc;
+          rooms.add(RoomDTO(code: cc, name: name));
+          if (name.trim().isNotEmpty) uniqueRoomNames.add(name.trim());
         }
 
-        hasMore = staffPage.hasMore;
-        page += 1;
+        final rawPhoto = (s.profilePictureUrl ?? '').trim();
+        final looksLikeUrl = rawPhoto.startsWith('http://') ||
+            rawPhoto.startsWith('https://');
+
+        fetchedStaffs.add(
+          Staff(
+            id: ++id,
+            code: s.staffCode,
+            name: s.fullName,
+            designation: s.designation,
+            profileImageUrl: looksLikeUrl ? rawPhoto : null,
+            profilePhotoAssetCode:
+                (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null,
+            rooms: rooms,
+          ),
+        );
+        if (s.designation.trim().isNotEmpty) {
+          uniqueDesignations.add(s.designation.trim());
+        }
       }
 
       if (!mounted) return;
@@ -219,14 +209,6 @@ class _AssignStaffToClassroomFormState
   void _filterStaffs() {
     final allStaffs = _allStaffs;
     _filteredStaffs = allStaffs.where((staff) {
-      // Exclude staff who are already associated with the selected classroom
-      final excludeDueToSelectedClassroom = staff.rooms.any((room) {
-        final byCode = room.code.trim() == (widget.classroomCode.trim());
-        final byName = room.name.trim() == (widget.selectedRoomName.trim());
-        return byCode || byName;
-      });
-      if (excludeDueToSelectedClassroom) return false;
-
       bool matchesSearch = true;
       bool matchesRoom = true;
       bool matchesDesignation = true;
