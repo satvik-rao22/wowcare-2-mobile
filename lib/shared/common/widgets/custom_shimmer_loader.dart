@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../app/theme/colors.dart';
+
 class ShimmerLoader extends StatelessWidget {
   final Widget? child;
   final double? height;
@@ -36,13 +38,11 @@ class ShimmerLoader extends StatelessWidget {
     );
   }
 }
+
 class AttendanceCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const AttendanceCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const AttendanceCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +57,7 @@ class AttendanceCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: AppColors.primaryColor.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -119,10 +119,7 @@ class AttendanceCardShimmer extends StatelessWidget {
 class SummaryCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const SummaryCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const SummaryCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +134,7 @@ class SummaryCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: AppColors.primaryColor.withValues(alpha: 0.07),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -233,10 +230,7 @@ class SummaryCardShimmer extends StatelessWidget {
 class StaffCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const StaffCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const StaffCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +245,7 @@ class StaffCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: AppColors.primaryColor.withValues(alpha: 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),

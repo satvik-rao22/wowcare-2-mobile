@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 
 class PostAddStaffBottomSheet extends StatelessWidget {
   final String staffName;
@@ -71,7 +69,9 @@ class PostAddStaffBottomSheet extends StatelessWidget {
               ),
               SizedBox(height: verticalPadding),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'Do you want to add additional details for this staff now?',
                   style: TextStyle(
@@ -110,13 +110,17 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2 - 1,
+                            ),
                           ),
                           child: TextButton(
                             onPressed: onLater,
                             style: TextButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                                borderRadius: BorderRadius.circular(
+                                  borderRadius / 2 - 1,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -146,7 +150,9 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                         onPressed: onYes,
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -171,5 +177,3 @@ class PostAddStaffBottomSheet extends StatelessWidget {
     );
   }
 }
-
-

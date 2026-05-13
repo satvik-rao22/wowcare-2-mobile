@@ -13,7 +13,7 @@ import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
-import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';

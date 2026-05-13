@@ -7,7 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/views/coming_soon_screen.dart';

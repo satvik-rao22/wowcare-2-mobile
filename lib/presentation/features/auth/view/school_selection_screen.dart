@@ -5,7 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';

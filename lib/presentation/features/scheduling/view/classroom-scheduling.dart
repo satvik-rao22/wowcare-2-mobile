@@ -162,27 +162,19 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                             fontSize: 13,
                                           ),
                                         )
-                                      : Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).subtract(Duration(days: (state.selectedDate ?? DateTime.now()).weekday - 1)))}",
-                                              style: AppTextStyles.body
-                                                  .copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 12,
-                                                  ),
+                                      : FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).subtract(Duration(days: (state.selectedDate ?? DateTime.now()).weekday - 1)))}"
+                                            " - "
+                                            "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).add(Duration(days: 7 - (state.selectedDate ?? DateTime.now()).weekday)))}",
+                                            maxLines: 1,
+                                            textAlign: TextAlign.center,
+                                            style: AppTextStyles.body.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 20,
                                             ),
-                                            Text(
-                                              "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).add(Duration(days: 7 - (state.selectedDate ?? DateTime.now()).weekday)))}",
-                                              style: AppTextStyles.body
-                                                  .copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 12,
-                                                  ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
                                 ),
                                 IconButton(

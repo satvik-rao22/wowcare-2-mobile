@@ -67,10 +67,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.showOnlyAbsentAttendanceDot = false,
   }) : super(key: key);
 
-  static void clearProfilePhotoCache({
-    String? studentCode,
-    String? staffCode,
-  }) {
+  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
     if (student.isEmpty && staff.isEmpty) {
@@ -179,7 +176,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) > DocumentImageWidget._profilePhotoCacheTtl) {
+    if (DateTime.now().difference(fetchedAt) >
+        DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
       return null;
@@ -199,7 +197,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
     final cacheKey = mediaAssetCode.isNotEmpty
         ? 'asset:$mediaAssetCode'
-        : (studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode');
+        : (studentCode.isNotEmpty
+              ? 'student:$studentCode'
+              : 'staff:$staffCode');
     final cached = _cachedUrlIfFresh(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       if (!mounted) return;
@@ -552,8 +552,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrlToShow =
-        (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
+    final imageUrlToShow = (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
     final hasImageUrl = imageUrlToShow.isNotEmpty;
     return GestureDetector(
       onTap: widget.onTap,
@@ -602,7 +601,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.95),
+              color: AppColors.primaryColor.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(

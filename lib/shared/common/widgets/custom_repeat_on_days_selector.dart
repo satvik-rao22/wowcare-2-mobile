@@ -62,7 +62,7 @@ class _CustomRepeatOnDaysSelectorState
 
   @override
   Widget build(BuildContext context) {
-    final bool isAllSelected = _selectedDays.length == _allDays.length;
+    // final bool isAllSelected = _selectedDays.length == _allDays.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,15 +98,15 @@ class _CustomRepeatOnDaysSelectorState
                     },
 
                     /// Track (background)
-                    trackColor: MaterialStateProperty.resolveWith((states) {
-                      if (states.contains(MaterialState.selected)) {
+                    trackColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
                         return AppColors.themeColor; // ON
                       }
                       return Colors.grey.shade300; // OFF
                     }),
 
                     /// Thumb (bubble) → always white
-                    thumbColor: MaterialStateProperty.all(Colors.white),
+                    thumbColor: WidgetStateProperty.all(Colors.white),
                   ),
                   const Text("On"),
                 ],

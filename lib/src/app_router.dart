@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
@@ -158,6 +158,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (_) => const ClassroomViewScreen(),
         settings: settings,
       );
+
     case SignInScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const SignInScreen(),
@@ -189,15 +190,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (_) => const PublishShiftScheduleScreen(),
         settings: settings,
       );
+
     case EditShiftScheduleScreen.routeName:
       return MaterialPageRoute(
         builder: (_) => const EditShiftScheduleScreen(),
-        settings: settings,
-      );
-
-    case ClassroomViewScreen.routeName:
-      return MaterialPageRoute(
-        builder: (_) => const ClassroomViewScreen(),
         settings: settings,
       );
 
