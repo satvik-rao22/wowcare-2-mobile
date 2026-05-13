@@ -342,7 +342,10 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                 selectedRoomName: selectedRoom!.name,
                 classroomCode: selectedRoom!.code,
                 onStudentsAssigned: () {
-                  // no-op for UI-only; could trigger a UI refresh callback if needed
+                  // Roster mutated — tell the Students tab card to drop its
+                  // attendance cache and refetch so the newly assigned
+                  // student appears immediately, no tab switch required.
+                  notifyClassroomStudentsChanged();
                 },
               ),
             ),

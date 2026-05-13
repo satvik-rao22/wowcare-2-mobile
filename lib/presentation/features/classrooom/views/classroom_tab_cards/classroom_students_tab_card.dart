@@ -46,6 +46,16 @@ class _AttendanceCacheEntry {
   final Map<String, String> statusByCode;
 }
 
+/// Bumped by any screen/flow that mutates the classroom roster (e.g. the
+/// "Assign Students to Classroom" sheet). The Students-tab card listens and
+/// invalidates its cubit + attendance cache so the new student is visible
+/// immediately, without the user having to switch tabs to force a rebuild.
+final ValueNotifier<int> classroomStudentsRefreshTick = ValueNotifier<int>(0);
+
+void notifyClassroomStudentsChanged() {
+  classroomStudentsRefreshTick.value++;
+}
+
 class ClassroomStudentsTabCard extends StatefulWidget {
   const ClassroomStudentsTabCard({
     required this.scrollController,
@@ -110,6 +120,34 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
+    classroomStudentsRefreshTick.addListener(_handleExternalRefresh);
+  }
+
+  void _handleExternalRefresh() {
+    if (!mounted) return;
+    // Roster changed elsewhere (assign sheet, etc.) — drop the today's
+    // attendance status cache for this room so the new student shows up
+    // with fresh status, then refetch the student list.
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStudentCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _loadForSelectedRoom(refresh: true);
+    _loadNapStartStudentCodes(refresh: true);
+  }
+
+  /// Used as the `refreshCallback` for every sign-in / sign-out / transfer /
+  /// mark-absent form. The form just told us a student's attendance just
+  /// flipped — but `_attendanceCacheByKey` still holds the pre-action status
+  /// (it has a 10-minute TTL). Without dropping that cache, the next time
+  /// the user selects the same student the attendance gate computes against
+  /// stale data and "Sign In" stays disabled after a successful Sign Out
+  /// (and vice versa). Wiping the room's cache here forces a fresh fetch.
+  void _refreshAfterAttendanceAction() {
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStudentCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _clearAttendanceEntityCaches();
+    _loadForSelectedRoom(refresh: true);
   }
 
   void _loadForSelectedRoom({
@@ -217,6 +255,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   @override
   void dispose() {
+    classroomStudentsRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
@@ -658,6 +697,25 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _absentEntitiesByCode = {};
   }
 
+  /// Warms the row-icon details cache for every visible student whose list-API
+  /// flags say they have a health-backed icon (allergies / medication / diet /
+  /// photo). The details dialog reads from the same cache, so the first tap
+  /// after the roster loads shows the actual text immediately, no loader.
+  void _prefetchDetailsHealthForVisibleStudents(
+    List<StudentClassroomItem> visibleStudents,
+  ) {
+    for (final s in visibleStudents) {
+      final hasHealthIcon = s.allergies ||
+          s.medication ||
+          s.dietaryRestriction ||
+          !s.photoPermission;
+      if (!hasHealthIcon) continue;
+      // Fire-and-forget; the helper dedupes in-flight + cached entries.
+      // ignore: unawaited_futures
+      prefetchStudentDetailsHealth(s.studentCode);
+    }
+  }
+
   Future<void> _prefetchAttendanceEntitiesForSelection(
     List<StudentClassroomItem> visibleStudents,
   ) async {
@@ -878,7 +936,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           MaterialPageRoute(
             builder: (_) => sign_in_form.StudentSignInForm(
               students: entities,
-              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+              refreshCallback: _refreshAfterAttendanceAction,
+              popOnSuccess: true,
             ),
           ),
         );
@@ -907,7 +966,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           MaterialPageRoute(
             builder: (_) => sign_out_form.StudentSignOutForm(
               students: entities,
-              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+              refreshCallback: _refreshAfterAttendanceAction,
+              popOnSuccess: true,
             ),
           ),
         );
@@ -948,7 +1008,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             builder: (_) => transfer_form.StudentTransferForm(
               students: entities,
               classroomNameToCode: classroomNameToCode,
-              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+              refreshCallback: _refreshAfterAttendanceAction,
+              popOnSuccess: true,
             ),
           ),
         );
@@ -976,7 +1037,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         MaterialPageRoute(
           builder: (_) => absent_form.StudentMarkAbsentForm(
             students: entities,
-            refreshCallback: () => _loadForSelectedRoom(refresh: true),
+            refreshCallback: _refreshAfterAttendanceAction,
+            popOnSuccess: true,
           ),
         ),
       );
@@ -1021,6 +1083,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _refreshAttendanceStatusForVisibleStudents(visibleStudents);
+            _prefetchDetailsHealthForVisibleStudents(visibleStudents);
           });
 
           final effectiveVisibleStudents =
@@ -1423,35 +1486,46 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           }
                         : null,
                     onProfileTap: _selectedCount == 1
-                        ? () {
-                            if (selectedStudents.isNotEmpty) {
-                              final student = selectedStudents.first;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => StudentProfileScreen(
-                                    name: student.fullName,
-                                    classroom:
-                                        widget.selectedRoom?.name ?? 'Unknown Class',
-                                    tags: const [],
-                                    schedule: const [
-                                      'Monday',
-                                      'Tuesday',
-                                      'Wednesday',
-                                      'Thursday',
-                                      'Friday'
-                                    ],
-                                    sibling: const {
-                                      'name': [],
-                                      'relation': [],
-                                      'status': []
-                                    },
-                                    studentCode: student.studentCode,
-                                    initialEnrollmentStatus: student.status,
-                                  ),
+                        ? () async {
+                            if (selectedStudents.isEmpty) return;
+                            final student = selectedStudents.first;
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StudentProfileScreen(
+                                  name: student.fullName,
+                                  classroom:
+                                      widget.selectedRoom?.name ?? 'Unknown Class',
+                                  tags: const [],
+                                  schedule: const [
+                                    'Monday',
+                                    'Tuesday',
+                                    'Wednesday',
+                                    'Thursday',
+                                    'Friday'
+                                  ],
+                                  sibling: const {
+                                    'name': [],
+                                    'relation': [],
+                                    'status': []
+                                  },
+                                  studentCode: student.studentCode,
+                                  initialEnrollmentStatus: student.status,
                                 ),
-                              );
-                            }
+                              ),
+                            );
+                            if (!mounted) return;
+                            // Profile screen may have mutated student data
+                            // (status, schedule, photo, tags, health, ...).
+                            // Refresh the roster + cached attendance so the
+                            // list reflects the latest values, and drop the
+                            // row-icon details dialog cache for this student
+                            // so the next tap re-fetches their health.
+                            invalidateStudentDetailsHealthCache(
+                              student.studentCode,
+                            );
+                            _refreshAfterAttendanceAction();
+                            _loadNapStartStudentCodes(refresh: true);
                           }
                         : null,
                     onClearSelections: () {

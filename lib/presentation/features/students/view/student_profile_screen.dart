@@ -121,7 +121,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final nextClassroom = (profile.classroom ?? '').trim();
       _displayClassroom =
           nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
-      _profileStatusUpper = profile.status.trim().toUpperCase();
+      final nextStatus = profile.status.trim().toUpperCase();
+      if (nextStatus.isNotEmpty) {
+        _profileStatusUpper = nextStatus;
+      }
       _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
           ? null
           : profile.profilePhotoUrl!.trim();
