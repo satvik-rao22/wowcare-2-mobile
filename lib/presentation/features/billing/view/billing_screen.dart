@@ -17,7 +17,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
 
-  static const String routeName = '/billing';
+  static const String routeName = '/dashboard/billing';
 
   @override
   State<BillingScreen> createState() => _BillingScreenState();

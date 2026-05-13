@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
 // import 'package:wowcare/core/common/widgets/custom_button_layout.dart';
@@ -39,11 +40,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
         context.read<ParentChildProvider>().invalidate();
       }
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        SignInScreen.routeName,
-        (route) => false,
-      );
+      context.go(SignInScreen.routeName);
 
       CoreUtils.showTopSnackBar(
         context: context,

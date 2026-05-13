@@ -22,6 +22,8 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class StaffProfileScreen extends StatefulWidget {
+  static const String routeName = '/dashboard/staff-profile';
+
   const StaffProfileScreen({
     super.key,
     required this.staffCode,

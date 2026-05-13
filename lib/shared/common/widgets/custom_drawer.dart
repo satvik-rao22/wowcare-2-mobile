@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
@@ -51,6 +52,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   String _currentRoute = '';
   bool _isSchoolDropdownOpen = false;
   bool _isLoadingSchools = true;
+  bool _schoolContextLoaded = false;
   String? _currentOrgCode;
   String? _selectedSchoolCode;
   String? _selectedSchoolName;
@@ -60,8 +62,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _currentRoute = ModalRoute.of(context)?.settings.name ?? '';
-    // Load school context silently in background.
-    _loadSchoolContext();
+    // Load once per drawer-state lifetime — previously fired on every
+    // didChangeDependencies (MediaQuery/Theme/Provider change), which with
+    // 5 drawer instances alive in the shell's IndexedStack means many
+    // duplicate network calls competing for the main thread during
+    // transitions.
+    if (!_schoolContextLoaded) {
+      _schoolContextLoaded = true;
+      _loadSchoolContext();
+    }
   }
 
   Future<void> _loadSchoolContext() async {
@@ -347,7 +356,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     // Close drawer and send user to Dashboard for the newly selected school.
     Navigator.pop(context);
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+    context.go(DashboardScreen.routeName);
   }
 
   void _showSnackOnRoot(String message, {bool isError = false}) {
@@ -416,21 +425,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
       }
 
       if (!navigator.context.mounted) return;
-      await navigator.push<void>(
-        MaterialPageRoute<void>(
-          settings: const RouteSettings(
-            name: StudentAttendanceProfile.routeName,
-          ),
-          builder: (_) => StudentAttendanceProfile(
-            studentCode: selectedChild.code.trim(),
-            studentId: 0,
-            studentName: selectedChild.name,
-            studentPhotoUuid: null,
-            roomName: roomName,
-            isSignedIn: isSignedIn,
-            syncWithParentChildSelection: true,
-          ),
-        ),
+      navigator.context.go(
+        StudentAttendanceProfile.routeName,
+        extra: <String, dynamic>{
+          'studentCode': selectedChild.code.trim(),
+          'studentId': 0,
+          'studentName': selectedChild.name,
+          'studentPhotoUuid': null,
+          'roomName': roomName,
+          'isSignedIn': isSignedIn,
+          'syncWithParentChildSelection': true,
+        },
       );
     } catch (_) {
       _showSnackOnRoot('Unable to open attendance right now.', isError: true);
@@ -465,22 +470,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
       );
 
       if (!navigator.context.mounted) return;
-      await navigator.push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => StudentProfileScreen(
-            name: selectedChild.name,
-            classroom: selectedChild.classroom,
-            tags: selectedChild.tags,
-            schedule: selectedChild.schedule,
-            sibling: const <String, dynamic>{
-              'name': [],
-              'relation': [],
-              'status': [],
-            },
-            studentCode: selectedChild.code,
-            syncWithParentChildSelection: true,
-          ),
-        ),
+      navigator.context.go(
+        StudentProfileScreen.routeName,
+        extra: <String, dynamic>{
+          'name': selectedChild.name,
+          'classroom': selectedChild.classroom,
+          'tags': selectedChild.tags,
+          'schedule': selectedChild.schedule,
+          'sibling': const <String, dynamic>{
+            'name': <dynamic>[],
+            'relation': <dynamic>[],
+            'status': <dynamic>[],
+          },
+          'studentCode': selectedChild.code,
+          'syncWithParentChildSelection': true,
+        },
       );
     } catch (_) {
       _showSnackOnRoot(
@@ -515,19 +519,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 : '-');
       final classroom = await _resolveClassroomName(classroomCode);
 
-      navigator.push(
-        MaterialPageRoute(
-          builder: (_) => StaffProfileScreen(
-            staffCode: profile.staffCode,
-            name: profile.fullName.trim().isNotEmpty
-                ? profile.fullName.trim()
-                : '-',
-            classroom: classroom,
-            designation: profile.designation,
-            phoneNumber: profile.phoneNumber,
-            employmentStatus: profile.status,
-          ),
-        ),
+      if (!navigator.context.mounted) return;
+      navigator.context.go(
+        StaffProfileScreen.routeName,
+        extra: <String, dynamic>{
+          'staffCode': profile.staffCode,
+          'name': profile.fullName.trim().isNotEmpty
+              ? profile.fullName.trim()
+              : '-',
+          'classroom': classroom,
+          'designation': profile.designation,
+          'phoneNumber': profile.phoneNumber,
+          'employmentStatus': profile.status,
+        },
       );
     } catch (_) {
       ScaffoldMessenger.of(navigator.context).showSnackBar(
@@ -565,21 +569,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 : '-');
       final roomName = await _resolveClassroomName(roomCode);
 
-      navigator.push(
-        MaterialPageRoute(
-          builder: (_) => StaffAttendanceProfile(
-            staffCode: profile.staffCode,
-            staffId: 0,
-            staffName: profile.fullName.trim().isNotEmpty
-                ? profile.fullName.trim()
-                : '-',
-            staffPhotoUuid: profile.profilePhotoUrl.trim().isNotEmpty
-                ? profile.profilePhotoUrl
-                : null,
-            designationName: profile.designation,
-            roomName: roomName,
-          ),
-        ),
+      if (!navigator.context.mounted) return;
+      navigator.context.go(
+        StaffAttendanceProfile.routeName,
+        extra: <String, dynamic>{
+          'staffCode': profile.staffCode,
+          'staffId': 0,
+          'staffName': profile.fullName.trim().isNotEmpty
+              ? profile.fullName.trim()
+              : '-',
+          'staffPhotoUuid': profile.profilePhotoUrl.trim().isNotEmpty
+              ? profile.profilePhotoUrl
+              : null,
+          'designationName': profile.designation,
+          'roomName': roomName,
+        },
       );
     } catch (_) {
       ScaffoldMessenger.of(navigator.context).showSnackBar(
@@ -709,10 +713,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             Navigator.pop(context);
                             if (_currentRoute != DashboardScreen.routeName) {
-                              Navigator.pushNamed(
-                                context,
-                                DashboardScreen.routeName,
-                              );
+                              context.go(DashboardScreen.routeName);
                             }
                           },
                         ),
@@ -723,11 +724,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         _CustomExpansionTile(
                           title: 'My Child',
                           icon: MediaRes.students_drawer_icon,
+                          isCurrentRoute:
+                              _currentRoute == StudentProfileScreen.routeName,
                           onTap: () {
                             final nav = Navigator.of(context);
                             final parentChild = context
                                 .read<ParentChildProvider>();
+                            final alreadyHere = _currentRoute ==
+                                StudentProfileScreen.routeName;
                             Navigator.pop(context);
+                            if (alreadyHere) return;
                             _openParentStudentProfile(nav, parentChild);
                           },
                         ),
@@ -735,11 +741,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Attendance',
                             icon: MediaRes.attendanceIcon,
+                            isCurrentRoute: _currentRoute ==
+                                StudentAttendanceProfile.routeName,
                             onTap: () {
                               final nav = Navigator.of(context);
                               final parentChild = context
                                   .read<ParentChildProvider>();
+                              final alreadyHere = _currentRoute ==
+                                  StudentAttendanceProfile.routeName;
                               Navigator.pop(context);
+                              if (alreadyHere) return;
                               _openParentAttendanceProfile(nav, parentChild);
                             },
                           ),
@@ -753,10 +764,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               Navigator.pop(context);
                               if (_currentRoute !=
                                   ActivityFeedScreen.routeName) {
-                                Navigator.pushNamed(
-                                  context,
-                                  ActivityFeedScreen.routeName,
-                                );
+                                context.go(ActivityFeedScreen.routeName);
                               }
                             },
                           ),
@@ -781,16 +789,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const MessagingScreen(
-                                          userPersona: UserPersona.parent,
-                                        ),
-                                        settings: const RouteSettings(
-                                          name: MessagingScreen.routeName,
-                                        ),
-                                      ),
-                                    );
+                                    context.go(MessagingScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -805,17 +804,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const MessagingScreen(
-                                          userPersona: UserPersona.parent,
-                                          initialTabIndex: 1,
-                                        ),
-                                        settings: const RouteSettings(
-                                          name: MessagingScreen.routeName,
-                                        ),
-                                      ),
-                                    );
+                                    context.go(MessagingScreen.routeName);
                                   },
                                 ),
                             ],
@@ -830,10 +819,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               Navigator.pop(context);
                               if (_currentRoute !=
                                   ParentBillingScreen.routeName) {
-                                Navigator.pushNamed(
-                                  context,
-                                  ParentBillingScreen.routeName,
-                                );
+                                context.go(ParentBillingScreen.routeName);
                               }
                             },
                           ),
@@ -845,55 +831,49 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.classroom_drawer_icon,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ClassroomScreen(),
-                                ),
-                              );
+                              // Classroom is a tab branch — go (not push) so
+                              // the bottom-nav switches to its tab and we
+                              // don't stack a second copy on the current
+                              // branch's navigator.
+                              context.go(ClassroomScreen.routeName);
                             },
                           ),
                         if (canViewStudents)
                           _CustomExpansionTile(
                             title: 'Students',
                             icon: MediaRes.students_drawer_icon,
+                            isCurrentRoute:
+                                _currentRoute == StudentScreen.routeName,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => MultiBlocProvider(
-                                    providers: [
-                                      BlocProvider<StudentCubit>(
-                                        create: (_) =>
-                                            serviceLocator<StudentCubit>()
-                                              ..loadInitial(),
-                                      ),
-                                      BlocProvider<ClassroomCubit>(
-                                        create: (_) =>
-                                            serviceLocator<ClassroomCubit>()
-                                              ..loadActiveClassrooms(),
-                                      ),
-                                    ],
-                                    child: const StudentScreen(),
-                                  ),
-                                ),
-                              );
+                              if (_currentRoute != StudentScreen.routeName) {
+                                context.go(StudentScreen.routeName);
+                              }
                             },
                           ),
                         if (canViewStaff)
                           _CustomExpansionTile(
                             title: 'Staff',
                             icon: MediaRes.staffs_drawer_icon,
-                            isCurrentRoute:
-                                _currentRoute == StaffScreen.routeName,
+                            isCurrentRoute: _currentRoute ==
+                                    StaffScreen.routeName ||
+                                (isStaff &&
+                                    _currentRoute ==
+                                        StaffProfileScreen.routeName),
                             onTap: () async {
                               final navigator = Navigator.of(context);
-                              navigator.pop();
+                              final captured = _currentRoute;
+                              Navigator.pop(context);
                               if (isStaff) {
+                                if (captured ==
+                                    StaffProfileScreen.routeName) {
+                                  return;
+                                }
                                 await _openLoggedInStaffProfile(navigator);
                                 return;
                               }
-                              if (_currentRoute != StaffScreen.routeName) {
-                                navigator.pushNamed(StaffScreen.routeName);
+                              if (captured != StaffScreen.routeName) {
+                                context.go(StaffScreen.routeName);
                               }
                             },
                           ),
@@ -903,18 +883,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Staff-Schudling',
                             icon: MediaRes.staffs_drawer_icon,
-                            isCurrentRoute:
-                                _currentRoute == StaffScreen.routeName,
+                            isCurrentRoute: _currentRoute ==
+                                    StaffSchedulingScreen.routeName ||
+                                (isStaff &&
+                                    _currentRoute ==
+                                        StaffProfileScreen.routeName),
                             onTap: () async {
                               final navigator = Navigator.of(context);
-                              navigator.pop();
+                              final captured = _currentRoute;
+                              Navigator.pop(context);
                               if (isStaff) {
+                                if (captured ==
+                                    StaffProfileScreen.routeName) {
+                                  return;
+                                }
                                 await _openLoggedInStaffProfile(navigator);
                                 return;
                               }
-                              if (_currentRoute !=
+                              if (captured !=
                                   StaffSchedulingScreen.routeName) {
-                                navigator.pushNamed(
+                                context.go(
                                   StaffSchedulingScreen.routeName,
                                 );
                               }
@@ -939,12 +927,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const StudentAttendanceTabbedView(),
-                                      ),
-                                    );
+                                    if (_currentRoute !=
+                                        StudentAttendanceTabbedView
+                                            .routeName) {
+                                      context.go(
+                                        StudentAttendanceTabbedView.routeName,
+                                      );
+                                    }
                                   },
                                 ),
                               if (showStaffAttendance)
@@ -961,19 +950,24 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     final navigator = Navigator.of(context);
-                                    navigator.pop();
+                                    final captured = _currentRoute;
+                                    Navigator.pop(context);
                                     if (isStaff) {
+                                      if (captured ==
+                                          StaffAttendanceProfile.routeName) {
+                                        return;
+                                      }
                                       _openLoggedInStaffAttendanceProfile(
                                         navigator,
                                       );
                                       return;
                                     }
-                                    navigator.push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const StaffAttendanceTabbedView(),
-                                      ),
-                                    );
+                                    if (captured !=
+                                        StaffAttendanceTabbedView.routeName) {
+                                      context.go(
+                                        StaffAttendanceTabbedView.routeName,
+                                      );
+                                    }
                                   },
                                 ),
                             ],
@@ -995,8 +989,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     Navigator.pop(context);
                                     if (_currentRoute !=
                                         IndividualMovementScreen.routeName) {
-                                      Navigator.pushNamed(
-                                        context,
+                                      context.go(
                                         IndividualMovementScreen.routeName,
                                       );
                                     }
@@ -1013,8 +1006,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     Navigator.pop(context);
                                     if (_currentRoute !=
                                         FutureAvailabilityScreen.routeName) {
-                                      Navigator.pushNamed(
-                                        context,
+                                      context.go(
                                         FutureAvailabilityScreen.routeName,
                                       );
                                     }
@@ -1032,10 +1024,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               Navigator.pop(context);
                               if (_currentRoute !=
                                   ActivityFeedScreen.routeName) {
-                                Navigator.pushNamed(
-                                  context,
-                                  ActivityFeedScreen.routeName,
-                                );
+                                context.go(ActivityFeedScreen.routeName);
                               }
                             },
                           ),
@@ -1059,16 +1048,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const MessagingScreen(
-                                          userPersona: UserPersona.admin,
-                                        ),
-                                        settings: const RouteSettings(
-                                          name: MessagingScreen.routeName,
-                                        ),
-                                      ),
-                                    );
+                                    context.go(MessagingScreen.routeName);
                                   },
                                 ),
                               if (showParentMessagingDrawer)
@@ -1083,17 +1063,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const MessagingScreen(
-                                          userPersona: UserPersona.admin,
-                                          initialTabIndex: 0,
-                                        ),
-                                        settings: const RouteSettings(
-                                          name: MessagingScreen.routeName,
-                                        ),
-                                      ),
-                                    );
+                                    context.go(MessagingScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -1108,17 +1078,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const MessagingScreen(
-                                          userPersona: UserPersona.admin,
-                                          initialTabIndex: 1,
-                                        ),
-                                        settings: const RouteSettings(
-                                          name: MessagingScreen.routeName,
-                                        ),
-                                      ),
-                                    );
+                                    context.go(MessagingScreen.routeName);
                                   },
                                 ),
                             ],
@@ -1130,10 +1090,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             onTap: () {
                               Navigator.pop(context);
                               if (_currentRoute != BillingScreen.routeName) {
-                                Navigator.pushNamed(
-                                  context,
-                                  BillingScreen.routeName,
-                                );
+                                context.go(BillingScreen.routeName);
                               }
                             },
                           ),

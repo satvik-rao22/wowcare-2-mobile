@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -18,7 +19,7 @@ import 'publish-shift-schedule.dart';
 class AddShiftScreen extends StatelessWidget {
   const AddShiftScreen({super.key});
 
-  static const String routeName = '/add-shift';
+  static const String routeName = '/dashboard/add-shift';
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +42,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
 
   void _onNext() {
     setState(() {
-      Navigator.pushNamed(context, PublishShiftScheduleScreen.routeName);
+      context.push(PublishShiftScheduleScreen.routeName);
       _isSubmitting = false;
     });
   }

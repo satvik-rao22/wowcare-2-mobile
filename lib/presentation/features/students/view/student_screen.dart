@@ -62,7 +62,7 @@ class StudentScreen extends StatefulWidget {
     this.incomingClassroomSelections,
   });
 
-  static const String routeName = '/students';
+  static const String routeName = '/dashboard/students';
   final String? incomingStatusFilter;
 
   /// Classroom names or codes (same as filter sheet / [StudentCubit] — both resolve).

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
@@ -13,7 +14,7 @@ import 'add-schedule.dart';
 class StaffSchedulingScreen extends StatefulWidget {
   const StaffSchedulingScreen({super.key});
 
-  static const String routeName = '/staff-scheduling';
+  static const String routeName = '/dashboard/staff-scheduling';
 
   @override
   State<StaffSchedulingScreen> createState() => _StaffSchedulingScreenState();
@@ -51,10 +52,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
 
                         GradientAddButton(
                           onTap: () async {
-                            Navigator.pushNamed(
-                              context,
-                              AddShiftScreen.routeName,
-                            );
+                            context.push(AddShiftScreen.routeName);
                           },
                         ),
                       ],

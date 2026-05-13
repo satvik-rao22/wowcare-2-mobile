@@ -41,7 +41,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
     this.classroomFilter,
   });
 
-  static const String routeName = '/staff-attendance-tabbed-view';
+  static const String routeName = '/dashboard/staff-attendance-tabbed-view';
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen

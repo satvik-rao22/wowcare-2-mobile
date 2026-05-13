@@ -41,7 +41,7 @@ class EditProfileDetailsScreen extends StatefulWidget {
     this.initialClassroomNames,
     this.initialClassroomCodeByName,
   });
-  static const String routeName = '/edit-profile-details-screen';
+  static const String routeName = '/dashboard/edit-profile-details-screen';
 
   final String staffCode;
   final String? initialFirstName;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
@@ -83,15 +84,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
           lastLoginSchoolCode: null,
         );
         if (!context.mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const OrganizationSelectionScreen(isSwitchFlow: true),
-          ),
+        context.go(
+          '/org-selection',
+          extra: <String, dynamic>{'isSwitchFlow': true},
         );
         return;
       }
       context.read<AuthCubit>().logout();
-      Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      context.go(SignInScreen.routeName);
     }
 
     return PopScope(
@@ -426,11 +426,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       .read<ParentChildProvider>()
                                       .ensureLoaded(force: true);
                                   if (!context.mounted) return;
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const DashboardScreen(),
-                                    ),
-                                  );
+                                  context.go(DashboardScreen.routeName);
                                 } finally {
                                   if (mounted) {
                                     setState(() => _isSubmitting = false);

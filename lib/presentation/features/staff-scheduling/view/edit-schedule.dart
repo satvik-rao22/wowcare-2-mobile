@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -17,7 +18,7 @@ import 'edit-shift-permission.dart';
 class EditShiftScreen extends StatelessWidget {
   const EditShiftScreen({super.key});
 
-  static const String routeName = '/edit-shift';
+  static const String routeName = '/dashboard/edit-shift';
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +47,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Shift updated successfully')),
           );
-          Navigator.pushNamed(context, EditShiftScheduleScreen.routeName);
+          context.push(EditShiftScheduleScreen.routeName);
         } else if (state is ScheduleFormError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${state.message}')),

@@ -47,7 +47,7 @@ class StaffScreen extends StatefulWidget {
     this.incomingStatusFilter,
   });
 
-  static const String routeName = '/staff';
+  static const String routeName = '/dashboard/staff';
   final String? incomingStatusFilter;
 
   @override

@@ -30,6 +30,8 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentProfileScreen extends StatefulWidget {
+  static const String routeName = '/dashboard/student-profile';
+
   const StudentProfileScreen({
     super.key,
     required this.name,

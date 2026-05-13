@@ -9,7 +9,7 @@ import '../widgets/publish_option_card.dart';
 class PublishShiftScheduleScreen extends StatefulWidget {
   const PublishShiftScheduleScreen({super.key});
 
-  static const String routeName = '/publish-shift-schedule';
+  static const String routeName = '/dashboard/publish-shift-schedule';
 
   @override
   State<PublishShiftScheduleScreen> createState() =>

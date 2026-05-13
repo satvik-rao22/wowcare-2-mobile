@@ -42,7 +42,7 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
 class IndividualMovementScreen extends StatefulWidget {
   const IndividualMovementScreen({super.key});
 
-  static const String routeName = '/individual-movement';
+  static const String routeName = '/dashboard/individual-movement';
 
   @override
   State<IndividualMovementScreen> createState() => _IndividualMovementScreenState();
