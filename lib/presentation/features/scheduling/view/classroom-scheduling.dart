@@ -163,7 +163,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                           ),
                                         )
                                       : FittedBox(
-                                          fit: BoxFit.scaleDown,
+                                          fit: BoxFit.fitWidth,
                                           child: Text(
                                             "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).subtract(Duration(days: (state.selectedDate ?? DateTime.now()).weekday - 1)))}"
                                             " - "

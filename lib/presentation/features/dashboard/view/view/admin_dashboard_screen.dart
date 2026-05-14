@@ -3,9 +3,11 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 import '../widgets/billing-card.dart';
 import '../widgets/childs-progress-card.dart';
+import '../widgets/class-room-shift.dart';
 import '../widgets/events_card.dart';
 import '../widgets/movements-card.dart';
 import '../widgets/my-day-card.dart';
+import '../widgets/ratio-monitor.dart';
 import '../widgets/to-do-cards.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -44,7 +46,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             MyDayCard(),
             SizedBox(height: 8),
-
+            RatioMonitoringCard(),
+            SizedBox(height: 8),
+            ClassroomShiftsCard(),
+            SizedBox(height: 8),
             MovementsCard(),
             SizedBox(height: 8),
             BillingCard(),
