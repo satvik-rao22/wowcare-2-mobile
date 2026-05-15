@@ -1055,14 +1055,24 @@ class _StudentScreenState extends State<StudentScreen> {
 
     if (selectedIndices.isEmpty) return false;
 
-    // Note: Attendance check removed since API doesn't provide it yet
+    // Today's attendance must be loaded before we can decide.
+    if (_attendanceStatusLoading || _attendanceStatusError) return false;
+
     // If more than one selected → must be in same classroom
     if (selectedCount > 1) {
       final firstClassroom = students[selectedIndices.first].classroom;
-      return selectedIndices.every((i) => students[i].classroom == firstClassroom);
+      final sameClassroom = selectedIndices
+          .every((i) => students[i].classroom == firstClassroom);
+      if (!sameClassroom) return false;
     }
 
-    return true; // Single student → allowed
+    // Activities can only be recorded for students signed in today. A mixed
+    // selection (one signed-in + one signed-out / not-marked / absent)
+    // therefore disables the option.
+    return selectedIndices.every((i) {
+      final raw = _todayStatusForStudentCode(students[i].code);
+      return (raw ?? '').trim().toUpperCase() == 'SIGNED_IN';
+    });
   }
 
   @override

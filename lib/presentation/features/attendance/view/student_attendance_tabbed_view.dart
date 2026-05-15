@@ -102,7 +102,7 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
           ),
           child: Scaffold(
             appBar: CustomAppBar(
-              hasBackButton: true,
+              hasBackButton: false,
               tabController: _tabController,
               tabBarStyle: TabBarStyle(
                 indicator: const UnderlineTabIndicator(
@@ -178,7 +178,10 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
               ),
             ),
             extendBody: true,
-            bottomNavigationBar: const CustomNavigationBar(),
+            // Attendance is the bottom-nav slot at index 1 (a popup slot with
+            // no branch), so highlight it explicitly while on this view.
+            bottomNavigationBar:
+                const CustomNavigationBar(activeTabIndexOverride: 1),
           ),
         ),
         // Floating button above everything - responsive positioning

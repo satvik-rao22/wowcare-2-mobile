@@ -912,6 +912,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(
+                    name: CoreUtils.chooseActivityRouteName,
+                  ),
                   builder: (_) => ChooseActivity(
                     selectedStudents: normalizedSelectedStudents,
                   ),

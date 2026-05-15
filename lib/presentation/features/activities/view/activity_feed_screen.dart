@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import 'choose_activity.dart';
@@ -95,6 +96,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
+                                    settings: const RouteSettings(
+                                      name: CoreUtils.chooseActivityRouteName,
+                                    ),
                                     builder: (_) => ChooseActivity(
                                       selectedStudents: widget.studentName != null
                                           ? [Map<String, dynamic>.from(widget.studentName!)]
@@ -106,6 +110,10 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
+                                    settings: const RouteSettings(
+                                      name: CoreUtils
+                                          .activityStudentSelectionRouteName,
+                                    ),
                                     builder: (_) => ActivityStudentSelection(),
                                   ),
                                 );

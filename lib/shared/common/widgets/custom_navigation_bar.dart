@@ -67,7 +67,14 @@ class _NavSizes {
 }
 
 class CustomNavigationBar extends StatefulWidget {
-  const CustomNavigationBar({super.key});
+  const CustomNavigationBar({super.key, this.activeTabIndexOverride});
+
+  /// Forces a specific bottom-nav slot to render highlighted, regardless of
+  /// the shell's current branch. Used by screens that live under another
+  /// branch's route but conceptually belong to a non-branch slot — e.g. the
+  /// attendance tabbed views (Attendance is a popup slot, index 1, and the
+  /// views are registered under the dashboard branch).
+  final int? activeTabIndexOverride;
 
   static final GlobalKey<_CustomNavigationBarState> navBarKey =
       GlobalKey<_CustomNavigationBarState>();
@@ -240,12 +247,13 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     // Highlight comes from the shell's current branch; falls back to 0
     // when the bar renders outside the shell (e.g. on an auth screen).
     final shell = appNavigationShell(context);
-    final activeTabIndex = shell == null
-        ? 0
-        : tabIndexForBranchIndex(
-            isParent: isParent,
-            branchIndex: shell.currentIndex,
-          );
+    final activeTabIndex = widget.activeTabIndexOverride ??
+        (shell == null
+            ? 0
+            : tabIndexForBranchIndex(
+                isParent: isParent,
+                branchIndex: shell.currentIndex,
+              ));
 
     Widget item({
       required String icon,

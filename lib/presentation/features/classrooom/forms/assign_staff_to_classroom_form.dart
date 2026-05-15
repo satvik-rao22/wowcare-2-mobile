@@ -13,7 +13,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
-import 'package:wowcare/domain/features/staff_classroom/usecases/get_staff_classrooms_usecase.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/data/features/staff_classroom/models/staff_classroom_models.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -96,6 +97,55 @@ class _AssignStaffToClassroomFormState
     super.dispose();
   }
 
+  /// Staff roster for this screen only.
+  ///
+  /// This screen uses a dedicated endpoint instead of the shared
+  /// `GetStaffClassroomsUseCase`. The URL is intentionally hard-coded here so
+  /// the change is scoped to this screen and nothing else is affected.
+  Future<List<StaffClassroomItem>> _fetchManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  }) async {
+    const endpoint =
+        'https://qs176zl8-8083.inc1.devtunnels.ms/api/v1/staff-classrooms/manage-staff-list';
+
+    final dio = serviceLocator<ApiClient>().client;
+    final response = await dio.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'excludeClassroomCode': excludeClassroomCode,
+        'status': const ['ACTIVE'],
+      },
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected manage-staff-list API response format');
+    }
+
+    final data = body['data'] as List<dynamic>? ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StaffClassroomItemModel.fromJson)
+        .map(
+          (m) => StaffClassroomItem(
+            classroomCode: m.classroomCode,
+            staffCode: m.staffCode,
+            firstName: m.firstName,
+            lastName: m.lastName,
+            profilePictureUrl: m.profilePictureUrl,
+            status: m.status,
+            designation: m.designation,
+            expectedToday: m.expectedToday,
+            signedIn: m.signedIn,
+            absent: m.absent,
+            notMarked: m.notMarked,
+          ),
+        )
+        .toList();
+  }
+
   Future<void> _loadStaffsFromApi() async {
     setState(() {
       _isLoadingStaffs = true;
@@ -123,12 +173,9 @@ class _AssignStaffToClassroomFormState
         for (final c in classrooms) c.code: c.name,
       };
 
-      final getStaffClassrooms = serviceLocator<GetStaffClassroomsUseCase>();
-      final roster = await getStaffClassrooms(
+      final roster = await _fetchManageStaffList(
         schoolCode: schoolCode,
         excludeClassroomCode: excludeClassroomCode,
-        status: const ['ACTIVE'],
-        refresh: true,
       );
 
       final byStaffCode = <String, StaffClassroomItem>{};

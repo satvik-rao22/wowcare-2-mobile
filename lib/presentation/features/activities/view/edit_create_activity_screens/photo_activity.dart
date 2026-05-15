@@ -40,7 +40,6 @@ import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class PhotoVideoActivityScreen extends StatefulWidget {
@@ -1017,7 +1016,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         message: 'Shared activity created successfully',
         isSuccess: true,
       );
-      Navigator.of(context).popUntil((route) => route.settings.name == ActivityFeedScreen.routeName);
+      CoreUtils.exitActivityFlow(context);
     } catch (error) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -1284,9 +1283,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil(
-          (route) => route.settings.name == ActivityFeedScreen.routeName,
-        );
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (error) {
       if (!mounted) return;

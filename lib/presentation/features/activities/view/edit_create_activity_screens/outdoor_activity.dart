@@ -37,7 +37,6 @@ import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class OutdoorActivityScreen extends StatefulWidget {
@@ -596,9 +595,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (error) {
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
@@ -1175,9 +1172,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (error) {
       if (!mounted) return;

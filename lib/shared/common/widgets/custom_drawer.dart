@@ -829,6 +829,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Classrooms',
                             icon: MediaRes.classroom_drawer_icon,
+                            isCurrentRoute:
+                                _currentRoute == ClassroomScreen.routeName,
                             onTap: () {
                               Navigator.pop(context);
                               // Classroom is a tab branch — go (not push) so

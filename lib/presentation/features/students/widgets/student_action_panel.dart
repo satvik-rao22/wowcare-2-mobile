@@ -44,6 +44,9 @@ class StudentActionPanel extends StatefulWidget {
     /// Selected students in the same shape as [ChooseActivity.selectedStudents]
     /// (`classroomCode`, `studentCode`, `name`). Drives class activity list + navigation.
     this.activityStudentMaps,
+    /// Invoked after an activity is successfully recorded from the Activities
+    /// panel, so the host can refresh its roster + caches.
+    this.onActivityRecorded,
   });
 
   final StudentPanelType currentPanel;
@@ -64,6 +67,7 @@ class StudentActionPanel extends StatefulWidget {
   final bool isAttendanceActionLoading;
   final StudentAttendanceActionAvailability attendanceAvailability;
   final List<Map<String, dynamic>>? activityStudentMaps;
+  final VoidCallback? onActivityRecorded;
 
   @override
   State<StudentActionPanel> createState() => _StudentActionPanelState();
@@ -344,9 +348,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null) {
       final nextScreen = destinationBuilder(maps);
-      Navigator.of(context).push(
+      final recorded = await Navigator.of(context).push<dynamic>(
         MaterialPageRoute(builder: (_) => nextScreen),
       );
+      // Activity screens pop `true` after a successful create/update.
+      if (recorded == true) {
+        widget.onActivityRecorded?.call();
+      }
     }
   }
 
