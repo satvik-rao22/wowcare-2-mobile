@@ -276,6 +276,8 @@ class ApiPaths {
   static const String staffClassrooms = '/api/v1/staff-classrooms';
   static const String staffClassroomsAssignStaff =
       '/api/v1/staff-classrooms/assign-staff';
+  static const String staffClassroomsManageStaffList =
+      '/api/v1/staff-classrooms/manage-staff-list';
   static const String staffCount = '/api/v1/staff/count';
   static String get staffProfile => staffList;
 

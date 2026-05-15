@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 // UI-only: use wowcare widgets and theme; backend/bloc imports removed
@@ -14,6 +16,8 @@ import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/staff_classroom/models/staff_classroom_models.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
@@ -82,6 +86,7 @@ class _AssignStaffToClassroomFormState
   String? _staffsError;
   Set<Staff> selectedStaffs = {};
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -92,6 +97,7 @@ class _AssignStaffToClassroomFormState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -100,14 +106,16 @@ class _AssignStaffToClassroomFormState
   /// Staff roster for this screen only.
   ///
   /// This screen uses a dedicated endpoint instead of the shared
-  /// `GetStaffClassroomsUseCase`. The URL is intentionally hard-coded here so
-  /// the change is scoped to this screen and nothing else is affected.
+  /// `GetStaffClassroomsUseCase`. The URL is resolved through [ApiPaths] so it
+  /// follows the active environment (LOCAL devtunnel or UAT host).
   Future<List<StaffClassroomItem>> _fetchManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
   }) async {
-    const endpoint =
-        'https://qs176zl8-8083.inc1.devtunnels.ms/api/v1/staff-classrooms/manage-staff-list';
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffClassroomsManageStaffList,
+      ApiConstants.staffBaseUrl,
+    );
 
     final dio = serviceLocator<ApiClient>().client;
     final response = await dio.get<dynamic>(
@@ -250,7 +258,12 @@ class _AssignStaffToClassroomFormState
   }
 
   void _onSearchChanged() {
-    _filterStaffs();
+    // Debounce so the list filters once the user pauses typing.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _filterStaffs();
+    });
   }
 
   void _filterStaffs() {

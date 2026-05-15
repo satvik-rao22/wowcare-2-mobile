@@ -76,6 +76,7 @@ class _AssignStudentToClassroomFormState
   String? _studentsError;
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -86,6 +87,7 @@ class _AssignStudentToClassroomFormState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -180,7 +182,12 @@ class _AssignStudentToClassroomFormState
   }
 
   void _onSearchChanged() {
-    _filterStudents();
+    // Debounce so the list filters once the user pauses typing.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _filterStudents();
+    });
   }
 
   void _filterStudents() {

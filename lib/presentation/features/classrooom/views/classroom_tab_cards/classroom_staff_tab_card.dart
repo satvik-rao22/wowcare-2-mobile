@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -28,6 +30,17 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+
+/// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
+/// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
+/// invalidates its cubit + attendance cache so the newly assigned staff is
+/// visible immediately, without the user having to switch tabs to force a
+/// rebuild.
+final ValueNotifier<int> classroomStaffRefreshTick = ValueNotifier<int>(0);
+
+void notifyClassroomStaffChanged() {
+  classroomStaffRefreshTick.value++;
+}
 
 class _StaffAttendanceCacheEntry {
   const _StaffAttendanceCacheEntry({
@@ -82,6 +95,7 @@ class ClassroomStaffTabCard extends StatefulWidget {
 
 class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   late final ClassroomStaffCubit _cubit;
   bool isSelectAllChecked = false;
   Map<String, bool> staffSelections = {};
@@ -148,6 +162,18 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _cubit = serviceLocator<ClassroomStaffCubit>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
+    classroomStaffRefreshTick.addListener(_handleExternalRefresh);
+  }
+
+  void _handleExternalRefresh() {
+    if (!mounted) return;
+    // Staff roster changed elsewhere (assign sheet, etc.) — drop today's
+    // attendance status cache for this room so the new staff shows up with
+    // fresh status, then refetch the staff list bypassing the repo cache.
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStaffCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _loadForSelectedRoom(refresh: true);
   }
 
   @override
@@ -169,13 +195,25 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   }
 
   void dispose() {
+    _searchDebounce?.cancel();
+    classroomStaffRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
     super.dispose();
   }
 
-  void _onSearchChanged() => _filterStaff();
+  void _onSearchChanged() {
+    // Debounce so the list filters once the user pauses typing, instead of
+    // rebuilding on every keystroke.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _filterStaff();
+      });
+    });
+  }
 
   Staff _mapApiToUi(StaffClassroomItem item) {
     final statusUpper = item.status.trim().toUpperCase();

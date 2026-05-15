@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -73,6 +75,7 @@ class ClassroomStudentsTabCard extends StatefulWidget {
 
 class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   late final ClassroomStudentsCubit _cubit;
   late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   bool isSelectAllChecked = false;
@@ -286,6 +289,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     classroomStudentsRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
@@ -294,12 +298,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   }
 
   void _onSearchChanged() {
-    // Debounce could be added later; for now refresh list from API as user types.
-    if (_isNappingFilter) {
-      Future.microtask(() => _applyNappingFilter(refresh: false));
-    } else {
-      _loadForSelectedRoom(refresh: false);
-    }
+    // Debounce so fast typing collapses into a single API call once the user
+    // pauses, instead of firing (and dropping) a request per keystroke.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (_isNappingFilter) {
+        _applyNappingFilter(refresh: false);
+      } else {
+        _loadForSelectedRoom(refresh: false);
+      }
+    });
   }
 
   void _toggleSelectAll(
