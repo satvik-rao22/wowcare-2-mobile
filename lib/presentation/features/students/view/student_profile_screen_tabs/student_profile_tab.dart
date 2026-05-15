@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
@@ -50,14 +48,6 @@ class _StudentProfileTabState extends State<StudentProfileTab>
   final ScrollController _familyScrollController = ScrollController();
   final ScrollController _pickupScrollController = ScrollController();
   late Future<StudentProfileModel?> _profileFuture;
-  late final CacheManager _cacheManager;
-
-  static String _studentProfileCacheKey(String studentCode) =>
-      CacheManager.buildCacheKey(
-        feature: 'student',
-        resource: 'profile',
-        identifier: studentCode.trim(),
-      );
 
   @override
   void initState() {
@@ -71,15 +61,15 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     _tabController.addListener(() {
       setState(() {});
     });
-    _cacheManager = CacheManager(serviceLocator<StorageService>());
 
     // Fetch student profile if studentCode is provided
     if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
-      final future = _loadProfileCached(widget.studentCode!);
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final future = dataSource.getStudentProfile(widget.studentCode!);
       _profileFuture = future;
       future.then((profile) {
         if (!mounted) return;
-        if (profile != null) widget.onProfileChanged?.call(profile);
+        widget.onProfileChanged?.call(profile);
       }).catchError((_) {
         // UI handles profile load errors in FutureBuilder.
       });
@@ -91,45 +81,19 @@ class _StudentProfileTabState extends State<StudentProfileTab>
   Future<void> _refreshProfile() async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) return;
+    final dataSource = serviceLocator<StudentRemoteDataSource>();
     // Create new future and update state to force FutureBuilder rebuild
-    final newFuture = _loadProfileFresh(code);
+    final newFuture = dataSource.getStudentProfile(code);
     setState(() {
       _profileFuture = newFuture;
     });
     try {
       // Wait for the future to complete to ensure data is loaded
       final refreshed = await newFuture;
-      if (refreshed != null) widget.onProfileChanged?.call(refreshed);
+      widget.onProfileChanged?.call(refreshed);
     } catch (_) {
       // UI handles errors via FutureBuilder
     }
-  }
-
-  Future<StudentProfileModel?> _loadProfileCached(String studentCode) async {
-    final cacheKey = _studentProfileCacheKey(studentCode);
-    try {
-      final payload = await _cacheManager.loadCache(cacheKey);
-      if (payload != null) {
-        final model = StudentProfileModel.fromJson(payload);
-        // Stale-while-revalidate.
-        // ignore: unawaited_futures
-        _loadProfileFresh(studentCode);
-        return model;
-      }
-    } catch (_) {
-      // Fall back to remote below.
-    }
-    return _loadProfileFresh(studentCode);
-  }
-
-  Future<StudentProfileModel?> _loadProfileFresh(String studentCode) async {
-    final dataSource = serviceLocator<StudentRemoteDataSource>();
-    final model = await dataSource.getStudentProfile(studentCode);
-    await _cacheManager.saveCache(
-      _studentProfileCacheKey(studentCode),
-      model.toJson(),
-    );
-    return model;
   }
 
 

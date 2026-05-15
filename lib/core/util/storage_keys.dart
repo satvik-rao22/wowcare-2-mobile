@@ -12,8 +12,6 @@ class StorageKeys {
   static const String displayName = 'displayName';
   static const String firstLogin = 'firstLogin';
   static const String roles = 'roles';
-  /// Backend role for the active org+school when the user has multiple (e.g. STAFF + GUARDIAN).
-  static const String activeSchoolRole = 'activeSchoolRole';
   static const String rememberMe = 'rememberMe';
   static const String username = 'username';
   static const String password = 'password';
@@ -32,8 +30,6 @@ class StorageKeys {
   static const String staffCode = 'staffCode';
   /// Cached staffType from staff profile API (e.g. ORGANIZATION_ADMIN → shown as role).
   static const String staffType = 'staffType';
-  /// Cached designation from staff profile API (e.g. ASSOCIATE_TEACHER → shown as role).
-  static const String staffDesignation = 'staffDesignation';
   /// JSON array string of classroom codes from staff profile (`allowedClassroomCodes`).
   /// Used to scope attendance APIs for teacher/staff personas.
   static const String staffAllowedClassroomCodes = 'staffAllowedClassroomCodes';
@@ -56,8 +52,6 @@ class StorageKeys {
   /// Last `GET /api/v1/guardian/profile` snapshot (persisted alongside [guardianCode]).
   static const String guardianProfileFirstName = 'guardianProfileFirstName';
   static const String guardianProfileLastName = 'guardianProfileLastName';
-  static const String guardianProfilePhotoUrl = 'guardianProfilePhotoUrl';
-  static const String guardianProfileAssetCode = 'guardianProfileAssetCode';
 
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';
@@ -81,7 +75,9 @@ class StorageKeys {
   /// snapshots are ignored until refetched.
   static const String activityFeedCacheRevision = 'activity_feed_cache_revision';
 
-
+  // Temporary default until school selection is fully wired
+  // static const String defaultOrganizationCode = 'ORG_FA144927-1';
+  // static const String defaultSchoolCode = 'SCH_8A889124-7';
 }
 
 

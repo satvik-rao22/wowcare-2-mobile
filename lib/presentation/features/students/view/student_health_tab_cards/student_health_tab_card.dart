@@ -63,7 +63,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 

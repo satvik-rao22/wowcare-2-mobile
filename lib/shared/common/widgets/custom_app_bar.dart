@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
@@ -8,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/user-profile/view/guardian_user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -109,6 +111,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: isParent
           ? Consumer<ParentChildProvider>(
               builder: (context, parentChildProvider, _) {
+                if (!parentChildProvider.isLoaded &&
+                    !parentChildProvider.isLoading) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!context.mounted) return;
+                    parentChildProvider.ensureLoaded();
+                  });
+                }
                 final names = parentChildProvider.childNames;
                 final canPickChild =
                     !parentChildProvider.isLoading && names.isNotEmpty;
@@ -402,23 +411,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 );
                 break;
               case 1:
-                // Pass cached values so Profile screen doesn't render '-' placeholders.
-                final storage = serviceLocator<StorageService>();
-                final name =
-                    (await storage.getString(StorageKeys.displayName) ?? '').trim();
-                final email =
-                    (await storage.getString(StorageKeys.email) ?? '').trim();
-                final activeRole =
-                    (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
-                        .trim();
+                final isParentPersona = context.read<RoleProvider>().isParent;
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) => UserProfileScreen(
-                      userName: name,
-                      userEmail: email,
-                      userPersona: activeRole,
-                    ),
+                    builder: (_) => isParentPersona
+                        ? const GuardianUserProfileScreen()
+                        : const UserProfileScreen(),
                   ),
                 );
                 break;

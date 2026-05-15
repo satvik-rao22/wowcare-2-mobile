@@ -3,6 +3,7 @@ import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/debug_defaults.dart';
 
 /// Interceptor that adds Authorization Bearer token to all requests.
 /// Skips auth for login, forgot-password, and other public endpoints.
@@ -56,10 +57,14 @@ class AuthInterceptor extends Interceptor {
     final schoolCodeFromQuery =
         (options.queryParameters['schoolCode'] ?? '').toString().trim();
 
-    final resolvedOrgCode = organizationCode;
+    final resolvedOrgCode = organizationCode.isNotEmpty
+        ? organizationCode
+        : DebugDefaults.organizationCode;
     final resolvedSchoolCode = schoolCode.isNotEmpty
         ? schoolCode
-        : schoolCodeFromQuery;
+        : (schoolCodeFromQuery.isNotEmpty
+              ? schoolCodeFromQuery
+              : DebugDefaults.schoolCode);
 
     if (resolvedOrgCode.isNotEmpty) {
       options.headers['X-Organization-Code'] = resolvedOrgCode;

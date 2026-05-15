@@ -11,24 +11,10 @@ import 'package:wowcare/domain/features/availability/repositories/availability_r
 class AvailabilityRepositoryImpl
     implements AvailabilityRepository, AvailabilityRepositoryWithCache {
   AvailabilityRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _storageService = storageService,
-        _cacheManager = CacheManager(storageService);
+      : _cacheManager = CacheManager(storageService);
 
   final AvailabilityRemoteDataSource _remoteDataSource;
-  final StorageService _storageService;
   final CacheManager _cacheManager;
-
-  static String _cacheGenerationKey(String schoolCode) =>
-      'availability_cache_generation_${schoolCode.trim()}';
-
-  Future<int> _cacheGeneration(String schoolCode) async {
-    return (await _storageService.getInt(_cacheGenerationKey(schoolCode))) ?? 0;
-  }
-
-  Future<void> _bumpCacheGeneration(String schoolCode) async {
-    final next = (await _cacheGeneration(schoolCode)) + 1;
-    await _storageService.saveInt(_cacheGenerationKey(schoolCode), next);
-  }
 
   @override
   Future<IndividualMovementBoard> getIndividualMovements({
@@ -50,11 +36,9 @@ class AvailabilityRepositoryImpl
       status: status,
     );
 
-    final gen = await _cacheGeneration(schoolCode);
     await _cacheManager.saveCache(
       _cacheKey(
         schoolCode: schoolCode,
-        generation: gen,
         studentCodes: studentCodes,
         fromClassroomCodes: fromClassroomCodes,
         toClassroomCodes: toClassroomCodes,
@@ -78,11 +62,9 @@ class AvailabilityRepositoryImpl
     DateTime? dateTo,
     List<String>? status,
   }) async {
-    final gen = await _cacheGeneration(schoolCode);
     final payload = await _cacheManager.loadCache(
       _cacheKey(
         schoolCode: schoolCode,
-        generation: gen,
         studentCodes: studentCodes,
         fromClassroomCodes: fromClassroomCodes,
         toClassroomCodes: toClassroomCodes,
@@ -93,15 +75,6 @@ class AvailabilityRepositoryImpl
     );
     if (payload == null) return null;
     return IndividualMovementBoardModel.fromCacheJson(payload).toEntity();
-  }
-
-  @override
-  Future<void> invalidateAvailabilityCache({
-    required String schoolCode,
-  }) async {
-    // Cache keys include this generation; bumping it effectively invalidates all
-    // cached entries for this school without needing key enumeration.
-    await _bumpCacheGeneration(schoolCode);
   }
 
   @override
@@ -190,11 +163,9 @@ class AvailabilityRepositoryImpl
       shift: _futureShiftToApi(shift),
     );
 
-    final gen = await _cacheGeneration(schoolCode);
     await _cacheManager.saveCache(
       _futureAvailabilityCacheKey(
         schoolCode: schoolCode,
-        generation: gen,
         startDate: startDate,
         endDate: endDate,
         shift: shift,
@@ -206,30 +177,15 @@ class AvailabilityRepositoryImpl
   }
 
   @override
-  Future<void> recomputeFutureAvailability({
-    required String schoolCode,
-    required DateTime startDate,
-    required DateTime endDate,
-  }) {
-    return _remoteDataSource.recomputeFutureAvailability(
-      schoolCode: schoolCode,
-      startDate: startDate,
-      endDate: endDate,
-    );
-  }
-
-  @override
   Future<FutureAvailabilityGrid?> loadCachedFutureAvailability({
     required String schoolCode,
     required DateTime startDate,
     required DateTime endDate,
     required FutureAvailabilityShift shift,
   }) async {
-    final gen = await _cacheGeneration(schoolCode);
     final payload = await _cacheManager.loadCache(
       _futureAvailabilityCacheKey(
         schoolCode: schoolCode,
-        generation: gen,
         startDate: startDate,
         endDate: endDate,
         shift: shift,
@@ -241,7 +197,6 @@ class AvailabilityRepositoryImpl
 
   String _cacheKey({
     required String schoolCode,
-    required int generation,
     List<String>? studentCodes,
     List<String>? fromClassroomCodes,
     List<String>? toClassroomCodes,
@@ -251,7 +206,6 @@ class AvailabilityRepositoryImpl
   }) {
     final identity = <String>[
       schoolCode.trim(),
-      'gen:$generation',
       _normalizeList(studentCodes),
       _normalizeList(fromClassroomCodes),
       _normalizeList(toClassroomCodes),
@@ -268,14 +222,12 @@ class AvailabilityRepositoryImpl
 
   String _futureAvailabilityCacheKey({
     required String schoolCode,
-    required int generation,
     required DateTime startDate,
     required DateTime endDate,
     required FutureAvailabilityShift shift,
   }) {
     final identity = <String>[
       schoolCode.trim(),
-      'gen:$generation',
       _dateValue(startDate),
       _dateValue(endDate),
       _futureShiftToApi(shift),
@@ -306,8 +258,7 @@ String _movementTypeToApi(IndividualMovementType value) {
     case IndividualMovementType.leaveSchool:
       return 'LEAVE_SCHOOL';
     case IndividualMovementType.moveToNextClassroom:
-      // Backend enum uses CLASSROOM_PROMOTION for "move to next classroom".
-      return 'CLASSROOM_PROMOTION';
+      return 'MOVE_TO_NEXT_CLASSROOM';
   }
 }
 

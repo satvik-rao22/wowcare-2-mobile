@@ -28,7 +28,6 @@ import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
 import '../utils/activity_attendance_window_validator.dart';
-
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/activity_staff_display.dart';

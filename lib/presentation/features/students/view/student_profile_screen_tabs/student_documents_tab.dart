@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
@@ -264,7 +265,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final isGuardianPersona = role.isParent;
+    final canStudentWrite =
+        !isGuardianPersona &&
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const Center(

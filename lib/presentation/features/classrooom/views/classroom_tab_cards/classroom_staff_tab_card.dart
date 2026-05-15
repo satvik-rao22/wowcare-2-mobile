@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_staff_filter_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -27,16 +25,6 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
-
-class _StaffAttendanceCacheEntry {
-  const _StaffAttendanceCacheEntry({
-    required this.fetchedAt,
-    required this.statusByCode,
-  });
-
-  final DateTime fetchedAt;
-  final Map<String, String> statusByCode;
-}
 
 class Staff {
   const Staff({
@@ -87,18 +75,13 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   List<String> _selectedDesignation = [];
   List<Staff> _filteredStaff = [];
   List<Staff> _allStaff = [];
+  FilterData? _currentFilterData;
   List<String> _selectedStatusList = [];
   List<String> _selectedAttendanceStatusList = [];
   StaffPanelType _currentPanel = StaffPanelType.none;
   final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
-  int _visibleAttendanceFetchToken = 0;
-  Set<String> _lastVisibleAttendanceCodes = <String>{};
-
-  static const Duration _attendanceCacheTtl = Duration(minutes: 10);
-  static final Map<String, _StaffAttendanceCacheEntry> _attendanceCacheByKey =
-      <String, _StaffAttendanceCacheEntry>{};
 
   final List<String> designations = const [
     'Director',
@@ -120,21 +103,17 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
     final designation =
         _selectedDesignation.isEmpty ? null : List<String>.from(_selectedDesignation);
-    final status =
-        _selectedStatusList.isEmpty ? null : List<String>.from(_selectedStatusList);
 
     if (refresh) {
       _cubit.refresh(
         classroomCode: classroomCode,
         search: search,
-        status: status,
         designation: designation,
       );
     } else {
       _cubit.loadInitial(
         classroomCode: classroomCode,
         search: search,
-        status: status,
         designation: designation,
       );
     }
@@ -159,6 +138,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _selectedDesignation = [];
         _filteredStaff = [];
         _allStaff = [];
+        _currentFilterData = null;
         _selectedStatusList = [];
         _selectedAttendanceStatusList = [];
       });
@@ -193,13 +173,12 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   List<Staff> _filterStaff() {
     final allStaff = _allStaff;
-      final filtered = allStaff.where((staff) {
+      _filteredStaff = allStaff.where((staff) {
         bool matchesSearch = true;
         bool matchesDesignation = true;
         bool matchesStatus = true;
         bool matchesAttendanceStatus = true;
-        final designationRaw = staff.designation.trim();
-        final isNotKiosk = designationRaw.toUpperCase() != 'KIOSK';
+        bool isNotKiosk = staff.designation != 'Kiosk';
 
         if (_searchController.text.isNotEmpty) {
           matchesSearch = staff.name
@@ -208,20 +187,13 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         }
 
         if (_selectedDesignation.isNotEmpty) {
-          final des = staff.designation.trim().toUpperCase();
-          matchesDesignation = _selectedDesignation.any(
-            (d) => d.trim().toUpperCase() == des,
-          );
+          matchesDesignation = _selectedDesignation.contains(staff.designation);
         }
 
-        // Apply status filter (API: ACTIVE / UPCOMING)
+        // Apply status filter (Active/Upcoming)
         if (_selectedStatusList.isNotEmpty) {
-          matchesStatus = _selectedStatusList.any((sel) {
-            final u = sel.trim().toUpperCase();
-            if (u == 'ACTIVE') return staff.profileStatus == 'A';
-            if (u == 'UPCOMING') return staff.profileStatus == 'Upcoming';
-            return false;
-          });
+          matchesStatus = (_selectedStatusList.contains('Active') && staff.profileStatus == 'A') ||
+              (_selectedStatusList.contains('Upcoming') && staff.profileStatus == 'Upcoming');
         }
 
         // Apply attendance status filter (Expected/Present/Absent)
@@ -232,14 +204,10 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
               (_selectedAttendanceStatusList.contains('Absent') && staff.isAbsent);
         }
 
-        return matchesSearch &&
-            matchesDesignation &&
-            matchesStatus &&
-            matchesAttendanceStatus &&
-            isNotKiosk;
+        return matchesSearch && matchesDesignation && matchesStatus && matchesAttendanceStatus && isNotKiosk;
       }).toList();
-      _filteredStaff = filtered;
-      return filtered;
+      setState(() {});
+      return _filteredStaff;
   }
 
   void _initializeStaffSelections(List<Staff> staff) {
@@ -284,12 +252,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _attendanceCacheKeyForRoomToday() {
-    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    final date = _formatDate(DateTime.now());
-    return 'staff:$classroomCode:$date';
-  }
-
   Future<void> _refreshAttendanceStatusForSelection() async {
     final codes = _getSelectedStaffCodes();
     if (codes.isEmpty) {
@@ -321,73 +283,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = true;
-      });
-    }
-  }
-
-  Future<void> _refreshAttendanceStatusForVisibleStaff() async {
-    final visible = _getVisibleStaff();
-    final codes = visible
-        .map((s) => s.staffCode.trim())
-        .where((c) => c.isNotEmpty)
-        .toSet();
-
-    final cacheKey = _attendanceCacheKeyForRoomToday();
-    final cached = _attendanceCacheByKey[cacheKey];
-    if (cached != null &&
-        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode
-          ..clear()
-          ..addAll(cached.statusByCode);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-    }
-
-    if (codes.isEmpty) {
-      _lastVisibleAttendanceCodes = <String>{};
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      return;
-    }
-
-    if (setEquals(codes, _lastVisibleAttendanceCodes)) return;
-    _lastVisibleAttendanceCodes = codes;
-
-    final token = ++_visibleAttendanceFetchToken;
-    if (!mounted) return;
-    setState(() {
-      _attendanceStatusLoading = true;
-      _attendanceStatusError = false;
-    });
-
-    try {
-      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
-      final map = await useCase(staffCodes: codes.toList());
-      if (!mounted || token != _visibleAttendanceFetchToken) return;
-      setState(() {
-        _attendanceStatusByStaffCode
-          ..clear()
-          ..addAll(map);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      _attendanceCacheByKey[cacheKey] = _StaffAttendanceCacheEntry(
-        fetchedAt: DateTime.now(),
-        statusByCode: Map<String, String>.from(map),
-      );
-    } catch (_) {
-      if (!mounted || token != _visibleAttendanceFetchToken) return;
       setState(() {
         _attendanceStatusByStaffCode.clear();
         _attendanceStatusLoading = false;
@@ -573,46 +468,43 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     }
   }
 
-  void _applyActiveStatusChip() {
-    setState(() {
-      _selectedStatusList = ['ACTIVE'];
-    });
-    _loadForSelectedRoom(refresh: false);
-  }
-
   void _clearAllSelections() {
     setState(() {
       isSelectAllChecked = false;
       staffSelections.updateAll((key, val) => false);
       _searchController.clear();
       _selectedDesignation = [];
+      _currentFilterData = null;
       _selectedStatusList = [];
       _selectedAttendanceStatusList = [];
       _attendanceStatusByStaffCode.clear();
       _attendanceStatusLoading = false;
       _attendanceStatusError = false;
+      _filterStaff();
     });
-    _loadForSelectedRoom(refresh: false);
   }
 
   Future<void> _openFilterScreen() async {
-    final result = await Navigator.push<ClassroomStaffFilterResult>(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ClassroomStaffFilterScreen(
-          initialStatus: _selectedStatusList,
-          initialDesignation: _selectedDesignation,
+        builder: (_) => StaffFilterScreen(
+          initialFilters: _currentFilterData,
         ),
       ),
     );
 
-    if (!mounted || result == null) return;
+    if (!mounted) return;
 
-    setState(() {
-      _selectedStatusList = List<String>.from(result.status);
-      _selectedDesignation = List<String>.from(result.designation);
-    });
-    _loadForSelectedRoom(refresh: false);
+    if (result is FilterData) {
+      setState(() {
+        _currentFilterData = result;
+        _selectedDesignation = List.from(result.tags);
+        _selectedStatusList = List.from(result.statuses);
+        _selectedAttendanceStatusList = List.from(result.attendanceStatuses);
+        _filterStaff();
+      });
+    }
   }
 
   @override
@@ -621,23 +513,11 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       value: _cubit,
       child: BlocListener<ClassroomStaffCubit, ClassroomStaffState>(
         listener: (context, state) {
-          final raw = state.staff.map(_mapApiToUi).toList();
-          // De-duplicate by staffCode to avoid repeated cards.
-          final byCode = <String, Staff>{};
-          for (final s in raw) {
-            final code = s.staffCode.trim();
-            if (code.isEmpty) continue;
-            byCode[code] = s;
-          }
-          final apiItems = byCode.values.toList()
-            ..sort((a, b) => a.name.compareTo(b.name));
+          final apiItems = state.staff.map(_mapApiToUi).toList();
           setState(() {
             _allStaff = apiItems;
-            _filterStaff();
           });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _refreshAttendanceStatusForVisibleStaff();
-          });
+          _filterStaff();
         },
         child: Stack(
           children: [
@@ -652,7 +532,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
                 ),
-                color: Colors.white,
                 child: Column(
                   children: [
                     Padding(
@@ -666,14 +545,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   controller: _searchController,
                                   constraints:
                                       const BoxConstraints(minHeight: 36),
-                                  backgroundColor:
-                                      const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
-                                  ),
-                                  surfaceTintColor:
-                                      const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
-                                  ),
                                   hintText: 'Search',
                                   hintStyle: const WidgetStatePropertyAll(
                                     TextStyle(
@@ -737,7 +608,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  onPressed: _applyActiveStatusChip,
+                                  onPressed: () {},
                                   child: const Text(
                                     'Active',
                                     style: TextStyle(
@@ -808,12 +679,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   const EdgeInsets.only(left: 16, right: 16),
                               itemCount: _getVisibleStaff().length,
                                   itemBuilder: (context, index) {
-                                final visible = _getVisibleStaff();
-                                final staff = visible[index];
-                                _initializeStaffSelections(visible);
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  _refreshAttendanceStatusForVisibleStaff();
-                                });
+                                final staff = _getVisibleStaff()[index];
+                                _initializeStaffSelections(_getVisibleStaff());
                                 return Padding(
                                         padding:
                                             const EdgeInsets.only(bottom: 8.0),
@@ -821,12 +688,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                           staff: staff,
                                           isSelected:
                                         staffSelections[staff.staffCode] ?? false,
-                                          todayAttendanceStatusRaw:
-                                              _attendanceStatusByStaffCode[staff.staffCode],
-                                          designationLabel:
-                                              formatDesignationForDisplay(
-                                                staff.designation,
-                                              ),
                                           onSelectionChanged: (bool? value) {
                                       _toggleStaffSelection(staff.staffCode, value);
                                           },
@@ -894,33 +755,14 @@ class _StaffListItem extends StatelessWidget {
     required this.staff,
     required this.isSelected,
     required this.onSelectionChanged,
-    this.todayAttendanceStatusRaw,
-    required this.designationLabel,
   });
 
   final Staff staff;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
-  final String? todayAttendanceStatusRaw;
-  final String designationLabel;
 
   @override
   Widget build(BuildContext context) {
-    final normalizedAttendance =
-        (todayAttendanceStatusRaw ?? '').trim().toUpperCase();
-    final hasAttendanceStatus =
-        normalizedAttendance == 'SIGNED_IN' || normalizedAttendance == 'ABSENT';
-    final shouldGreyOut = !staff.isExpectedToday &&
-        !staff.isSignedIn &&
-        !staff.isAbsent &&
-        !hasAttendanceStatus;
-    final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
-        ? Colors.green
-        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
-    final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
-        ? 'Staff is signed in'
-        : (normalizedAttendance == 'ABSENT' ? 'Staff is absent' : null);
-
     return Container(
       padding: const EdgeInsets.only(
         top: 10,
@@ -930,40 +772,52 @@ class _StaffListItem extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
+        color: staff.isExpectedToday ? null : Colors.grey[100],
       ),
       child: Row(
         children: [
           Opacity(
-            opacity: shouldGreyOut ? 0.5 : 1,
+            opacity: staff.isExpectedToday ? 1 : 0.5,
             child: AbsorbPointer(
-              absorbing: shouldGreyOut,
+              absorbing: !staff.isExpectedToday,
               child: GestureDetector(
                 onTap: () => onSelectionChanged(!isSelected),
-                child: DocumentImageWidget(
-                  fileUuid:
-                      staff.staffCode.trim().isNotEmpty ? staff.staffCode : staff.name,
-                    imageUrl: (() {
-                      final raw = staff.photoUuid.trim();
-                      final looksLikeUrl =
-                          raw.startsWith('http://') || raw.startsWith('https://');
-                      return looksLikeUrl ? raw : null;
-                    })(),
-                    mediaAssetCode: (() {
-                      final raw = staff.photoUuid.trim();
-                      final looksLikeUrl =
-                          raw.startsWith('http://') || raw.startsWith('https://');
-                      return (!looksLikeUrl && raw.isNotEmpty) ? raw : null;
-                    })(),
-                  name: staff.name,
-                    staffCode: staff.staffCode.trim().isNotEmpty
-                        ? staff.staffCode.trim()
-                        : null,
-                  staffEmploymentStatus: staff.profileStatus,
-                  statusColor: attendanceDotColor,
-                  statusTooltip: attendanceTooltip,
-                  disableAttendanceStatusLookup: true,
-                  size: 50,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    DocumentImageWidget(
+                      fileUuid: staff.photoUuid,
+                      name: staff.name,
+                        size: 50,
+                      ),
+                    if (staff.isSignedIn ||
+                        staff.isAbsent ||
+                        staff.profileStatus == 'Upcoming')
+                      Positioned(
+                        left: 35,
+                        bottom: 35,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: staff.profileStatus == 'Upcoming'
+                                ? const Color.fromARGB(255, 253, 205, 22)
+                                : staff.isSignedIn
+                                    ? const Color.fromRGBO(0, 177, 21, 1)
+                                    : staff.isAbsent
+                                        ? const Color.fromRGBO(200, 32, 32, 1)
+                                        : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 15,
+                            minHeight: 15,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -986,7 +840,7 @@ class _StaffListItem extends StatelessWidget {
                       ),
                     ),
                     Text(
-                    designationLabel,
+                    staff.designation,
                       style: const TextStyle(
                         fontFamily: 'Manrope',
                         color: Color(0xff573353),
@@ -1053,25 +907,25 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.primaryColor.withValues(alpha: 0.1),
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: Colors.transparent,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: Colors.transparent,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: Colors.transparent,
             ),
           ),
         ),

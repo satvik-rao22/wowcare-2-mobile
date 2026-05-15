@@ -273,13 +273,13 @@ abstract class AttendanceRemoteDataSource {
   /// Expected attendance summary used for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummaryModel>
   getStudentAttendanceExpectedSummaryCard({
-    String? classroomCode,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Staff expected attendance summary used for the daily "Expected Staff" card.
   Future<StaffAttendanceExpectedSummaryModel>
   getStaffAttendanceExpectedSummaryCard({
-    String? classroomCode,
+    required List<String> allowedClassroomCodes,
   });
 
   /// Current-day sign-in status for one or more staff members.
@@ -298,14 +298,6 @@ abstract class AttendanceRemoteDataSource {
   Future<Map<String, String>> getStudentSignInStatus({
     required List<String> studentCodes,
     required List<String> allowedClassroomCodes,
-  });
-
-  /// Same contract as activity [activity_attendance_window_validator]: `instant` is UTC ISO.
-  /// Returns `studentCode ->` status strings (or normalized from bool `data` values).
-  Future<Map<String, String>> getStudentSignInStatusAtTime({
-    required String classroomCode,
-    required List<String> studentCodes,
-    required String instantIsoUtc,
   });
 
   /// Updates a single student attendance record (sign-in/sign-out entry).
@@ -1431,7 +1423,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<StudentAttendanceExpectedSummaryModel>
   getStudentAttendanceExpectedSummaryCard({
-    String? classroomCode,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceExpectedSummaryCard,
@@ -1439,10 +1431,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     final queryParameters = <String, dynamic>{};
-    final code = classroomCode?.trim();
-    if (code != null && code.isNotEmpty) {
-      queryParameters['classroomCode'] = code;
-    }
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
     final response = await _client.get<dynamic>(
       endpoint,
@@ -1464,7 +1453,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<StaffAttendanceExpectedSummaryModel>
   getStaffAttendanceExpectedSummaryCard({
-    String? classroomCode,
+    required List<String> allowedClassroomCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceExpectedSummaryCard,
@@ -1472,10 +1461,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     );
 
     final queryParameters = <String, dynamic>{};
-    final code = classroomCode?.trim();
-    if (code != null && code.isNotEmpty) {
-      queryParameters['classroomCode'] = code;
-    }
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
 
     final response = await _client.get<dynamic>(
       endpoint,
@@ -1542,37 +1528,6 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final data = response.data;
     if (data == null || data['data'] is! Map<String, dynamic>) {
       throw Exception('Unexpected student sign-in status API response format');
-    }
-
-    final raw = data['data'] as Map<String, dynamic>;
-    return raw.map((key, value) => MapEntry(key, value.toString()));
-  }
-
-  @override
-  Future<Map<String, String>> getStudentSignInStatusAtTime({
-    required String classroomCode,
-    required List<String> studentCodes,
-    required String instantIsoUtc,
-  }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceSignInStatusAtTime,
-      ApiConstants.attendanceBaseUrl,
-    );
-
-    final response = await _client.post<Map<String, dynamic>>(
-      endpoint,
-      data: <String, dynamic>{
-        'classroomCode': classroomCode.trim(),
-        'studentCodes': studentCodes,
-        'instant': instantIsoUtc.trim(),
-      },
-    );
-
-    final data = response.data;
-    if (data == null || data['data'] is! Map<String, dynamic>) {
-      throw Exception(
-        'Unexpected student sign-in status at-time API response format',
-      );
     }
 
     final raw = data['data'] as Map<String, dynamic>;

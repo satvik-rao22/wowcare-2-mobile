@@ -63,8 +63,6 @@ class ApiPathsUat {
     },
     ApiMicroservices.classroom: {
       'classroom',
-      'individual-movements',
-      'future-availability',
     },
     ApiMicroservices.activity: {
       'classrooms',
@@ -141,8 +139,6 @@ class ApiPathsUat {
       case 'staff-attendance-records':
         return ApiMicroservices.attendance;
       case 'classroom':
-      case 'individual-movements':
-      case 'future-availability':
         return ApiMicroservices.classroom;
       case 'classrooms':
       case 'activities':

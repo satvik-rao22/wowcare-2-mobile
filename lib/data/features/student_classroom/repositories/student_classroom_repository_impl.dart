@@ -15,14 +15,13 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
   final StudentClassroomRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
 
-  // classroom_student_roster_cache_{schoolCode|classroomCode|filters...}
+  // activity_students_cache_{schoolCode|classroomCode|tags|status|attendanceStatus}
   static String _studentClassroomCacheKey({
     required String schoolCode,
     required String classroomCode,
     String? firstName,
     String? lastName,
     String? search,
-    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -52,11 +51,6 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
         .where((e) => e.isNotEmpty)
         .toList()
       ..sort();
-    final normStudentCodes = (studentCodes ?? [])
-        .map((e) => e.trim().toUpperCase())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
     final normGuardians = (guardianCodes ?? [])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
@@ -72,9 +66,6 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     if (normTags.isNotEmpty) {
       parts.add('tags=${normTags.join(',')}');
     }
-    if (normStudentCodes.isNotEmpty) {
-      parts.add('studentCodes=${normStudentCodes.join(',')}');
-    }
     if (normGuardians.isNotEmpty) {
       parts.add('guardians=${normGuardians.join(',')}');
     }
@@ -88,8 +79,8 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     final identifier = parts.join('|');
 
     return CacheManager.buildCacheKey(
-      feature: 'classroom',
-      resource: 'student_roster',
+      feature: 'activity',
+      resource: 'students',
       identifier: identifier,
     );
   }
@@ -101,7 +92,6 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     String? firstName,
     String? lastName,
     String? search,
-    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -114,7 +104,6 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
       firstName: firstName,
       lastName: lastName,
       search: search,
-      studentCodes: studentCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
       status: status,
@@ -136,7 +125,6 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
       firstName: firstName,
       lastName: lastName,
       search: search,
-      studentCodes: studentCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
       status: status,

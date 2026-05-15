@@ -184,6 +184,7 @@ class ApiPaths {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
@@ -277,6 +278,7 @@ class ApiPaths {
   static const String staffClassroomsAssignStaff =
       '/api/v1/staff-classrooms/assign-staff';
   static const String staffCount = '/api/v1/staff/count';
+  static String staffListBySchool(String schoolCode) => '/api/v1/staff/$schoolCode/list';
   static String get staffProfile => staffList;
 
   static const String staffMyProfile = '/api/v1/staff/my-profile';
@@ -323,6 +325,7 @@ class ApiPaths {
       '$staffClassrooms/$staffCode/primary-classroom';
 
   static const String staffSchedules = '/api/v1/staff-schedules';
+  static const String staffShifts = '/api/v1/staff-shifts';
 
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';
@@ -397,8 +400,6 @@ class ApiPaths {
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String futureAvailability = '/api/v1/future-availability';
-  static const String futureAvailabilityRecompute =
-      '/api/v1/future-availability/recompute';
   static String individualMovementById(int id) =>
       '/api/v1/individual-movements/$id';
   static String individualMovementStatusById(int id) =>
@@ -517,13 +518,8 @@ class ApiPaths {
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';
+  static const String classroomAllStatuses = '/api/v1/classroom/all-classrooms';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
-  static const String classroomLogoAssetCodes =
-      '/api/v1/classroom/classroom-logo/asset-codes';
-  static String classroomLogoUploadSessionPath(String classroomCode) =>
-      '/api/v1/classroom/${classroomCode.trim()}/logo/upload-session';
-  static String classroomLogoFinalizePath(String classroomCode) =>
-      '/api/v1/classroom/${classroomCode.trim()}/logo/finalize';
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
 
   // —— Activity host ——

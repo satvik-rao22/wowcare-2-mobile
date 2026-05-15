@@ -1,5 +1,18 @@
 import 'package:equatable/equatable.dart';
 
+class AllowedClassroom extends Equatable {
+  const AllowedClassroom({
+    required this.code,
+    required this.name,
+  });
+
+  final String code;
+  final String name;
+
+  @override
+  List<Object?> get props => [code, name];
+}
+
 class StaffProfileAddress extends Equatable {
   const StaffProfileAddress({
     this.street = '',
@@ -116,6 +129,7 @@ class StaffProfile extends Equatable {
     this.clockPin = '',
     this.primaryClassroomCode = '',
     required this.allowedClassroomCodes,
+    this.allowedClassrooms = const <AllowedClassroom>[],
     required this.address,
     required this.workSchedules,
     required this.breakSchedules,
@@ -141,6 +155,7 @@ class StaffProfile extends Equatable {
   final String clockPin;
   final String primaryClassroomCode;
   final List<String> allowedClassroomCodes;
+  final List<AllowedClassroom> allowedClassrooms;
   final StaffProfileAddress address;
   final List<StaffProfileWorkSchedule> workSchedules;
   final List<StaffProfileBreakSchedule> breakSchedules;
@@ -167,6 +182,7 @@ class StaffProfile extends Equatable {
         clockPin,
         primaryClassroomCode,
         allowedClassroomCodes,
+        allowedClassrooms,
         address,
         workSchedules,
         breakSchedules,

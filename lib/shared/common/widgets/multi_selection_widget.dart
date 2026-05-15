@@ -13,6 +13,7 @@ class MultiSelectWidget extends StatefulWidget {
   final bool isRequired;
   final String? errorText;
   final bool colorfulSelection;
+
   /// When true, renders a fixed-height field with "N selected" summary
   /// (useful inside GridViews to avoid layout overflow).
   final bool compact;
@@ -31,7 +32,7 @@ class MultiSelectWidget extends StatefulWidget {
     this.colorfulSelection = true,
     this.compact = false,
     this.showClearAllOption = false,
-    this.clearSelectionText = 'Clear All'
+    this.clearSelectionText = 'Clear All',
   });
 
   @override
@@ -43,7 +44,6 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
   OverlayEntry? _overlayEntry;
   final GlobalKey _fieldKey = GlobalKey();
   final LayerLink _layerLink = LayerLink();
-
 
   Color _getTagBackgroundColor(String tag) {
     if (tag.isEmpty) return AppColors.tagColors[0];
@@ -67,7 +67,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
   }
 
   void _openDropdown() {
-    final RenderBox? box = _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? box =
+        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final Offset position = box.localToGlobal(Offset.zero);
@@ -88,7 +89,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
           ),
           Positioned(
             left: position.dx,
-            top: position.dy-10,
+            top: position.dy - 10,
             width: fieldWidth,
             child: CompositedTransformFollower(
               link: _layerLink,
@@ -107,9 +108,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                     builder: (context, setOverlayState) {
                       final responsive = ResponsiveHelper(context);
                       filteredTags = widget.availableOptions
-                          .where((tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()))
+                          .where(
+                            (tag) => tag.toLowerCase().contains(
+                              searchQuery.toLowerCase(),
+                            ),
+                          )
                           .toList();
-              
+
                       return Column(
                         children: [
                           Padding(
@@ -120,65 +125,82 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                 prefixIcon: const Icon(Icons.search, size: 20),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
-                              onChanged: (val) => setOverlayState(() => searchQuery = val),
+                              onChanged: (val) =>
+                                  setOverlayState(() => searchQuery = val),
                             ),
                           ),
                           const Divider(height: 1),
                           Expanded(
                             child: ListView.builder(
                               padding: EdgeInsets.zero,
-                              itemCount: filteredTags.length + (widget.showClearAllOption ? 1 : 0),
+                              itemCount:
+                                  filteredTags.length +
+                                  (widget.showClearAllOption ? 1 : 0),
                               itemBuilder: (context, index) {
                                 // for clear all selections option
-                                if (widget.showClearAllOption && index == 0){
-                                  final hasSelections = localSelected.isNotEmpty;
+                                if (widget.showClearAllOption && index == 0) {
+                                  final hasSelections =
+                                      localSelected.isNotEmpty;
                                   return Column(
                                     children: [
                                       InkWell(
-                                        onTap: hasSelections ? () {
-                                          setOverlayState((){
-                                            localSelected.clear();
-                                            widget.onSelectionChanged([]);
-                                          });
-                                        }: null,
+                                        onTap: hasSelections
+                                            ? () {
+                                                setOverlayState(() {
+                                                  localSelected.clear();
+                                                  widget.onSelectionChanged([]);
+                                                });
+                                              }
+                                            : null,
                                         child: Container(
                                           width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                          color: hasSelections? Color(0xFFF8F7FA) : Colors.transparent,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                          color: hasSelections
+                                              ? Color(0xFFF8F7FA)
+                                              : Colors.transparent,
                                           child: Row(
                                             children: [
-                                              const SizedBox(width: 34,),
+                                              const SizedBox(width: 34),
                                               Expanded(
-                                                  child: Text(
-                                                    widget.clearSelectionText,
-                                                    style: TextStyle(
-                                                      fontFamily: "Manrope",
-                                                      fontSize: responsive.inputFontSize,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: hasSelections
-                                                          ? Color(0xff573353)
-                                                          : Colors.grey.shade400,
-                                                    ),
-                                                  )
+                                                child: Text(
+                                                  widget.clearSelectionText,
+                                                  style: TextStyle(
+                                                    fontFamily: "Manrope",
+                                                    fontSize: responsive
+                                                        .inputFontSize,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: hasSelections
+                                                        ? Color(0xff573353)
+                                                        : Colors.grey.shade400,
+                                                  ),
+                                                ),
                                               ),
-
                                             ],
                                           ),
                                         ),
                                       ),
-                                      Divider(height: 1,),
+                                      Divider(height: 1),
                                     ],
                                   );
                                 }
                                 // all options
-                                final tagIndex = widget.showClearAllOption ? index -1 : index;
+                                final tagIndex = widget.showClearAllOption
+                                    ? index - 1
+                                    : index;
                                 final tag = filteredTags[tagIndex];
                                 final isSelected = localSelected.contains(tag);
-              
+
                                 return InkWell(
                                   onTap: () {
                                     setOverlayState(() {
@@ -187,11 +209,16 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                       } else {
                                         localSelected.add(tag);
                                       }
-                                      widget.onSelectionChanged(List.from(localSelected));
+                                      widget.onSelectionChanged(
+                                        List.from(localSelected),
+                                      );
                                     });
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
                                     child: Row(
                                       children: [
                                         GradientCheckbox(value: isSelected),
@@ -201,7 +228,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                             tag,
                                             style: TextStyle(
                                               fontFamily: "Manrope",
-                                              fontSize: responsive.inputFontSize,
+                                              fontSize:
+                                                  responsive.inputFontSize,
                                               fontWeight: FontWeight.w500,
                                               color: const Color(0xff573353),
                                             ),
@@ -265,12 +293,16 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               ),
               children: [
                 TextSpan(text: widget.label),
-                if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Colors.red),
+                  ),
               ],
             ),
           ),
           SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-      
+
           // Main field with chips
           GestureDetector(
             key: _fieldKey,
@@ -292,7 +324,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               //   borderRadius: BorderRadius.circular(responsive.isTablet ? 12 : 10),
               // ),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withOpacity(0.102),
+                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
                 //color: const Color(0xFFF8F7FA),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -331,9 +363,14 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       runSpacing: 8,
                       children: widget.selectedOptions.map((tag) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: widget.colorfulSelection ? _getTagBackgroundColor(tag) : Colors.white,
+                            color: widget.colorfulSelection
+                                ? _getTagBackgroundColor(tag)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -354,21 +391,29 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                               const SizedBox(width: 6),
                               GestureDetector(
                                 onTap: () {
-                                  final newList = widget.selectedOptions.where((t) => t != tag).toList();
+                                  final newList = widget.selectedOptions
+                                      .where((t) => t != tag)
+                                      .toList();
                                   widget.onSelectionChanged(newList);
                                 },
-                                child: Icon(Icons.close, size: 16, color: _getTagTextColor(tag)),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: _getTagTextColor(tag),
+                                ),
                               ),
                             ],
                           ),
                         );
                       }).toList(),
                     ),
-      
+
                   Align(
                     alignment: Alignment.centerRight,
                     child: Icon(
-                      _isDropdownOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      _isDropdownOpen
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
                       color: const Color(0xff573353),
                       size: responsive.isTablet ? 28 : 24,
                     ),
@@ -377,9 +422,10 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               ),
             ),
           ),
-      
-      
-          if (widget.errorText != null && widget.isRequired && widget.selectedOptions.isEmpty)
+
+          if (widget.errorText != null &&
+              widget.isRequired &&
+              widget.selectedOptions.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
@@ -404,10 +450,15 @@ class GradientCheckbox extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: value ? Colors.transparent : Colors.grey, width: 2),
+        border: Border.all(
+          color: value ? Colors.transparent : Colors.grey,
+          width: 2,
+        ),
         gradient: value ? AppColors.buildPrimaryGradient() : null,
       ),
-      child: value ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+      child: value
+          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          : null,
     );
   }
 }

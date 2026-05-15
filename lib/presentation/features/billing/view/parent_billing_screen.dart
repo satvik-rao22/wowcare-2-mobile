@@ -7,7 +7,6 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
-import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 
 /// Parent Billing UI (ported layout from legacy `lib copy/.../billing_screen.dart`).
 ///
@@ -32,7 +31,6 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
   bool _isInitialLoadingTransactions = false;
   bool _isPaymentLoading = false;
-  bool _isAutoPayLoading = false;
 
   // Demo siblings data (UI only)
   final List<Map<String, String>> _demoSiblings = const [
@@ -182,7 +180,6 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       siblings: _demoSiblings,
       currentBalance: 0.0, // TODO: Calculate from actual data
       isPaymentLoading: _isPaymentLoading,
-      isAutoPayLoading: _isAutoPayLoading,
       onPayNow: () async {
         if (_isPaymentLoading) return;
         setState(() => _isPaymentLoading = true);
@@ -197,21 +194,12 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
           ),
         );
       },
-      onAutoPay: () async {
-        if (_isAutoPayLoading) return;
-        setState(() => _isAutoPayLoading = true);
-        final result = await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const AutoPayPaymentMethodsScreen(),
+      onAutoPay: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Auto Pay (parent)'),
           ),
         );
-        if (!mounted) return;
-        setState(() => _isAutoPayLoading = false);
-        if (result == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Auto Pay settings updated')),
-          );
-        }
       },
     );
   }

@@ -6,7 +6,7 @@ class ProgressItemHelper {
     required this.label,
     required this.value,
     required this.color,
-    this.filterValue
+    this.filterValue,
   });
 
   final String label;
@@ -48,42 +48,48 @@ class CustomStatBarCard extends StatelessWidget {
     final barItems = progressItems ?? items;
     double sumValues = barItems.fold(0, (sum, item) => sum + item.value);
     final int parsedTotal = int.tryParse(number) ?? 0;
-    final double effectiveTotal =
-        normalizeBarByItemSum ? sumValues : parsedTotal.toDouble();
+    final double effectiveTotal = normalizeBarByItemSum
+        ? sumValues
+        : parsedTotal.toDouble();
     bool hasValidTotal = effectiveTotal > 0;
     final legendRows = <List<ProgressItemHelper>>[];
     for (var i = 0; i < items.length; i += 2) {
-      legendRows.add(items.sublist(i, i + 2 > items.length ? items.length : i + 2));
+      legendRows.add(
+        items.sublist(i, i + 2 > items.length ? items.length : i + 2),
+      );
     }
 
     Widget buildLegendItem(ProgressItemHelper item) {
-      final isSelected = selectedFilterValue != null && selectedFilterValue == item.filterValue;
+      final isSelected =
+          selectedFilterValue != null &&
+          selectedFilterValue == item.filterValue;
       final labelParts = item.label.split('\n');
       final titleText = labelParts.first;
-      final valueText =
-          labelParts.length > 1 ? labelParts.sublist(1).join('\n') : '';
+      final valueText = labelParts.length > 1
+          ? labelParts.sublist(1).join('\n')
+          : '';
       final labelWidget = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            titleText,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.8),
+              fontSize: 14,
+            ),
+          ),
+          if (valueText.isNotEmpty)
             Text(
-              titleText,
-              style: TextStyle(
-                color: AppColors.primaryColor.withOpacity(0.8),
+              valueText,
+              style: const TextStyle(
+                color: AppColors.themeColor,
                 fontSize: 14,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            if (valueText.isNotEmpty)
-              Text(
-                valueText,
-                style: const TextStyle(
-                  color: AppColors.themeColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-          ],
-        );
+        ],
+      );
       return Container(
         padding: EdgeInsets.symmetric(horizontal: 1, vertical: 2),
         child: Row(
@@ -106,19 +112,16 @@ class CustomStatBarCard extends StatelessWidget {
                 : labelWidget,
           ],
         ),
-            decoration: BoxDecoration(
-              shape: BoxShape.rectangle,
-              color: isSelected
-                  ? Colors.white
-                  : Colors.transparent,
-              border: Border(
-                bottom: BorderSide(
-                  color: isSelected ? AppColors.themeColor : Colors.transparent,
-                  width: 2,
-                ),
-
-              ),
-            )
+        decoration: BoxDecoration(
+          shape: BoxShape.rectangle,
+          color: isSelected ? Colors.white : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppColors.themeColor : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
       );
     }
 
@@ -137,8 +140,8 @@ class CustomStatBarCard extends StatelessWidget {
                     final item = entry.value;
                     final alignment = row.length == 2
                         ? (index == 0
-                            ? Alignment.centerLeft
-                            : Alignment.centerRight)
+                              ? Alignment.centerLeft
+                              : Alignment.centerRight)
                         : Alignment.center;
                     return Expanded(
                       child: Align(
@@ -159,10 +162,7 @@ class CustomStatBarCard extends StatelessWidget {
       final percentList = barItems.map((item) => item.value).toList();
       final percentTotal = percentList.fold(0.0, (a, b) => a + b);
       return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(12),
@@ -212,15 +212,14 @@ class CustomStatBarCard extends StatelessWidget {
                 width: double.infinity,
                 child: Row(
                   children: percentTotal == 0
-                      ? [
-                          Expanded(
-                              child: Container(color: Colors.grey[300]))
-                        ]
+                      ? [Expanded(child: Container(color: Colors.grey[300]))]
                       : [
-                          ...barItems.map((item) => Expanded(
-                                flex: ((item.value * 1000) ~/ percentTotal),
-                                child: Container(color: item.color),
-                              )),
+                          ...barItems.map(
+                            (item) => Expanded(
+                              flex: ((item.value * 1000) ~/ percentTotal),
+                              child: Container(color: item.color),
+                            ),
+                          ),
                           if (percentTotal < 100)
                             Expanded(
                               flex: ((100 - percentTotal) * 1000 ~/ 100),
@@ -234,10 +233,7 @@ class CustomStatBarCard extends StatelessWidget {
             buildLegendLayout(),
             if (footer != null) ...[
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.center,
-                child: footer!,
-              ),
+              Align(alignment: Alignment.center, child: footer!),
             ],
           ],
         ),
@@ -245,10 +241,7 @@ class CustomStatBarCard extends StatelessWidget {
     } else {
       // Original style
       return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(12),
@@ -289,28 +282,30 @@ class CustomStatBarCard extends StatelessWidget {
                         children: !hasValidTotal
                             ? [
                                 Expanded(
-                                    child: Container(color: Colors.grey[300]))
+                                  child: Container(color: Colors.grey[300]),
+                                ),
                               ]
                             : [
                                 // Use a higher-resolution flex so small values don't round to 0.
                                 // If a segment has value > 0, it must have at least 1 flex.
-                                ...barItems
-                                    .where((item) => item.value > 0)
-                                    .map((item) {
-                                  final computed =
-                                      ((item.value / effectiveTotal) * 1000)
-                                          .round();
-                                  final flex = computed <= 0 ? 1 : computed;
-                                  return Expanded(
-                                    flex: flex,
-                                    child: Container(color: item.color),
-                                  );
-                                }),
+                                ...barItems.where((item) => item.value > 0).map(
+                                  (item) {
+                                    final computed =
+                                        ((item.value / effectiveTotal) * 1000)
+                                            .round();
+                                    final flex = computed <= 0 ? 1 : computed;
+                                    return Expanded(
+                                      flex: flex,
+                                      child: Container(color: item.color),
+                                    );
+                                  },
+                                ),
                                 if (!normalizeBarByItemSum &&
                                     sumValues < effectiveTotal)
                                   Expanded(
                                     flex: (() {
-                                      final remaining = effectiveTotal - sumValues;
+                                      final remaining =
+                                          effectiveTotal - sumValues;
                                       final computed =
                                           ((remaining / effectiveTotal) * 1000)
                                               .round();
@@ -326,10 +321,7 @@ class CustomStatBarCard extends StatelessWidget {
                   buildLegendLayout(),
                   if (footer != null) ...[
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.center,
-                      child: footer!,
-                    ),
+                    Align(alignment: Alignment.center, child: footer!),
                   ],
                 ],
               ),

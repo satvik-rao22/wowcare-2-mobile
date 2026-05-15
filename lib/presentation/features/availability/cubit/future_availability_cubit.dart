@@ -44,6 +44,8 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
         isTwoShifts: isTwoShifts,
         isFromCache: true,
       ));
+      // ignore: unawaited_futures
+      refresh(date: normalizedDate, isTwoShifts: isTwoShifts);
       return;
     }
 
@@ -62,19 +64,6 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
 
     try {
       final schoolCode = await _resolveSchoolCode();
-      if (_repository is AvailabilityRepositoryWithCache) {
-        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
-          schoolCode: schoolCode,
-        );
-      }
-
-      // Required flow: POST recompute first, then GET snapshots.
-      await _repository.recomputeFutureAvailability(
-        schoolCode: schoolCode,
-        startDate: normalizedDate,
-        endDate: normalizedDate,
-      );
-
       final grid = await _getFutureAvailabilityUseCase(
         schoolCode: schoolCode,
         startDate: normalizedDate,

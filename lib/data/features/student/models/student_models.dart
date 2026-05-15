@@ -7,7 +7,6 @@ class StudentListItemModel extends Equatable {
     required this.lastName,
     required this.status,
     this.profilePhotoUrl,
-    this.profilePhotoAssetCode,
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
@@ -21,7 +20,6 @@ class StudentListItemModel extends Equatable {
   final String lastName;
   final String status;
   final String? profilePhotoUrl;
-  final String? profilePhotoAssetCode;
   final String classroom;
   final String dob;
   final String movementDate;
@@ -40,11 +38,8 @@ class StudentListItemModel extends Equatable {
     if (classroomRaw is String) {
       classroomCodeOrName = classroomRaw;
     } else if (classroomRaw is Map) {
-      final name = classroomRaw['name']?.toString().trim() ?? '';
       final code = classroomRaw['code'];
-      classroomCodeOrName = name.isNotEmpty
-          ? name
-          : (code?.toString().trim() ?? '');
+      classroomCodeOrName = code?.toString().trim() ?? '';
     }
 
     final rawTags = json['tags'];
@@ -143,7 +138,6 @@ class StudentListItemModel extends Equatable {
       lastName: json['lastName'] as String? ?? '',
       status: json['status'] as String? ?? '',
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
-      profilePhotoAssetCode: json['profilePhotoAssetCode'] as String?,
       classroom: classroomCodeOrName,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
@@ -160,8 +154,6 @@ class StudentListItemModel extends Equatable {
       'lastName': lastName,
       'status': status,
       if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
-      if (profilePhotoAssetCode != null)
-        'profilePhotoAssetCode': profilePhotoAssetCode,
       'classroom': classroom,
       'dob': dob,
       'movementDate': movementDate,
@@ -178,7 +170,6 @@ class StudentListItemModel extends Equatable {
         lastName,
         status,
         profilePhotoUrl,
-        profilePhotoAssetCode,
         classroom,
         dob,
         movementDate,

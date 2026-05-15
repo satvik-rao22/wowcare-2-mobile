@@ -3,6 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/util/date_utils.dart';
 
 class ViewInvoiceScreen extends StatefulWidget {
   const ViewInvoiceScreen({
@@ -19,6 +20,10 @@ class ViewInvoiceScreen extends StatefulWidget {
 class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   // Dummy data for UI
   Map<String, dynamic>? _addressEntity;
+  bool _isAddressLoading = false;
+  bool _isInvoiceLoading = false;
+  bool _isInvoiceItemsLoading = false;
+  Map<String, dynamic>? _invoiceDetails;
   List<Map<String, dynamic>>? _invoiceItems;
 
   @override
@@ -27,7 +32,19 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     _initializeDummyData();
   }
 
-  void _initializeDummyData() {
+  Future<void> _initializeDummyData() async {
+    // Simulate loading
+    setState(() {
+      _isAddressLoading = true;
+      _isInvoiceLoading = true;
+      _isInvoiceItemsLoading = true;
+    });
+
+    // Simulate API delay
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (!mounted) return;
+
     // Load dummy data
     setState(() {
       _addressEntity = {
@@ -36,6 +53,19 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
         'state': 'NY',
         'country': 'USA',
         'zipcode': '10001',
+      };
+
+      // Generate dummy invoice details
+      _invoiceDetails = {
+        'invoiceNumber': widget.transaction.refTableId != null
+            ? 'INV-2025-${widget.transaction.refTableId}'
+            : 'INV-2025-${widget.transaction.id}',
+        'date': widget.transaction.date.toIso8601String(),
+        'startDate': widget.transaction.date.subtract(const Duration(days: 30)).toIso8601String(),
+        'endDate': widget.transaction.date.toIso8601String(),
+        'dueDate': widget.transaction.endDate != null
+            ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
+            : widget.transaction.date.add(const Duration(days: 7)).toIso8601String(),
       };
 
       // Generate dummy invoice items
@@ -55,6 +85,10 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
           },
         ],
       ];
+
+      _isAddressLoading = false;
+      _isInvoiceLoading = false;
+      _isInvoiceItemsLoading = false;
     });
   }
 
@@ -169,6 +203,30 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          // Invoice loading indicator
+          if (_isInvoiceLoading || _isInvoiceItemsLoading)
+            const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Loading invoice details...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.billingGrey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Invoice items table (simple format like receipt screen)
           Row(
             mainAxisAlignment: MainAxisAlignment.start,

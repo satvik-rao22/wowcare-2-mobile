@@ -44,14 +44,6 @@ class DocumentImageWidget extends StatefulWidget {
   /// (E.g. sign-in selection screens want to highlight absences only.)
   final bool showOnlyAbsentAttendanceDot;
 
-  /// If true, widget does not call profile/asset-code endpoints as a fallback
-  /// when both [imageUrl] and [mediaAssetCode] are empty.
-  final bool disableProfileLookupFallback;
-
-  /// If true, widget will NOT call attendance APIs for status dot.
-  /// You can provide [statusColor] + [statusTooltip] instead (e.g. from a cached map).
-  final bool disableAttendanceStatusLookup;
-
   const DocumentImageWidget({
     Key? key,
     required this.fileUuid,
@@ -73,14 +65,9 @@ class DocumentImageWidget extends StatefulWidget {
     this.statusColor,
     this.statusTooltip,
     this.showOnlyAbsentAttendanceDot = false,
-    this.disableProfileLookupFallback = false,
-    this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
 
-  static void clearProfilePhotoCache({
-    String? studentCode,
-    String? staffCode,
-  }) {
+  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
     if (student.isEmpty && staff.isEmpty) {
@@ -189,7 +176,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) > DocumentImageWidget._profilePhotoCacheTtl) {
+    if (DateTime.now().difference(fetchedAt) >
+        DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
       return null;
@@ -207,13 +195,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return;
     }
 
-    if (widget.disableProfileLookupFallback && mediaAssetCode.isEmpty) {
-      return;
-    }
-
     final cacheKey = mediaAssetCode.isNotEmpty
         ? 'asset:$mediaAssetCode'
-        : (studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode');
+        : (studentCode.isNotEmpty
+              ? 'student:$studentCode'
+              : 'staff:$staffCode');
     final cached = _cachedUrlIfFresh(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       if (!mounted) return;
@@ -259,10 +245,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }) async {
     final apiClient = serviceLocator<ApiClient>();
     if (mediaAssetCode.isNotEmpty) {
-      // Try document service first (when caller provides an asset code),
-      // but fall back to profile endpoints if the document lookup fails.
       final documentUrl = await _fetchDocumentAssetUrl(mediaAssetCode);
-      if (documentUrl.isNotEmpty) return documentUrl;
+      return documentUrl.isEmpty ? null : documentUrl;
     }
     if (studentCode.isNotEmpty) {
       final endpoint = ApiPaths.urlWithBase(
@@ -480,15 +464,6 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
-    if (widget.disableAttendanceStatusLookup) {
-      if (!mounted) return;
-      setState(() {
-        _statusDotColor = null;
-        _statusLabel = null;
-      });
-      return;
-    }
-
     final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
     if (employment == 'UPCOMING') {
       if (!mounted) return;
@@ -577,8 +552,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrlToShow =
-        (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
+    final imageUrlToShow = (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
     final hasImageUrl = imageUrlToShow.isNotEmpty;
     return GestureDetector(
       onTap: widget.onTap,
@@ -627,7 +601,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.95),
+              color: AppColors.primaryColor.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../app/theme/colors.dart';
+
 class ShimmerLoader extends StatelessWidget {
   final Widget? child;
   final double? height;
@@ -36,13 +38,11 @@ class ShimmerLoader extends StatelessWidget {
     );
   }
 }
+
 class AttendanceCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const AttendanceCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const AttendanceCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +57,7 @@ class AttendanceCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: AppColors.primaryColor.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -119,10 +119,7 @@ class AttendanceCardShimmer extends StatelessWidget {
 class SummaryCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const SummaryCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const SummaryCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +134,7 @@ class SummaryCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: AppColors.primaryColor.withValues(alpha: 0.07),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -233,10 +230,7 @@ class SummaryCardShimmer extends StatelessWidget {
 class StaffCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const StaffCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const StaffCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +245,7 @@ class StaffCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: AppColors.primaryColor.withValues(alpha: 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -311,205 +305,6 @@ class StaffCardShimmer extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Shimmer placeholder matching Classroom profile screen layout:
-/// dropdown/header row, classroom details card, three summary cards, and events card.
-class ClassroomProfileShimmer extends StatelessWidget {
-  const ClassroomProfileShimmer({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Header row: dropdown + icon
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: ShimmerLoader(
-                height: 44,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(width: 12),
-            ShimmerLoader(
-              height: 28,
-              width: 28,
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Classroom details (capacity) card
-        Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromARGB(255, 232, 234, 234), width: 1.5),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // avatar
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // title
-                      Container(
-                        height: 18,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // age range
-                      Container(
-                        height: 14,
-                        width: MediaQuery.of(context).size.width * 0.55,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Container(
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // thumb icon placeholder
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-        const SummaryCardShimmer(),
-        const SummaryCardShimmer(),
-        const SummaryCardShimmer(),
-        const SizedBox(height: 16),
-
-        // Events card placeholder
-        Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
-          child: Container(
-            height: 260,
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromARGB(255, 232, 234, 234), width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 18,
-                  width: 90,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  height: 14,
-                  width: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Column(
-                    children: List.generate(
-                      3,
-                      (i) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Container(
-                                height: 46,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

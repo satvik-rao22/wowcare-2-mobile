@@ -7,7 +7,6 @@ class StaffDocumentRequestModel extends Equatable {
     required this.documentUrl,
     required this.documentSizeKb,
     required this.mimeType,
-    this.assetCode,
     required this.expiryDate,
     this.documentNotes,
     this.updatedBy,
@@ -18,7 +17,6 @@ class StaffDocumentRequestModel extends Equatable {
   final String documentUrl;
   final int documentSizeKb;
   final String mimeType;
-  final String? assetCode;
   final String expiryDate; // ISO date string or empty when optional
   final String? documentNotes;
   /// Name or code of staff/admin who uploaded/last updated the document.
@@ -31,8 +29,6 @@ class StaffDocumentRequestModel extends Equatable {
       'documentUrl': documentUrl,
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
-      if (assetCode != null && assetCode!.trim().isNotEmpty)
-        'assetCode': assetCode!.trim(),
       'expiryDate': expiryDate,
       if (documentNotes != null && documentNotes!.isNotEmpty)
         'documentNotes': documentNotes,
@@ -43,7 +39,7 @@ class StaffDocumentRequestModel extends Equatable {
 
   @override
   List<Object?> get props =>
-      [documentType, documentName, documentUrl, documentSizeKb, mimeType, assetCode, expiryDate, documentNotes, updatedBy];
+      [documentType, documentName, documentUrl, documentSizeKb, mimeType, expiryDate, documentNotes, updatedBy];
 }
 
 class StaffDocumentResponseModel extends Equatable {

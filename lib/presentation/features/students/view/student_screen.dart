@@ -48,8 +48,6 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
@@ -59,14 +57,10 @@ class StudentScreen extends StatefulWidget {
   const StudentScreen({
     super.key,
     this.incomingStatusFilter,
-    this.incomingClassroomSelections,
   });
 
   static const String routeName = '/students';
   final String? incomingStatusFilter;
-
-  /// Classroom names or codes (same as filter sheet / [StudentCubit] — both resolve).
-  final List<String>? incomingClassroomSelections;
 
   @override
   State<StudentScreen> createState() => _StudentScreenState();
@@ -108,7 +102,6 @@ class _StudentScreenState extends State<StudentScreen> {
   void initState(){
     super.initState();
     _applyIncomingStatusFilter();
-    _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -190,17 +183,6 @@ class _StudentScreenState extends State<StudentScreen> {
     final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
     _currentFilters['Status'] = [statusLabel];
     _syncShowInactiveFromStatus(statusLabel);
-  }
-
-  void _applyIncomingClassroomSelections() {
-    final raw = widget.incomingClassroomSelections;
-    if (raw == null || raw.isEmpty) return;
-    final cleaned = raw
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    if (cleaned.isEmpty) return;
-    _currentFilters['Classroom'] = cleaned;
   }
 
   @override
@@ -540,8 +522,6 @@ class _StudentScreenState extends State<StudentScreen> {
   }) {
     return {
       'name': student.fullName,
-      'profileImage': student.profileImage,
-      'profilePhotoAssetCode': student.profilePhotoAssetCode,
       'Classroom': _classroomDisplayName(
         student.classroom,
         classroomNameByCode: classroomNameByCode,
@@ -676,34 +656,14 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
-  String _resolveClassroomCodeForStudent(
-    Student student, {
-    required Map<String, String> classroomCodeByName,
-  }) {
-    final raw = student.classroom.trim();
-    if (raw.isEmpty) return '';
-    if (raw.toUpperCase().startsWith('CLS_')) return raw;
-    final mapped = classroomCodeByName[raw];
-    if (mapped != null && mapped.trim().isNotEmpty) {
-      return mapped.trim();
-    }
-    return raw;
-  }
-
   /// Same shape as [ChooseActivity.selectedStudents] for class-scoped activity list + create flow.
-  List<Map<String, dynamic>> _activityStudentMaps(
-    List<Student> students, {
-    required Map<String, String> classroomCodeByName,
-  }) {
+  List<Map<String, dynamic>> _activityStudentMaps(List<Student> students) {
     return _getSelectedStudents(students)
         .map(
           (s) => <String, dynamic>{
             'name': s.fullName,
             'studentCode': s.code,
-            'classroomCode': _resolveClassroomCodeForStudent(
-              s,
-              classroomCodeByName: classroomCodeByName,
-            ),
+            'classroomCode': s.classroom.trim(),
           },
         )
         .toList();
@@ -1106,13 +1066,7 @@ class _StudentScreenState extends State<StudentScreen> {
                       currentPanel: _currentPanel,
                       activityStudentMaps:
                           _canShowActivitiesButton(selectedCount, students)
-                              ? _activityStudentMaps(
-                                  students,
-                                  classroomCodeByName: {
-                                    for (final c in classroomState.classrooms)
-                                      c.name.trim(): c.code.trim(),
-                                  },
-                                )
+                              ? _activityStudentMaps(students)
                               : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),
@@ -1259,12 +1213,8 @@ class _StudentScreenState extends State<StudentScreen> {
                           textAlign: TextAlign.left,
                         ),
                       ),
-                      if (ModuleAccess.mayWrite(
-                        context.watch<RoleProvider>(),
-                        AppAccessModules.student,
-                      ))
-                        GradientAddButton(
-                          onTap: () async {
+                      GradientAddButton(
+                        onTap: () async {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const AddStudentWizardScreen()),
@@ -1300,10 +1250,10 @@ class _StudentScreenState extends State<StudentScreen> {
                               );
                             });
                           }
-                          },
-                          isTablet: MediaQuery.of(context).size.width >= 600,
-                          isLargeTablet: MediaQuery.of(context).size.width >= 900,
-                        ),
+                        },
+                        isTablet: MediaQuery.of(context).size.width >= 600,
+                        isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                      ),
                       SizedBox(width: 10,),
                       // Clock action button
                       // Container(
@@ -1716,10 +1666,6 @@ class _StudentScreenState extends State<StudentScreen> {
                             StudentCard(
                               studentCode: studentMap['code'] as String,
                               name: studentMap['name'] as String,
-                              profileImage:
-                                  studentMap['profileImage'] as String?,
-                              profilePhotoAssetCode:
-                                  studentMap['profilePhotoAssetCode'] as String?,
                               classroom: studentMap['Classroom'] as String,
                               tags: studentMap['Tags'] as List<String>,
                               sibling:
