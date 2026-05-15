@@ -243,7 +243,7 @@ class _AttendanceReportModel {
 }
 
 class StudentAttendanceProfile extends StatefulWidget {
-  static const String routeName = '/student-attendance-profile';
+  static const String routeName = '/dashboard/student-attendance-profile';
 
   const StudentAttendanceProfile({
     super.key,

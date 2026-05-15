@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -89,21 +90,16 @@ class _SignInScreenState extends State<SignInScreen>
     final orgCode = await storage.getString(StorageKeys.organizationCode);
 
     if (orgCode != null && orgCode.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SchoolSelectionScreen(
-            selectedOrg: orgCode,
-            orgFromLoginContext: true,
-          ),
-        ),
+      context.go(
+        '/school-selection',
+        extra: <String, dynamic>{
+          'selectedOrg': orgCode,
+          'orgFromLoginContext': true,
+        },
       );
     } else {
       // Fallback: go to org selection if orgCode not found
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const OrganizationSelectionScreen()),
-      );
+      context.go('/org-selection');
     }
   }
 
@@ -149,29 +145,22 @@ class _SignInScreenState extends State<SignInScreen>
           _navigateToSchoolSelection(context);
           return;
         } else if (url.contains('select-organization')) {
-          // Navigate to org selection
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const OrganizationSelectionScreen(),
-            ),
-          );
+          context.go('/org-selection');
           return;
         } else if (url.contains('select-app')) {
-          // Navigate to dashboard
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          context.go(DashboardScreen.routeName);
           return;
         } else if (url.contains('dashboard')) {
           // Backend may return a dashboard redirect even when LastLoginSchoolCode is null.
           // In that case, do NOT force role selection — go straight to Dashboard.
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          context.go(DashboardScreen.routeName);
           return;
         }
       }
 
       // After login-context, always go straight to Dashboard.
       // Role selection screen is no longer part of the flow.
-      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      context.go(DashboardScreen.routeName);
     } else if (state is AuthError) {
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(

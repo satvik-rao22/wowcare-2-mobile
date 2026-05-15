@@ -71,10 +71,16 @@ class StudentSignInForm extends StatefulWidget {
     super.key,
     required this.students,
     required this.refreshCallback,
+    this.popOnSuccess = false,
   });
 
   final VoidCallback refreshCallback;
   final List<StudentEntity> students;
+  // When true, pops back to the caller after a successful submission instead of
+  // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
+  // outside the Attendance tab (e.g. the Classroom Students card) so the user
+  // stays on the screen they started from.
+  final bool popOnSuccess;
 
   static const String routeName = '/student-sign-in-form';
 
@@ -637,7 +643,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
 
       if (success) {
-        if (isParent) {
+        if (widget.popOnSuccess) {
+          widget.refreshCallback();
+          Navigator.of(context).pop();
+        } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
             context.read<ParentChildProvider>().selectByCode(s.studentCode);

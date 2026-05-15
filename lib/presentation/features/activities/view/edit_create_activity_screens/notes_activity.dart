@@ -37,7 +37,6 @@ import '../../utils/activity_school_time.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class NotesActivityScreen extends StatefulWidget {
@@ -569,9 +568,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (error) {
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
@@ -845,9 +842,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (error) {
       if (!mounted) return;

@@ -84,6 +84,19 @@ class StudentClassroomItemModel {
       return false;
     }
 
+    /// True when a presence-indicator field carries content.
+    ///
+    /// The student-classroom API returns the health fields (`medication`,
+    /// `allergies`, `dietaryRestriction`) as free text — e.g. `"Headache"` —
+    /// or `null`, never as booleans. Any non-empty value (other than the
+    /// literal `null`/`false`/`0`) therefore means "something is on file".
+    bool hasValue(dynamic v) {
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      final s = v?.toString().trim().toLowerCase() ?? '';
+      return s.isNotEmpty && s != 'null' && s != 'false' && s != '0';
+    }
+
     final profileRaw = pick(json, student, 'profilePictureUrl');
 
     return StudentClassroomItemModel(
@@ -101,9 +114,9 @@ class StudentClassroomItemModel {
       photoPermission:
           asBool(json['photoPermission'] ?? student?['photoPermission']),
       notes: asBool(json['notes'] ?? student?['notes']),
-      medication: asBool(json['medication'] ?? student?['medication']),
-      allergies: asBool(json['allergies'] ?? student?['allergies']),
-      dietaryRestriction: asBool(
+      medication: hasValue(json['medication'] ?? student?['medication']),
+      allergies: hasValue(json['allergies'] ?? student?['allergies']),
+      dietaryRestriction: hasValue(
           json['dietaryRestriction'] ?? student?['dietaryRestriction']),
     );
   }

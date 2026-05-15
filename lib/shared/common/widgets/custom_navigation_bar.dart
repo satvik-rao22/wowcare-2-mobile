@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
-import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
-import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
 
-import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------
 // Responsive sizing — fixed for Bug 3 (iPad split-screen)
@@ -71,7 +67,14 @@ class _NavSizes {
 }
 
 class CustomNavigationBar extends StatefulWidget {
-  const CustomNavigationBar({super.key});
+  const CustomNavigationBar({super.key, this.activeTabIndexOverride});
+
+  /// Forces a specific bottom-nav slot to render highlighted, regardless of
+  /// the shell's current branch. Used by screens that live under another
+  /// branch's route but conceptually belong to a non-branch slot — e.g. the
+  /// attendance tabbed views (Attendance is a popup slot, index 1, and the
+  /// views are registered under the dashboard branch).
+  final int? activeTabIndexOverride;
 
   static final GlobalKey<_CustomNavigationBarState> navBarKey =
       GlobalKey<_CustomNavigationBarState>();
@@ -86,9 +89,6 @@ class CustomNavigationBar extends StatefulWidget {
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
   final GlobalKey _containerKey = GlobalKey();
   double _navBarHeight = 0.0;
-  // Bug 4 fix: removed _hasMeasured flag so height re-measures on every
-  // layout change (rotation, split-view resize, etc.).
-  String _currentRoute = '';
 
   @override
   void initState() {
@@ -96,23 +96,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final newRoute = ModalRoute.of(context)?.settings.name ?? '';
-    if (newRoute != _currentRoute) {
-      setState(() {
-        _currentRoute = newRoute;
-        _updateIndexFromRoute();
-      });
-    }
-  }
-
-  // Bug 4 fix: called from didUpdateWidget + postFrameCallback on every build
-  // so height stays accurate after rotation.
+  // Bug 4 fix: re-measure after every build pass so the height stays accurate
+  // through rotations and split-view resizes.
   void _measureHeight() {
     if (!mounted) return;
-    final RenderBox? renderBox =
+    final renderBox =
         _containerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null) {
       final newHeight = renderBox.size.height;
@@ -125,99 +113,34 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   @override
   void didUpdateWidget(covariant CustomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-measure whenever the widget rebuilds (catches orientation changes).
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
-  int _index = 0;
-
-  void _updateIndexFromRoute() {
-    if (!mounted) return;
-    final roleProvider = Provider.of<RoleProvider>(context, listen: false);
-    final isParent = roleProvider.isParent;
-
-    if (isParent) {
-      if (_currentRoute == DashboardScreen.routeName)
-        _index = 0;
-      else if (_currentRoute == ActivityFeedScreen.routeName)
-        _index = 2;
-      else if (_currentRoute == MessagingScreen.routeName)
-        _index = 3;
-      else if (_currentRoute == ParentBillingScreen.routeName)
-        _index = 4;
-    } else {
-      if (_currentRoute == DashboardScreen.routeName)
-        _index = 0;
-      else if (_currentRoute == ActivityFeedScreen.routeName)
-        _index = 3;
-      else if (_currentRoute == MessagingScreen.routeName)
-        _index = 4;
-      else if (_currentRoute == ClassroomScreen.routeName) _index = 2;
+  void _onItemTapped(int tabIndex, BuildContext context, bool isParent) {
+    // The Attendance slot (index 1) is a modal popup, not a route.
+    if (tabIndex == 1) {
+      AttendancePopupManager.showAttendancePopup(context);
+      return;
     }
-  }
 
-  void _onItemTapped(int index, BuildContext context, bool isParent) {
-    setState(() => _index = index);
+    final branchIndex = navBranchIndexForTab(
+      isParent: isParent,
+      tabIndex: tabIndex,
+    );
+    if (branchIndex == null) return;
 
-    if (isParent) {
-      switch (index) {
-        case 0:
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-          break;
-        case 1:
-          AttendancePopupManager.showAttendancePopup(context);
-          break;
-        case 2:
-          Navigator.pushReplacementNamed(context, ActivityFeedScreen.routeName);
-          break;
-        case 3:
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(name: MessagingScreen.routeName),
-              builder: (_) =>
-                  const MessagingScreen(userPersona: UserPersona.parent),
-            ),
-          );
-          break;
-        case 4:
-          Navigator.pushReplacementNamed(
-            context,
-            ParentBillingScreen.routeName,
-          );
-          break;
-      }
+    final shell = appNavigationShell(context);
+    if (shell != null) {
+      // Re-tap on the active tab is a no-op so the user's place inside the
+      // branch is preserved. Different branch → IndexedStack swap; state of
+      // the outgoing branch is kept alive, the incoming one shows instantly
+      // (no transition animation, no rebuild of the bottom bar).
+      if (branchIndex == shell.currentIndex) return;
+      shell.goBranch(branchIndex);
     } else {
-      switch (index) {
-        case 0:
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-          break;
-        case 1:
-          AttendancePopupManager.showAttendancePopup(context);
-          break;
-        case 2:
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(name: ClassroomScreen.routeName),
-              builder: (_) => const ClassroomScreen(),
-            ),
-          );
-          break;
-        case 3:
-          Navigator.pushReplacementNamed(context, ActivityFeedScreen.routeName);
-          break;
-        case 4:
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(name: MessagingScreen.routeName),
-              builder: (_) =>
-                  const MessagingScreen(userPersona: UserPersona.admin),
-            ),
-          );
-          break;
-      }
+      // Outside the shell (e.g. on an auth screen that still shows the bar):
+      // route-level go so we enter the shell at the tab root.
+      context.go(branchRootPaths[branchIndex]);
     }
   }
 
@@ -225,11 +148,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     required String icon,
     required String label,
     required int index,
+    required int activeTabIndex,
     required BuildContext context,
     required bool isParent,
     required _NavSizes sizes,
   }) {
-    final bool isActive = _index == index;
+    final bool isActive = activeTabIndex == index;
 
     return Expanded(
       child: InkWell(
@@ -285,9 +209,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
-    // Bug 4 fix: schedule a re-measure after every build pass.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
-
     final roleProvider = context.watch<RoleProvider>();
     final isParent = roleProvider.isParent;
 
@@ -323,11 +244,36 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final sizes = _NavSizes(context);
 
+    // Highlight comes from the shell's current branch; falls back to 0
+    // when the bar renders outside the shell (e.g. on an auth screen).
+    final shell = appNavigationShell(context);
+    final activeTabIndex = widget.activeTabIndexOverride ??
+        (shell == null
+            ? 0
+            : tabIndexForBranchIndex(
+                isParent: isParent,
+                branchIndex: shell.currentIndex,
+              ));
+
+    Widget item({
+      required String icon,
+      required String label,
+      required int index,
+    }) {
+      return _buildNavItem(
+        icon: icon,
+        label: label,
+        index: index,
+        activeTabIndex: activeTabIndex,
+        context: context,
+        isParent: isParent,
+        sizes: sizes,
+      );
+    }
+
     // Bug 1 fix: SafeArea removed entirely. We handle bottom inset manually
     // via mq.viewPadding.bottom inside _NavSizes.barPadding, which works
     // correctly for BOTH iPhone notch/home-bar AND Android gesture nav.
-    // Using SafeArea(bottom:false) + manual padding caused double-inset on
-    // some iPhone models because ClipRRect sits inside the SafeArea widget.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       child: Container(
@@ -347,102 +293,72 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: isParent
               ? [
-                  _buildNavItem(
+                  item(
                     icon: MediaRes.dashboardIcon,
                     label: 'Dashboard',
                     index: 0,
-                    context: context,
-                    isParent: isParent,
-                    sizes: sizes,
                   ),
                   showParentAttendance
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.attendanceIcon,
                           label: 'Attendance',
                           index: 1,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                   showActivities
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.activitesIcon,
                           label: 'Activities',
                           index: 2,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                   showCommunication
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.communicationIcon,
                           label: 'Communication',
                           index: 3,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                   showBilling
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.billing_drawer_icon,
                           label: 'Billing',
                           index: 4,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                 ]
               : [
-                  _buildNavItem(
+                  item(
                     icon: MediaRes.dashboardIcon,
                     label: 'Dashboard',
                     index: 0,
-                    context: context,
-                    isParent: isParent,
-                    sizes: sizes,
                   ),
                   showStaffAdminAttendance
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.attendanceIcon,
                           label: 'Attendance',
                           index: 1,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                   showClassrooms
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.classroomIcon,
                           label: 'Classrooms',
                           index: 2,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                   showActivities
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.activitesIcon,
                           label: 'Activities',
                           index: 3,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                   showCommunication
-                      ? _buildNavItem(
+                      ? item(
                           icon: MediaRes.communicationIcon,
                           label: 'Messages',
                           index: 4,
-                          context: context,
-                          isParent: isParent,
-                          sizes: sizes,
                         )
                       : _hiddenNavSlot(),
                 ],

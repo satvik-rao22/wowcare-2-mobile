@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -983,6 +984,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     return InkWell(
       onTap: () async {
         final navigator = Navigator.of(context, rootNavigator: true);
+        // Captured before popping the popup — the popup's own context is
+        // defunct once it's removed.
+        final router = GoRouter.of(context);
         navigator.pop();
         if (isStaffTab) {
           if (_isTeacherStaffPersona == true) {
@@ -1005,24 +1009,20 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
               ),
             );
           } else {
-            // Admin: Navigate to staff attendance tabbed view
-            navigator.push(
-              MaterialPageRoute(
-                builder: (_) => const StaffAttendanceTabbedView(),
-              ),
-            );
+            // Admin: open the staff attendance tabbed view inside the app
+            // shell (via the router) so the bottom navigation bar stays
+            // functional, instead of pushing a detached new screen.
+            router.go(StaffAttendanceTabbedView.routeName);
           }
         } else {
           if (_isParentRole) {
             await _openParentStudentAttendanceProfile(navigator.context);
             return;
           }
-          // Navigate to student attendance tabbed view
-          navigator.push(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-          );
+          // Open the student attendance tabbed view inside the app shell
+          // (via the router) so the bottom navigation bar stays functional,
+          // instead of pushing a detached new screen.
+          router.go(StudentAttendanceTabbedView.routeName);
         }
       },
       borderRadius: BorderRadius.circular(8),

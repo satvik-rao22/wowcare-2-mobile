@@ -13,7 +13,7 @@ import '../../widgets/classroom_view/classroom_schedule_widget.dart';
 class ClassroomViewScreen extends StatelessWidget {
   const ClassroomViewScreen({super.key});
 
-  static const String routeName = "/classroom-view";
+  static const String routeName = "/dashboard/classroom-view";
 
   @override
   Widget build(BuildContext context) {

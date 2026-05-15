@@ -4,10 +4,8 @@ class ClassroomDetailsDataModel {
     required this.name,
     required this.capacity,
     required this.studentsPerTeacher,
-    required this.minAgeYear,
-    required this.minAgeMonths,
-    required this.maxAgeYear,
-    required this.maxAgeMonths,
+    required this.minAgeTotalMonths,
+    required this.maxAgeTotalMonths,
     required this.type,
     required this.school,
     required this.status,
@@ -21,10 +19,10 @@ class ClassroomDetailsDataModel {
   final String name;
   final int capacity;
   final int studentsPerTeacher;
-  final int minAgeYear;
-  final int minAgeMonths;
-  final int maxAgeYear;
-  final int maxAgeMonths;
+  /// API `minAge`: inclusive lower bound in whole months (0 = unset / from birth UI side).
+  final int minAgeTotalMonths;
+  /// API `maxAge`: inclusive upper bound in whole months (0 = unset).
+  final int maxAgeTotalMonths;
   final String type;
   final String school;
   final String status;
@@ -43,20 +41,31 @@ class ClassroomDetailsDataModel {
     return (n != null && n > 0) ? n : 0;
   }
 
+  static int _nonNegativeMonths(dynamic v) {
+    if (v is num) {
+      return v.toInt().clamp(0, 12000);
+    }
+    final n = int.tryParse((v ?? '').toString().trim());
+    return n == null ? 0 : n.clamp(0, 12000);
+  }
+
   static int _parseStudentsPerTeacher(Map<String, dynamic> json) {
     final direct = _asPositiveInt(json['studentsPerTeacher']);
     if (direct > 0) return direct;
 
+    final fromApiRatio = _asPositiveInt(json['studentsTeacherRatio']);
+    if (fromApiRatio > 0) return fromApiRatio;
+
     final ratioRawCandidates = <dynamic>[
       json['ratio'],
       json['studentTeacherRatio'],
+      json['studentsTeacherRatio'],
       json['studentsToTeacherRatio'],
       json['teacherStudentRatio'],
     ];
     for (final raw in ratioRawCandidates) {
       final text = (raw ?? '').toString().trim();
       if (text.isEmpty) continue;
-      // Expected formats: "2:1", "2 / 1", "2-1"
       final match = RegExp(r'(\d+)\s*[:/\-]\s*(\d+)').firstMatch(text);
       if (match != null) {
         final students = int.tryParse(match.group(1) ?? '');
@@ -74,63 +83,14 @@ class ClassroomDetailsDataModel {
     return 0;
   }
 
-  static int _parseAgePart(
-    Map<String, dynamic> json, {
-    required String canonicalKey,
-    required List<String> fallbacks,
-    String? nestedKey,
-  }) {
-    final direct = _asPositiveInt(json[canonicalKey]);
-    if (direct > 0) return direct;
-    for (final k in fallbacks) {
-      final v = _asPositiveInt(json[k]);
-      if (v > 0) return v;
-    }
-    if (nestedKey != null) {
-      final nested = json[nestedKey];
-      if (nested is Map) {
-        final m = Map<String, dynamic>.from(nested);
-        final v = _asPositiveInt(m[canonicalKey]);
-        if (v > 0) return v;
-        for (final k in fallbacks) {
-          final vv = _asPositiveInt(m[k]);
-          if (vv > 0) return vv;
-        }
-      }
-    }
-    return 0;
-  }
-
   factory ClassroomDetailsDataModel.fromJson(Map<String, dynamic> json) {
     return ClassroomDetailsDataModel(
       code: (json['code'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       capacity: (json['capacity'] as num?)?.toInt() ?? 0,
       studentsPerTeacher: _parseStudentsPerTeacher(json),
-      minAgeYear: _parseAgePart(
-        json,
-        canonicalKey: 'minAgeYear',
-        fallbacks: const ['minAgeYears', 'minAgeY', 'minYear', 'min_age_year'],
-        nestedKey: 'minAge',
-      ),
-      minAgeMonths: _parseAgePart(
-        json,
-        canonicalKey: 'minAgeMonths',
-        fallbacks: const ['minAgeMonth', 'minAgeM', 'minMonth', 'min_age_months'],
-        nestedKey: 'minAge',
-      ),
-      maxAgeYear: _parseAgePart(
-        json,
-        canonicalKey: 'maxAgeYear',
-        fallbacks: const ['maxAgeYears', 'maxAgeY', 'maxYear', 'max_age_year'],
-        nestedKey: 'maxAge',
-      ),
-      maxAgeMonths: _parseAgePart(
-        json,
-        canonicalKey: 'maxAgeMonths',
-        fallbacks: const ['maxAgeMonth', 'maxAgeM', 'maxMonth', 'max_age_months'],
-        nestedKey: 'maxAge',
-      ),
+      minAgeTotalMonths: _nonNegativeMonths(json['minAge']),
+      maxAgeTotalMonths: _nonNegativeMonths(json['maxAge']),
       type: (json['type'] ?? '').toString(),
       school: (json['school'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),

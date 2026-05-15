@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
@@ -8,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -81,6 +83,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final bool hasTabs =
         tabs != null && tabController != null && tabs!.isNotEmpty;
     final bool isParentPersona = context.read<RoleProvider>().isParent;
+    // Capture the current route name once per build so menu actions can
+    // skip pushing a duplicate when the user is already on that screen.
+    final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
     // Determine whether the logged-in user has access to multiple organizations.
     // If there's only one organization, we hide the "Switch Organisation" menu item.
@@ -134,7 +139,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: hasBackButton
           ? IconButton(
               icon: SvgPicture.asset(MediaRes.backButton),
-              onPressed: () => Navigator.maybePop(context),
+              onPressed: () {
+                // Always do something useful: pop one level if possible,
+                // otherwise go home to Dashboard. Previously this was just
+                // Navigator.maybePop — which silently does nothing on a tab
+                // branch root (e.g. /messageFeed for staff has
+                // hasBackButton:true but nothing to pop), so the back icon
+                // appeared broken.
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  context.go(DashboardScreen.routeName);
+                }
+              },
             )
           : Builder(
               builder: (context) => IconButton(
@@ -384,6 +401,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           onSelected: (value) async {
             switch (value) {
               case 4:
+                if (currentRoute == '/org-selection') break;
                 // Ensure AuthCubit has cached login data loaded so that
                 // OrganizationSelectionScreen can render immediately without
                 // getting stuck in a loading state after app reopen.
@@ -392,16 +410,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   await authCubit.loadCachedData();
                   if (!context.mounted) return;
                 }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const OrganizationSelectionScreen(
-                      isSwitchFlow: true,
-                    ),
-                  ),
+                context.go(
+                  '/org-selection',
+                  extra: <String, dynamic>{'isSwitchFlow': true},
                 );
                 break;
               case 1:
+                if (currentRoute == UserProfileScreen.routeName) break;
                 // Pass cached values so Profile screen doesn't render '-' placeholders.
                 final storage = serviceLocator<StorageService>();
                 final name =
@@ -411,25 +426,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 final activeRole =
                     (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
                         .trim();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => UserProfileScreen(
-                      userName: name,
-                      userEmail: email,
-                      userPersona: activeRole,
-                    ),
-                  ),
+                if (!context.mounted) return;
+                context.go(
+                  UserProfileScreen.routeName,
+                  extra: <String, dynamic>{
+                    'userName': name,
+                    'userEmail': email,
+                    'userPersona': activeRole,
+                  },
                 );
                 break;
               case 5:
                 _showChangePasswordBottomSheet(context);
                 break;
               case 6:
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => NotificationSettingsScreen()),
-                );
+                if (currentRoute == NotificationSettingsScreen.routeName) break;
+                context.go(NotificationSettingsScreen.routeName);
                 break;
               case 7:
                 //const url = 'https://help.childcarewow.com/portal/en/home';

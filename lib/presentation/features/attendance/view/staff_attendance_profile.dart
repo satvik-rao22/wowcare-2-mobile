@@ -227,7 +227,7 @@ class _AttendanceReportModel {
 }
 
 class StaffAttendanceProfile extends StatefulWidget {
-  static const String routeName = '/staff-attendance-profile';
+  static const String routeName = '/dashboard/staff-attendance-profile';
 
   const StaffAttendanceProfile({
     super.key,

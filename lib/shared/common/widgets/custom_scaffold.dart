@@ -225,10 +225,6 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       studentList: widget.studentList,
     );
 
-    final double navHeight = CustomNavigationBar.navBarHeight > 0
-        ? CustomNavigationBar.navBarHeight
-        : 72;
-
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
@@ -259,10 +255,16 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
         extendBody: true,
         floatingActionButton: widget.floatingActionButton,
         bottomNavigationBar: widget.showCustomNavigationBar
-            ? AnimatedContainer(
+            // Let the bar size to its natural height (same as the attendance
+            // screens). AnimatedSize keeps the hide-on-scroll animation by
+            // collapsing to zero, without forcing a fixed height that
+            // overflows on devices with a large bottom system inset.
+            ? AnimatedSize(
                 duration: const Duration(milliseconds: 200),
-                height: _showBars ? navHeight : 0,
-                child: const CustomNavigationBar(),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar()
+                    : const SizedBox.shrink(),
               )
             : widget.customButtonLayout,
       ),

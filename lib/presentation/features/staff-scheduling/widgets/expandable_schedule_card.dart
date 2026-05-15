@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../model/staff_model.dart';
@@ -253,8 +254,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                 children: [
                                   TextButton(
                                     onPressed: () {
-                                      Navigator.pushNamed(
-                                        context,
+                                      context.push(
                                         ClassroomViewScreen.routeName,
                                       );
                                     },
@@ -323,10 +323,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                             alignment: Alignment.center,
                             child: TextButton(
                               onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  EditShiftScreen.routeName,
-                                );
+                                context.push(EditShiftScreen.routeName);
                               },
                               child: const Text(
                                 "07:00 AM -\n05:00 PM",

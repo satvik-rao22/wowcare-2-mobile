@@ -65,10 +65,15 @@ class StudentMarkAbsentForm extends StatefulWidget {
     super.key,
     required this.students,
     this.refreshCallback,
+    this.popOnSuccess = false,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
+  // When true, pops back to the caller after a successful submission instead of
+  // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
+  // outside the Attendance tab (e.g. the Classroom Students card).
+  final bool popOnSuccess;
 
   @override
   State<StudentMarkAbsentForm> createState() => _StudentMarkAbsentFormState();
@@ -266,12 +271,17 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const StudentAttendanceTabbedView(),
-        ),
-        (route) => false,
-      );
+      if (widget.popOnSuccess) {
+        widget.refreshCallback?.call();
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const StudentAttendanceTabbedView(),
+          ),
+          (route) => false,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(

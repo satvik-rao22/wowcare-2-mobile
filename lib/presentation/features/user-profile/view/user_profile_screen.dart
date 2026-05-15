@@ -54,7 +54,7 @@ class UserProfileScreen extends StatefulWidget {
   /// this screen will load profile details via GET `/api/v1/staff/{staffCode}/profile`.
   final String? staffCode;
 
-  static const String routeName = '/userProfile';
+  static const String routeName = '/dashboard/userProfile';
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();

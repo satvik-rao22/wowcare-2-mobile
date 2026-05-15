@@ -590,7 +590,10 @@ class StudentProfileModel extends Equatable {
   String get fullName => '$firstName $lastName'.trim();
 
   factory StudentProfileModel.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
+    // Accept both the wire envelope `{success, message, data: {...}}` and the
+    // flat shape produced by [toJson] (used when re-hydrating from cache).
+    final rawData = json['data'];
+    final data = rawData is Map<String, dynamic> ? rawData : json;
     final importantDatesJson = data['importantDates'] as Map<String, dynamic>?;
 
     // Classroom can come as a plain string or as an object { code, name }.

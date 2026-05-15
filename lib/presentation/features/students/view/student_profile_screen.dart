@@ -30,6 +30,8 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentProfileScreen extends StatefulWidget {
+  static const String routeName = '/dashboard/student-profile';
+
   const StudentProfileScreen({
     super.key,
     required this.name,
@@ -119,7 +121,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final nextClassroom = (profile.classroom ?? '').trim();
       _displayClassroom =
           nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
-      _profileStatusUpper = profile.status.trim().toUpperCase();
+      final nextStatus = profile.status.trim().toUpperCase();
+      if (nextStatus.isNotEmpty) {
+        _profileStatusUpper = nextStatus;
+      }
       _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
           ? null
           : profile.profilePhotoUrl!.trim();

@@ -47,7 +47,7 @@ class StaffScreen extends StatefulWidget {
     this.incomingStatusFilter,
   });
 
-  static const String routeName = '/staff';
+  static const String routeName = '/dashboard/staff';
   final String? incomingStatusFilter;
 
   @override
@@ -1451,8 +1451,10 @@ class _StaffScreenState extends State<StaffScreen> {
               if (anySelected)
                 Positioned(
                   right: 16,
-                  bottom: 16,
-                  child: StaffActionPanel(
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: StaffActionPanel(
                     currentPanel: _currentPanel,
                     attendanceAvailability: _attendanceAvailabilityForSelection(
                       staffState,
@@ -1528,6 +1530,7 @@ class _StaffScreenState extends State<StaffScreen> {
                     },
                     isProfileEnabled: selectedCount == 1,
                     activitiesEnabled: selectedCount > 0,
+                    ),
                   ),
                 ),
             ],

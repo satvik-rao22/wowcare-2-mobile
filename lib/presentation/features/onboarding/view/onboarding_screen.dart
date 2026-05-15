@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/domain/features/onboarding/entities/page_content.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
@@ -182,10 +183,7 @@ class OnboardingBody extends StatelessWidget {
                   // Mark onboarding as seen (only show once)
                   serviceLocator<StorageService>()
                       .saveBool(StorageKeys.onboardingSeen, true);
-                  Navigator.pushReplacementNamed(
-                    context,
-                    SignInScreen.routeName,
-                  );
+                  context.go(SignInScreen.routeName);
                 } else {
                   onNextPressed?.call();
                 }

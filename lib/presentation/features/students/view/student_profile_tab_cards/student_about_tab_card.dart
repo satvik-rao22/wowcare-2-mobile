@@ -1014,24 +1014,42 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
   Widget _buildStatusChip(String status) {
     final upperStatus = status.toUpperCase();
-    final label = upperStatus == 'ACTIVE' || status == 'A'
-        ? 'Active'
-        : upperStatus == 'INACTIVE' || status == 'I'
-        ? 'Inactive'
-        : status == 'Upcoming'
-        ? 'Upcoming'
-        : 'Active';
-    final labelColor = upperStatus == 'ACTIVE' || status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 1)
-        : status == 'Upcoming'
-        ? const Color.fromARGB(255, 238, 223, 8)
-        : const Color.fromRGBO(250, 65, 65, 1);
-    final bgColor = upperStatus == 'ACTIVE' || status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 0.1)
-        : status == 'Upcoming'
-        ? const Color.fromARGB(255, 242, 238, 176)
-        : const Color.fromRGBO(250, 65, 65, 0.1);
-    final icon = upperStatus == 'ACTIVE' || status == 'A'
+    final isActive = upperStatus == 'ACTIVE' || upperStatus == 'A';
+    final isInactive = upperStatus == 'INACTIVE' || upperStatus == 'I';
+    final isUpcoming = upperStatus == 'UPCOMING';
+    final isWaitlist = upperStatus == 'WAITLIST';
+    final isGraduated = upperStatus == 'GRADUATED';
+
+    final String label;
+    final Color labelColor;
+    final Color bgColor;
+    if (isActive) {
+      label = 'Active';
+      labelColor = const Color.fromRGBO(56, 200, 32, 1);
+      bgColor = const Color.fromRGBO(56, 200, 32, 0.1);
+    } else if (isUpcoming) {
+      label = 'Upcoming';
+      labelColor = const Color.fromARGB(255, 138, 110, 0);
+      bgColor = const Color.fromARGB(255, 242, 238, 176);
+    } else if (isWaitlist) {
+      label = 'Waitlist';
+      labelColor = const Color.fromRGBO(27, 35, 126, 1);
+      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+    } else if (isGraduated) {
+      label = 'Graduated';
+      labelColor = const Color.fromRGBO(27, 35, 126, 1);
+      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+    } else if (isInactive) {
+      label = 'Inactive';
+      labelColor = const Color.fromRGBO(250, 65, 65, 1);
+      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+    } else {
+      label = status.isEmpty ? '-' : status;
+      labelColor = const Color.fromRGBO(250, 65, 65, 1);
+      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+    }
+
+    final icon = isActive
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 

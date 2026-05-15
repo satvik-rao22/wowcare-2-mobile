@@ -29,7 +29,7 @@ class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key, this.persona = UserPersona.staff});
   final UserPersona persona;
 
-  static const String routeName = '/notificationSettings';
+  static const String routeName = '/dashboard/notificationSettings';
 
   @override
   State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();

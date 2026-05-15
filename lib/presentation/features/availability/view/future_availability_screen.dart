@@ -17,7 +17,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 class FutureAvailabilityScreen extends StatefulWidget {
   const FutureAvailabilityScreen({super.key});
 
-  static const String routeName = '/future-availability';
+  static const String routeName = '/dashboard/future-availability';
 
   @override
   State<FutureAvailabilityScreen> createState() =>

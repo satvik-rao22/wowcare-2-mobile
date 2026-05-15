@@ -13,8 +13,12 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/data/features/staff_classroom/models/staff_classroom_models.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -38,14 +42,16 @@ class Staff {
   final String code;
   final String name;
   final String designation;
-  final String photoUuid;
+  final String? profileImageUrl;
+  final String? profilePhotoAssetCode;
   final List<RoomDTO> rooms;
   const Staff({
     required this.id,
     required this.code,
     required this.name,
     required this.designation,
-    this.photoUuid = '',
+    this.profileImageUrl,
+    this.profilePhotoAssetCode,
     this.rooms = const [],
   });
 }
@@ -69,8 +75,6 @@ class AssignStaffToClassroomForm extends StatefulWidget {
 
 class _AssignStaffToClassroomFormState
     extends State<AssignStaffToClassroomForm> {
-  static const int _pageSize = 100;
-
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
   List<String> _selectedDesignations = [];
@@ -82,6 +86,7 @@ class _AssignStaffToClassroomFormState
   String? _staffsError;
   Set<Staff> selectedStaffs = {};
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -92,9 +97,61 @@ class _AssignStaffToClassroomFormState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Staff roster for this screen only.
+  ///
+  /// This screen uses a dedicated endpoint instead of the shared
+  /// `GetStaffClassroomsUseCase`. The URL is resolved through [ApiPaths] so it
+  /// follows the active environment (LOCAL devtunnel or UAT host).
+  Future<List<StaffClassroomItem>> _fetchManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffClassroomsManageStaffList,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final dio = serviceLocator<ApiClient>().client;
+    final response = await dio.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'excludeClassroomCode': excludeClassroomCode,
+        'status': const ['ACTIVE'],
+      },
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected manage-staff-list API response format');
+    }
+
+    final data = body['data'] as List<dynamic>? ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StaffClassroomItemModel.fromJson)
+        .map(
+          (m) => StaffClassroomItem(
+            classroomCode: m.classroomCode,
+            staffCode: m.staffCode,
+            firstName: m.firstName,
+            lastName: m.lastName,
+            profilePictureUrl: m.profilePictureUrl,
+            status: m.status,
+            designation: m.designation,
+            expectedToday: m.expectedToday,
+            signedIn: m.signedIn,
+            absent: m.absent,
+            notMarked: m.notMarked,
+          ),
+        )
+        .toList();
   }
 
   Future<void> _loadStaffsFromApi() async {
@@ -106,10 +163,13 @@ class _AssignStaffToClassroomFormState
     try {
       final storage = serviceLocator<StorageService>();
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      final organizationCode =
-          await storage.getString(StorageKeys.organizationCode) ?? '';
-      if (schoolCode.trim().isEmpty || organizationCode.trim().isEmpty) {
-        throw 'Missing school/organization code. Please sign in again.';
+      if (schoolCode.trim().isEmpty) {
+        throw 'Missing school code. Please sign in again.';
+      }
+
+      final excludeClassroomCode = widget.classroomCode.trim();
+      if (excludeClassroomCode.isEmpty) {
+        throw 'Missing classroom code.';
       }
 
       final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
@@ -121,61 +181,53 @@ class _AssignStaffToClassroomFormState
         for (final c in classrooms) c.code: c.name,
       };
 
-      final getStaffPageUseCase = serviceLocator<GetStaffPageUseCase>();
+      final roster = await _fetchManageStaffList(
+        schoolCode: schoolCode,
+        excludeClassroomCode: excludeClassroomCode,
+      );
+
+      final byStaffCode = <String, StaffClassroomItem>{};
+      for (final item in roster) {
+        final code = item.staffCode.trim();
+        if (code.isEmpty) continue;
+        byStaffCode[code] = item;
+      }
+
+      final rows = byStaffCode.values.toList()
+        ..sort((a, b) => a.fullName.compareTo(b.fullName));
+
       final fetchedStaffs = <Staff>[];
       final uniqueRoomNames = <String>{};
       final uniqueDesignations = <String>{};
-
-      int page = 0;
-      bool hasMore = true;
-      while (hasMore) {
-        final staffPage = await getStaffPageUseCase(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          page: page,
-          size: _pageSize,
-          status: 'ACTIVE',
-        );
-
-        for (final s in staffPage.items) {
-          final roomCodes = <String>{
-            if (s.primaryClassroomCode.trim().isNotEmpty)
-              s.primaryClassroomCode.trim(),
-            ...s.allowedClassroomCodes
-                .where((code) => code.trim().isNotEmpty)
-                .map((code) => code.trim()),
-          };
-          final rooms = roomCodes
-              .map(
-                (code) => RoomDTO(
-                  code: code,
-                  name: classroomNameByCode[code] ?? code,
-                ),
-              )
-              .toList();
-
-          fetchedStaffs.add(
-            Staff(
-              id: fetchedStaffs.length + 1,
-              code: s.code,
-              name: s.name,
-              designation: s.designation,
-              photoUuid: '',
-              rooms: rooms,
-            ),
-          );
-          if (s.designation.trim().isNotEmpty) {
-            uniqueDesignations.add(s.designation.trim());
-          }
-          for (final r in rooms) {
-            if (r.name.trim().isNotEmpty) {
-              uniqueRoomNames.add(r.name.trim());
-            }
-          }
+      var id = 0;
+      for (final s in rows) {
+        final cc = s.classroomCode.trim();
+        final rooms = <RoomDTO>[];
+        if (cc.isNotEmpty) {
+          final name = classroomNameByCode[cc] ?? cc;
+          rooms.add(RoomDTO(code: cc, name: name));
+          if (name.trim().isNotEmpty) uniqueRoomNames.add(name.trim());
         }
 
-        hasMore = staffPage.hasMore;
-        page += 1;
+        final rawPhoto = (s.profilePictureUrl ?? '').trim();
+        final looksLikeUrl = rawPhoto.startsWith('http://') ||
+            rawPhoto.startsWith('https://');
+
+        fetchedStaffs.add(
+          Staff(
+            id: ++id,
+            code: s.staffCode,
+            name: s.fullName,
+            designation: s.designation,
+            profileImageUrl: looksLikeUrl ? rawPhoto : null,
+            profilePhotoAssetCode:
+                (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null,
+            rooms: rooms,
+          ),
+        );
+        if (s.designation.trim().isNotEmpty) {
+          uniqueDesignations.add(s.designation.trim());
+        }
       }
 
       if (!mounted) return;
@@ -206,20 +258,17 @@ class _AssignStaffToClassroomFormState
   }
 
   void _onSearchChanged() {
-    _filterStaffs();
+    // Debounce so the list filters once the user pauses typing.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _filterStaffs();
+    });
   }
 
   void _filterStaffs() {
     final allStaffs = _allStaffs;
     _filteredStaffs = allStaffs.where((staff) {
-      // Exclude staff who are already associated with the selected classroom
-      final excludeDueToSelectedClassroom = staff.rooms.any((room) {
-        final byCode = room.code.trim() == (widget.classroomCode.trim());
-        final byName = room.name.trim() == (widget.selectedRoomName.trim());
-        return byCode || byName;
-      });
-      if (excludeDueToSelectedClassroom) return false;
-
       bool matchesSearch = true;
       bool matchesRoom = true;
       bool matchesDesignation = true;
@@ -583,10 +632,14 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                     child: Row(
                       children: [
                         DocumentImageWidget(
-                          fileUuid: staff.photoUuid,
+                          fileUuid: '',
+                          imageUrl: staff.profileImageUrl,
+                          mediaAssetCode: staff.profilePhotoAssetCode,
                           name: staff.name,
+                          staffCode: staff.code,
                           size: 32,
-                          placeholderAsset: MediaRes.userImageMale,
+                          fontSize: 12,
+                          disableAttendanceStatusLookup: true,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -716,10 +769,14 @@ class StaffListItem extends StatelessWidget {
                 ),
               ),
               DocumentImageWidget(
-                fileUuid: staff.photoUuid,
+                fileUuid: '',
+                imageUrl: staff.profileImageUrl,
+                mediaAssetCode: staff.profilePhotoAssetCode,
                 name: staff.name,
+                staffCode: staff.code,
                 size: 32,
-                placeholderAsset: MediaRes.userImageMale,
+                fontSize: 12,
+                disableAttendanceStatusLookup: true,
               ),
               const SizedBox(width: 8),
               Expanded(
