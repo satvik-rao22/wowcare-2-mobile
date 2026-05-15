@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_floating_text_button.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Reusable widget for displaying sibling cards with balance and payment buttons
@@ -9,7 +9,6 @@ class SiblingCardsWidget extends StatelessWidget {
   final List<Map<String, String>> siblings;
   final double currentBalance;
   final bool isPaymentLoading;
-  final bool isAutoPayLoading;
   final VoidCallback? onPayNow;
   final VoidCallback? onAutoPay;
 
@@ -18,7 +17,6 @@ class SiblingCardsWidget extends StatelessWidget {
     required this.siblings,
     this.currentBalance = 0.0,
     this.isPaymentLoading = false,
-    this.isAutoPayLoading = false,
     this.onPayNow,
     this.onAutoPay,
   });
@@ -127,26 +125,57 @@ class SiblingCardsWidget extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     flex: 3,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CustomButtonLayout(
-                          confirmButtonLabel: 'Pay Now',
-                          onPressedConfirm: onPayNow,
-                          showCancelButton: false,
-                          isForm: false,
-                          isLoading: isPaymentLoading,
-                        ),
-                        const SizedBox(height: 10),
-                        CustomButtonLayout(
-                          confirmButtonLabel: 'Auto Pay',
-                          onPressedConfirm: onAutoPay,
-                          showCancelButton: false,
-                          isForm: false,
-                          isLoading: isAutoPayLoading,
-                        ),
-                      ],
-                    ),
+                    child: isPaymentLoading
+                        ? Container(
+                            height: 45,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.buildPrimaryGradient(),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(AppColors.cardColor),
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                child: CustomFloatingTextButton(
+                                  height: 45,
+                                  onPressed: onPayNow,
+                                  label: 'Pay Now',
+                                  textStyle: AppTextStyles.button(
+                                    color: AppColors.themeColor,
+                                  ).copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  isFilled: false,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: CustomFloatingTextButton(
+                                  height: 45,
+                                  onPressed: onAutoPay,
+                                  label: 'Auto Pay',
+                                  textStyle: AppTextStyles.button(
+                                    color: AppColors.themeColor,
+                                  ).copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  isFilled: false,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),

@@ -6,10 +6,8 @@ class GetStudentAttendanceExpectedSummaryUseCase {
 
   final AttendanceRepository _repository;
 
-  Future<StudentAttendanceExpectedSummary> call({String? classroomCode}) {
-    return _repository.getStudentAttendanceExpectedSummary(
-      classroomCode: classroomCode,
-    );
+  Future<StudentAttendanceExpectedSummary> call() {
+    return _repository.getStudentAttendanceExpectedSummary();
   }
 }
 

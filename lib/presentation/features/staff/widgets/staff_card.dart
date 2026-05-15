@@ -15,7 +15,6 @@ class StaffCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.avatarUrl,
-    this.profilePhotoAssetCode,
     required this.allowedClassrooms,
     required this.schedule,
     required this.designation,
@@ -37,7 +36,6 @@ class StaffCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? avatarUrl;
-  final String? profilePhotoAssetCode;
   final List<String> allowedClassrooms;
   final List<String> schedule;
   final String designation;
@@ -90,17 +88,6 @@ class _StaffCardState extends State<StaffCard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    final primaryClassroomName = widget.classroom.trim();
-    final orderedAllowedClassrooms = <String>[
-      if (primaryClassroomName.isNotEmpty) primaryClassroomName,
-      ...widget.allowedClassrooms
-          .map((name) => name.trim())
-          .where(
-            (name) =>
-                name.isNotEmpty &&
-                name.toLowerCase() != primaryClassroomName.toLowerCase(),
-          ),
-    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -175,12 +162,9 @@ class _StaffCardState extends State<StaffCard> {
                           */
                           DocumentImageWidget(
                             fileUuid: widget.staffCode,
-                            imageUrl: widget.avatarUrl,
-                            mediaAssetCode: widget.profilePhotoAssetCode,
                             name: widget.name,
                             staffCode: widget.staffCode,
                             staffEmploymentStatus: widget.status,
-                            disableProfileLookupFallback: true,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -255,7 +239,7 @@ class _StaffCardState extends State<StaffCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        if (orderedAllowedClassrooms.isNotEmpty)
+                                        if (widget.allowedClassrooms.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
@@ -263,7 +247,7 @@ class _StaffCardState extends State<StaffCard> {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              orderedAllowedClassrooms[0],
+                                              widget.allowedClassrooms[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -272,11 +256,9 @@ class _StaffCardState extends State<StaffCard> {
                                               ),
                                             ),
                                           ),
-                                        if (orderedAllowedClassrooms.length > 1)
+                                        if (widget.allowedClassrooms.length > 1)
                                           Tooltip(
-                                            message: orderedAllowedClassrooms
-                                                .skip(1)
-                                                .join(', '),
+                                            message: widget.allowedClassrooms.skip(1).join(', '),
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
@@ -284,7 +266,7 @@ class _StaffCardState extends State<StaffCard> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${orderedAllowedClassrooms.length - 1}',
+                                                '+${widget.allowedClassrooms.length - 1}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,

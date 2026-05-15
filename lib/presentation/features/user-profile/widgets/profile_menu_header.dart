@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/guardian_code_resolver.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
@@ -42,24 +44,19 @@ class _ProfileMenuHeaderState extends State<ProfileMenuHeader> {
       final storage = serviceLocator<StorageService>();
       final name =
           (await storage.getString(StorageKeys.displayName) ?? '').trim();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
       String persona = '';
       String staffCode =
           (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-      String guardianAssetCode =
-          (await storage.getString(StorageKeys.guardianProfileAssetCode) ?? '')
-              .trim();
-      String guardianPhotoUrl =
-          (await storage.getString(StorageKeys.guardianProfilePhotoUrl) ?? '')
-              .trim();
+      String guardianAssetCode = '';
+      String guardianPhotoUrl = '';
 
       // Prefer staffType from storage (from staff profile API); fallback to roles
-      String staffDesignation =
-          (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
       String staffType =
           (await storage.getString(StorageKeys.staffType) ?? '').trim();
-      if (staffDesignation.isNotEmpty) {
-        persona = StringUtils.staffTypeToDisplayRole(staffDesignation);
-      } else if (staffType.isNotEmpty) {
+      if (staffType.isNotEmpty) {
         persona = StringUtils.staffTypeToDisplayRole(staffType);
       }
       if (persona.isEmpty) {
@@ -76,10 +73,38 @@ class _ProfileMenuHeaderState extends State<ProfileMenuHeader> {
         }
       }
 
+      if (widget.isParentPersona &&
+          schoolCode.isNotEmpty &&
+          userCode.isNotEmpty) {
+        try {
+          final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
+          if (guardianCode.isNotEmpty) {
+            final remote = serviceLocator<StudentRemoteDataSource>();
+            final profile = await remote.getGuardianProfile(
+              schoolCode: schoolCode,
+              userCode: userCode,
+            );
+            guardianAssetCode =
+                (profile['profilePhotoAssetCode'] ?? profile['photoAssetCode'] ?? '')
+                    .toString()
+                    .trim();
+            guardianPhotoUrl = (profile['profilePhotoUrl'] ??
+                    profile['photoUrl'] ??
+                    profile['profileImageUrl'] ??
+                    profile['imageUrl'] ??
+                    '')
+                .toString()
+                .trim();
+          }
+        } catch (_) {
+          // Keep fallback rendering from initials when profile fetch fails.
+        }
+      }
+
       if (!mounted) return;
       setState(() {
-        _displayName = name.isNotEmpty ? name : 'User';
-        _persona = persona.isNotEmpty ? persona : 'Profile';
+        _displayName = name.isNotEmpty ? name : '-';
+        _persona = persona.isNotEmpty ? persona : '-';
         _staffCode = staffCode;
         _guardianAssetCode = guardianAssetCode;
         _guardianPhotoUrl = guardianPhotoUrl;
@@ -87,8 +112,8 @@ class _ProfileMenuHeaderState extends State<ProfileMenuHeader> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _displayName = 'User';
-        _persona = 'Profile';
+        _displayName = '-';
+        _persona = '-';
         _staffCode = '';
         _guardianAssetCode = '';
         _guardianPhotoUrl = '';
@@ -141,7 +166,7 @@ class _ProfileMenuHeaderState extends State<ProfileMenuHeader> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _displayName.isNotEmpty ? _displayName : 'User',
+                _displayName.isNotEmpty ? _displayName : '-',
                 style: const TextStyle(
                   color: Color(0xFF573353),
                   fontFamily: 'Manrope',
@@ -153,7 +178,7 @@ class _ProfileMenuHeaderState extends State<ProfileMenuHeader> {
               ),
               const SizedBox(height: 4),
               Text(
-                _persona.isNotEmpty ? _persona : 'Profile',
+                _persona.isNotEmpty ? _persona : '-',
                 style: const TextStyle(
                   color: Color(0xFF573353),
                   fontFamily: 'Manrope',

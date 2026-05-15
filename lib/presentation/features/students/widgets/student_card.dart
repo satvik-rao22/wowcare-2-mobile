@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -16,8 +11,6 @@ class StudentCard extends StatefulWidget {
     super.key,
     required this.studentCode,
     required this.name,
-    this.profileImage,
-    this.profilePhotoAssetCode,
     required this.classroom,
     required this.tags,
     required this.sibling,
@@ -32,13 +25,10 @@ class StudentCard extends StatefulWidget {
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
-    this.isNapping = false,
   });
 
   final String studentCode;
   final String name;
-  final String? profileImage;
-  final String? profilePhotoAssetCode;
   final String classroom;
   final List<String> tags;
   final Map<String, dynamic> sibling;
@@ -53,8 +43,6 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
-  /// From nap-start API (current classroom roster); shown on avatar like classroom list.
-  final bool isNapping;
 
   @override
   State<StudentCard> createState() => _StudentCardState();
@@ -82,8 +70,6 @@ class _StudentCardState extends State<StudentCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;
@@ -149,33 +135,14 @@ class _StudentCardState extends State<StudentCard> {
                               label: null,
                             ),
                           Stack(
-                            clipBehavior: Clip.none,
                             children: [
                               DocumentImageWidget(
                                 fileUuid: widget.studentCode,
-                                imageUrl: widget.profileImage,
-                                mediaAssetCode: widget.profilePhotoAssetCode,
                                 name: widget.name,
                                 size: 45,
                                 studentCode: widget.studentCode,
                                 studentEnrollmentStatus: widget.status,
-                                disableProfileLookupFallback: true,
                               ),
-                              if (widget.isNapping)
-                                Positioned(
-                                  right: 0,
-                                  top: 0,
-                                  child: Tooltip(
-                                    message: 'Student is currently napping',
-                                    child: SvgPicture.asset(
-                                      MediaRes.napIcon.isNotEmpty
-                                          ? MediaRes.napIcon
-                                          : MediaRes.sleepIcon,
-                                      height: 18,
-                                      width: 18,
-                                    ),
-                                  ),
-                                ),
                             ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -481,10 +448,9 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            if (canStudentWrite) ...[
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
                                 Expanded(
                                   child: SizedBox(
                                     height: 40,
@@ -613,9 +579,8 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ],
                         ),
                       ),

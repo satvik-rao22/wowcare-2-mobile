@@ -5,28 +5,11 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 
-import 'activity_selected_date_prefill.dart';
-
 Future<void> bootstrapActivitySchoolTimezone() async {
   await SchoolTimezoneResolver.resolveForCurrentSchool(
     storage: serviceLocator<StorageService>(),
     apiClient: serviceLocator<ApiClient>(),
   );
-}
-
-/// Student maps from classroom / Students tab omit [attendanceDate]; the Activities
-/// picker includes it. Call after [bootstrapActivitySchoolTimezone] so
-/// [attendanceDateYyyyMmDdSchoolToday] uses the resolved school zone.
-Future<void> ensureAttendanceDateOnStudentMapsForSchoolToday(
-  List<Map<String, dynamic>> maps,
-) async {
-  await bootstrapActivitySchoolTimezone();
-  final dateStr = attendanceDateYyyyMmDdSchoolToday();
-  for (final m in maps) {
-    if ((m['attendanceDate'] ?? '').toString().trim().isEmpty) {
-      m['attendanceDate'] = dateStr;
-    }
-  }
 }
 
 DateTime activityDateTimeForDisplayFromIso(String iso) {
@@ -53,13 +36,4 @@ Future<String> activityUtcIsoFromSchoolWallClock({
     hour: time.hour,
     minute: time.minute,
   ).toIso8601String();
-}
-
-/// Placeholder kept so activity screens can keep `const ActivitySchoolTimeZoneHint()`
-/// without churn; timezone hint was removed from the UI per product request.
-class ActivitySchoolTimeZoneHint extends StatelessWidget {
-  const ActivitySchoolTimeZoneHint({super.key});
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
 }

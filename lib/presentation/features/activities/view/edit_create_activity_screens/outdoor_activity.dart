@@ -137,6 +137,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
+    final now = DateTime.now();
+    _activityDate = DateTime(now.year, now.month, now.day);
+    _activityTime = TimeOfDay.fromDateTime(now);
 
     _getActivitySettingsUseCase =
         serviceLocator<GetClassroomActivitySettingsUseCase>();
@@ -154,13 +157,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
-      _activityDate = null;
-      _activityTime = null;
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _syncSchoolAttendanceDateForCreate();
-      });
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
@@ -193,16 +191,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       });
     }
     _loadStaffContext();
-  }
-
-  Future<void> _syncSchoolAttendanceDateForCreate() async {
-    if (!mounted || _layoutAsEdit) return;
-    if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
-    if (!mounted) return;
-    setState(() {
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
-    });
   }
 
   bool get _showAdminApproveRejectActions {
@@ -1290,10 +1278,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                           },
                         )
                       : DateWidget(
-                          key: ValueKey<String>(
-                            formatSelectedDateForDateWidget(_activityDate) ??
-                                'school_date',
-                          ),
                           isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
@@ -1329,7 +1313,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 ),
               ],
             ),
-            const ActivitySchoolTimeZoneHint(),
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {

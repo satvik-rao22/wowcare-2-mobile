@@ -13,6 +13,10 @@ abstract class StaffRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
   });
+  
+  Future<List<SimpleStaffMemberModel>> getStaffListBySchool({
+    required String schoolCode,
+  });
 
   Future<StaffPageModel> getStaffPage({
     required String organizationCode,
@@ -259,6 +263,29 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return StaffCountModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<SimpleStaffMemberModel>> getStaffListBySchool({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffListBySchool(schoolCode),
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff list by school API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final content = data['data'] as List<dynamic>? ?? const [];
+
+    return content
+        .map((e) => SimpleStaffMemberModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   @override

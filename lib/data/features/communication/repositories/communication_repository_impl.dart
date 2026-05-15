@@ -164,11 +164,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // 1. Try to load from cache first
       final cachedItems = await cacheService.getAll<ConversationCollection>();
       if (cachedItems.isNotEmpty && page == 0) {
-        // Return cached entities immediately for a fast initial UI load
         final entities = cachedItems.map((e) => e.toEntity()).toList();
-        // Since this is a repository method returning a Future, we can't 'stream' results yet.
-        // However, the Cubit already calls loadCachedConversations before calling this.
-        // So this fallback is more of a safety measure.
       }
 
       // 2. Fetch from remote

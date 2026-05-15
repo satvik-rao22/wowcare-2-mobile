@@ -152,4 +152,10 @@ class ApiLogger {
     if (raw.length <= 16) return '$prefix***';
     return '$prefix${raw.substring(0, 8)}...${raw.substring(raw.length - 8)}';
   }
+
+  static String fullBearerToken(String token) {
+    const prefix = 'Bearer ';
+    if (!token.startsWith(prefix)) return '$prefix$token';
+    return token;
+  }
 }

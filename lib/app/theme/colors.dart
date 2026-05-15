@@ -34,6 +34,10 @@ class AppColors {
   static const Color colorBox2 = Color(0xFFF38D8D);
   static const Color colorBox3 = Color(0xFF5978F7);
 
+  static const Color availableHours = Color(0xFFFFFAEA);
+  static const Color scheduledHours = Color(0xFFEAFFFA);
+  static const Color unscheduledHours = Color(0xFFFFFFFF);
+
   static const List<Color> scaffoldGradientColors = [
     Color.fromRGBO(255, 255, 255, 1),
     Color.fromRGBO(251, 238, 250, 1),

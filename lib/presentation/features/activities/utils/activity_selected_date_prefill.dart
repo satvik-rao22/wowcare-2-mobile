@@ -1,18 +1,4 @@
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-
-/// Today's calendar date in the school zone as `yyyy-MM-dd`.
-/// Matches [ActivityStudentSelection] when the user taps Next with the date chip
-/// set to "today" in that zone.
-String attendanceDateYyyyMmDdSchoolToday() {
-  final tz = SchoolTimezoneResolver.lastKnownTimeZone;
-  final d = SchoolZoneDateTime.schoolCalendarTodayOnly(tz);
-  final y = d.year.toString().padLeft(4, '0');
-  final m = d.month.toString().padLeft(2, '0');
-  final day = d.day.toString().padLeft(2, '0');
-  return '$y-$m-$day';
-}
 
 DateTime? resolveSelectedAttendanceDate(List<Map<String, dynamic>> students) {
   for (final student in students) {

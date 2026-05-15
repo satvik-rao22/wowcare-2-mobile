@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 // Backend/bloc imports disabled for UI-only mode
@@ -157,22 +159,22 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
       children: [
         SafeArea(
           bottom: false,
-          child: Container(
-            color: Colors.white,
+          child: GradientBackground(
+            image: MediaRes.wowcareMobileBg,
             child: Column(
               children: [
                 Flexible(
                   child: Card(
                     elevation: 0,
                     margin: EdgeInsets.zero,
-                    color: Colors.white,
                     shape: const Border(
                       left: BorderSide(color: AppColors.themeColor),
                       top: BorderSide(color: AppColors.themeColor),
                       right: BorderSide(color: AppColors.themeColor),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 20, 8, 10),
+                      padding: const EdgeInsets.fromLTRB(
+                          8, 20, 8, 10), // Keep original padding for Card
                       child: Column(
                         children: [
                           Row(
@@ -181,48 +183,37 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                               Expanded(
                                 child: SizedBox(
                                   height: 35,
-                                  child: SearchBar(
-                                    controller: _searchController,
-                                    constraints: const BoxConstraints(
-                                      maxHeight: 32,
-                                      minHeight: 32,
-                                    ),
-                                    backgroundColor:
-                                        const WidgetStatePropertyAll<Color>(
-                                      Colors.white,
-                                    ),
-                                    surfaceTintColor:
-                                        const WidgetStatePropertyAll<Color>(
-                                      Colors.white,
-                                    ),
+                                child: SearchBar(
+                                  controller: _searchController,
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 32,
+                                    minHeight: 32,
+                                  ),
                                     hintText: 'Search Messages',
-                                    hintStyle: WidgetStatePropertyAll(
-                                      TextStyle(
-                                        fontFamily: 'Manrope',
-                                        color:
-                                            const Color.fromRGBO(87, 51, 83, 1)
-                                                .withOpacity(0.7),
-                                        fontSize: 13,
-                                      ),
+                                  hintStyle: WidgetStatePropertyAll(
+                                    TextStyle(
+                                      fontFamily: 'Manrope',
+                                      color: const Color.fromRGBO(87, 51, 83, 1)
+                                            .withOpacity(0.7),
+                                      fontSize: 13,
                                     ),
-                                    leading: const Icon(
-                                      Icons.search,
-                                      size: 18,
-                                    ),
-                                    elevation: const WidgetStatePropertyAll(0),
-                                    side: const WidgetStatePropertyAll(
-                                      BorderSide(
-                                        width: 1,
+                                  ),
+                                  leading: const Icon(
+                                    Icons.search,
+                                    size: 18,
+                                  ),
+                                  elevation: const WidgetStatePropertyAll(0),
+                                  side: const WidgetStatePropertyAll(
+                                    BorderSide(
+                                      width: 1,
                                         color:
                                             Color.fromARGB(255, 188, 173, 186),
-                                      ),
                                     ),
-                                    shape: WidgetStatePropertyAll(
-                                      RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(9),
-                                      ),
-                                    ),
+                                  ),
+                                  shape: WidgetStatePropertyAll(
+                                    RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(9)),
+                                  ),
                                   ),
                                 ),
                               ),

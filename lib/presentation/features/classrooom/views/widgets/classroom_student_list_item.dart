@@ -15,7 +15,6 @@ typedef DataMap = Map<String, dynamic>;
 
 class ClassroomStudentListItem extends StatefulWidget {
   final int studentId;
-  final String studentCode;
   final String name;
   final String imageUrl;
   final DataMap icons;
@@ -25,13 +24,11 @@ class ClassroomStudentListItem extends StatefulWidget {
   final bool isAbsent;
   final bool isExpectedToday;
   final String studentStatus;
-  final String? todayAttendanceStatusRaw;
 
   const ClassroomStudentListItem({
     super.key,
     this.isSelected = false,
     required this.studentId,
-    required this.studentCode,
     required this.onSelectionChanged,
     required this.isSignedIn,
     required this.isAbsent,
@@ -40,7 +37,6 @@ class ClassroomStudentListItem extends StatefulWidget {
     required this.imageUrl,
     required this.icons,
     required this.studentStatus,
-    this.todayAttendanceStatusRaw,
   });
 
   @override
@@ -66,35 +62,13 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedAttendance =
-        (widget.todayAttendanceStatusRaw ?? '').trim().toUpperCase();
-    final hasAttendanceStatus =
-        normalizedAttendance == 'SIGNED_IN' || normalizedAttendance == 'ABSENT';
-    final shouldGreyOut = !widget.isExpectedToday &&
-        !widget.isSignedIn &&
-        !widget.isAbsent &&
-        !hasAttendanceStatus;
-    final enrollmentStatus = widget.studentStatus.trim();
-    final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
-        ? Colors.green
-        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
-    final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
-        ? 'Student is signed in'
-        : (normalizedAttendance == 'ABSENT' ? 'Student is absent' : null);
-    final rawPhoto = widget.imageUrl.trim();
-    final bool looksLikeUrl =
-        rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
-    final String? directUrl = looksLikeUrl ? rawPhoto : null;
-    final String? assetCode =
-        (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null;
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
+        color: widget.isExpectedToday ? null : Colors.grey[100],
       ),
       child: Row(
         children: [
@@ -106,73 +80,86 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
               onChanged: widget.onSelectionChanged,
             ),
           ),
-          Expanded(
-            child: Opacity(
-              opacity: shouldGreyOut ? 0.5 : 1,
-              child: AbsorbPointer(
-                absorbing: shouldGreyOut,
-                child: GestureDetector(
-                  onTap: () => widget.onSelectionChanged(!widget.isSelected),
-                  child: Row(
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          DocumentImageWidget(
-                            fileUuid: widget.studentCode.trim().isNotEmpty
-                                ? widget.studentCode
-                                : widget.studentId.toString(),
-                            imageUrl: directUrl,
-                            mediaAssetCode: assetCode,
-                            name: widget.name,
-                            studentCode: widget.studentCode.trim().isNotEmpty
-                                ? widget.studentCode.trim()
-                                : null,
-                            studentEnrollmentStatus: enrollmentStatus,
-                            statusColor: attendanceDotColor,
-                            statusTooltip: attendanceTooltip,
-                            disableAttendanceStatusLookup: true,
-                            size: 50,
-                          ),
-                          if (widget.icons.containsKey('napping'))
-                            Positioned(
-                              right: 0, // Moved to top right
-                              top: 0,
-                              child: Tooltip(
-                                message: 'Student is currently napping',
-                                child: SvgPicture.asset(
-                                  // Guard against empty path in assets
-                                  MediaRes.napIcon.isNotEmpty
-                                      ? MediaRes.napIcon
-                                      : MediaRes.sleepIcon,
-                                  height: 18,
-                                  width: 18,
+          Opacity(
+            opacity: widget.isExpectedToday ? 1 : 0.5,
+            child: AbsorbPointer(
+              absorbing: !widget.isExpectedToday,
+              child: GestureDetector(
+                onTap: () => widget.onSelectionChanged(!widget.isSelected),
+                child: Row(
+                  children: [
+                    Stack(
+                      children: [
+                        // Use lightweight UI-only DocumentImageWidget (backend disabled inside)
+                        DocumentImageWidget(
+                          fileUuid: widget.imageUrl,
+                          name: widget.name,
+                          size: 50,
+                        ),
+                        if (widget.isSignedIn ||
+                            widget.isAbsent ||
+                            widget.studentStatus == 'Upcoming')
+                          Positioned(
+                            right: 0, // Moved to top right
+                            top: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: widget.studentStatus == 'Upcoming'
+                                    ? const Color.fromARGB(255, 253, 205, 22)
+                                    : widget.isSignedIn
+                                        ? const Color.fromRGBO(0, 177, 21, 1)
+                                        : widget.isAbsent
+                                            ? const Color.fromRGBO(
+                                                200, 32, 32, 1)
+                                            : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
                                 ),
                               ),
+                              constraints: const BoxConstraints(
+                                minWidth: 15,
+                                minHeight: 15,
+                              ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          widget.name.trim(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            color: AppColors.primaryColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
                           ),
-                        ),
+                        if (widget.icons.containsKey('napping'))
+                          Positioned(
+                            right: 0, // Moved to top right
+                            top: 0,
+                            child: Tooltip(
+                              message: 'Student is currently napping',
+                              child: SvgPicture.asset(
+                                // Guard against empty path in assets
+                                MediaRes.napIcon.isNotEmpty
+                                    ? MediaRes.napIcon
+                                    : MediaRes.sleepIcon,
+                                height: 18,
+                                width: 18,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      widget.name.isNotEmpty
+                          ? widget.name.split(' ').first
+                          : '',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: AppColors.primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+          const Spacer(),
           GestureDetector(
             onTap: () {
               showDialog(

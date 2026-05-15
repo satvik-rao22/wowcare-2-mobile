@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -5,10 +7,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view/view/admin_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
+import 'package:wowcare/shared/common/views/coming_soon_screen.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
@@ -22,38 +24,69 @@ import '../../../presentation/features/user-profile/view/notification_settings_s
 class _NavSizes {
   _NavSizes(BuildContext context) {
     final mq = MediaQuery.of(context);
+    const slotCount = 5;
     // shortestSide is always the physical short dimension even in landscape.
     // ≥600 on shortestSide = a genuine tablet, not an iPhone in landscape.
     final shortest = mq.size.shortestSide;
     final isTablet = shortest >= 600;
     final isLargeTablet = shortest >= 900;
 
+    double computedIconSize;
+    double computedFontSize;
+    double computedItemPaddingH;
+    double computedItemPaddingV;
+    double computedActiveRadius;
+
+    final baseHorizontalInset = isLargeTablet ? 16.0 : (isTablet ? 12.0 : 6.0);
+    final widthPerSlot =
+        (mq.size.width - (baseHorizontalInset * 2)) / slotCount;
+
     if (isLargeTablet) {
-      iconSize = 30;
-      fontSize = 13;
-      itemPaddingH = 16;
-      itemPaddingV = 12;
-      activeRadius = 16;
+      computedIconSize = 30;
+      computedFontSize = 13;
+      computedItemPaddingH = 16;
+      computedItemPaddingV = 12;
+      computedActiveRadius = 16;
     } else if (isTablet) {
-      iconSize = 26;
-      fontSize = 12;
-      itemPaddingH = 10;
-      itemPaddingV = 10;
-      activeRadius = 14;
+      computedIconSize = 26;
+      computedFontSize = 12;
+      computedItemPaddingH = 10;
+      computedItemPaddingV = 10;
+      computedActiveRadius = 14;
     } else {
-      iconSize = 22;
-      fontSize = 10;
-      itemPaddingH = 4;
-      itemPaddingV = 6;
-      activeRadius = 12;
+      computedIconSize = 22;
+      computedFontSize = 10;
+      computedItemPaddingH = 4;
+      computedItemPaddingV = 6;
+      computedActiveRadius = 12;
     }
+
+    // Keep the same design/height intent while adapting for narrow widths.
+    if (widthPerSlot < 80) {
+      computedItemPaddingH = 2;
+      if (!isTablet) {
+        computedIconSize = 20;
+        computedFontSize = 9;
+      }
+    } else if (widthPerSlot < 92) {
+      computedItemPaddingH = math.min(computedItemPaddingH, 3);
+    }
+
+    iconSize = computedIconSize;
+    fontSize = computedFontSize;
+    itemPaddingH = computedItemPaddingH;
+    itemPaddingV = computedItemPaddingV;
+    activeRadius = computedActiveRadius;
 
     // Bug 2 fix — Samsung & all Android gesture-nav:
     // viewPadding is the raw inset before system consumption; it reports the
     // correct bottom inset in every Android navigation mode (gesture, 2-button,
     // 3-button) AND on iOS home-bar devices.
     // DO NOT use mq.padding.bottom — it can be 0 in gesture mode on Samsung.
-    final bottomInset = mq.viewPadding.bottom;
+    final bottomInset = math.max(
+      mq.viewPadding.bottom,
+      math.max(mq.padding.bottom, mq.systemGestureInsets.bottom),
+    );
     barPadding = EdgeInsets.fromLTRB(
       isLargeTablet ? 16 : (isTablet ? 12 : 6),
       isLargeTablet ? 10 : (isTablet ? 8 : 6),
@@ -73,11 +106,9 @@ class _NavSizes {
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});
 
-  static final GlobalKey<_CustomNavigationBarState> navBarKey =
-      GlobalKey<_CustomNavigationBarState>();
+  static double _lastMeasuredHeight = 0.0;
 
-  static double get navBarHeight =>
-      navBarKey.currentState?._navBarHeight ?? 0.0;
+  static double get navBarHeight => _lastMeasuredHeight;
 
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
@@ -118,6 +149,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       final newHeight = renderBox.size.height;
       if (newHeight != _navBarHeight) {
         setState(() => _navBarHeight = newHeight);
+        CustomNavigationBar._lastMeasuredHeight = newHeight;
       }
     }
   }
@@ -152,7 +184,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         _index = 3;
       else if (_currentRoute == MessagingScreen.routeName)
         _index = 4;
-      else if (_currentRoute == ClassroomScreen.routeName) _index = 2;
     }
   }
 
@@ -196,12 +227,9 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           AttendancePopupManager.showAttendancePopup(context);
           break;
         case 2:
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(name: ClassroomScreen.routeName),
-              builder: (_) => const ClassroomScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const ComingSoonScreen()),
           );
           break;
         case 3:
@@ -244,7 +272,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
               : const BoxDecoration(),
@@ -337,7 +365,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           gradient: AppColors.buildPrimaryGradient(),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 12,
               offset: const Offset(0, -6),
             ),

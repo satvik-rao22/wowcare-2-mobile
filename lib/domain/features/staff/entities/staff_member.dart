@@ -5,13 +5,10 @@ class StaffMember extends Equatable {
     required this.code,
     required this.name,
     required this.primaryClassroomCode,
-    this.primaryClassroomName = '',
     required this.allowedClassroomCodes,
-    this.allowedClassroomNameByCode = const <String, String>{},
     required this.designation,
     required this.phoneNumber,
     this.profileImage,
-    this.profilePhotoAssetCode,
     required this.status,
     required this.email,
     this.workScheduleByDay = const <String, String>{},
@@ -21,13 +18,8 @@ class StaffMember extends Equatable {
   final String code;
   final String name;
   final String? profileImage;
-  final String? profilePhotoAssetCode;
   final String primaryClassroomCode;
-  /// Human-readable primary classroom from staff list API (`primaryClassroom.name`).
-  final String primaryClassroomName;
   final List<String> allowedClassroomCodes;
-  /// Optional names from staff list API for each allowed classroom code.
-  final Map<String, String> allowedClassroomNameByCode;
   final String designation;
   final String phoneNumber;
   final String status;
@@ -55,14 +47,11 @@ class StaffMember extends Equatable {
         code,
         name,
         primaryClassroomCode,
-        primaryClassroomName,
         allowedClassroomCodes,
-        allowedClassroomNameByCode,
         designation,
         phoneNumber,
         status,
         email,
-        profilePhotoAssetCode,
         workScheduleByDay,
         breakScheduleByDay,
       ];

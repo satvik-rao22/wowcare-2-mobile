@@ -394,7 +394,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canMutateStudent =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(

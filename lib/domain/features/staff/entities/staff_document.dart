@@ -8,7 +8,6 @@ class StaffDocument extends Equatable {
     required this.documentUrl,
     required this.documentSizeKb,
     required this.mimeType,
-    this.assetCode,
     this.expiryDate,
     this.documentNotes,
     this.expired = false,
@@ -22,7 +21,6 @@ class StaffDocument extends Equatable {
   final String documentUrl;
   final int documentSizeKb;
   final String mimeType;
-  final String? assetCode;
   /// ISO date string (yyyy-MM-dd), or null when document has no expiry.
   final String? expiryDate;
   final String? documentNotes;
@@ -39,7 +37,6 @@ class StaffDocument extends Equatable {
         documentUrl,
         documentSizeKb,
         mimeType,
-        assetCode,
         expiryDate,
         documentNotes,
         expired,

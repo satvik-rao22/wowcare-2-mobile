@@ -362,38 +362,30 @@ class _StudentAttendanceDailyViewScreenState extends State<StudentAttendanceDail
   }
 
   List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isNotEmpty) {
-      // Ensure classroom data is loaded
-      if (_classroomCubit.state.classrooms.isEmpty) {
-        debugPrint('Warning: No classroom data available for code resolution');
-        return null;
-      }
-
-      final nameToCode = <String, String>{
-        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-      };
-      final codes = _selectedClassroomNames
-          .map((n) => nameToCode[n])
-          .whereType<String>()
-          .toList();
-
-      if (codes.length < _selectedClassroomNames.length) {
-        final unresolved = _selectedClassroomNames
-            .where((n) => !nameToCode.containsKey(n))
-            .toList();
-        debugPrint('Warning: Could not resolve classroom codes for: $unresolved');
-      }
-
-      return codes.isEmpty ? null : codes;
+    if (_selectedClassroomNames.isEmpty) return null;
+    
+    // Ensure classroom data is loaded
+    if (_classroomCubit.state.classrooms.isEmpty) {
+      debugPrint('Warning: No classroom data available for code resolution');
+      return null;
     }
-
-    // Pre-seeded from navigation (e.g. classroom info): [FilterData.classrooms] are codes.
-    final fromFilter = _studentFilters?.classrooms;
-    if (fromFilter == null || fromFilter.isEmpty) return null;
-    final codes = fromFilter
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
+    
+    final nameToCode = <String, String>{
+      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
+    };
+    final codes = _selectedClassroomNames
+        .map((n) => nameToCode[n])
+        .whereType<String>()
         .toList();
+    
+    // Log if some names couldn't be resolved
+    if (codes.length < _selectedClassroomNames.length) {
+      final unresolved = _selectedClassroomNames
+          .where((n) => !nameToCode.containsKey(n))
+          .toList();
+      debugPrint('Warning: Could not resolve classroom codes for: $unresolved');
+    }
+    
     return codes.isEmpty ? null : codes;
   }
 

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
+import '../../../../core/util/debug_defaults.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../models/student_classroom_models.dart';
 
@@ -14,7 +15,6 @@ abstract class StudentClassroomRemoteDataSource {
     String? firstName,
     String? lastName,
     String? search,
-    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -45,7 +45,9 @@ class StudentClassroomRemoteDataSourceImpl
     final storedSchoolCode =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    final resolvedOrganizationCode = storedOrganizationCode;
+    final resolvedOrganizationCode = storedOrganizationCode.isNotEmpty
+        ? storedOrganizationCode
+        : DebugDefaults.organizationCode;
     final resolvedSchoolCode = storedSchoolCode.isNotEmpty
         ? storedSchoolCode
         : fallbackSchoolCode.trim();
@@ -73,7 +75,6 @@ class StudentClassroomRemoteDataSourceImpl
     String? firstName,
     String? lastName,
     String? search,
-    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -98,23 +99,8 @@ class StudentClassroomRemoteDataSourceImpl
     if (search != null && search.trim().isNotEmpty) {
       queryParameters['search'] = search.trim();
     }
-    if (studentCodes != null && studentCodes.isNotEmpty) {
-      queryParameters['studentCodes'] = studentCodes
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-    }
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
-    }
-    if (studentCodes != null && studentCodes.isNotEmpty) {
-      final normalized = studentCodes
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      if (normalized.isNotEmpty) {
-        queryParameters['studentCodes'] = normalized;
-      }
     }
     // Keep payload strictly aligned with backend request DTO for this API.
     if (tagCodes != null && tagCodes.isNotEmpty) {
@@ -129,10 +115,7 @@ class StudentClassroomRemoteDataSourceImpl
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
-      options: Options(
-        headers: headers,
-        listFormat: ListFormat.multiCompatible,
-      ),
+      options: Options(headers: headers),
     );
 
     final body = response.data;

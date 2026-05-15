@@ -162,47 +162,31 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
   String _getStatusLabel(String? status) {
     if (status == null || status.isEmpty) return '-';
-    final normalized = status.trim().toUpperCase();
-    if (normalized == 'ACTIVE' || normalized == 'A') return 'Active';
-    if (normalized == 'INACTIVE' || normalized == 'I') return 'Inactive';
-    if (normalized == 'UPCOMING' || normalized == 'U') return 'Upcoming';
-    if (normalized == 'ARCHIVE' || normalized == 'ARCHIVED') return 'Archived';
-    if (normalized == 'WAITLIST') return 'Waitlist';
-    return _formatEnumLabel(normalized);
+    if (status.toUpperCase() == 'ACTIVE' || status == 'A') return 'Active';
+    if (status.toUpperCase() == 'INACTIVE' || status == 'I') return 'Inactive';
+    return status;
   }
 
   Color _getStatusColor(String? status) {
     if (status == null || status.isEmpty) return Colors.grey;
-    final upperStatus = status.trim().toUpperCase();
-    if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
+    final upperStatus = status.toUpperCase();
+    if (upperStatus == 'ACTIVE' || status == 'A') {
       return const Color.fromRGBO(56, 200, 32, 1);
     }
-    if (upperStatus == 'INACTIVE' || upperStatus == 'I') {
+    if (upperStatus == 'INACTIVE' || status == 'I') {
       return const Color.fromRGBO(250, 65, 65, 1);
-    }
-    if (upperStatus == 'UPCOMING' || upperStatus == 'U') {
-      return const Color.fromRGBO(221, 164, 55, 1);
-    }
-    if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
-      return const Color.fromRGBO(117, 117, 117, 1);
     }
     return const Color.fromARGB(255, 238, 223, 8);
   }
 
   Color _getStatusBgColor(String? status) {
     if (status == null || status.isEmpty) return Colors.grey.withOpacity(0.1);
-    final upperStatus = status.trim().toUpperCase();
-    if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
+    final upperStatus = status.toUpperCase();
+    if (upperStatus == 'ACTIVE' || status == 'A') {
       return const Color.fromRGBO(56, 200, 32, 0.1);
     }
-    if (upperStatus == 'INACTIVE' || upperStatus == 'I') {
+    if (upperStatus == 'INACTIVE' || status == 'I') {
       return const Color.fromRGBO(250, 65, 65, 0.1);
-    }
-    if (upperStatus == 'UPCOMING' || upperStatus == 'U') {
-      return const Color.fromRGBO(221, 164, 55, 0.16);
-    }
-    if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
-      return const Color.fromRGBO(117, 117, 117, 0.14);
     }
     return const Color.fromARGB(255, 242, 238, 176);
   }
@@ -651,11 +635,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   }
 
   Widget _buildStatusChip(String? status) {
-    final normalized = (status ?? '').trim().toUpperCase();
     final label = _getStatusLabel(status);
     final labelColor = _getStatusColor(status);
     final bgColor = _getStatusBgColor(status);
-    final icon = (normalized == 'ACTIVE' || normalized == 'A')
+    final icon = (status?.toUpperCase() == 'ACTIVE' || status == 'A')
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 

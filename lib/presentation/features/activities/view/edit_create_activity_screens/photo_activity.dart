@@ -192,22 +192,19 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
 
-    // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
-    // [resolveForCurrentSchool] (avoid stale [lastKnownTimeZone] from classroom tab).
+    // Keep create flow aligned with other activity forms where date/time default
+    // to "now" and are not blocked by initial widget callback timing.
     if (!widget.isEdit && !widget.readOnly) {
-      _activityDate = null;
-      _activityTime = null;
+      _activityDate = DateTime.now();
+      _activityTime = TimeOfDay.now();
     }
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
       _selectedStudents =
           _selectedStudentsData.map((student) => student['name'] as String).toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityTypeCode();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _syncSchoolAttendanceDateForCreate();
-      });
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
@@ -237,16 +234,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     }
     _loadStaffContext();
     _restorePendingProcessingPollIfAny();
-  }
-
-  Future<void> _syncSchoolAttendanceDateForCreate() async {
-    if (!mounted || _layoutAsEdit) return;
-    if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
-    if (!mounted) return;
-    setState(() {
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
-    });
   }
 
   bool get _showAdminApproveRejectActions {
@@ -1391,28 +1378,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               Row(
                 children: [
                   Flexible(
-                    child: _layoutAsEdit
-                        ? DateWidget(
-                            isEditable: false,
-                            isRequired: true,
-                            initialDate: _effectiveActivity.date,
-                            onDateChanged: (d) {
-                              setState(() => _activityDate = d);
-                            },
-                          )
-                        : DateWidget(
-                            key: ValueKey<String>(
-                              formatSelectedDateForDateWidget(_activityDate) ??
-                                  'school_date',
-                            ),
-                            isEditable: false,
-                            isRequired: true,
-                            initialDate:
-                                formatSelectedDateForDateWidget(_activityDate),
-                            onDateChanged: (d) {
-                              setState(() => _activityDate = d);
-                            },
-                          ),
+                    child: DateWidget(
+                      isEditable: false,
+                      isRequired: true,
+                      initialDate: _layoutAsEdit
+                          ? _effectiveActivity.date
+                          : formatSelectedDateForDateWidget(_activityDate),
+                      onDateChanged: (d) => _activityDate = d,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Flexible(
@@ -1421,14 +1394,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                       isRequired: true,
                       prefilledTime:
                           _layoutAsEdit ? _effectiveActivity.time : null,
-                      onTimeChanged: (t) {
-                        setState(() => _activityTime = t);
-                      },
+                      onTimeChanged: (t) => _activityTime = t,
                     ),
                   ),
                 ],
               ),
-              const ActivitySchoolTimeZoneHint(),
               SizedBox(height: responsive.verticalSpacing),
               MediaUploader(
                 isRequired: true,

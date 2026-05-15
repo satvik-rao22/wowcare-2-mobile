@@ -126,7 +126,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final isGuardianPersona = role.isParent;
+    final canStudentWrite =
+        !isGuardianPersona &&
+        ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(

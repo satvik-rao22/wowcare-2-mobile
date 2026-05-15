@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/core/util/debug_defaults.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 
 abstract class StorageService {
   Future<void> saveString(String key, String value);
@@ -26,7 +28,15 @@ class StorageServiceImpl implements StorageService {
 
   @override
   Future<String?> getString(String key) {
-    return Future.value(_prefs.getString(key));
+    final v = _prefs.getString(key);
+
+    // TEMP: While login is bypassed, ensure schoolCode is always available so
+    // screens and repositories don't early-return with empty schoolCode.
+    if (key == StorageKeys.schoolCode && (v == null || v.trim().isEmpty)) {
+      return Future.value(DebugDefaults.schoolCode);
+    }
+
+    return Future.value(v);
   }
 
   @override

@@ -78,18 +78,17 @@ class _StaffScreenState extends State<StaffScreen> {
   @override
   void initState() {
     super.initState();
+    // For the staff list, load all ACTIVE locations (no type filter)
+    // so that Office and other non-classroom locations are also available.
+    context.read<ClassroomCubit>().loadActiveClassrooms(
+      onlyTypeClassroom: false,
+    );
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      // Staff list must resolve names for all ACTIVE locations (e.g. admin/office).
-      // Uses GET .../classroom/classroom/all?school=...&status=ACTIVE with no type= filter.
-      // (Add-staff keeps type=CLASSROOM via its own ClassroomCubit instance.)
-      context.read<ClassroomCubit>().loadActiveClassrooms(
-        force: true,
-        onlyTypeClassroom: false,
-      );
-      _applyIncomingStatusFilter();
-      _loadExpectedStaffSummary();
+      if (mounted) {
+        _applyIncomingStatusFilter();
+        _loadExpectedStaffSummary();
+      }
     });
   }
 
@@ -186,86 +185,6 @@ class _StaffScreenState extends State<StaffScreen> {
     return {for (final c in state.classrooms) c.code: c.name};
   }
 
-  /// Merges `classroom/all` (no type filter on staff screen) with names embedded
-  /// in the staff list API so admin / non-classroom codes still show a label.
-  Map<String, String> _mergedClassroomNameByCode({
-    required Map<String, String> fromClassroomCubit,
-    required List<StaffMember> staffItems,
-  }) {
-    final out = Map<String, String>.from(fromClassroomCubit);
-    for (final s in staffItems) {
-      final pc = s.primaryClassroomCode.trim();
-      final pn = s.primaryClassroomName.trim();
-      if (pc.isNotEmpty && pn.isNotEmpty) {
-        out.putIfAbsent(pc, () => pn);
-      }
-      for (final e in s.allowedClassroomNameByCode.entries) {
-        final k = e.key.trim();
-        final v = e.value.trim();
-        if (k.isNotEmpty && v.isNotEmpty) {
-          out.putIfAbsent(k, () => v);
-        }
-      }
-    }
-    return out;
-  }
-
-  List<String> _classroomDisplayNamesForStaffScreen({
-    required ClassroomState classroomState,
-    required Map<String, String> mergedCodeToName,
-  }) {
-    final fromCubit = _getClassroomNames(classroomState);
-    final seen = fromCubit.map((e) => e.trim()).toSet();
-    final out = List<String>.from(fromCubit);
-    for (final n in mergedCodeToName.values) {
-      final t = n.trim();
-      if (t.isNotEmpty && !seen.contains(t)) {
-        seen.add(t);
-        out.add(t);
-      }
-    }
-    out.sort(
-      (a, b) => a.toLowerCase().compareTo(b.toLowerCase()),
-    );
-    return out;
-  }
-
-  String _resolveStaffPrimaryClassroomLabel(
-    StaffMember staff,
-    Map<String, String> codeToName,
-  ) {
-    final code = staff.primaryClassroomOrFirstAllowed.trim();
-    if (code.isEmpty) return '';
-    final fromCubit = (codeToName[code] ?? '').trim();
-    if (fromCubit.isNotEmpty) return fromCubit;
-    if (staff.primaryClassroomCode.trim() == code) {
-      final fromList = staff.primaryClassroomName.trim();
-      if (fromList.isNotEmpty) return fromList;
-    }
-    final fromAllowedMap =
-        (staff.allowedClassroomNameByCode[code] ?? '').trim();
-    if (fromAllowedMap.isNotEmpty) return fromAllowedMap;
-    return code;
-  }
-
-  List<String> _allowedClassroomDisplayNames(
-    StaffMember staff,
-    Map<String, String> codeToName,
-  ) {
-    return staff.allowedClassroomCodes
-        .map((c) {
-          final t = c.trim();
-          if (t.isEmpty) return '';
-          return (codeToName[t] ?? '').trim().isNotEmpty
-              ? (codeToName[t] ?? '').trim()
-              : (staff.allowedClassroomNameByCode[t] ?? '').trim().isNotEmpty
-                  ? (staff.allowedClassroomNameByCode[t] ?? '').trim()
-                  : t;
-        })
-        .where((s) => s.isNotEmpty)
-        .toList();
-  }
-
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
@@ -278,13 +197,7 @@ class _StaffScreenState extends State<StaffScreen> {
     try {
       final useCase =
           serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
-      final primary =
-          context.read<StaffCubit>().state.primaryClassroomCodes ?? const [];
-      final code =
-          primary.isEmpty ? null : primary.first.trim();
-      final summary = await useCase(
-        classroomCode: (code != null && code.isNotEmpty) ? code : null,
-      );
+      final summary = await useCase();
       if (!mounted) return;
       setState(() {
         _expectedStaffTotal = summary.expected;
@@ -560,16 +473,8 @@ class _StaffScreenState extends State<StaffScreen> {
   Widget build(BuildContext context) {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
-        final staffState = context.watch<StaffCubit>().state;
-        final baseNameByCode = _getClassroomNameByCode(classroomState);
-        final classroomNameByCode = _mergedClassroomNameByCode(
-          fromClassroomCubit: baseNameByCode,
-          staffItems: staffState.items,
-        );
-        final classroomNames = _classroomDisplayNamesForStaffScreen(
-          classroomState: classroomState,
-          mergedCodeToName: classroomNameByCode,
-        );
+        final classroomNames = _getClassroomNames(classroomState);
+        final classroomNameByCode = _getClassroomNameByCode(classroomState);
 
         // Log error if classroom loading failed (no UI display - core_utils only)
         if (classroomState.errorMessage != null &&
@@ -586,6 +491,7 @@ class _StaffScreenState extends State<StaffScreen> {
         );
 
         final staffCubit = context.read<StaffCubit>();
+        final staffState = context.watch<StaffCubit>().state;
 
         final bool anySelected = _selectedStaffCodes.isNotEmpty;
         final int selectedCount = _selectedStaffCodes.length;
@@ -952,17 +858,15 @@ class _StaffScreenState extends State<StaffScreen> {
                                         final initialPrimaryNames = primaryCodes
                                             .map(
                                               (c) =>
-                                                  classroomNameByCode[c]?.trim(),
+                                                  classroomNameByCode[c] ?? c,
                                             )
-                                            .whereType<String>()
                                             .where((n) => n.isNotEmpty)
                                             .toList();
                                         final initialAllowedNames = allowedCodes
                                             .map(
                                               (c) =>
-                                                  classroomNameByCode[c]?.trim(),
+                                                  classroomNameByCode[c] ?? c,
                                             )
-                                            .whereType<String>()
                                             .where((n) => n.isNotEmpty)
                                             .toList();
 
@@ -1329,23 +1233,24 @@ class _StaffScreenState extends State<StaffScreen> {
                                     final isActive =
                                         (staff.status).toUpperCase() ==
                                         'ACTIVE';
-                                    final allowedClassroomNames =
-                                        _allowedClassroomDisplayNames(
-                                      staff,
-                                      classroomNameByCode,
-                                    );
+                                    // Map classroom codes to human-readable names using cached metadata.
+                                    final allowedClassroomNames = staff
+                                        .allowedClassroomCodes
+                                        .map(
+                                          (code) =>
+                                              classroomNameByCode[code] ?? code,
+                                        )
+                                        .toList();
 
+                                    final primaryClassroomCode =
+                                        staff.primaryClassroomOrFirstAllowed;
                                     final primaryClassroomName =
-                                        _resolveStaffPrimaryClassroomLabel(
-                                      staff,
-                                      classroomNameByCode,
-                                    );
-                                    final primaryClassroomNameForCard =
-                                        primaryClassroomName.isNotEmpty
-                                            ? primaryClassroomName
-                                            : (allowedClassroomNames.isNotEmpty
-                                                  ? allowedClassroomNames.first
-                                                  : '');
+                                        primaryClassroomCode.isNotEmpty
+                                        ? (classroomNameByCode[primaryClassroomCode] ??
+                                              primaryClassroomCode)
+                                        : (allowedClassroomNames.isNotEmpty
+                                              ? allowedClassroomNames.first
+                                              : '');
                                     final isSelected = _selectedStaffCodes
                                         .contains(staff.code);
                                     return Column(
@@ -1353,9 +1258,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                         StaffCard(
                                           staffCode: staff.code,
                                           name: staff.name,
-                                          classroom: primaryClassroomNameForCard,
-                                          profilePhotoAssetCode:
-                                              staff.profilePhotoAssetCode,
+                                          classroom: primaryClassroomName,
                                           allowedClassrooms:
                                               allowedClassroomNames,
                                           // Days with any work/break schedule from staff list API.
@@ -1481,19 +1384,18 @@ class _StaffScreenState extends State<StaffScreen> {
                             final staff = staffState.items.firstWhere(
                               (e) => e.code == selectedCode,
                             );
-                            final allowedClassroomNames =
-                                _allowedClassroomDisplayNames(
-                              staff,
-                              classroomNameByCode,
-                            );
-                            final primaryResolved =
-                                _resolveStaffPrimaryClassroomLabel(
-                              staff,
-                              classroomNameByCode,
-                            );
+                            final allowedClassroomNames = staff
+                                .allowedClassroomCodes
+                                .map(
+                                  (code) => classroomNameByCode[code] ?? code,
+                                )
+                                .toList();
+                            final primaryClassroomCode =
+                                staff.primaryClassroomOrFirstAllowed;
                             final classroomName =
-                                primaryResolved.isNotEmpty
-                                ? primaryResolved
+                                primaryClassroomCode.isNotEmpty
+                                ? (classroomNameByCode[primaryClassroomCode] ??
+                                      primaryClassroomCode)
                                 : (allowedClassroomNames.isNotEmpty
                                       ? allowedClassroomNames.first
                                       : '');

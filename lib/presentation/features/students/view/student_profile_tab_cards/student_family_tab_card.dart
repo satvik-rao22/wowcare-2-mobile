@@ -7,6 +7,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/debug_defaults.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
@@ -75,7 +76,8 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         .trim();
     if (fromStorage.isNotEmpty) return fromStorage;
 
-    return '';
+    // Final fallback (should never hit because StorageService also defaults).
+    return DebugDefaults.schoolCode;
   }
 
   @override
@@ -282,7 +284,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
+    final isGuardianPersona = role.isParent;
     final canStudentWrite =
+        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(

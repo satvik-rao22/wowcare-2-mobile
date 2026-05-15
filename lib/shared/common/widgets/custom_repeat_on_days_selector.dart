@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
+import 'custom_date_time_field.dart';
+
 class CustomRepeatOnDaysSelector extends StatefulWidget {
   final List<String> selectedDays;
   final ValueChanged<List<String>> onSelectionChanged;
@@ -18,6 +20,7 @@ class CustomRepeatOnDaysSelector extends StatefulWidget {
 
 class _CustomRepeatOnDaysSelectorState
     extends State<CustomRepeatOnDaysSelector> {
+  bool _isRepeatEnabled = false;
   final List<String> _allDays = [
     "Monday",
     "Tuesday",
@@ -27,6 +30,7 @@ class _CustomRepeatOnDaysSelectorState
   ];
 
   late List<String> _selectedDays;
+  DateTime? _repeatUntil;
 
   @override
   void initState() {
@@ -58,7 +62,7 @@ class _CustomRepeatOnDaysSelectorState
 
   @override
   Widget build(BuildContext context) {
-    final bool isAllSelected = _selectedDays.length == _allDays.length;
+    // final bool isAllSelected = _selectedDays.length == _allDays.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,43 +80,89 @@ class _CustomRepeatOnDaysSelectorState
                   color: Color(0xFF4B2E4C),
                 ),
               ),
+              SizedBox(width: 16),
+              Row(
+                children: [
+                  const Text("Off"),
+                  Switch(
+                    value: _isRepeatEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _isRepeatEnabled = value;
+
+                        if (!value) {
+                          _selectedDays.clear();
+                          widget.onSelectionChanged([]);
+                        }
+                      });
+                    },
+
+                    /// Track (background)
+                    trackColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return AppColors.themeColor; // ON
+                      }
+                      return Colors.grey.shade300; // OFF
+                    }),
+
+                    /// Thumb (bubble) → always white
+                    thumbColor: WidgetStateProperty.all(Colors.white),
+                  ),
+                  const Text("On"),
+                ],
+              ),
               const Spacer(),
-              GestureDetector(
-                onTap: _toggleSelectAll,
-                child: ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: AppColors.primaryGradientColors,
-                  ).createShader(bounds),
-                  child: const Text(
-                    "Select All",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+              if (_isRepeatEnabled)
+                GestureDetector(
+                  onTap: _toggleSelectAll,
+
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: AppColors.primaryGradientColors,
+                    ).createShader(bounds),
+                    child: const Text(
+                      "Select All",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
 
         // GridView - 3 items per row with better text visibility
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 16,
-            childAspectRatio: 3.2, // Increased for better text space
+        if (_isRepeatEnabled)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 16,
+              childAspectRatio: 3.2, // Increased for better text space
+            ),
+            itemCount: _allDays.length,
+            itemBuilder: (context, index) {
+              final day = _allDays[index];
+              return _buildDayCheckbox(day);
+            },
           ),
-          itemCount: _allDays.length,
-          itemBuilder: (context, index) {
-            final day = _allDays[index];
-            return _buildDayCheckbox(day);
-          },
-        ),
+        const SizedBox(height: 16),
+        if (_isRepeatEnabled)
+          CustomDateTimeField(
+            label: 'Until Date',
+            isRequired: true,
+            fetchInitialTime: false,
+            onDateSelected: (date) {
+              setState(() {
+                _repeatUntil = date;
+              });
+            },
+          ),
       ],
     );
   }

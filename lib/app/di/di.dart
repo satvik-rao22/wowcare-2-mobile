@@ -36,6 +36,7 @@ import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
+import '../../domain/features/staff/usecases/get_staff_list_by_school_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
@@ -60,6 +61,7 @@ import '../../data/features/staff_classroom/repositories/staff_classroom_reposit
 import '../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.dart';
 import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
+import '../../data/features/Schedule-Classroom/staff_scheduling_remote_datasource.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
@@ -129,8 +131,8 @@ import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/classroom_schedule_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/schedule_form_cubit.dart';
+import '../../presentation/features/scheduling/cubit/classroom_schedule_cubit.dart';
+import '../../presentation/features/scheduling/cubit/schedule_form_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -258,6 +260,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<CommunicationRemoteDataSource>(
     () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
+  serviceLocator.registerLazySingleton<StaffSchedulingRemoteDataSource>(
+    () =>
+        StaffSchedulingRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
 
   // Repositories
   serviceLocator.registerLazySingleton<AuthRepository>(
@@ -299,7 +305,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
-    () => StaffSchedulingRepositoryImpl(),
+    () => StaffSchedulingRepositoryImpl(serviceLocator(), serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<CommunicationRepository>(
@@ -337,6 +343,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffCountUseCase>(
     () => GetStaffCountUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffListBySchoolUseCase>(
+    () => GetStaffListBySchoolUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<AddStaffDocumentUseCase>(
     () => AddStaffDocumentUseCase(serviceLocator()),
@@ -598,6 +607,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffCubit(
       getStaffPageUseCase: serviceLocator(),
       getStaffCountUseCase: serviceLocator(),
+      getStaffListBySchoolUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
     ),

@@ -85,13 +85,15 @@ class FilePickerUtils {
   /// Returns the mime type based on the file extension.
   static String getMimeType(String? extension) {
     if (extension == null) return 'application/octet-stream';
-    
+
     final ext = extension.toLowerCase().replaceAll('.', '');
-    
+
     const mimeTypes = {
       'pdf': 'application/pdf',
       'doc': 'application/msword',
+
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+
       'jpeg': 'image/jpeg',
       'jpg': 'image/jpeg',
       'png': 'image/png',
@@ -106,12 +108,14 @@ class FilePickerUtils {
       'tif': 'image/tiff',
       'tiff': 'image/tiff',
       'xls': 'application/vnd.ms-excel',
+
       'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'mp4': 'video/mp4',
       'mov': 'video/quicktime',
       'webm': 'video/webm',
+
     };
-    
+
     return mimeTypes[ext] ?? 'application/octet-stream';
   }
 }

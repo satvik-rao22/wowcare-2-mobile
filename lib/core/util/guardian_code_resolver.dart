@@ -48,19 +48,6 @@ Future<void> _persistGuardianProfileSnapshot({
       (data['lastName'] ?? data['LastName'] ?? data['last_name'] ?? '')
           .toString()
           .trim();
-  final photoAssetCode = (data['profilePhotoAssetCode'] ??
-          data['photoAssetCode'] ??
-          data['profileImageAssetCode'] ??
-          '')
-      .toString()
-      .trim();
-  final photoUrl = (data['profilePhotoUrl'] ??
-          data['photoUrl'] ??
-          data['profileImageUrl'] ??
-          data['imageUrl'] ??
-          '')
-      .toString()
-      .trim();
   if (code.isNotEmpty) {
     await storage.saveString(StorageKeys.guardianCode, code);
     await storage.saveString(StorageKeys.guardianCodeUser, userCode);
@@ -72,8 +59,6 @@ Future<void> _persistGuardianProfileSnapshot({
   }
   await storage.saveString(StorageKeys.guardianProfileFirstName, fn);
   await storage.saveString(StorageKeys.guardianProfileLastName, ln);
-  await storage.saveString(StorageKeys.guardianProfileAssetCode, photoAssetCode);
-  await storage.saveString(StorageKeys.guardianProfilePhotoUrl, photoUrl);
 }
 
 /// Always calls `GET /api/v1/guardian/profile` (when persona + context allow) and

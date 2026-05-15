@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -13,8 +12,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'dart:convert';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 enum StudentFilterSection {
   classroom,
@@ -81,15 +78,6 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase;
   late final StorageService _storageService;
-  String _staffDesignationLower = '';
-  Set<String> _allowedClassroomCodes = <String>{};
-
-  static const Set<String> _restrictedDesignationLabelsLower = <String>{
-    'associate teacher',
-    'assistant teacher',
-    'floater',
-    'lead teacher',
-  };
 
   @override
   void initState() {
@@ -100,7 +88,6 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     _getTagNamesForSchoolUseCase =
         serviceLocator<GetTagNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
-    _preloadStaffScope();
 
     final initial = widget.initialFilters ?? const {};
     _selectedClassroomList = List<String>.from(initial['Classroom'] ?? const []);
@@ -125,45 +112,6 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     }
     if (widget.sections.contains(StudentFilterSection.parents)) {
       _loadParents();
-    }
-  }
-
-  Future<void> _preloadStaffScope() async {
-    try {
-      final d =
-          (await _storageService.getString(StorageKeys.staffDesignation) ?? '')
-              .trim()
-              .toLowerCase()
-              .replaceAll('_', ' ');
-      final raw =
-          (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ??
-                  '')
-              .trim();
-      final codes = <String>{};
-      if (raw.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(raw);
-          if (decoded is List) {
-            for (final e in decoded) {
-              if (e is String) {
-                final c = e.trim();
-                if (c.isNotEmpty) codes.add(c);
-              } else if (e is Map) {
-                final m = Map<String, dynamic>.from(e);
-                final c = (m['code'] ?? m['classroomCode'] ?? '').toString().trim();
-                if (c.isNotEmpty) codes.add(c);
-              }
-            }
-          }
-        } catch (_) {}
-      }
-      if (!mounted) return;
-      setState(() {
-        _staffDesignationLower = d;
-        _allowedClassroomCodes = codes;
-      });
-    } catch (_) {
-      // Non-blocking
     }
   }
 
@@ -272,26 +220,14 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   Widget _buildFilterContent() {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
-        final role = context.watch<RoleProvider>();
-        final restrictToAllowed = role.isStaff &&
-            _restrictedDesignationLabelsLower.contains(_staffDesignationLower) &&
-            _allowedClassroomCodes.isNotEmpty;
+        final classroomNames = classroomState.classrooms.map((c) => c.name).toList();
 
-        final classroomNames = restrictToAllowed
-            ? classroomState.classrooms
-                .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
-                .map((c) => c.name)
-                .toList()
-            : classroomState.classrooms.map((c) => c.name).toList();
-
-        // Keep classroom list in sync with the current scope (all vs allowed-only).
-        // Previously we only set it once, which caused "all classrooms" to stick.
-        final nextClassroomList = List<String>.from(classroomNames);
-        if (!listEquals(nextClassroomList, _classroomList)) {
+        // Update classroom list once we have data.
+        if (classroomNames.isNotEmpty && _classroomList.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             setState(() {
-              _classroomList = nextClassroomList;
+              _classroomList = List<String>.from(classroomNames);
               _selectedClassroomList
                   .removeWhere((item) => !_classroomList.contains(item));
             });
@@ -330,10 +266,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
         // Consider API-driven data (classrooms, tags, parents) independently.
         // Even if one API fails, the others can still populate their dropdowns.
-        // Status options are always available; allow rendering when only Status/Tags are shown
-        // even if tag names are still loading (tags dropdown can populate after).
         final hasAnyApiData =
-            widget.sections.contains(StudentFilterSection.status) ||
             (widget.sections.contains(StudentFilterSection.classroom) &&
                 _classroomList.isNotEmpty) ||
             (widget.sections.contains(StudentFilterSection.tags) &&
