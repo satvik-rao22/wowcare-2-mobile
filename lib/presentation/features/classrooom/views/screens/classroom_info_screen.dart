@@ -514,7 +514,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       if (file == null) return;
 
       if (!mounted) return;
-      CoreUtils.showLoadingDialog(context);
+      // No full-screen loading dialog — the logo avatar shows its own
+      // localized spinner via [_isLogoLoading] while the upload runs.
       setState(() {
         _isLogoLoading = true;
       });
@@ -622,7 +623,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       setState(() {
         _classroomLogoUrl = resolvedUrl;
       });
-      Navigator.of(context).pop(); // loading
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Classroom logo updated successfully',
@@ -630,7 +630,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       );
     } catch (e) {
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).maybePop();
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
