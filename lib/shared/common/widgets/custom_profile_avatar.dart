@@ -14,11 +14,14 @@ class CustomProfileAvatar extends StatelessWidget {
     required this.statusSize,
     required this.statusPositionTop,
     required this.statusPositionRight,
+    required this.initials,
     required this.statusBorder,
     this.fontSize,
     this.onTap,
     super.key,
   });
+
+  final String initials;
 
   final double radius;
   final bool hasStatus;
@@ -77,19 +80,19 @@ class CustomProfileAvatar extends StatelessWidget {
           //           },
           //         ),
           //       )
-          //     : 
+          //     :
           CircleAvatar(
             backgroundColor: Colors.blue, // ColorUtils.getColorFromName(
-              // context.isPersonnel
-              //     ? context.currentStaff!.name
-              //     : context.currentGuardian!.fullName,
+            // context.isPersonnel
+            //     ? context.currentStaff!.name
+            //     : context.currentGuardian!.fullName,
             // ),
             radius: radius,
             child: Text(
-              'U', // StringUtils.getInitials(
-                // context.isPersonnel
-                //     ? context.currentStaff!.name
-                //     : context.currentGuardian!.fullName,
+              initials, // StringUtils.getInitials(
+              // context.isPersonnel
+              //     ? context.currentStaff!.name
+              //     : context.currentGuardian!.fullName,
               // ),
               style: TextStyle(
                 fontWeight: FontWeight.w600,

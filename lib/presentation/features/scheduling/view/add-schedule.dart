@@ -14,6 +14,7 @@ import '../../../../shared/common/widgets/custom_repeat_on_days_selector.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../classroom/cubit/classroom_cubit.dart';
 import '../../staff/cubit/staff_cubit.dart';
+import '../cubit/Add-Shift/cubit/add_shift_cubit.dart';
 import '../cubit/schedule_form_cubit.dart';
 import '../cubit/schedule_form_state.dart';
 import 'publish-shift-schedule.dart';
@@ -57,7 +58,15 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
               serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
         ),
       ],
-      child: const AddShiftForm(),
+      child: BlocProvider(
+        create: (_) => AddShiftCubit(
+          repository: serviceLocator<StaffRepository>(),
+
+          storageService: serviceLocator<StorageService>(),
+        ),
+
+        child: const AddShiftForm(),
+      ),
     );
   }
 }
@@ -78,7 +87,6 @@ class _AddShiftFormState extends State<AddShiftForm> {
   TimeOfDay? _breakStartTime;
   TimeOfDay? _breakEndTime;
   List<String> _selectedDays = [];
-  DateTime? _repeatUntil;
   String _notes = '';
   List<String> _allowedClassroomCodes = [];
   List<AllowedClassroom> _allowedClassrooms = [];
@@ -182,7 +190,9 @@ class _AddShiftFormState extends State<AddShiftForm> {
 
     final repeatDayCodes = _selectedRepeatDayCodes;
 
-    if (repeatDayCodes.isNotEmpty && _repeatUntil == null) {
+    final cubitState = context.read<AddShiftCubit>().state;
+
+    if (repeatDayCodes.isNotEmpty && cubitState.repeatUntilDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select until date for repeating schedule',
@@ -191,23 +201,40 @@ class _AddShiftFormState extends State<AddShiftForm> {
       return;
     }
 
+    final isRecurringShift = repeatDayCodes.isNotEmpty;
+
     final data = {
       "staffCode": _selectedStaffCode,
       "classroomCode": _selectedClassroomCode,
       "schoolCode": schoolCode,
       "organizationCode": organizationCode,
       "shiftDate": DateFormat('yyyy-MM-dd').format(_shiftDate!),
+
       "startTime": _formatTime(_startTime),
       "endTime": _formatTime(_endTime),
+
       if (_breakStartTime != null)
         "breakStartTime": _formatTime(_breakStartTime),
+
       if (_breakEndTime != null) "breakEndTime": _formatTime(_breakEndTime),
-      "repeat": repeatDayCodes.isNotEmpty,
-      if (repeatDayCodes.isNotEmpty) "repeatDays": repeatDayCodes,
-      if (repeatDayCodes.isNotEmpty && _repeatUntil != null)
-        "repeatUntil": DateFormat('yyyy-MM-dd').format(_repeatUntil!),
+
+      "publish": true,
+
+      /// SINGLE SHIFT => repeat false
+      /// RECURRING SHIFT => repeat true
+      "repeat": isRecurringShift,
+
+      /// ONLY FOR RECURRING SHIFT
+      if (isRecurringShift) ...{
+        "repeatDays": repeatDayCodes.map((e) => e - 1).toList(),
+        "repeatUntilDate": DateFormat(
+          'yyyy-MM-dd',
+        ).format(cubitState.repeatUntilDate!),
+      },
+
       "overrideConflicts": true,
       "forceAdd": true,
+
       if (_notes.isNotEmpty) "notes": _notes,
     };
 

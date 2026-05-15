@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
+import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_add_notes_field.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
@@ -13,13 +15,17 @@ import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../core/util/core_utils.dart';
 import '../cubit/schedule_form_cubit.dart';
 import '../cubit/schedule_form_state.dart';
-import 'edit-shift-permission.dart';
 
-class EditShiftScreen extends StatelessWidget {
+class EditShiftScreen extends StatefulWidget {
   const EditShiftScreen({super.key});
 
   static const String routeName = '/edit-shift';
 
+  @override
+  State<EditShiftScreen> createState() => _EditShiftScreenState();
+}
+
+class _EditShiftScreenState extends State<EditShiftScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -40,6 +46,9 @@ class _EditShiftFormState extends State<EditShiftForm> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   TimeOfDay? _breakStartTime;
+  String? selectedStaff;
+  String? selectedRoom;
+  String? shiftTime;
   TimeOfDay? _breakEndTime;
 
   int _toMinutes(TimeOfDay time) => (time.hour * 60) + time.minute;
@@ -47,6 +56,20 @@ class _EditShiftFormState extends State<EditShiftForm> {
   bool _isWithinShift(TimeOfDay t, TimeOfDay start, TimeOfDay end) {
     final value = _toMinutes(t);
     return value >= _toMinutes(start) && value <= _toMinutes(end);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    if (args != null) {
+      selectedStaff = args['staffName'];
+      selectedRoom = args['room'];
+      shiftTime = args['shift'];
+    }
   }
 
   bool _validateTimes() {
@@ -109,7 +132,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Shift updated successfully')),
           );
-          Navigator.pushNamed(context, EditShiftScheduleScreen.routeName);
+          Navigator.pushNamed(context, EditShiftScreen.routeName);
         } else if (state is ScheduleFormError) {
           ScaffoldMessenger.of(
             context,
@@ -127,15 +150,25 @@ class _EditShiftFormState extends State<EditShiftForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppText.body(
-                    'Edit Shift',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 24,
-                    ),
+                  Row(
+                    children: [
+                      AppText.body(
+                        'Edit Shift',
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 24,
+                        ),
+                      ),
+                      Spacer(),
+                      SvgPicture.asset(
+                        MediaRes.delete_icon,
+                        color: AppColors.errorColor,
+                        height: MediaQuery.of(context).size.height * 0.025,
+                        width: MediaQuery.of(context).size.height * 0.025,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
                   Card(
                     elevation: 0,
                     color: AppColors.cardColor,
@@ -267,7 +300,8 @@ class _EditShiftFormState extends State<EditShiftForm> {
                                   isRequired: true,
                                   fetchInitialTime: false,
                                   onTimeSelected: (time) {
-                                    if (_startTime == null || _endTime == null) {
+                                    if (_startTime == null ||
+                                        _endTime == null) {
                                       CoreUtils.showTopSnackBar(
                                         context: context,
                                         message:

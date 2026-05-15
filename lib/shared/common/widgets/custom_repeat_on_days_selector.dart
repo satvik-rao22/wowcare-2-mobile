@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
-
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../presentation/features/scheduling/cubit/Add-Shift/cubit/add_shift_cubit.dart';
 import 'custom_date_time_field.dart';
 
 class CustomRepeatOnDaysSelector extends StatefulWidget {
@@ -30,7 +31,6 @@ class _CustomRepeatOnDaysSelectorState
   ];
 
   late List<String> _selectedDays;
-  DateTime? _repeatUntil;
 
   @override
   void initState() {
@@ -45,7 +45,12 @@ class _CustomRepeatOnDaysSelectorState
       } else {
         _selectedDays.add(day);
       }
-      widget.onSelectionChanged(List.from(_selectedDays));
+      // widget.onSelectionChanged(List.from(_selectedDays));
+      final days = List<String>.from(_selectedDays);
+
+      widget.onSelectionChanged(days);
+
+      context.read<AddShiftCubit>().updateRepeatDays(days);
     });
   }
 
@@ -56,7 +61,12 @@ class _CustomRepeatOnDaysSelectorState
       } else {
         _selectedDays = List.from(_allDays);
       }
-      widget.onSelectionChanged(List.from(_selectedDays));
+      // widget.onSelectionChanged(List.from(_selectedDays));
+      final days = List<String>.from(_selectedDays);
+
+      widget.onSelectionChanged(days);
+
+      context.read<AddShiftCubit>().updateRepeatDays(days);
     });
   }
 
@@ -155,12 +165,12 @@ class _CustomRepeatOnDaysSelectorState
         if (_isRepeatEnabled)
           CustomDateTimeField(
             label: 'Until Date',
+            isRangePicker: true,
             isRequired: true,
-            fetchInitialTime: false,
-            onDateSelected: (date) {
-              setState(() {
-                _repeatUntil = date;
-              });
+            hasLabel: true,
+
+            onRangeSelected: (startDate, endDate) {
+              context.read<AddShiftCubit>().updateDateRange(startDate, endDate);
             },
           ),
       ],

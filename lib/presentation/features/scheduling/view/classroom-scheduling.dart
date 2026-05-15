@@ -8,6 +8,7 @@ import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../cubit/staff_scheduling_cubit.dart';
 import '../cubit/staff_scheduling_state.dart';
+import '../model/classroom-schudle-model.dart';
 import '../model/staff_model.dart';
 import '../widgets/schedule_card.dart';
 import '../widgets/expandable_schedule_card.dart';
@@ -200,10 +201,10 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
 
                         // View mode toggle
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
                             color: AppColors.cardColor,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(5),
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                             ),
@@ -434,6 +435,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                             staffList: mappedStaff,
                             showWarning: false,
                             isExpanded: state.isDailyView || state.expandAll,
+                            classroomName: classroomName,
                           );
                         }).toList();
 

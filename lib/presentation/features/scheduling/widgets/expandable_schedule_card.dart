@@ -3,7 +3,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:dotted_border/dotted_border.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
-import '../model/staff_model.dart';
+import '../../../../shared/common/widgets/custom_profile_avatar.dart';
+import '../model/classroom-schudle-model.dart';
 import '../view/edit-schedule.dart';
 
 class ExpandableScheduleCard extends StatefulWidget {
@@ -274,7 +275,23 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            staff.image,
+                            CustomProfileAvatar(
+                              radius: 24,
+                              hasStatus: true,
+                              statusSize: 10,
+                              statusPositionTop: 2,
+                              statusPositionRight: 0,
+                              statusBorder: 2,
+                              fontSize: 16,
+                              initials: staff.name.isNotEmpty
+                                  ? staff.name
+                                        .trim()
+                                        .split(' ')
+                                        .first[0]
+                                        .toUpperCase()
+                                  : '',
+                            ),
+
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -490,22 +507,4 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
       ],
     );
   }
-}
-
-// ==================== MODEL ====================
-
-class ClassroomSchedule {
-  final String title;
-  final String classroomCode;
-  final bool showWarning;
-  final List<StaffModel> staffList;
-  bool isExpanded;
-
-  ClassroomSchedule({
-    required this.title,
-    required this.classroomCode,
-    required this.showWarning,
-    required this.staffList,
-    this.isExpanded = false,
-  });
 }
