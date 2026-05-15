@@ -267,7 +267,8 @@ class _EditShiftFormState extends State<EditShiftForm> {
                                   isRequired: true,
                                   fetchInitialTime: false,
                                   onTimeSelected: (time) {
-                                    if (_startTime == null || _endTime == null) {
+                                    if (_startTime == null ||
+                                        _endTime == null) {
                                       CoreUtils.showTopSnackBar(
                                         context: context,
                                         message:
@@ -356,9 +357,10 @@ class _EditShiftFormState extends State<EditShiftForm> {
                             onSelectionChanged: (days) {},
                           ),
                           const SizedBox(height: 16),
-                          const CustomDateTimeField(
+                          CustomDateTimeField(
                             label: 'Until Date',
                             isRequired: true,
+                            onDateSelected: (_) {},
                           ),
                           const SizedBox(height: 16),
                           CustomAddNoteButton(onSubmitted: (value) {}),
