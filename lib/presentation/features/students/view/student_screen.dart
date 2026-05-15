@@ -1109,10 +1109,13 @@ class _StudentScreenState extends State<StudentScreen> {
         final actionPanel = anySelected
             ? Positioned(
                 right: 16,
-                bottom: 16,
-                child: Row(
-                  children: [
-                    StudentActionPanel(
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StudentActionPanel(
                       currentPanel: _currentPanel,
                       activityStudentMaps:
                           _canShowActivitiesButton(selectedCount, students)
@@ -1205,8 +1208,9 @@ class _StudentScreenState extends State<StudentScreen> {
                         students: students,
                         actionName: 'mark_absent',
                       ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               )
             : null;

@@ -1569,10 +1569,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           if (hasSelectedStudents)
             Positioned(
               right: 16,
-              bottom: 16,
-              child: Row(
-                children: [
-                  StudentActionPanel(
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StudentActionPanel(
                     currentPanel: _currentPanel,
                     activityStudentMaps: canStudentActivities
                         ? _activityStudentMaps(selectedStudents)
@@ -1679,7 +1682,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       actionName: 'mark_absent',
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],
