@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../widgets/billing-card.dart';
 import '../widgets/childs-progress-card.dart';
+import '../widgets/class-room-shift.dart';
+import '../widgets/dashboard-Grid-Sections.dart';
 import '../widgets/events_card.dart';
 import '../widgets/movements-card.dart';
 import '../widgets/my-day-card.dart';
+import '../widgets/ratio-monitor.dart';
 import '../widgets/to-do-cards.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -23,27 +26,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                const Text(
-                  'Welcome {User Name}',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.start,
-                ),
-                SizedBox(height: 8),
-                const Text(
-                  'Need your attention',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.start,
-                ),
-              ],
-            ),
+            DashboardGridSection(),
+            SizedBox(height: 16),
 
             MyDayCard(),
             SizedBox(height: 8),
-
+            RatioMonitoringCard(),
+            SizedBox(height: 8),
+            ClassroomShiftsCard(),
+            SizedBox(height: 8),
             MovementsCard(),
             SizedBox(height: 8),
             BillingCard(),
