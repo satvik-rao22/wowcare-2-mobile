@@ -68,12 +68,12 @@ class AppTextStyles {
   /// Button text style - used for button labels
   /// fontSize: 16, fontWeight: w700, color: varies
   static TextStyle button({Color? color}) => TextStyle(
-        fontFamily: Fonts.manrope,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: color ?? AppColors.primaryColor,
-        height: 16 / 16,
-      );
+    fontFamily: Fonts.manrope,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: color ?? AppColors.primaryColor,
+    height: 16 / 16,
+  );
 
   /// Section header text style - used for section headers
   /// fontSize: 13, fontWeight: w600, color: primaryColor
@@ -188,12 +188,4 @@ class AppText extends StatelessWidget {
   }
 }
 
-enum _TextVariant {
-  label,
-  value,
-  title,
-  subtitle,
-  body,
-  small,
-  sectionHeader,
-}
+enum _TextVariant { label, value, title, subtitle, body, small, sectionHeader }

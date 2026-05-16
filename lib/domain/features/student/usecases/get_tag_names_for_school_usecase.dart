@@ -6,12 +6,7 @@ class GetTagNamesForSchoolUseCase {
 
   final StudentRepository _repository;
 
-  Future<List<String>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getTagNamesForSchool(
-      schoolCode: schoolCode,
-    );
+  Future<List<String>> call({required String schoolCode}) {
+    return _repository.getTagNamesForSchool(schoolCode: schoolCode);
   }
 }
-

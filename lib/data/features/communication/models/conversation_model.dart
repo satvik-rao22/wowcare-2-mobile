@@ -49,9 +49,13 @@ class ConversationModel extends Conversation {
       participantCount: json['participantCount'] as int? ?? 0,
       unreadCount: json['unreadCount'] as int? ?? 0,
       lastMessagePreview: json['lastMessagePreview'] as String? ?? '',
-      participants: (json['participants'] as List<dynamic>?)
-              ?.map((e) =>
-                  ConversationParticipantModel.fromJson(e as Map<String, dynamic>))
+      participants:
+          (json['participants'] as List<dynamic>?)
+              ?.map(
+                (e) => ConversationParticipantModel.fromJson(
+                  e as Map<String, dynamic>,
+                ),
+              )
               .toList() ??
           [],
     );
@@ -110,8 +114,12 @@ class ConversationParticipantModel extends ConversationParticipant {
       joinedAt: json['joinedAt'] != null
           ? DateTime.parse(json['joinedAt'] as String)
           : DateTime.now(),
-      leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,
-      lastReadAt: json['lastReadAt'] != null ? DateTime.parse(json['lastReadAt'] as String) : null,
+      leftAt: json['leftAt'] != null
+          ? DateTime.parse(json['leftAt'] as String)
+          : null,
+      lastReadAt: json['lastReadAt'] != null
+          ? DateTime.parse(json['lastReadAt'] as String)
+          : null,
       muted: json['muted'] as bool? ?? false,
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       createdAt: json['createdAt'] != null

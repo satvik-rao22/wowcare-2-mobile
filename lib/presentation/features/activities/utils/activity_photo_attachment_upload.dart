@@ -37,11 +37,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
 }) async {
   if (files.isEmpty) return const [];
 
-  final normalizedStudentCodes = studentCodes
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList()
-    ..sort();
+  final normalizedStudentCodes =
+      studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+        ..sort();
   final uploadContextKey = [
     organizationCode.trim(),
     schoolCode.trim(),
@@ -59,8 +57,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   final isShared = bindingMode.trim().toUpperCase() == 'SHARED';
   final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
   final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
-  final missing =
-      files.where((f) => !state.assetCodeByPath.containsKey(f.path)).toList();
+  final missing = files
+      .where((f) => !state.assetCodeByPath.containsKey(f.path))
+      .toList();
 
   if (missing.isNotEmpty) {
     setState(() => setUploading(true));
@@ -84,8 +83,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
             ? photo.uri.pathSegments.last
             : 'photo.jpg';
         final contentLengthBytes = await photo.length();
-        final checksumSha256 =
-            await uploadService.computeFileChecksumSha256(photo);
+        final checksumSha256 = await uploadService.computeFileChecksumSha256(
+          photo,
+        );
         final presign = await uploadService.createAssetPresign(
           sessionCode: uploadSession.sessionCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
@@ -105,10 +105,10 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           onProgress: (_, __, percent) {
             final overallFraction =
                 ((fileIndex - 1) + (percent / 100)) / totalFiles;
-            final overallPercent =
-                (overallFraction * 100).clamp(0, 100).round();
-            final displayPercent =
-                overallPercent >= 100 ? 99 : overallPercent;
+            final overallPercent = (overallFraction * 100)
+                .clamp(0, 100)
+                .round();
+            final displayPercent = overallPercent >= 100 ? 99 : overallPercent;
             if (mounted()) {
               setState(() => onOverallProgressPercent?.call(displayPercent));
             }

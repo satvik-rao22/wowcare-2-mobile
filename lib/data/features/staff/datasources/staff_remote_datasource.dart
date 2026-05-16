@@ -13,7 +13,7 @@ abstract class StaffRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
   });
-  
+
   Future<List<SimpleStaffMemberModel>> getStaffListBySchool({
     required String schoolCode,
   });
@@ -143,9 +143,7 @@ abstract class StaffRemoteDataSource {
 
   /// Fetches the staff sign-in PIN via
   /// `GET /api/v1/staff/staff/my-profile/{staffCode}/pin`.
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  });
+  Future<String> getStaffSignInPin({required String staffCode});
 
   /// Fetches staff important dates via `GET /api/v1/staff-dates/{staffCode}`.
   ///
@@ -332,11 +330,15 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       queryParameters['search'] = search;
     }
     // API expects primaryClassroomCodes and classCodes as array[string]
-    final primaryCodes = primaryClassroomCodes?.where((c) => (c.trim()).isNotEmpty).toList();
+    final primaryCodes = primaryClassroomCodes
+        ?.where((c) => (c.trim()).isNotEmpty)
+        .toList();
     if (primaryCodes != null && primaryCodes.isNotEmpty) {
       queryParameters['primaryClassroomCodes'] = primaryCodes;
     }
-    final allowedCodes = classCodes?.where((c) => (c.trim()).isNotEmpty).toList();
+    final allowedCodes = classCodes
+        ?.where((c) => (c.trim()).isNotEmpty)
+        .toList();
     if (allowedCodes != null && allowedCodes.isNotEmpty) {
       queryParameters['classCodes'] = allowedCodes;
     }
@@ -485,10 +487,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final path = forEditStaff
         ? ApiPaths.staffProfileByCodePath(staffCode)
         : ApiPaths.staffProfilePath(staffCode);
-    final endpoint = ApiPaths.urlWithBase(
-      path,
-      ApiConstants.staffBaseUrl,
-    );
+    final endpoint = ApiPaths.urlWithBase(path, ApiConstants.staffBaseUrl);
 
     final response = await _client.get<dynamic>(endpoint);
 
@@ -531,7 +530,9 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       return inner.trim().isEmpty ? null : inner.trim();
     }
     if (inner is Map<String, dynamic>) {
-      final code = (inner['staffCode'] ?? inner['code'] ?? '').toString().trim();
+      final code = (inner['staffCode'] ?? inner['code'] ?? '')
+          .toString()
+          .trim();
       return code.isEmpty ? null : code;
     }
     // Fallback: unknown shape
@@ -548,10 +549,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       ApiConstants.staffBaseUrl,
     );
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: body,
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: body);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff profile update API response format');
@@ -571,10 +569,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       ApiConstants.staffBaseUrl,
     );
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: body,
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: body);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff address update API response format');
@@ -594,10 +589,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       ApiConstants.staffBaseUrl,
     );
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: body,
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: body);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff profile update API response format');
@@ -636,9 +628,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  }) async {
+  Future<String> getStaffSignInPin({required String staffCode}) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffMyProfilePinPath(staffCode),
       ApiConstants.staffBaseUrl,
@@ -749,10 +739,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final requestBody = dates.map((date) => date.toJson()).toList();
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: requestBody,
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: requestBody);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected important dates API response format');
@@ -775,7 +762,9 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected create school admin user API response format');
+      throw Exception(
+        'Unexpected create school admin user API response format',
+      );
     }
 
     return CreateSchoolUserResponseModel.fromJson(
@@ -874,7 +863,8 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
-          'Unexpected deactivate organization admin API response format');
+        'Unexpected deactivate organization admin API response format',
+      );
     }
 
     final data = response.data! as Map<String, dynamic>;
@@ -899,7 +889,8 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
-          'Unexpected activate organization admin API response format');
+        'Unexpected activate organization admin API response format',
+      );
     }
 
     final data = response.data! as Map<String, dynamic>;
@@ -917,10 +908,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       ApiConstants.staffBaseUrl,
     );
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: body,
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: body);
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected staff schedules API response format');
@@ -948,4 +936,3 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     );
   }
 }
-

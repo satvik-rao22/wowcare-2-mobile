@@ -35,7 +35,6 @@ import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class BathroomActivityScreen extends StatefulWidget {
@@ -49,6 +48,7 @@ class BathroomActivityScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? selectedStudents;
   final bool isEdit;
   final ActivityItem? activityData;
+
   /// Same layout as edit; all fields non-interactive (view mode).
   final bool readOnly;
 
@@ -60,13 +60,13 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   /// Bathroom description is optional.
@@ -105,6 +105,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   bool _loadingActivityDetail = false;
   bool _shownMissingBathroomOptionsWarning = false;
   ActivityItem? _liveActivity;
+
   /// Edit scope: indices checked = only those students' activities are PATCHed.
   /// All unchecked = PATCH every student row (when multiple underlying codes exist).
   final Set<int> _scopedEditStudentIndices = {};
@@ -123,8 +124,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   late final ApproveActivityUseCase _approveActivityUseCase;
   late final RejectActivityUseCase _rejectActivityUseCase;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -149,7 +149,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _activityDate =
+          resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -305,10 +306,11 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _selectedSubType = null;
       return;
     }
-    final matching = _allSubTypeOptions
-        .where((o) => (o.parentOptionCode ?? '').trim() == parent)
-        .toList()
-      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    final matching =
+        _allSubTypeOptions
+            .where((o) => (o.parentOptionCode ?? '').trim() == parent)
+            .toList()
+          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     _availableSubTypes = matching
         .map((o) => (o.optionLabel ?? '').trim())
         .where((s) => s.isNotEmpty)
@@ -372,8 +374,10 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
             final po = (o.parentOptionCode ?? '').trim();
             return po.isEmpty || po == parentCode;
           }).toList();
-    _selectedSubType =
-        _canonicalLabelFromOptions(_selectedSubType, filteredSubOptions);
+    _selectedSubType = _canonicalLabelFromOptions(
+      _selectedSubType,
+      filteredSubOptions,
+    );
   }
 
   String? _optionCodeForBathroomTypeLabel(String label) {
@@ -394,7 +398,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     for (final p in parameters) {
       final n = p.parameterName.toLowerCase();
       if (n.contains('sub')) continue;
-      if ((n.contains('bathroom') || n.contains('potty') || n.contains('diaper')) &&
+      if ((n.contains('bathroom') ||
+              n.contains('potty') ||
+              n.contains('diaper')) &&
           (n.contains('type') || n.contains('kind'))) {
         return p;
       }
@@ -477,18 +483,21 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (withParent.isEmpty) {
       return true;
     }
-    return p.options.any((o) => (o.parentOptionCode ?? '').trim() == bathroomOc);
+    return p.options.any(
+      (o) => (o.parentOptionCode ?? '').trim() == bathroomOc,
+    );
   }
 
   List<String> _labelsForExtraParameterOptions(ActivityTypeParameter p) {
-    final bathroomOc = _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    final bathroomOc = _optionCodeForBathroomTypeLabel(
+      _selectedBathroomType ?? '',
+    );
     if (bathroomOc == null || bathroomOc.isEmpty) return [];
     final opts = p.options.where((o) {
       final po = (o.parentOptionCode ?? '').trim();
       if (po.isEmpty) return true;
       return po == bathroomOc;
-    }).toList()
-      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    }).toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     return opts
         .map((o) => (o.optionLabel ?? '').trim())
         .where((s) => s.isNotEmpty)
@@ -529,8 +538,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
   List<Map<String, dynamic>> _buildExtraParameterValueEntries() {
     final out = <Map<String, dynamic>>[];
-    final bathroomOc =
-        _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    final bathroomOc = _optionCodeForBathroomTypeLabel(
+      _selectedBathroomType ?? '',
+    );
     for (final p in _extraParameters) {
       if (!_extraParameterVisible(p)) continue;
       final dt = (p.dataType ?? '').toUpperCase();
@@ -578,10 +588,13 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   void _prefillExtraFieldValuesFromDetailRows() {
     final rows = _detailParameterRows;
     if (rows.isEmpty || _extraParameters.isEmpty) return;
-    final bathroomOc =
-        _optionCodeForBathroomTypeLabel(_selectedBathroomType ?? '');
+    final bathroomOc = _optionCodeForBathroomTypeLabel(
+      _selectedBathroomType ?? '',
+    );
     for (final p in _extraParameters) {
-      final row = rows.where((r) => (r['parameterCode'] ?? '') == p.code).toList();
+      final row = rows
+          .where((r) => (r['parameterCode'] ?? '') == p.code)
+          .toList();
       if (row.isEmpty) continue;
       final r = row.first;
       final dt = (p.dataType ?? '').toUpperCase();
@@ -667,19 +680,21 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       }
       final resolvedBathroom = bathroom;
       final resolvedSub = sub;
-      final types = List<ActivityTypeParameterOption>.from(resolvedBathroom.options)
-        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final types = List<ActivityTypeParameterOption>.from(
+        resolvedBathroom.options,
+      )..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       final subs = List<ActivityTypeParameterOption>.from(resolvedSub.options)
         ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-      final extras = details.parameters
-          .where(
-            (p) =>
-                p.code != resolvedBathroom.code &&
-                p.code != resolvedSub.code &&
-                !_isBuiltInFormParameter(p),
-          )
-          .toList()
-        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final extras =
+          details.parameters
+              .where(
+                (p) =>
+                    p.code != resolvedBathroom.code &&
+                    p.code != resolvedSub.code &&
+                    !_isBuiltInFormParameter(p),
+              )
+              .toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       setState(() {
         _bathroomTypeParameterCode = resolvedBathroom.code;
         _subTypeParameterCode = resolvedSub.code;
@@ -728,10 +743,10 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -744,10 +759,11 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -755,9 +771,10 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     for (final p in rows) {
       final name = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (name != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -770,17 +787,21 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? bathroomSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
-        if (name.contains('bathroom') || name.contains('potty') || name.contains('diaper')) {
+        if (name.contains('bathroom') ||
+            name.contains('potty') ||
+            name.contains('diaper')) {
           bathroomSetting = s;
           break;
         }
@@ -793,7 +814,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       }
     } catch (e) {
       CoreUtils.logApiError(
-          'Failed to load activity settings for Bathroom: $e');
+        'Failed to load activity settings for Bathroom: $e',
+      );
     }
   }
 
@@ -813,7 +835,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       final label = (o.optionLabel ?? '').trim();
       final oc = (o.optionCode ?? o.code).trim();
       final rc = o.code.trim();
-      final matchesLabel = label.isNotEmpty && label.toLowerCase() == v.toLowerCase();
+      final matchesLabel =
+          label.isNotEmpty && label.toLowerCase() == v.toLowerCase();
       final matchesOptionCode =
           oc.isNotEmpty && oc.toLowerCase() == v.toLowerCase();
       final matchesRawCode =
@@ -828,10 +851,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         }
       }
     }
-    return {
-      'parameterCode': param.code,
-      'value': v,
-    };
+    return {'parameterCode': param.code, 'value': v};
   }
 
   Future<void> _submitCreateActivity() async {
@@ -849,14 +869,14 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (_descriptionRequiredForPotty && description.isEmpty) {
@@ -920,10 +940,12 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -997,8 +1019,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
     try {
       // POST /api/v1/activities — same payload as MedicationActivityScreen (multi-student fan-out via studentCodes).
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1044,8 +1067,10 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final typeEntry =
-          _paramForOptionOrValue(typeParam, _selectedBathroomType!);
+      final typeEntry = _paramForOptionOrValue(
+        typeParam,
+        _selectedBathroomType!,
+      );
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
       if (typeEntry == null ||
           !typeEntry.containsKey('selectedOptionCode') ||
@@ -1101,9 +1126,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -1135,12 +1158,13 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
 
     if (_selectedBathroomType == null) {
@@ -1207,8 +1231,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (staffCode == null || staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Missing staff information. Please re-login and try again.',
+        message: 'Missing staff information. Please re-login and try again.',
         isError: true,
       );
       return;
@@ -1232,8 +1255,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1279,8 +1303,10 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final typeEntry =
-          _paramForOptionOrValue(typeParam, _selectedBathroomType!);
+      final typeEntry = _paramForOptionOrValue(
+        typeParam,
+        _selectedBathroomType!,
+      );
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
       if (typeEntry == null ||
           !typeEntry.containsKey('selectedOptionCode') ||
@@ -1318,8 +1344,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -1360,9 +1386,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (e) {
       if (!mounted) return;
@@ -1448,7 +1472,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+            if (widget.isEdit &&
+                !widget.readOnly &&
+                _selectedStudents.length > 1) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -1471,7 +1497,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                     dropDownName: 'Bathroom Type',
                     selectedValue: _selectedBathroomType,
                     isRequired: true,
-                    isEnabled: _canInteract &&
+                    isEnabled:
+                        _canInteract &&
                         !_loadingBathroomOptions &&
                         _bathroomTypeLabels.isNotEmpty,
                     onSelect: (value) {
@@ -1490,7 +1517,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                     options: _availableSubTypes,
                     dropDownName: 'Sub Type',
                     selectedValue: _selectedSubType,
-                    isEnabled: _canInteract &&
+                    isEnabled:
+                        _canInteract &&
                         _selectedBathroomType != null &&
                         !_loadingBathroomOptions,
                     isRequired: true,
@@ -1518,7 +1546,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
+                          initialDate: formatSelectedDateForDateWidget(
+                            _activityDate,
+                          ),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -1542,8 +1572,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
+                final isAdminPersona = _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
@@ -1556,9 +1585,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                               : _effectiveActivity.staffPresent)
                         : null,
                   ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
+                  isEditable: lockToLoggedInStaff ? false : _canInteract,
                   onStaffChanged: (_, selectedCode) {
                     _staffPresentCode = (selectedCode ?? '').trim().isEmpty
                         ? _staffPresentCode
@@ -1576,8 +1603,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
             if (_showRequireAdminApprovalToggle)
               CustomToggle(
                 label: 'Requires Admin Approval',
@@ -1603,7 +1629,8 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _loadingBathroomOptions ||
                           _loadingActivityDetail,
@@ -1612,15 +1639,16 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _loadingBathroomOptions ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _loadingBathroomOptions ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -1630,8 +1658,9 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
   List<Widget> _buildDynamicExtraFields(ResponsiveHelper responsive) {
     if (_extraParameters.isEmpty) return <Widget>[];
-    final visible =
-        _extraParameters.where(_extraParameterVisible).toList(growable: false);
+    final visible = _extraParameters
+        .where(_extraParameterVisible)
+        .toList(growable: false);
     if (visible.isEmpty) return <Widget>[];
 
     final rows = <Widget>[];
@@ -1683,6 +1712,3 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     return const SizedBox.shrink();
   }
 }
-
-
-

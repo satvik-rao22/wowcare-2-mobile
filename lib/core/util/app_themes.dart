@@ -18,8 +18,6 @@
 //   useMaterial3: true,
 // );
 
-
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
@@ -30,11 +28,31 @@ final ThemeData lightTheme = ThemeData(
   useMaterial3: true,
   fontFamily: 'Manrope',
   textTheme: const TextTheme(
-    displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.primaryColor),
-    headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryColor),
-    titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
-    bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, color: AppColors.primaryColor),
-    bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal, color: AppColors.primaryColor),
+    displayLarge: TextStyle(
+      fontSize: 32,
+      fontWeight: FontWeight.bold,
+      color: AppColors.primaryColor,
+    ),
+    headlineMedium: TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.bold,
+      color: AppColors.primaryColor,
+    ),
+    titleLarge: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: AppColors.primaryColor,
+    ),
+    bodyLarge: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.normal,
+      color: AppColors.primaryColor,
+    ),
+    bodyMedium: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.normal,
+      color: AppColors.primaryColor,
+    ),
   ),
 );
 
@@ -48,12 +66,30 @@ final ThemeData darkTheme = ThemeData(
   useMaterial3: true,
   fontFamily: 'Manrope',
   textTheme: const TextTheme(
-    displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-    headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-    titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
-    bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, color: Colors.white70),
-    bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal, color: Colors.white70),
+    displayLarge: TextStyle(
+      fontSize: 32,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+    ),
+    headlineMedium: TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+    ),
+    titleLarge: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+    ),
+    bodyLarge: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.normal,
+      color: Colors.white70,
+    ),
+    bodyMedium: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.normal,
+      color: Colors.white70,
+    ),
   ),
 );
-
-

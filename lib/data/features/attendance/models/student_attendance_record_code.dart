@@ -25,7 +25,8 @@ String? resolveStudentAttendanceRecordCodeForMutations(
   // Daily mutation APIs expect rowCode from daily view list entry.
   if (code != null) return code;
 
-  final studentAttendanceRecord = s(json['studentAttendanceRecordCode']) ??
+  final studentAttendanceRecord =
+      s(json['studentAttendanceRecordCode']) ??
       s(json['student_attendance_record_code']) ??
       _codeFromNestedObject(json['studentAttendanceRecord']) ??
       _codeFromNestedObject(json['studentAttendance']) ??
@@ -36,12 +37,14 @@ String? resolveStudentAttendanceRecordCodeForMutations(
     return studentAttendanceRecord;
   }
 
-  final attendanceRecord = s(json['attendanceRecordCode']) ??
+  final attendanceRecord =
+      s(json['attendanceRecordCode']) ??
       s(json['attendance_record_code']) ??
       _codeFromNestedObject(json['attendanceRecord']);
   if (attendanceRecord != null) return attendanceRecord;
 
-  final parent = s(json['parentAttendanceRecordCode']) ??
+  final parent =
+      s(json['parentAttendanceRecordCode']) ??
       s(json['parent_attendance_record_code']) ??
       s(json['parentCode']) ??
       s(json['parent_code']) ??
@@ -77,7 +80,8 @@ String? resolveStaffAttendanceRecordCodeForMutations(
   // Daily mutation APIs expect rowCode from daily view list entry.
   if (code != null) return code;
 
-  final staffAttendanceRecord = s(json['staffAttendanceRecordCode']) ??
+  final staffAttendanceRecord =
+      s(json['staffAttendanceRecordCode']) ??
       s(json['staff_attendance_record_code']) ??
       _staffCodeFromNestedObject(json['staffAttendanceRecord']) ??
       _staffCodeFromNestedObject(json['staffAttendance']) ??
@@ -88,12 +92,14 @@ String? resolveStaffAttendanceRecordCodeForMutations(
     return staffAttendanceRecord;
   }
 
-  final attendanceRecord = s(json['attendanceRecordCode']) ??
+  final attendanceRecord =
+      s(json['attendanceRecordCode']) ??
       s(json['attendance_record_code']) ??
       _staffCodeFromNestedObject(json['attendanceRecord']);
   if (attendanceRecord != null) return attendanceRecord;
 
-  final parent = s(json['parentAttendanceRecordCode']) ??
+  final parent =
+      s(json['parentAttendanceRecordCode']) ??
       s(json['parent_attendance_record_code']) ??
       s(json['parentCode']) ??
       s(json['parent_code']) ??

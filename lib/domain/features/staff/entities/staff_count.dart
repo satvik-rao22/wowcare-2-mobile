@@ -14,5 +14,3 @@ class StaffCount extends Equatable {
   @override
   List<Object?> get props => [total, active, upcoming];
 }
-
-

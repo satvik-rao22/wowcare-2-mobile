@@ -11,22 +11,25 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 Future<String?> readCachedGuardianProfileDisplayLine() async {
   final storage = serviceLocator<StorageService>();
   final fn =
-      (await storage.getString(StorageKeys.guardianProfileFirstName) ?? '').trim();
+      (await storage.getString(StorageKeys.guardianProfileFirstName) ?? '')
+          .trim();
   final ln =
-      (await storage.getString(StorageKeys.guardianProfileLastName) ?? '').trim();
+      (await storage.getString(StorageKeys.guardianProfileLastName) ?? '')
+          .trim();
   final line = '$fn $ln'.trim();
   return line.isNotEmpty ? line : null;
 }
 
 String _guardianRecordCodeFromProfileMap(Map<String, dynamic> data) {
-  final code = (data['code'] ??
-          data['guardianCode'] ??
-          data['GuardianCode'] ??
-          data['parentCode'] ??
-          data['ParentCode'] ??
-          '')
-      .toString()
-      .trim();
+  final code =
+      (data['code'] ??
+              data['guardianCode'] ??
+              data['GuardianCode'] ??
+              data['parentCode'] ??
+              data['ParentCode'] ??
+              '')
+          .toString()
+          .trim();
   return code;
 }
 
@@ -38,14 +41,26 @@ Future<void> _persistGuardianProfileSnapshot({
   required String organizationCode,
 }) async {
   final code = _guardianRecordCodeFromProfileMap(data);
-  final fn = (data['firstName'] ??
-          data['FirstName'] ??
-          data['first_name'] ??
-          '')
+  final fn =
+      (data['firstName'] ?? data['FirstName'] ?? data['first_name'] ?? '')
+          .toString()
+          .trim();
+  final ln = (data['lastName'] ?? data['LastName'] ?? data['last_name'] ?? '')
       .toString()
       .trim();
-  final ln =
-      (data['lastName'] ?? data['LastName'] ?? data['last_name'] ?? '')
+  final photoAssetCode =
+      (data['profilePhotoAssetCode'] ??
+              data['photoAssetCode'] ??
+              data['profileImageAssetCode'] ??
+              '')
+          .toString()
+          .trim();
+  final photoUrl =
+      (data['profilePhotoUrl'] ??
+              data['photoUrl'] ??
+              data['profileImageUrl'] ??
+              data['imageUrl'] ??
+              '')
           .toString()
           .trim();
   if (code.isNotEmpty) {
@@ -59,6 +74,11 @@ Future<void> _persistGuardianProfileSnapshot({
   }
   await storage.saveString(StorageKeys.guardianProfileFirstName, fn);
   await storage.saveString(StorageKeys.guardianProfileLastName, ln);
+  await storage.saveString(
+    StorageKeys.guardianProfileAssetCode,
+    photoAssetCode,
+  );
+  await storage.saveString(StorageKeys.guardianProfilePhotoUrl, photoUrl);
 }
 
 /// Always calls `GET /api/v1/guardian/profile` (when persona + context allow) and
@@ -89,7 +109,8 @@ Future<String> refreshGuardianProfileSnapshotForLoggedInUser() async {
   }
 
   final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
-  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+      .trim();
   final organizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
 
@@ -154,7 +175,8 @@ Future<String> resolveGuardianCodeForLoggedInUser() async {
   }
 
   final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
-  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+      .trim();
   final organizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
 
@@ -162,13 +184,15 @@ Future<String> resolveGuardianCodeForLoggedInUser() async {
     return '';
   }
 
-  final cached = (await storage.getString(StorageKeys.guardianCode) ?? '').trim();
+  final cached = (await storage.getString(StorageKeys.guardianCode) ?? '')
+      .trim();
   final cachedUser =
       (await storage.getString(StorageKeys.guardianCodeUser) ?? '').trim();
   final cachedSchool =
       (await storage.getString(StorageKeys.guardianCodeSchool) ?? '').trim();
   final cachedOrg =
-      (await storage.getString(StorageKeys.guardianCodeOrganization) ?? '').trim();
+      (await storage.getString(StorageKeys.guardianCodeOrganization) ?? '')
+          .trim();
 
   if (cached.isNotEmpty &&
       cachedUser == userCode &&
@@ -224,8 +248,9 @@ String _readGuardianCodeFromLoginContext(Map<String, dynamic>? context) {
     for (final role in rolesRaw) {
       if (role is! Map) continue;
       final map = Map<String, dynamic>.from(role);
-      final roleName =
-          (map['role'] ?? map['Role'] ?? '').toString().toUpperCase();
+      final roleName = (map['role'] ?? map['Role'] ?? '')
+          .toString()
+          .toUpperCase();
       if (!roleName.contains('PARENT') && !roleName.contains('GUARDIAN')) {
         continue;
       }

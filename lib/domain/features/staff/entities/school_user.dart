@@ -17,6 +17,7 @@ class SchoolUser {
   });
 
   final String userCode;
+
   /// Staff code from API (e.g. STF_4BB1D2CA-C); may be null for admin-only create.
   final String? staffCode;
   final String firstName;
@@ -34,5 +35,3 @@ class SchoolUser {
   final String? primaryClassroomCode;
   final List<String>? allowedClassroomCodes;
 }
-
-

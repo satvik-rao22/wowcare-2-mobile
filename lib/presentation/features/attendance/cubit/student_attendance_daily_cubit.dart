@@ -8,25 +8,30 @@ import '../../../../domain/features/attendance/usecases/get_student_attendance_e
 
 part 'student_attendance_daily_state.dart';
 
-class StudentAttendanceDailyCubit
-    extends Cubit<StudentAttendanceDailyState> {
+class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
   StudentAttendanceDailyCubit({
     required GetStudentAttendanceDailyUseCase getStudentAttendanceDailyUseCase,
     required GetStudentAttendanceExpectedSummaryUseCase
-        getStudentAttendanceExpectedSummaryUseCase,
+    getStudentAttendanceExpectedSummaryUseCase,
     required AttendanceRepository repository,
-  })  : _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
-        _getStudentAttendanceExpectedSummaryUseCase =
-            getStudentAttendanceExpectedSummaryUseCase,
-        _repository = repository,
-        super(const StudentAttendanceDailyState.initial());
+  }) : _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
+       _getStudentAttendanceExpectedSummaryUseCase =
+           getStudentAttendanceExpectedSummaryUseCase,
+       _repository = repository,
+       super(const StudentAttendanceDailyState.initial());
 
   final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   final GetStudentAttendanceExpectedSummaryUseCase
-      _getStudentAttendanceExpectedSummaryUseCase;
+  _getStudentAttendanceExpectedSummaryUseCase;
   final AttendanceRepository _repository;
 
   static const int _pageSize = 10;
+
+  String? _classroomCodeForSummary(List<String>? classroomCodes) {
+    if (classroomCodes == null || classroomCodes.isEmpty) return null;
+    final code = classroomCodes.first.trim();
+    return code.isEmpty ? null : code;
+  }
 
   // Initial load: Try cache first, then API
   Future<void> loadInitial({
@@ -39,8 +44,8 @@ class StudentAttendanceDailyCubit
     String? search,
   }) async {
     final dateString = _formatDate(attendanceDate);
-    final hasServerTimeFilter = (signInAtFilter != null &&
-            signInAtFilter.trim().isNotEmpty) ||
+    final hasServerTimeFilter =
+        (signInAtFilter != null && signInAtFilter.trim().isNotEmpty) ||
         (signOutAtFilter != null && signOutAtFilter.trim().isNotEmpty);
 
     if (hasServerTimeFilter) {
@@ -59,46 +64,51 @@ class StudentAttendanceDailyCubit
     // Try cache first
     final cached = await (_repository is AttendanceRepositoryWithCache
         ? (_repository as AttendanceRepositoryWithCache)
-            .loadCachedStudentAttendanceDaily(
-          dateString,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: search,
-        )
+              .loadCachedStudentAttendanceDaily(
+                dateString,
+                classroomCodes: classroomCodes,
+                tagCodes: tagCodes,
+                search: search,
+              )
         : Future.value(null));
 
     if (cached != null && !isClosed) {
       try {
-        final summary =
-            await _getStudentAttendanceExpectedSummaryUseCase();
+        final summary = await _getStudentAttendanceExpectedSummaryUseCase(
+          classroomCode: _classroomCodeForSummary(classroomCodes),
+        );
         if (isClosed) return;
-        emit(StudentAttendanceDailyState.loaded(
-          items: cached.items,
-          currentPage: 0,
-          hasMore: cached.hasMore,
-          isFromCache: true,
-          attendanceDate: attendanceDate,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: search,
-          expectedCount: summary.expected,
-          presentCount: summary.present,
-          absentCount: summary.absent,
-          signedOutCount: summary.signOut,
-          notMarkedCount: summary.notMarked,
-        ));
+        emit(
+          StudentAttendanceDailyState.loaded(
+            items: cached.items,
+            currentPage: 0,
+            hasMore: cached.hasMore,
+            isFromCache: true,
+            attendanceDate: attendanceDate,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: search,
+            expectedCount: summary.expected,
+            presentCount: summary.present,
+            absentCount: summary.absent,
+            signedOutCount: summary.signOut,
+            notMarkedCount: summary.notMarked,
+          ),
+        );
       } catch (_) {
         if (isClosed) return;
-        emit(StudentAttendanceDailyState.loaded(
-          items: cached.items,
-          currentPage: 0,
-          hasMore: cached.hasMore,
-          isFromCache: true,
-          attendanceDate: attendanceDate,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: search,
-        ));
+        emit(
+          StudentAttendanceDailyState.loaded(
+            items: cached.items,
+            currentPage: 0,
+            hasMore: cached.hasMore,
+            isFromCache: true,
+            attendanceDate: attendanceDate,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: search,
+          ),
+        );
       }
       return; // Don't hit API if cache is valid
     }
@@ -129,19 +139,21 @@ class StudentAttendanceDailyCubit
 
     final dateString = _formatDate(attendanceDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      attendanceDate: attendanceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      signInAtFilter: signInAtFilter,
-      signOutAtFilter: signOutAtFilter,
-      isExpectedNotMarked: isExpectedNotMarked,
-      search: search,
-      isSummaryLoading: true,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        attendanceDate: attendanceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
+        isSummaryLoading: true,
+      ),
+    );
 
     try {
       final firstPage = await _getStudentAttendanceDailyUseCase(
@@ -155,38 +167,43 @@ class StudentAttendanceDailyCubit
         page: 0,
         size: _pageSize,
       );
-      final summary =
-          await _getStudentAttendanceExpectedSummaryUseCase();
+      final summary = await _getStudentAttendanceExpectedSummaryUseCase(
+        classroomCode: _classroomCodeForSummary(classroomCodes),
+      );
 
       if (isClosed) return;
 
-      emit(StudentAttendanceDailyState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        isFromCache: false,
-        attendanceDate: attendanceDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        isExpectedNotMarked: isExpectedNotMarked,
-        search: search,
-        expectedCount: summary.expected,
-        presentCount: summary.present,
-        absentCount: summary.absent,
-        signedOutCount: summary.signOut,
-        notMarkedCount: summary.notMarked,
-        isSummaryLoading: false,
-      ));
+      emit(
+        StudentAttendanceDailyState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isFromCache: false,
+          attendanceDate: attendanceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          isExpectedNotMarked: isExpectedNotMarked,
+          search: search,
+          expectedCount: summary.expected,
+          presentCount: summary.present,
+          absentCount: summary.absent,
+          signedOutCount: summary.signOut,
+          notMarkedCount: summary.notMarked,
+          isSummaryLoading: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        isSummaryLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isSummaryLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -216,18 +233,22 @@ class StudentAttendanceDailyCubit
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items], // Append
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items], // Append
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 

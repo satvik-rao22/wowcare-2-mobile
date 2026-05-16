@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -95,9 +94,7 @@ class _StudentSelectionSignOutFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: true,
-    );
+    _classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {

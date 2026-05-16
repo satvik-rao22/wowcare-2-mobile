@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
-
 class PostAddStudentBottomSheet extends StatelessWidget {
   final String studentName;
   final VoidCallback onLater;
@@ -70,7 +69,9 @@ class PostAddStudentBottomSheet extends StatelessWidget {
               ),
               SizedBox(height: verticalPadding),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'Do you want to add additional details for this student now?',
                   style: TextStyle(
@@ -109,13 +110,17 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2 - 1,
+                            ),
                           ),
                           child: TextButton(
                             onPressed: onLater,
                             style: TextButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                                borderRadius: BorderRadius.circular(
+                                  borderRadius / 2 - 1,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -145,7 +150,9 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                         onPressed: onYes,
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -170,5 +177,3 @@ class PostAddStudentBottomSheet extends StatelessWidget {
     );
   }
 }
-
-

@@ -3,7 +3,6 @@ import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/debug_defaults.dart';
 
 /// Interceptor that adds Authorization Bearer token to all requests.
 /// Skips auth for login, forgot-password, and other public endpoints.
@@ -34,7 +33,8 @@ class AuthInterceptor extends Interceptor {
     final existingAuth =
         options.headers['Authorization'] ?? options.headers['authorization'];
 
-    final token = (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final token = (await _storage.getString(StorageKeys.accessToken) ?? '')
+        .trim();
 
     // Always add baseline JSON headers. Only attach Authorization when missing.
     final baseHeaders = ApiHeaders.authorizedJson(token);
@@ -43,7 +43,8 @@ class AuthInterceptor extends Interceptor {
         options.headers['Content-Type'] ??
         options.headers['content-type'] ??
         baseHeaders['Content-Type'];
-    options.headers['accept'] = options.headers['accept'] ?? baseHeaders['accept'];
+    options.headers['accept'] =
+        options.headers['accept'] ?? baseHeaders['accept'];
     if ((existingAuth == null || existingAuth.toString().trim().isEmpty) &&
         baseHeaders['Authorization'] != null) {
       options.headers['Authorization'] = baseHeaders['Authorization'];
@@ -52,19 +53,16 @@ class AuthInterceptor extends Interceptor {
     // All services now require org/school scoping headers.
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    final schoolCodeFromQuery =
-        (options.queryParameters['schoolCode'] ?? '').toString().trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    final schoolCodeFromQuery = (options.queryParameters['schoolCode'] ?? '')
+        .toString()
+        .trim();
 
-    final resolvedOrgCode = organizationCode.isNotEmpty
-        ? organizationCode
-        : DebugDefaults.organizationCode;
+    final resolvedOrgCode = organizationCode;
     final resolvedSchoolCode = schoolCode.isNotEmpty
         ? schoolCode
-        : (schoolCodeFromQuery.isNotEmpty
-              ? schoolCodeFromQuery
-              : DebugDefaults.schoolCode);
+        : schoolCodeFromQuery;
 
     if (resolvedOrgCode.isNotEmpty) {
       options.headers['X-Organization-Code'] = resolvedOrgCode;

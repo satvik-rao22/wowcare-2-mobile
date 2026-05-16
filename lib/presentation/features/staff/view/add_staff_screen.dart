@@ -74,6 +74,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   /// True when the *logged-in* user has an admin persona (e.g. SCHOOL_ADMIN / ORGANIZATION_ADMIN).
   /// Used to make classroom fields read-only in edit flow for admin persona users.
   bool _isLoggedInAdminPersona = false;
+  Set<String> _loggedInStaffAllowedClassroomCodes = <String>{};
 
   OverlayEntry? _overlayEntry;
   String? _warningMessage;
@@ -128,8 +129,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         _phoneController.text = widget.initialPhone!.trim();
       }
       _selectedRole = widget.initialRole;
-      _selectedAllowedClassroomNames =
-          List<String>.from(widget.initialAllowedClassroomCodes ?? []);
+      _selectedAllowedClassroomNames = List<String>.from(
+        widget.initialAllowedClassroomCodes ?? [],
+      );
       _selectedPrimaryClassroomName = widget.initialPrimaryClassroom;
       _selectedStatus = widget.initialStatus;
     }
@@ -144,9 +146,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     try {
       final storage = serviceLocator<StorageService>();
       // Prefer staffType from profile.
-      String staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      String staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
+      bool isAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
 
       // Fallback to roles JSON when staffType is not available.
       if (!isAdmin) {
@@ -155,9 +159,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           try {
             final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
             for (final r in roles) {
-              final roleCode =
-                  ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
-              if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+              final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+                  .toString()
+                  .toUpperCase();
+              if (roleCode == 'SCHOOL_ADMIN' ||
+                  roleCode == 'ORGANIZATION_ADMIN') {
                 isAdmin = true;
                 break;
               }
@@ -266,7 +272,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     if (!_isAdminSelected && _selectedAllowedClassroomNames.isEmpty) {
       setState(() {
-        _allowedClassroomsError = 'Please select at least one allowed classroom';
+        _allowedClassroomsError =
+            'Please select at least one allowed classroom';
       });
       CoreUtils.showTopSnackBar(
         context: context,
@@ -300,7 +307,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Additional validations based on role
     if (_isAdminSelected) {
       // Ensure designation picked from admin list
-      if (_selectedDesignation == null || !_adminDesignationOptions.contains(_selectedDesignation)) {
+      if (_selectedDesignation == null ||
+          !_adminDesignationOptions.contains(_selectedDesignation)) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please select a valid designation',
@@ -315,7 +323,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       }
     } else {
       // Staff designation validation
-      if (_selectedDesignation == null || !_staffDesignationOptions.contains(_selectedDesignation)) {
+      if (_selectedDesignation == null ||
+          !_staffDesignationOptions.contains(_selectedDesignation)) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please select a valid designation',
@@ -329,9 +338,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final displayName = _composeStaffName();
     final email = _emailController.text.trim();
     final mobileDigits = _phoneController.text.trim().replaceAll(
-          RegExp(r'\D'),
-          '',
-        );
+      RegExp(r'\D'),
+      '',
+    );
 
     final isAdmin = _isAdminSelected;
     final role = isAdmin ? 'SCHOOL_ADMIN' : 'STAFF';
@@ -349,20 +358,28 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Block submit if classroom codes could not be resolved (API needs valid codes)
     if (primaryClassroomCode.isEmpty) {
       if (!_isAdminSelected) {
-        setState(() => _primaryClassroomError = 'Please select a primary classroom');
+        setState(
+          () => _primaryClassroomError = 'Please select a primary classroom',
+        );
       }
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Could not resolve classroom code. Please refresh the page and try again.',
+        message:
+            'Could not resolve classroom code. Please refresh the page and try again.',
         isError: true,
       );
       return;
     }
-    if (!_isAdminSelected && allowedClassroomCodes.isEmpty && _selectedAllowedClassroomNames.isNotEmpty) {
-      setState(() => _allowedClassroomsError = 'Could not resolve classroom codes');
+    if (!_isAdminSelected &&
+        allowedClassroomCodes.isEmpty &&
+        _selectedAllowedClassroomNames.isNotEmpty) {
+      setState(
+        () => _allowedClassroomsError = 'Could not resolve classroom codes',
+      );
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Could not resolve classroom codes. Please refresh the page and try again.',
+        message:
+            'Could not resolve classroom codes. Please refresh the page and try again.',
         isError: true,
       );
       return;
@@ -394,9 +411,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   Future<void> _loadClassrooms() async {
     // Load classrooms via cubit using the classroom-only API
     // (maps to type=CLASSROOM in the backend URL for all roles).
-    _classroomCubit!.loadActiveClassrooms(
-      onlyTypeClassroom: true,
-    );
+    _classroomCubit!.loadActiveClassrooms(onlyTypeClassroom: true);
   }
 
   void _updateClassroomsFromCubitState(ClassroomState state) {
@@ -429,8 +444,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
       if (_isAdminSelected) {
         _selectedAllowedClassroomNames = List<String>.from(_classrooms);
-        if (_classrooms.isNotEmpty &&
-            _selectedPrimaryClassroomName == null) {
+        if (_classrooms.isNotEmpty && _selectedPrimaryClassroomName == null) {
           _selectedPrimaryClassroomName = _classrooms.first;
         }
       }
@@ -440,7 +454,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   /// Maps UI designation values to API uppercase values
   String _mapDesignationToApiValue(String? uiDesignation) {
     if (uiDesignation == null) return '';
-    
+
     // Admin designations mapping
     const adminMapping = {
       'Director': 'DIRECTOR',
@@ -448,7 +462,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       'Assistant Director': 'ASSISTANT_DIRECTOR',
       'Owner': 'OWNER',
     };
-    
+
     // Staff designations mapping
     const staffMapping = {
       'Lead teacher': 'LEAD_TEACHER',
@@ -456,11 +470,11 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       'Assistant teacher': 'ASSISTANT_TEACHER',
       'Floater': 'FLOATER',
     };
-    
+
     // Check admin mapping first, then staff mapping
-    return adminMapping[uiDesignation] ?? 
-           staffMapping[uiDesignation] ?? 
-           uiDesignation.toUpperCase().replaceAll(' ', '_');
+    return adminMapping[uiDesignation] ??
+        staffMapping[uiDesignation] ??
+        uiDesignation.toUpperCase().replaceAll(' ', '_');
   }
 
   void _trimAllInputs() {
@@ -475,7 +489,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     _overlayEntry = null;
   }
 
-
   String? _validateEmail(String? value) {
     // Debug logging to diagnose email validation issues
     final raw = value ?? '';
@@ -483,7 +496,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     print('[Email Validation] raw: "$raw"');
     print('[Email Validation] trimmed: "$trimmed"');
     print('[Email Validation] strict regex: ${_emailRegexStrict.pattern}');
-    print('[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}');
+    print(
+      '[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}',
+    );
 
     if (trimmed.isEmpty) {
       print('[Email Validation] FAIL: empty');
@@ -491,12 +506,19 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     }
 
     final hasAt = trimmed.contains('@');
-    final hasDot = trimmed.contains('.') && trimmed.lastIndexOf('.') > trimmed.indexOf('@');
+    final hasDot =
+        trimmed.contains('.') &&
+        trimmed.lastIndexOf('.') > trimmed.indexOf('@');
     final strictMatch = _emailRegexStrict.hasMatch(trimmed);
     final permissiveMatch = _emailRegexPermissive.hasMatch(trimmed);
-    final matches = strictMatch || permissiveMatch || (hasAt && hasDot && trimmed.length >= 6);
+    final matches =
+        strictMatch ||
+        permissiveMatch ||
+        (hasAt && hasDot && trimmed.length >= 6);
     print('[Email Validation] hasAt: $hasAt, hasDotAfterAt: $hasDot');
-    print('[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch');
+    print(
+      '[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch',
+    );
     print('[Email Validation] final hasMatch: $matches');
     if (!matches) {
       // Pinpoint common issues
@@ -539,8 +561,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    final bool isEditAdminReadOnly =
-        widget.isEdit && _isLoggedInAdminPersona;
+    final bool isEditAdminReadOnly = widget.isEdit && _isLoggedInAdminPersona;
 
     // Get ClassroomCubit from context if available, otherwise use the one from service locator
     ClassroomCubit classroomCubit;
@@ -558,437 +579,555 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       child: BlocProvider<CreateSchoolUserCubit>.value(
         value: _createSchoolUserCubit,
         child: BlocBuilder<ClassroomCubit, ClassroomState>(
-        builder: (context, classroomState) {
-          // Update local caches once classrooms are loaded from cubit.
-          // We no longer rely on any prefetched classroom list for this screen.
-          if (!classroomState.isLoading &&
-              classroomState.classrooms.isNotEmpty &&
-              _classrooms.isEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _updateClassroomsFromCubitState(classroomState);
-            });
-          } else if (classroomState.errorMessage != null && _classrooms.isEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _updateClassroomsFromCubitState(classroomState);
-            });
-          }
+          builder: (context, classroomState) {
+            // Update local caches once classrooms are loaded from cubit.
+            // We no longer rely on any prefetched classroom list for this screen.
+            if (!classroomState.isLoading &&
+                classroomState.classrooms.isNotEmpty &&
+                _classrooms.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _updateClassroomsFromCubitState(classroomState);
+              });
+            } else if (classroomState.errorMessage != null &&
+                _classrooms.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _updateClassroomsFromCubitState(classroomState);
+              });
+            }
 
-          return BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
-            listener: (context, state) {
-              if (!mounted) return;
+            return BlocListener<CreateSchoolUserCubit, CreateSchoolUserState>(
+              listener: (context, state) {
+                if (!mounted) return;
 
-              if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-                CoreUtils.logApiError(state.errorMessage!);
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: state.errorMessage!,
-                  isError: true,
-                );
-                return;
-              }
+                if (state.errorMessage != null &&
+                    state.errorMessage!.isNotEmpty) {
+                  CoreUtils.logApiError(state.errorMessage!);
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: state.errorMessage!,
+                    isError: true,
+                  );
+                  return;
+                }
 
-              final result = state.result;
-              if (result != null) {
-                final staffName = _composeStaffName();
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: result.message.isNotEmpty
-                      ? result.message
-                      : 'User created successfully',
-                  isSuccess: true,
-                );
-                // Prefill from API response so edit profile shows exactly what was saved
-                final u = result.user;
-                Navigator.pop(context, {
-                  'showPostAddPrompt': true,
-                  'staffName': staffName,
-                  'userCode': u.userCode,
-                  'staffCode': u.staffCode ?? u.userCode,
-                  'initialFirstName': u.firstName,
-                  'initialLastName': u.lastName,
-                  'initialEmail': u.email,
-                  'initialDesignation': u.designation,
-                  'initialPhoneNumber': u.mobile,
-                  'initialPrimaryClassroom': _selectedPrimaryClassroomName,
-                  'initialAllowedClassrooms': List<String>.from(_selectedAllowedClassroomNames),
-                  'initialClassroomNames': List<String>.from(_classrooms),
-                  'initialClassroomCodeByName': Map<String, String>.from(_classroomCodeByName),
-                  'initialStatus': u.status ?? _selectedStatus,
-                });
-              }
-            },
-            child: GestureDetector(
-              onTap: () {
-                FocusManager.instance.primaryFocus?.unfocus();
-                _removeDropdownOverlay();
+                final result = state.result;
+                if (result != null) {
+                  final staffName = _composeStaffName();
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: result.message.isNotEmpty
+                        ? result.message
+                        : 'User created successfully',
+                    isSuccess: true,
+                  );
+                  // Prefill from API response so edit profile shows exactly what was saved
+                  final u = result.user;
+                  Navigator.pop(context, {
+                    'showPostAddPrompt': true,
+                    'staffName': staffName,
+                    'userCode': u.userCode,
+                    'staffCode': u.staffCode ?? u.userCode,
+                    'initialFirstName': u.firstName,
+                    'initialLastName': u.lastName,
+                    'initialEmail': u.email,
+                    'initialDesignation': u.designation,
+                    'initialPhoneNumber': u.mobile,
+                    'initialPrimaryClassroom': _selectedPrimaryClassroomName,
+                    'initialAllowedClassrooms': List<String>.from(
+                      _selectedAllowedClassroomNames,
+                    ),
+                    'initialClassroomNames': List<String>.from(_classrooms),
+                    'initialClassroomCodeByName': Map<String, String>.from(
+                      _classroomCodeByName,
+                    ),
+                    'initialStatus': u.status ?? _selectedStatus,
+                  });
+                }
               },
-              child: Scaffold(
-                key: _scaffoldKey,
-                backgroundColor: Colors.white,
-                appBar: const CustomAppBar(hasBackButton: true),
-                body: Stack(
-                  children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            Column(
-              children: [
-                  const SizedBox(height: 16),
-                Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: responsive.horizontalSpacing),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                      widget.isEdit ? "Edit Staff" : "Add Staff",
-                  style: TextStyle(
-                    fontFamily: "Manrope",
-                          fontSize: responsive.titleFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
-                  ),
-                ),
-                    ),
-                  ),
-                  SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                  Expanded(
-                    child: Container(
-                      width: responsive.containerWidth,
-                      margin: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing),
-                      padding:
-                          EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.all(
-                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
+              child: GestureDetector(
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  _removeDropdownOverlay();
+                },
+                child: Scaffold(
+                  key: _scaffoldKey,
+                  backgroundColor: Colors.white,
+                  appBar: const CustomAppBar(hasBackButton: true),
+                  body: Stack(
                     children: [
-                          if (_warningMessage != null)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                border: Border.all(color: Colors.orange.shade100),
-                                borderRadius: BorderRadius.circular(8),
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.buildScaffoldGradient(),
+                          ),
+                          child: Image.asset(
+                            MediaRes.wowcareMobileBg,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: responsive.horizontalSpacing,
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                widget.isEdit ? "Edit Staff" : "Add Staff",
+                                style: TextStyle(
+                                  fontFamily: "Manrope",
+                                  fontSize: responsive.titleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff573353),
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.warning, color: Colors.orange),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _warningMessage!,
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                            ),
+                          ),
+                          SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                          Expanded(
+                            child: Container(
+                              width: responsive.containerWidth,
+                              margin: EdgeInsets.symmetric(
+                                horizontal: responsive.horizontalSpacing,
+                              ),
+                              padding: EdgeInsets.all(
+                                responsive.isTablet ? 32.0 : 16.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(
+                                    responsive.isTablet ? 40.0 : 24.0,
                                   ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _warningMessage = null;
-                                      });
-                                    },
-                                    child: const Icon(Icons.close, color: Colors.orange, size: 20),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                            ),
-                          Expanded(
-                            child: ListView(
-                              padding: EdgeInsets.zero,
-                              children: [
-                          // Role dropdown (Admin / Staff) - first field
-                          CustomDropdown(
-                            label: "Role",
-                            hintText: 'Select',
-                            items: _roleOptions,
-                            selectedItem: _selectedRole,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            ),
-                            showAsterisk: true,
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) {
-                              if (val == null) return;
-                              setState(() {
-                                _selectedRole = val;
-                                if (_isAdminSelected) {
-                                  _selectedAllowedClassroomNames = List<String>.from(_classrooms);
-                                  if (_classrooms.isNotEmpty) {
-                                    _selectedPrimaryClassroomName = _classrooms.first;
-                                  }
-                                } else {
-                                  _selectedAllowedClassroomNames = [];
-                                  _selectedPrimaryClassroomName = null;
-                                }
-                              });
-                              // Reload classrooms for the selected role.
-                              // For both Admin and Staff, use type=CLASSROOM
-                              // so the dropdown is populated only with classrooms.
-                              final classroomCubit = context.read<ClassroomCubit>();
-                              classroomCubit.loadActiveClassrooms(
-                                force: true,
-                                onlyTypeClassroom: true,
-                              );
-                            },
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          _buildRowInputs(
-                            context,
-                            "First Name",
-                            "Last Name",
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          _buildInputField(
-                            "Email",
-                            "E.g. name@example.com",
-                            _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            inputFormatters: [TrimFormatter()],
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          _buildInputField(
-                            "Phone Number",
-                            "E.g. (000) 000-0000",
-                            _phoneController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
-                              PhoneNumberFormatter(),
-                              TrimFormatter(),
-                            ],
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          // Designation
-                          CustomDropdown(
-                            label: "Designation",
-                            hintText: 'Select',
-                            items: _isAdminSelected
-                                ? _adminDesignationOptions
-                                : _staffDesignationOptions,
-                            selectedItem: _selectedDesignation,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            ),
-                            showAsterisk: true,
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) => setState(() => _selectedDesignation = val ?? _selectedDesignation),
-                          ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          // Classroom Selection Widget
-                          if (!_isAdminSelected)
-                            Column(
-                              children: [
-                                // Allowed Classrooms
-                                Opacity(
-                                  opacity: isEditAdminReadOnly ? 0.6 : 1.0,
-                                  child: IgnorePointer(
-                                    ignoring: isEditAdminReadOnly,
-                                    child: ClassroomSelectionWidgetExact(
-                                      primaryClassroom: _selectedPrimaryClassroomName,
-                                      allowedClassrooms: _selectedAllowedClassroomNames,
-                                      availableClassrooms: _classrooms,
-                                      onPrimaryClassroomChanged: (classroom) {
-                                        setState(() {
-                                          _selectedPrimaryClassroomName = classroom;
-                                          _primaryClassroomError = null;
-                                        });
-                                      },
-                                      onAllowedClassroomsChanged: (classrooms) {
-                                        setState(() {
-                                          _selectedAllowedClassroomNames = classrooms;
-                                          _allowedClassroomsError = null;
-                                          // Clear primary classroom if it's not in allowed classrooms anymore
-                                          if (_selectedPrimaryClassroomName != null && 
-                                              !classrooms.contains(_selectedPrimaryClassroomName)) {
-                                            _selectedPrimaryClassroomName = null;
-                                          }
-                                        });
-                                      },
-                                      primaryClassroomError: _primaryClassroomError,
-                                      allowedClassroomsError: _allowedClassroomsError,
-                                      showPrimaryClassroom: false, // Hide primary classroom section
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                // Primary Classroom Dropdown
-                                Stack(
-                                  children: [
-                                    Opacity(
-                                      opacity: isEditAdminReadOnly ? 0.6 : 1.0,
-                                      child: CustomDropdown(
-                                        label: "Primary Classroom",
-                                        hintText: 'Select',
-                                        items: _selectedAllowedClassroomNames,
-                                        selectedItem: _selectedPrimaryClassroomName,
-                                        labelStyle: TextStyle(
-                                          fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
-                                          fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                              child: Column(
+                                children: [
+                                  if (_warningMessage != null)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade50,
+                                        border: Border.all(
+                                          color: Colors.orange.shade100,
                                         ),
-                                        showAsterisk: true,
-                                        labelBottomSpacing:
-                                            responsive.isTablet ? 8.0 : 6.0,
-                                        fieldHeight:
-                                            responsive.isTablet ? 64.0 : 56.0, // Bigger height
-                                        onSelect: (val) {
-                                          if (val == null || isEditAdminReadOnly) return;
-                                          setState(() {
-                                            _selectedPrimaryClassroomName = val;
-                                            _primaryClassroomError = null;
-                                          });
-                                        },
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.warning,
+                                            color: Colors.orange,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _warningMessage!,
+                                              style: const TextStyle(
+                                                color: Colors.orange,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _warningMessage = null;
+                                              });
+                                            },
+                                            child: const Icon(
+                                              Icons.close,
+                                              color: Colors.orange,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    if (_selectedAllowedClassroomNames.isEmpty && !isEditAdminReadOnly)
-                                      Positioned.fill(
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () {
-                                            CoreUtils.showTopSnackBar(
-                                              context: context,
-                                              message:
-                                                  'Please select Allowed Classrooms first',
-                                              isError: true,
+                                  Expanded(
+                                    child: ListView(
+                                      padding: EdgeInsets.zero,
+                                      children: [
+                                        // Role dropdown (Admin / Staff) - first field
+                                        CustomDropdown(
+                                          label: "Role",
+                                          hintText: 'Select',
+                                          items: _roleOptions,
+                                          selectedItem: _selectedRole,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: "Manrope",
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xff573353),
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) {
+                                            if (val == null) return;
+                                            setState(() {
+                                              _selectedRole = val;
+                                              if (_isAdminSelected) {
+                                                _selectedAllowedClassroomNames =
+                                                    List<String>.from(
+                                                      _classrooms,
+                                                    );
+                                                if (_classrooms.isNotEmpty) {
+                                                  _selectedPrimaryClassroomName =
+                                                      _classrooms.first;
+                                                }
+                                              } else {
+                                                _selectedAllowedClassroomNames =
+                                                    [];
+                                                _selectedPrimaryClassroomName =
+                                                    null;
+                                              }
+                                            });
+                                            // Reload classrooms for the selected role.
+                                            // For both Admin and Staff, use type=CLASSROOM
+                                            // so the dropdown is populated only with classrooms.
+                                            final classroomCubit = context
+                                                .read<ClassroomCubit>();
+                                            classroomCubit.loadActiveClassrooms(
+                                              force: true,
+                                              onlyTypeClassroom: true,
                                             );
                                           },
                                         ),
-                                      ),
-                                    if (isEditAdminReadOnly)
-                                      const Positioned.fill(
-                                        child: IgnorePointer(
-                                          ignoring: false,
-                                          child: SizedBox.expand(),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          else
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.info_outline,
-                                    size: 16,
-                                    color: Color(0xff573353),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Note: All classrooms are allowed for admin users',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: 'Manrope',
-                                        color: const Color(0xff573353),
-                                        // fontStyle: FontStyle.italic,
-                                      ),
+                                        _buildRowInputs(
+                                          context,
+                                          "First Name",
+                                          "Last Name",
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        _buildInputField(
+                                          "Email",
+                                          "E.g. name@example.com",
+                                          _emailController,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          inputFormatters: [TrimFormatter()],
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        _buildInputField(
+                                          "Phone Number",
+                                          "E.g. (000) 000-0000",
+                                          _phoneController,
+                                          keyboardType: TextInputType.phone,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                            LengthLimitingTextInputFormatter(
+                                              10,
+                                            ),
+                                            PhoneNumberFormatter(),
+                                            TrimFormatter(),
+                                          ],
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Designation
+                                        CustomDropdown(
+                                          label: "Designation",
+                                          hintText: 'Select',
+                                          items: _isAdminSelected
+                                              ? _adminDesignationOptions
+                                              : _staffDesignationOptions,
+                                          selectedItem: _selectedDesignation,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: "Manrope",
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xff573353),
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) => setState(
+                                            () => _selectedDesignation =
+                                                val ?? _selectedDesignation,
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Classroom Selection Widget
+                                        if (!_isAdminSelected)
+                                          Column(
+                                            children: [
+                                              // Allowed Classrooms
+                                              Opacity(
+                                                opacity: isEditAdminReadOnly
+                                                    ? 0.6
+                                                    : 1.0,
+                                                child: IgnorePointer(
+                                                  ignoring: isEditAdminReadOnly,
+                                                  child: ClassroomSelectionWidgetExact(
+                                                    primaryClassroom:
+                                                        _selectedPrimaryClassroomName,
+                                                    allowedClassrooms:
+                                                        _selectedAllowedClassroomNames,
+                                                    availableClassrooms:
+                                                        _classrooms,
+                                                    onPrimaryClassroomChanged:
+                                                        (classroom) {
+                                                          setState(() {
+                                                            _selectedPrimaryClassroomName =
+                                                                classroom;
+                                                            _primaryClassroomError =
+                                                                null;
+                                                          });
+                                                        },
+                                                    onAllowedClassroomsChanged: (classrooms) {
+                                                      setState(() {
+                                                        _selectedAllowedClassroomNames =
+                                                            classrooms;
+                                                        _allowedClassroomsError =
+                                                            null;
+                                                        // Clear primary classroom if it's not in allowed classrooms anymore
+                                                        if (_selectedPrimaryClassroomName !=
+                                                                null &&
+                                                            !classrooms.contains(
+                                                              _selectedPrimaryClassroomName,
+                                                            )) {
+                                                          _selectedPrimaryClassroomName =
+                                                              null;
+                                                        }
+                                                      });
+                                                    },
+                                                    primaryClassroomError:
+                                                        _primaryClassroomError,
+                                                    allowedClassroomsError:
+                                                        _allowedClassroomsError,
+                                                    showPrimaryClassroom:
+                                                        false, // Hide primary classroom section
+                                                  ),
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                height:
+                                                    responsive.verticalSpacing,
+                                              ),
+                                              // Primary Classroom Dropdown
+                                              Stack(
+                                                children: [
+                                                  Opacity(
+                                                    opacity: isEditAdminReadOnly
+                                                        ? 0.6
+                                                        : 1.0,
+                                                    child: CustomDropdown(
+                                                      label:
+                                                          "Primary Classroom",
+                                                      hintText: 'Select',
+                                                      items:
+                                                          _selectedAllowedClassroomNames,
+                                                      selectedItem:
+                                                          _selectedPrimaryClassroomName,
+                                                      labelStyle: TextStyle(
+                                                        fontSize: responsive
+                                                            .labelFontSize,
+                                                        fontFamily: "Manrope",
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        color: const Color(
+                                                          0xff573353,
+                                                        ),
+                                                      ),
+                                                      showAsterisk: true,
+                                                      labelBottomSpacing:
+                                                          responsive.isTablet
+                                                          ? 8.0
+                                                          : 6.0,
+                                                      fieldHeight:
+                                                          responsive.isTablet
+                                                          ? 64.0
+                                                          : 56.0, // Bigger height
+                                                      onSelect: (val) {
+                                                        if (val == null ||
+                                                            isEditAdminReadOnly)
+                                                          return;
+                                                        setState(() {
+                                                          _selectedPrimaryClassroomName =
+                                                              val;
+                                                          _primaryClassroomError =
+                                                              null;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                  if (_selectedAllowedClassroomNames
+                                                          .isEmpty &&
+                                                      !isEditAdminReadOnly)
+                                                    Positioned.fill(
+                                                      child: GestureDetector(
+                                                        behavior:
+                                                            HitTestBehavior
+                                                                .opaque,
+                                                        onTap: () {
+                                                          CoreUtils.showTopSnackBar(
+                                                            context: context,
+                                                            message:
+                                                                'Please select Allowed Classrooms first',
+                                                            isError: true,
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                  if (isEditAdminReadOnly)
+                                                    const Positioned.fill(
+                                                      child: IgnorePointer(
+                                                        ignoring: false,
+                                                        child:
+                                                            SizedBox.expand(),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          )
+                                        else
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 6,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.info_outline,
+                                                  size: 16,
+                                                  color: Color(0xff573353),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Note: All classrooms are allowed for admin users',
+                                                    style: TextStyle(
+                                                      fontSize: responsive
+                                                          .labelFontSize,
+                                                      fontFamily: 'Manrope',
+                                                      color: const Color(
+                                                        0xff573353,
+                                                      ),
+                                                      // fontStyle: FontStyle.italic,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        if (!_isAdminSelected) ...[
+                                          CustomDropdown(
+                                            label: "Status",
+                                            hintText: 'Select',
+                                            items: const ['Active', 'Upcoming'],
+                                            selectedItem: _selectedStatus,
+                                            labelStyle: TextStyle(
+                                              fontSize:
+                                                  responsive.labelFontSize,
+                                              fontFamily: "Manrope",
+                                              fontWeight: FontWeight.w400,
+                                              color: const Color(0xff573353),
+                                            ),
+                                            showAsterisk: true,
+                                            labelBottomSpacing:
+                                                responsive.isTablet ? 8.0 : 6.0,
+                                            onSelect: (val) => setState(
+                                              () => _selectedStatus =
+                                                  val ?? _selectedStatus,
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height: responsive.verticalSpacing,
+                                          ),
+                                        ],
+                                        const SizedBox(height: 12),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                                SizedBox(height: responsive.verticalSpacing),
-                          if (!_isAdminSelected) ...[
-                            CustomDropdown(
-                              label: "Status",
-                              hintText: 'Select',
-                              items: const ['Active', 'Upcoming'],
-                              selectedItem: _selectedStatus,
-                              labelStyle: TextStyle(
-                                fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
-                              ),
-                              showAsterisk: true,
-                              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                              onSelect: (val) =>
-                                  setState(() => _selectedStatus = val ?? _selectedStatus),
-                            ),
-                            SizedBox(height: responsive.verticalSpacing),
-                          ],
-                                const SizedBox(height: 12),
-                              ],
-                            ),
                           ),
+                          const SizedBox(height: 12),
                         ],
                       ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-                  ],
-                ),
-                bottomNavigationBar: Container(
-                  padding: EdgeInsets.only(
-                      bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        offset: const Offset(0, -4),
-                        blurRadius: 16,
-                      ),
                     ],
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    ),
                   ),
-                  child: BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
-                    bloc: _createSchoolUserCubit,
-                    builder: (context, state) {
-                      return CustomButtonLayout(
-                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                        onPressedConfirm: _addStaff,
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading: state.isLoading,
-                      );
-                    },
+                  bottomNavigationBar: Container(
+                    padding: EdgeInsets.only(
+                      bottom: safeAreaBottom,
+                      left: 16,
+                      right: 16,
+                      top: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          offset: const Offset(0, -4),
+                          blurRadius: 16,
+                        ),
+                      ],
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                        topRight: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                      ),
+                    ),
+                    child:
+                        BlocBuilder<
+                          CreateSchoolUserCubit,
+                          CreateSchoolUserState
+                        >(
+                          bloc: _createSchoolUserCubit,
+                          builder: (context, state) {
+                            return CustomButtonLayout(
+                              confirmButtonLabel: widget.isEdit
+                                  ? 'Save'
+                                  : 'Add',
+                              onPressedConfirm: _addStaff,
+                              showCancelButton: false,
+                              isForm: false,
+                              isLoading: state.isLoading,
+                            );
+                          },
+                        ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -1029,9 +1168,12 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   }
 
   Widget _buildInputField(
-      String label, String hint, TextEditingController controller,
-      {TextInputType? keyboardType,
-      List<TextInputFormatter>? inputFormatters}) {
+    String label,
+    String hint,
+    TextEditingController controller, {
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
@@ -1048,7 +1190,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -1058,8 +1203,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -1086,7 +1232,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       ],
     );
   }
-
 }
 
 class PhoneNumberFormatter extends TextInputFormatter {
@@ -1122,14 +1267,19 @@ class PhoneNumberFormatter extends TextInputFormatter {
     // Preserve the caret position by:
     // 1. Counting how many digits are before the current caret.
     // 2. Placing the caret after the same number of digits in the formatted text.
-    final oldSelectionIndex = newValue.selection.extentOffset.clamp(0, newText.length);
+    final oldSelectionIndex = newValue.selection.extentOffset.clamp(
+      0,
+      newText.length,
+    );
     final substringBeforeCaret = newText.substring(0, oldSelectionIndex);
-    final digitsBeforeCaret =
-        substringBeforeCaret.replaceAll(RegExp(r'\D'), '').length;
+    final digitsBeforeCaret = substringBeforeCaret
+        .replaceAll(RegExp(r'\D'), '')
+        .length;
 
     int caretIndex = 0;
     int digitCount = 0;
-    while (caretIndex < formattedText.length && digitCount < digitsBeforeCaret) {
+    while (caretIndex < formattedText.length &&
+        digitCount < digitsBeforeCaret) {
       if (RegExp(r'\d').hasMatch(formattedText[caretIndex])) {
         digitCount++;
       }
@@ -1162,8 +1312,7 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     if (text.isEmpty) {
       return newValue.copyWith(
         text: text,
-        selection:
-            const TextSelection.collapsed(offset: 0),
+        selection: const TextSelection.collapsed(offset: 0),
       );
     }
 
@@ -1186,7 +1335,10 @@ class NameCapitalizationFormatter extends TextInputFormatter {
 
 class TrimFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final original = newValue.text;
     final trimmed = original.trimLeft();
 
@@ -1202,4 +1354,4 @@ class TrimFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: newOffset),
     );
   }
-} 
+}

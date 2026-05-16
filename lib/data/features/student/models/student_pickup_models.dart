@@ -31,7 +31,9 @@ class StudentPickupModel extends Equatable {
 
   factory StudentPickupModel.fromJson(Map<String, dynamic> json) {
     return StudentPickupModel(
-      code: (json['code'] ?? json['pickupCode'] ?? json['pickup_code']) as String?,
+      code:
+          (json['code'] ?? json['pickupCode'] ?? json['pickup_code'])
+              as String?,
       studentCode: json['studentCode'] as String?,
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
@@ -47,17 +49,16 @@ class StudentPickupModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        relation,
-        clockPin,
-        relationshipDescription,
-        pickupType,
-        carpoolId,
-      ];
+    code,
+    studentCode,
+    firstName,
+    lastName,
+    email,
+    phoneNumber,
+    relation,
+    clockPin,
+    relationshipDescription,
+    pickupType,
+    carpoolId,
+  ];
 }
-

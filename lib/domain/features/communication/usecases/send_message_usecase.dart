@@ -8,7 +8,10 @@ class SendMessageUseCase {
 
   SendMessageUseCase(this.repository);
 
-  Future<Either<Failure, Message>> call(String threadId, Message message) async {
+  Future<Either<Failure, Message>> call(
+    String threadId,
+    Message message,
+  ) async {
     return await repository.sendMessage(threadId, message);
   }
 }

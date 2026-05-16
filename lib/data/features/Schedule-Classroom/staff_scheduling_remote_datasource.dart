@@ -69,17 +69,16 @@ class StaffSchedulingRemoteDataSourceImpl
 
     final response = await _client.get<Map<String, dynamic>>(
       endpoint,
-      queryParameters: {
-        'schoolCode': schoolCode,
-        'statuses': 'ACTIVE',
-      },
+      queryParameters: {'schoolCode': schoolCode, 'statuses': 'ACTIVE'},
     );
 
     final data = response.data?['data'];
     if (data is List) {
       return data.map((e) => e as Map<String, dynamic>).toList();
     } else if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List).map((e) => e as Map<String, dynamic>).toList();
+      return (data['content'] as List)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     }
     return [];
   }

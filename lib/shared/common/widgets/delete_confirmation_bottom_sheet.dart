@@ -77,8 +77,8 @@ class _DeleteConfirmationBottomSheetState
 
     final String typeText = isPlanAction
         ? (widget.type == 'plan_cancel'
-            ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
-            : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
+              ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
+              : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
         : widget.type == 'guardian'
         ? 'Do you want to delete this Parent/Guardian -\n"${widget.name}" ?'
         : widget.type == 'pickup'
@@ -135,9 +135,11 @@ class _DeleteConfirmationBottomSheetState
         ? "Mark Complete"
         : widget.type == 'Activity'
         ? 'Delete'
-        : (widget.type == 'staff_deactivate' || widget.type == 'student_deactivate')
+        : (widget.type == 'staff_deactivate' ||
+              widget.type == 'student_deactivate')
         ? "Deactivate"
-        : (widget.type == 'staff_reactivate' || widget.type == 'student_reactivate')
+        : (widget.type == 'staff_reactivate' ||
+              widget.type == 'student_reactivate')
         ? "Reactivate"
         : widget.type == 'order_purchase'
         ? "Mark as Ordered"
@@ -192,17 +194,17 @@ class _DeleteConfirmationBottomSheetState
                       )
                     : Image.asset(
                         'assets/icons/delete.png',
-                        width:
-                            isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                        height:
-                            isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                         errorBuilder: (context, error, stackTrace) {
                           // Fallback icon if image is not found
                           return Container(
-                            width:
-                                isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                            height:
-                                isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                            width: isLargeTablet
+                                ? 80.0
+                                : (isTablet ? 70.0 : 60.0),
+                            height: isLargeTablet
+                                ? 80.0
+                                : (isTablet ? 70.0 : 60.0),
                             decoration: const BoxDecoration(
                               color: Color(0xFFF85A5A),
                               shape: BoxShape.circle,

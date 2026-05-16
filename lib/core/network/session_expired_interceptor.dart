@@ -12,7 +12,10 @@ class SessionExpiredInterceptor extends Interceptor {
   final StorageService _storage;
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     final status = err.response?.statusCode;
     if (status != 401 || _shouldIgnorePath(err.requestOptions)) {
       handler.next(err);
@@ -20,7 +23,8 @@ class SessionExpiredInterceptor extends Interceptor {
     }
 
     if (_isMissingAuthorizationHeaderError(err)) {
-      await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession();
+      await SessionExpiredCoordinator.instance
+          .performLogoutDueToExpiredSession();
       handler.next(err);
       return;
     }
@@ -42,8 +46,10 @@ class SessionExpiredInterceptor extends Interceptor {
         (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
     final refreshToken =
         (await _storage.getString(StorageKeys.refreshToken) ?? '').trim();
-    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '').trim();
-    final loginCompleted = await _storage.getBool(StorageKeys.loginCompleted) ?? false;
+    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    final loginCompleted =
+        await _storage.getBool(StorageKeys.loginCompleted) ?? false;
 
     return accessToken.isNotEmpty ||
         refreshToken.isNotEmpty ||
@@ -69,8 +75,7 @@ class SessionExpiredInterceptor extends Interceptor {
       final message = (data['message'] ?? '').toString().toLowerCase();
       final error = (data['error'] ?? '').toString().toLowerCase();
       if (message.contains('missing authorization header')) return true;
-      if (error == 'unauthorized' &&
-          message.contains('authorization header')) {
+      if (error == 'unauthorized' && message.contains('authorization header')) {
         return true;
       }
     }

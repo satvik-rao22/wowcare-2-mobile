@@ -188,7 +188,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Cache
   final isarCacheService = IsarCacheService();
-  await isarCacheService.init();
+  // await isarCacheService.init();
   serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
 
   serviceLocator.registerLazySingleton<ApiClient>(

@@ -12,9 +12,9 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
   CreateSchoolUserCubit({
     required CreateSchoolUserUseCase createSchoolUserUseCase,
     required StorageService storageService,
-  })  : _createSchoolUserUseCase = createSchoolUserUseCase,
-        _storageService = storageService,
-        super(const CreateSchoolUserState.initial());
+  }) : _createSchoolUserUseCase = createSchoolUserUseCase,
+       _storageService = storageService,
+       super(const CreateSchoolUserState.initial());
 
   final CreateSchoolUserUseCase _createSchoolUserUseCase;
   final StorageService _storageService;
@@ -59,14 +59,12 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
     );
 
     result.fold(
-      (failure) => emit(CreateSchoolUserState.error(
-        failure.message ?? 'Failed to create user',
-      )),
+      (failure) => emit(
+        CreateSchoolUserState.error(failure.message ?? 'Failed to create user'),
+      ),
       (result) => emit(CreateSchoolUserState.success(result)),
     );
   }
 
   void reset() => emit(const CreateSchoolUserState.initial());
 }
-
-

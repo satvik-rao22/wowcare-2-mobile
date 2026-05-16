@@ -41,15 +41,14 @@ class StudentPhysicianModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        address,
-        specialty,
-        notes,
-        status,
-      ];
+    code,
+    firstName,
+    lastName,
+    email,
+    phoneNumber,
+    address,
+    specialty,
+    notes,
+    status,
+  ];
 }
-

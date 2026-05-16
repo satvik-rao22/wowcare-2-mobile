@@ -6,13 +6,7 @@ class GetTagNameCodeMapForSchoolUseCase {
 
   final StudentRepository _repository;
 
-  Future<Map<String, String>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getTagNameCodeMapForSchool(
-      schoolCode: schoolCode,
-    );
+  Future<Map<String, String>> call({required String schoolCode}) {
+    return _repository.getTagNameCodeMapForSchool(schoolCode: schoolCode);
   }
 }
-
-

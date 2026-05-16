@@ -71,11 +71,16 @@ class StudentTransferForm extends StatefulWidget {
     required this.students,
     this.refreshCallback,
     this.classroomNameToCode = const <String, String>{},
+    this.popOnSuccess = false,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
   final Map<String, String> classroomNameToCode;
+  // When true, pops back to the caller after a successful submission instead of
+  // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
+  // outside the Attendance tab (e.g. the Classroom Students card).
+  final bool popOnSuccess;
 
   static const String routeName = '/student-transfer-form';
 
@@ -209,7 +214,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         for (final classroom in classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
-              (!isScopedStaff || allowedCodes.contains(classroom.code.trim())) &&
+              (!isScopedStaff ||
+                  allowedCodes.contains(classroom.code.trim())) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
@@ -452,12 +458,17 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       );
 
       if (success) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const StudentAttendanceTabbedView(),
-          ),
-          (route) => false,
-        );
+        if (widget.popOnSuccess) {
+          widget.refreshCallback?.call();
+          Navigator.of(context).pop();
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const StudentAttendanceTabbedView(),
+            ),
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;

@@ -8,6 +8,7 @@ import 'package:wowcare/data/features/classroom/models/classroom_details_models.
 abstract class ClassroomRemoteDataSource {
   Future<ClassroomAllResponseModel> getActiveClassrooms({
     required String schoolCode,
+
     /// When true, restricts results to type=CLASSROOM.
     /// When false, omits the type filter so the backend
     /// can return all active locations (e.g. Office, etc.).
@@ -31,16 +32,13 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   }) async {
     // Full [Uri] so Dio does not merge this with [BaseOptions.baseUrl]
     // (which would incorrectly produce …/classroom/classroom/all).
-    final qp = <String, String>{
-      'school': schoolCode,
-      'status': 'ACTIVE',
-    };
+    final qp = <String, String>{'school': schoolCode, 'status': 'ACTIVE'};
     if (onlyTypeClassroom) {
       qp['type'] = 'CLASSROOM';
     }
-    final uri = Uri.parse(ApiPaths.url(ApiPaths.classroomAll)).replace(
-      queryParameters: qp,
-    );
+    final uri = Uri.parse(
+      ApiPaths.url(ApiPaths.classroomAll),
+    ).replace(queryParameters: qp);
 
     final response = await _client.getUri<dynamic>(uri);
 
@@ -72,5 +70,3 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     );
   }
 }
-
-

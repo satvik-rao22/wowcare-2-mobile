@@ -23,22 +23,22 @@ class StudentState extends Equatable {
   });
 
   const StudentState.initial()
-      : items = const [],
-        currentPage = 0,
-        hasMore = true,
-        isLoading = true,
-        isRefreshing = false,
-        isLoadingMore = false,
-        isFromCache = false,
-        searchQuery = '',
-        statusFilter = 'ACTIVE',
-        codeFilter = null,
-        firstNameFilter = null,
-        lastNameFilter = null,
-        classroomCodesFilter = null,
-        tagCodesFilter = null,
-        guardianCodesFilter = null,
-        errorMessage = null;
+    : items = const [],
+      currentPage = 0,
+      hasMore = true,
+      isLoading = true,
+      isRefreshing = false,
+      isLoadingMore = false,
+      isFromCache = false,
+      searchQuery = '',
+      statusFilter = 'ACTIVE',
+      codeFilter = null,
+      firstNameFilter = null,
+      lastNameFilter = null,
+      classroomCodesFilter = null,
+      tagCodesFilter = null,
+      guardianCodesFilter = null,
+      errorMessage = null;
 
   final List<Student> items;
   final int currentPage;
@@ -84,9 +84,12 @@ class StudentState extends Equatable {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isFromCache: isFromCache ?? this.isFromCache,
       searchQuery: searchQuery ?? this.searchQuery,
-      statusFilter:
-          statusFilter == _unset ? this.statusFilter : statusFilter as String?,
-      codeFilter: codeFilter == _unset ? this.codeFilter : codeFilter as String?,
+      statusFilter: statusFilter == _unset
+          ? this.statusFilter
+          : statusFilter as String?,
+      codeFilter: codeFilter == _unset
+          ? this.codeFilter
+          : codeFilter as String?,
       firstNameFilter: firstNameFilter == _unset
           ? this.firstNameFilter
           : firstNameFilter as String?,
@@ -108,22 +111,21 @@ class StudentState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        currentPage,
-        hasMore,
-        isLoading,
-        isRefreshing,
-        isLoadingMore,
-        isFromCache,
-        searchQuery,
-        statusFilter,
-        codeFilter,
-        firstNameFilter,
-        lastNameFilter,
-        classroomCodesFilter,
-        tagCodesFilter,
-        guardianCodesFilter,
-        errorMessage,
-      ];
+    items,
+    currentPage,
+    hasMore,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    isFromCache,
+    searchQuery,
+    statusFilter,
+    codeFilter,
+    firstNameFilter,
+    lastNameFilter,
+    classroomCodesFilter,
+    tagCodesFilter,
+    guardianCodesFilter,
+    errorMessage,
+  ];
 }
-

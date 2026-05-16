@@ -104,7 +104,8 @@ Future<Map<String, bool>> _fetchStaffSignedInStatusAtTime({
   if (data is! Map) return const <String, bool>{};
   return data.map<String, bool>((key, value) {
     final code = key.toString().trim();
-    final isPresent = value == true || value.toString().toUpperCase() == 'SIGNED_IN';
+    final isPresent =
+        value == true || value.toString().toUpperCase() == 'SIGNED_IN';
     return MapEntry(code, isPresent);
   });
 }
@@ -115,8 +116,9 @@ String _resolveClassroomCodeFromSelectedStudents(
   for (final student in students) {
     final dynamic classroomCodeDynamic =
         student['classroomCode'] ?? student['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isNotEmpty) return classroomCode;
   }
   return '';
@@ -130,8 +132,9 @@ Future<bool> _shouldRunStaffAtTimeValidation(StorageService storage) async {
     'ASSOCIATE_TEACHER',
     'ASSISTANT_TEACHER',
   };
-  final staffType =
-      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim()
+      .toUpperCase();
   if (staffType.isNotEmpty) return allowedStaffPersonas.contains(staffType);
 
   final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();

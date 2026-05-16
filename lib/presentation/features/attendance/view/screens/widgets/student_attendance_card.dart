@@ -7,13 +7,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 
-enum SignMethod {
-  gps,
-  qr,
-  kiosk,
-  direct,
-  web,
-}
+enum SignMethod { gps, qr, kiosk, direct, web }
 
 class StudentAttendanceCardData {
   final String id;
@@ -41,6 +35,7 @@ class StudentAttendanceCardData {
   // Flags to indicate the displayed times are transfer-derived
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
 
@@ -134,7 +129,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     }
 
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
+    final cardPadding = responsive.isTablet
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
     final spacing = responsive.isTablet ? 16.0 : 14.0;
@@ -208,9 +203,19 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(context, responsive, 'Expected Today?', student.expectedToday ? 'Yes' : 'No'),
+              _buildDetailRow(
+                context,
+                responsive,
+                'Expected Today?',
+                student.expectedToday ? 'Yes' : 'No',
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(context, responsive, 'Classroom', student.roomName),
+              _buildDetailRow(
+                context,
+                responsive,
+                'Classroom',
+                student.roomName,
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildSignInOutRow(
                 context,
@@ -242,7 +247,12 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, ResponsiveHelper responsive, String label, String value) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -261,9 +271,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
           flex: responsive.isTablet ? 3 : 2,
           child: AppText.value(
             value,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 16 : 14,
-            ),
+            style: TextStyle(fontSize: responsive.isTablet ? 16 : 14),
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -323,9 +331,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               Expanded(
                 child: AppText.value(
                   value,
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 14,
-                  ),
+                  style: TextStyle(fontSize: responsive.isTablet ? 16 : 14),
                   textAlign: TextAlign.end,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -398,7 +404,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     }
   }
 
-  Widget _buildActionButtons(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildActionButtons(
+    BuildContext context,
+    ResponsiveHelper responsive,
+  ) {
     final buttonSpacing = responsive.horizontalSpacing / 2;
     final buttonHeight = responsive.buttonHeight * 0.8;
     final buttonFontSize = responsive.isTablet ? 16.0 : 15.0;

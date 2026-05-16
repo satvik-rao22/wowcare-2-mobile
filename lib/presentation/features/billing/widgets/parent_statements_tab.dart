@@ -25,8 +25,8 @@ class ParentStatementsTab extends StatefulWidget {
   State<ParentStatementsTab> createState() => _ParentStatementsTabState();
 }
 
-class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStateMixin {
-
+class _ParentStatementsTabState extends State<ParentStatementsTab>
+    with SafeStateMixin {
   late DateTime? _customStartDate;
   late DateTime? _customEndDate;
   bool _isStatementsLoading = false;
@@ -37,7 +37,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
     final now = DateTime.now();
     final currentYear = now.year;
     final currentMonth = now.month;
-    
+
     return [
       DemoStatement(
         id: 'st_001',
@@ -79,7 +79,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
     super.initState();
     _customStartDate = widget.customStartDate;
     _customEndDate = widget.customEndDate;
-    
+
     // Set default dates if not provided
     if (_customStartDate == null || _customEndDate == null) {
       final now = DateTime.now();
@@ -117,9 +117,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
     if (!mounted) return;
     setState(() => _isGenerating = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Statement generated successfully'),
-      ),
+      const SnackBar(content: Text('Statement generated successfully')),
     );
     // Refresh statements after generation
     await _refresh();
@@ -128,7 +126,8 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
     setState(() {
       _customStartDate = startDate;
-      _customEndDate = endDate ??
+      _customEndDate =
+          endDate ??
           DateTime(startDate.year, startDate.month, startDate.day, 23, 59, 59);
     });
     // Trigger statements fetch
@@ -163,8 +162,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
         // Check for overlap: statement period overlaps with selected range
         return stmtStart.isBefore(selectedEnd.add(const Duration(days: 1))) &&
             stmtEnd.isAfter(selectedStart.subtract(const Duration(days: 1)));
-      }).toList()
-        ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
+      }).toList()..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
     }
     return List.from(_demoStatements)
       ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
@@ -176,9 +174,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,11 +234,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
             const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  AppText.title('Statements'),
-                ],
-              ),
+              child: Row(children: [AppText.title('Statements')]),
             ),
             // Sibling cards and balance - matching billing tab structure
             Column(
@@ -265,9 +257,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
             if (_isStatementsLoading)
               const Padding(
                 padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               )
             else if (filteredStatements.isEmpty)
               Padding(
@@ -300,12 +290,14 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Column(
-                  children: filteredStatements.map(
-                    (statement) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: ParentStatementCard(statement: statement),
-                    ),
-                  ).toList(),
+                  children: filteredStatements
+                      .map(
+                        (statement) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: ParentStatementCard(statement: statement),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
           ],
@@ -314,4 +306,3 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
     );
   }
 }
-

@@ -5,11 +5,7 @@ import 'package:wowcare/domain/features/availability/entities/individual_movemen
 enum MovementWorkflowStatus { pending, confirmed, rejected }
 
 /// Movement kinds (UI currently implements [moveToNextClassroom] only).
-enum MovementType {
-  startSchool,
-  moveToNextClassroom,
-  leaveSchool,
-}
+enum MovementType { startSchool, moveToNextClassroom, leaveSchool }
 
 /// Column buckets on the overview (not stored on the row — derived).
 enum MovementBucket { overdue, upcoming, confirmed, rejected }
@@ -96,7 +92,9 @@ class MovementItem {
   }
 }
 
-MovementWorkflowStatus _workflowStatusFromEntity(IndividualMovementWorkflowStatus status) {
+MovementWorkflowStatus _workflowStatusFromEntity(
+  IndividualMovementWorkflowStatus status,
+) {
   switch (status) {
     case IndividualMovementWorkflowStatus.confirmed:
       return MovementWorkflowStatus.confirmed;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
@@ -107,7 +106,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       }
       parts.add(stateLabel);
     }
-    if (address['country'] != null && address['country'].toString().isNotEmpty) {
+    if (address['country'] != null &&
+        address['country'].toString().isNotEmpty) {
       final rawCountry = address['country'].toString().trim();
       String countryLabel = rawCountry;
       for (final country in COUNTRY_LIST) {
@@ -120,7 +120,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       parts.add(countryLabel);
     }
     // API sometimes returns postalCode; older UI used zipCode.
-    final zipRaw = (address['zipCode'] ?? address['postalCode'])?.toString() ?? '';
+    final zipRaw =
+        (address['zipCode'] ?? address['postalCode'])?.toString() ?? '';
     final zipDigits = zipRaw.replaceAll(RegExp(r'\D'), '');
     if (zipDigits.isNotEmpty) {
       // Format ZIP+4: 9 digits -> #####-####
@@ -142,25 +143,25 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 
   Widget _buildUpcomingMove() {
-    final upcomingMoveDate = widget.studentProfile?.importantDates?.upcomingMoveDate;
-    
+    final upcomingMoveDate =
+        widget.studentProfile?.importantDates?.upcomingMoveDate;
+
     if (upcomingMoveDate == null || upcomingMoveDate.isEmpty) {
       // Show "-" in ProfileField format to preserve UI
-      return ProfileField(
-        label: 'Upcoming move',
-        value: '-',
-      );
+      return ProfileField(label: 'Upcoming move', value: '-');
     }
 
     try {
       final date = DateTime.parse(upcomingMoveDate);
       final month = DateFormat('MMM').format(date);
       final day = DateFormat('dd').format(date);
-      
+
       // Get current and next class from API if available
       final currentClass = widget.studentProfile?.classroom ?? widget.classroom;
-      final nextClass = widget.studentProfile?.classroom ?? '-'; // API doesn't provide next class yet
-      
+      final nextClass =
+          widget.studentProfile?.classroom ??
+          '-'; // API doesn't provide next class yet
+
       return UpcomingMoveWidget(
         month: month,
         day: day,
@@ -169,20 +170,17 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       );
     } catch (e) {
       // If date parsing fails, show "-"
-      return ProfileField(
-        label: 'Upcoming move',
-        value: '-',
-      );
+      return ProfileField(label: 'Upcoming move', value: '-');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
-    final canStudentWrite =
-        !isGuardianPersona &&
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -193,591 +191,634 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         scrollController: widget.scrollController,
         onEdit: widget.studentProfile != null && canStudentWrite
             ? () {
-        final profile = widget.studentProfile!;
-        
-        // Map status from API format (ACTIVE) to display format (Active)
-        String statusDisplay = 'Active';
-        final upperStatus = profile.status.toUpperCase();
-        if (upperStatus == 'ACTIVE' || profile.status == 'A') {
-          statusDisplay = 'Active';
-        } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
-          statusDisplay = 'Inactive';
-        } else if (profile.status == 'Upcoming') {
-          statusDisplay = 'Upcoming';
-        } else if (upperStatus == 'WAITLIST') {
-          statusDisplay = 'Waitlist';
-        } else if (upperStatus == 'GRADUATED') {
-          statusDisplay = 'Graduated';
-        }
-        
-        // Parse birth date
-        DateTime? birthDate;
-        if (profile.dob != null && profile.dob!.isNotEmpty) {
-          try {
-            birthDate = DateTime.parse(profile.dob!);
-          } catch (e) {
-            birthDate = null;
-          }
-        }
-        
-        // Extract address fields
-        final address = profile.address;
-        final street = address?['street']?.toString() ?? '';
-        final city = address?['city']?.toString() ?? '';
-        final state = address?['state']?.toString() ?? '';
-        final country = address?['country']?.toString() ?? '';
-        final zipCode = address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
-        
-        // Extract tags (API-backed, passed from parent as display names)
-        final tags = widget.tags.isNotEmpty
-            ? List<String>.from(widget.tags)
-            : const <String>[];
-        
-        // Extract siblings as codes for edit screen (API returns list of objects).
-        final siblings = <String>[];
-        if (profile.siblings.isNotEmpty) {
-          for (final s in profile.siblings) {
-            if (s is Map<String, dynamic>) {
-              final code = (s['code'] ?? '').toString().trim();
-              if (code.isNotEmpty) {
-                siblings.add(code);
-              }
-            }
-          }
-        }
-        
-        // Extract legal custodians using same display logic as guardian names API.
-        final legalCustodians = <String>[];
-        if (profile.legalCustodians.isNotEmpty) {
-          for (final custodian in profile.legalCustodians) {
-            if (custodian is String) {
-              if (custodian.trim().isNotEmpty) {
-                legalCustodians.add(custodian.trim());
-              }
-            } else if (custodian is Map<String, dynamic>) {
-              final first = (custodian['firstName'] ?? '').toString().trim();
-              final last = (custodian['lastName'] ?? '').toString().trim();
-              final email = (custodian['email'] ?? '').toString().trim();
-              final code = (custodian['code'] ?? '').toString().trim();
+                final profile = widget.studentProfile!;
 
-              String display;
-              if (first.isEmpty && last.isEmpty) {
-                display = email.isNotEmpty ? email : code;
-              } else {
-                display = '$first $last'.trim();
-              }
+                // Map status from API format (ACTIVE) to display format (Active)
+                String statusDisplay = 'Active';
+                final upperStatus = profile.status.toUpperCase();
+                if (upperStatus == 'ACTIVE' || profile.status == 'A') {
+                  statusDisplay = 'Active';
+                } else if (upperStatus == 'INACTIVE' || profile.status == 'I') {
+                  statusDisplay = 'Inactive';
+                } else if (profile.status == 'Upcoming') {
+                  statusDisplay = 'Upcoming';
+                } else if (upperStatus == 'WAITLIST') {
+                  statusDisplay = 'Waitlist';
+                } else if (upperStatus == 'GRADUATED') {
+                  statusDisplay = 'Graduated';
+                }
 
-              if (display.isNotEmpty) {
-                legalCustodians.add(display);
-              }
-            }
-          }
-        }
-        
-        ClassroomCubit? classroomCubit;
-        try {
-          classroomCubit = context.read<ClassroomCubit>();
-        } catch (_) {
-          classroomCubit = null;
-        }
+                // Parse birth date
+                DateTime? birthDate;
+                if (profile.dob != null && profile.dob!.isNotEmpty) {
+                  try {
+                    birthDate = DateTime.parse(profile.dob!);
+                  } catch (e) {
+                    birthDate = null;
+                  }
+                }
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
+                // Extract address fields
+                final address = profile.address;
+                final street = address?['street']?.toString() ?? '';
+                final city = address?['city']?.toString() ?? '';
+                final state = address?['state']?.toString() ?? '';
+                final country = address?['country']?.toString() ?? '';
+                final zipCode =
+                    address?['zipCode']?.toString() ??
+                    address?['postalCode']?.toString() ??
+                    '';
+
+                // Extract tags (API-backed, passed from parent as display names)
+                final tags = widget.tags.isNotEmpty
+                    ? List<String>.from(widget.tags)
+                    : const <String>[];
+
+                // Extract siblings as codes for edit screen (API returns list of objects).
+                final siblings = <String>[];
+                if (profile.siblings.isNotEmpty) {
+                  for (final s in profile.siblings) {
+                    if (s is Map<String, dynamic>) {
+                      final code = (s['code'] ?? '').toString().trim();
+                      if (code.isNotEmpty) {
+                        siblings.add(code);
+                      }
+                    }
+                  }
+                }
+
+                // Extract legal custodians using same display logic as guardian names API.
+                final legalCustodians = <String>[];
+                if (profile.legalCustodians.isNotEmpty) {
+                  for (final custodian in profile.legalCustodians) {
+                    if (custodian is String) {
+                      if (custodian.trim().isNotEmpty) {
+                        legalCustodians.add(custodian.trim());
+                      }
+                    } else if (custodian is Map<String, dynamic>) {
+                      final first = (custodian['firstName'] ?? '')
+                          .toString()
+                          .trim();
+                      final last = (custodian['lastName'] ?? '')
+                          .toString()
+                          .trim();
+                      final email = (custodian['email'] ?? '')
+                          .toString()
+                          .trim();
+                      final code = (custodian['code'] ?? '').toString().trim();
+
+                      String display;
+                      if (first.isEmpty && last.isEmpty) {
+                        display = email.isNotEmpty ? email : code;
+                      } else {
+                        display = '$first $last'.trim();
+                      }
+
+                      if (display.isNotEmpty) {
+                        legalCustodians.add(display);
+                      }
+                    }
+                  }
+                }
+
+                ClassroomCubit? classroomCubit;
+                try {
+                  classroomCubit = context.read<ClassroomCubit>();
+                } catch (_) {
+                  classroomCubit = null;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) {
+                      final screen = EditStudentProfileDetailsScreen(
+                        studentCode: profile.code,
+                        initialFirstName: profile.firstName,
+                        initialLastName: profile.lastName,
+                        initialStatus: statusDisplay,
+                        initialGender: profile.gender,
+                        initialClassroom: profile.classroom ?? '',
+                        initialBirthDate: birthDate,
+                        initialNotes: profile.notes ?? '',
+                        initialFTE: profile.fte ?? '',
+                        initialStreet: street,
+                        initialCity: city,
+                        initialState: state,
+                        initialCountry: country,
+                        initialZipCode: zipCode,
+                        initialTags: tags,
+                        initialSiblings: siblings,
+                        initialLegalCustodians: legalCustodians,
+                        initialSubsidy: profile.subsidy,
+                      );
+
+                      // Preserve already-loaded classrooms when available; otherwise load fresh.
+                      if (classroomCubit != null) {
+                        return BlocProvider.value(
+                          value: classroomCubit,
+                          child: screen,
+                        );
+                      }
+                      return BlocProvider(
+                        create: (_) =>
+                            serviceLocator<ClassroomCubit>()
+                              ..loadActiveClassrooms(),
+                        child: screen,
+                      );
+                    },
+                  ),
+                ).then((result) async {
+                  // If profile was updated, refresh from API (like staff implementation).
+                  if (result == true) {
+                    await widget.onRefresh?.call();
+                  }
+                });
+              }
+            : null,
+        children: [
+          ProfileField(label: 'Name', value: _getValueOrDash(widget.name)),
+
+          ProfileField(
+            label: 'Status',
+            valueWidget: _buildStatusChip(widget.studentProfile?.status ?? 'A'),
+          ),
+
+          ProfileField(
+            label: 'Classroom',
+            value: _getValueOrDash(
+              widget.studentProfile?.classroom ?? widget.classroom,
+            ),
+          ),
+
+          ProfileField(
+            label: 'Tags',
+            valueWidget: _hasTags()
+                ? _tags(tags: _getTagsList())
+                : const Text(
+                    '-',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 15,
+                      color: Color(0xff573353),
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+          ),
+
+          ProfileField(
+            label: 'Gender',
+            value: _getValueOrDash(
+              _prettyGender(widget.studentProfile?.gender),
+            ),
+          ),
+
+          ProfileField(
+            label: 'Birth Date',
+            value: _formatDate(widget.studentProfile?.dob),
+          ),
+
+          ProfileField(
+            label: 'Notes',
+            value: _getValueOrDash(widget.studentProfile?.notes),
+          ),
+
+          ProfileField(
+            label: 'Child Custody',
+            value: (() {
+              final custodians = widget.studentProfile?.legalCustodians ?? [];
+              final names = <String>[];
+              for (final c in custodians) {
+                if (c is String) {
+                  if (c.trim().isNotEmpty) names.add(c.trim());
+                } else if (c is Map<String, dynamic>) {
+                  final first = (c['firstName'] ?? '').toString().trim();
+                  final last = (c['lastName'] ?? '').toString().trim();
+                  final name = ('$first $last').trim();
+                  if (name.isNotEmpty) {
+                    names.add(name);
+                  } else {
+                    final email = (c['email'] ?? '').toString().trim();
+                    if (email.isNotEmpty) names.add(email);
+                  }
+                }
+              }
+              if (names.isEmpty) return 'Child custody not selected';
+              return names.join(', ');
+            })(),
+          ),
+
+          ProfileField(
+            label: 'State Subsidy',
+            value: widget.studentProfile != null
+                ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
+                : '-',
+          ),
+
+          Builder(
             builder: (context) {
-              final screen = EditStudentProfileDetailsScreen(
-                studentCode: profile.code,
-                initialFirstName: profile.firstName,
-                initialLastName: profile.lastName,
-                initialStatus: statusDisplay,
-                initialGender: profile.gender,
-                initialClassroom: profile.classroom ?? '',
-                initialBirthDate: birthDate,
-                initialNotes: profile.notes ?? '',
-                initialFTE: profile.fte ?? '',
-                initialStreet: street,
-                initialCity: city,
-                initialState: state,
-                initialCountry: country,
-                initialZipCode: zipCode,
-                initialTags: tags,
-                initialSiblings: siblings,
-                initialLegalCustodians: legalCustodians,
-                initialSubsidy: profile.subsidy,
-              );
+              final names =
+                  (widget.sibling['name'] as List?)?.cast<String>() ??
+                  const <String>[];
+              final relations =
+                  (widget.sibling['relation'] as List?)?.cast<String>() ??
+                  const <String>[];
+              final statuses =
+                  (widget.sibling['status'] as List?)?.cast<String>() ??
+                  const <String>[];
 
-              // Preserve already-loaded classrooms when available; otherwise load fresh.
-              if (classroomCubit != null) {
-                return BlocProvider.value(value: classroomCubit, child: screen);
+              if (names.isEmpty) {
+                return ProfileField(label: 'Sibling', value: 'No siblings');
               }
-              return BlocProvider(
-                create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
-                child: screen,
+
+              final label = names.length == 1 ? 'Sibling' : 'Siblings';
+              return ProfileField(
+                label: label,
+                valueWidget: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(names.length, (index) {
+                    final name = names[index];
+                    final relation = index < relations.length
+                        ? relations[index]
+                        : 'Sibling';
+                    final rawStatus = index < statuses.length
+                        ? statuses[index]
+                        : '';
+                    final statusLower = rawStatus.toString().toLowerCase();
+
+                    Color? statusColor;
+                    if (statusLower == 'upcoming') {
+                      statusColor = const Color.fromARGB(255, 253, 205, 22);
+                    } else if (statusLower == 'active' ||
+                        statusLower == 'signedin') {
+                      statusColor = const Color.fromRGBO(0, 177, 21, 1);
+                    } else if (statusLower == 'inactive' ||
+                        statusLower == 'isabsent') {
+                      statusColor = const Color.fromRGBO(200, 32, 32, 1);
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: '',
+                            name: name,
+                            size: 45,
+                            statusColor: statusColor,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '$name ($relation)',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xff573353),
+                              letterSpacing: -0.03 * 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
               );
             },
           ),
-        ).then((result) async {
-          // If profile was updated, refresh from API (like staff implementation).
-          if (result == true) {
-            await widget.onRefresh?.call();
-          }
-        });
-      }
-            : null,
-      children: [
-        ProfileField(
-          label: 'Name',
-          value: _getValueOrDash(widget.name),
-        ),
 
-        ProfileField(
-          label: 'Status',
-          valueWidget: _buildStatusChip(
-            widget.studentProfile?.status ?? 'A',
+          ProfileField(
+            label: 'Address',
+            value: widget.studentProfile?.address != null
+                ? _formatAddress(widget.studentProfile!.address!)
+                : '-',
           ),
-        ),
 
-        ProfileField(
-          label: 'Classroom',
-          value: _getValueOrDash(
-            widget.studentProfile?.classroom ?? widget.classroom,
-          ),
-        ),
+          if (canStudentWrite)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () async {
+                final profile = widget.studentProfile;
+                if (profile == null) return;
 
-        ProfileField(
-          label: 'Tags',
-          valueWidget: _hasTags()
-              ? _tags(tags: _getTagsList())
-              : const Text(
-                  '-',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    color: Color(0xff573353),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-        ),
+                // Build initial schedule map from existing regularSchedules if available.
+                Map<String, Map<String, TimeOfDay>>? initialSchedule;
+                try {
+                  final Map<String, Map<String, TimeOfDay>> temp = {};
 
-        ProfileField(
-          label: 'Gender',
-          value: _getValueOrDash(_prettyGender(widget.studentProfile?.gender)),
-        ),
-
-        ProfileField(
-          label: 'Birth Date',
-          value: _formatDate(widget.studentProfile?.dob),
-        ),
-
-        ProfileField(
-          label: 'Notes',
-          value: _getValueOrDash(widget.studentProfile?.notes),
-        ),
-
-        ProfileField(
-        label: 'Child Custody',
-        value: (() {
-          final custodians = widget.studentProfile?.legalCustodians ?? [];
-          final names = <String>[];
-          for (final c in custodians) {
-            if (c is String) {
-              if (c.trim().isNotEmpty) names.add(c.trim());
-            } else if (c is Map<String, dynamic>) {
-              final first = (c['firstName'] ?? '').toString().trim();
-              final last = (c['lastName'] ?? '').toString().trim();
-              final name = ('$first $last').trim();
-              if (name.isNotEmpty) {
-                names.add(name);
-              } else {
-                final email = (c['email'] ?? '').toString().trim();
-                if (email.isNotEmpty) names.add(email);
-              }
-            }
-          }
-          if (names.isEmpty) return 'Child custody not selected';
-          return names.join(', ');
-        })(),
-        ),
-
-        ProfileField(
-          label: 'State Subsidy',
-          value: widget.studentProfile != null
-              ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
-              : '-',
-        ),
-
-        Builder(
-          builder: (context) {
-            final names = (widget.sibling['name'] as List?)?.cast<String>() ?? const <String>[];
-            final relations = (widget.sibling['relation'] as List?)?.cast<String>() ?? const <String>[];
-            final statuses = (widget.sibling['status'] as List?)?.cast<String>() ?? const <String>[];
-
-            if (names.isEmpty) {
-              return ProfileField(
-                label: 'Sibling',
-                value: 'No siblings',
-              );
-            }
-
-            final label = names.length == 1 ? 'Sibling' : 'Siblings';
-            return ProfileField(
-              label: label,
-              valueWidget: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: List.generate(names.length, (index) {
-                  final name = names[index];
-                  final relation = index < relations.length ? relations[index] : 'Sibling';
-                  final rawStatus = index < statuses.length ? statuses[index] : '';
-                  final statusLower = rawStatus.toString().toLowerCase();
-
-                  Color? statusColor;
-                  if (statusLower == 'upcoming') {
-                    statusColor = const Color.fromARGB(255, 253, 205, 22);
-                  } else if (statusLower == 'active' || statusLower == 'signedin') {
-                    statusColor = const Color.fromRGBO(0, 177, 21, 1);
-                  } else if (statusLower == 'inactive' || statusLower == 'isabsent') {
-                    statusColor = const Color.fromRGBO(200, 32, 32, 1);
+                  String _dayOfWeekToFullName(String day) {
+                    switch (day.toUpperCase()) {
+                      case 'MONDAY':
+                        return 'Monday';
+                      case 'TUESDAY':
+                        return 'Tuesday';
+                      case 'WEDNESDAY':
+                        return 'Wednesday';
+                      case 'THURSDAY':
+                        return 'Thursday';
+                      case 'FRIDAY':
+                        return 'Friday';
+                      case 'SATURDAY':
+                        return 'Saturday';
+                      case 'SUNDAY':
+                        return 'Sunday';
+                      default:
+                        return day;
+                    }
                   }
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        DocumentImageWidget(
-                          fileUuid: '',
-                          name: name,
-                          size: 45,
-                          statusColor: statusColor,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '$name ($relation)',
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xff573353),
-                            letterSpacing: -0.03 * 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            );
-          },
-        ),
-
-        ProfileField(
-          label: 'Address',
-          value: widget.studentProfile?.address != null
-              ? _formatAddress(widget.studentProfile!.address!)
-              : '-',
-        ),
-
-        if (canStudentWrite)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () async {
-            final profile = widget.studentProfile;
-            if (profile == null) return;
-
-            // Build initial schedule map from existing regularSchedules if available.
-            Map<String, Map<String, TimeOfDay>>? initialSchedule;
-            try {
-              final Map<String, Map<String, TimeOfDay>> temp = {};
-
-              String _dayOfWeekToFullName(String day) {
-                switch (day.toUpperCase()) {
-                  case 'MONDAY':
-                    return 'Monday';
-                  case 'TUESDAY':
-                    return 'Tuesday';
-                  case 'WEDNESDAY':
-                    return 'Wednesday';
-                  case 'THURSDAY':
-                    return 'Thursday';
-                  case 'FRIDAY':
-                    return 'Friday';
-                  case 'SATURDAY':
-                    return 'Saturday';
-                  case 'SUNDAY':
-                    return 'Sunday';
-                  default:
-                    return day;
-                }
-              }
-
-              TimeOfDay? _parseLocalTime(dynamic value) {
-                if (value == null) return null;
-                if (value is String) {
-                  final parts = value.split(':');
-                  if (parts.length >= 2) {
-                    final hour = int.tryParse(parts[0]) ?? 0;
-                    final minute = int.tryParse(parts[1]) ?? 0;
-                    return TimeOfDay(hour: hour, minute: minute);
-                  }
-                  return null;
-                }
-                if (value is Map) {
-                  final hour = int.tryParse(value['hour']?.toString() ?? '');
-                  final minute = int.tryParse(value['minute']?.toString() ?? '');
-                  if (hour != null && minute != null) {
-                    return TimeOfDay(hour: hour, minute: minute);
-                  }
-                }
-                return null;
-              }
-
-              for (final raw in profile.regularSchedules) {
-                if (raw is! Map<String, dynamic>) continue;
-                final dayOfWeekRaw = (raw['dayOfWeek'] ?? '').toString();
-                if (dayOfWeekRaw.isEmpty) continue;
-
-                final fullDay = _dayOfWeekToFullName(dayOfWeekRaw);
-                final start = _parseLocalTime(raw['startTime']);
-                final end = _parseLocalTime(raw['endTime']);
-
-                if (start == null || end == null) continue;
-
-                temp[fullDay] = {
-                  'start': start,
-                  'end': end,
-                };
-              }
-
-              if (temp.isNotEmpty) {
-                initialSchedule = temp;
-              }
-            } catch (_) {
-              initialSchedule = null;
-            }
-
-            final result = await Navigator.push<Map<String, Map<String, TimeOfDay>>?>(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AddStudentStep3Screen(
-                  title: 'Edit Schedule',
-                  primaryButtonLabel: 'Save',
-                  showSkip: false,
-                  initialSchedule: initialSchedule,
-                ),
-              ),
-            );
-
-            if (result == null || result.isEmpty) return;
-
-            try {
-              final List<Map<String, dynamic>> payloadSchedule = [];
-
-              String _formatLocalTime(TimeOfDay time) {
-                final h = time.hour.toString().padLeft(2, '0');
-                final m = time.minute.toString().padLeft(2, '0');
-                return '$h:$m:00';
-              }
-
-              for (final entry in result.entries) {
-                final dayName = entry.key.toString();
-                final timesMap = Map<String, TimeOfDay>.from(entry.value);
-                final start = timesMap['start'];
-                final end = timesMap['end'];
-
-                if (start == null || end == null) {
-                  continue;
-                }
-
-                final startMinutes = start.hour * 60 + start.minute;
-                final endMinutes = end.hour * 60 + end.minute;
-                final midMinutes = ((startMinutes + endMinutes) / 2).floor();
-                final halfDay = TimeOfDay(
-                  hour: (midMinutes ~/ 60) % 24,
-                  minute: midMinutes % 60,
-                );
-
-                payloadSchedule.add({
-                  'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
-                  'startTime': _formatLocalTime(start),
-                  'halfDay': _formatLocalTime(halfDay),
-                  'endTime': _formatLocalTime(end),
-                });
-              }
-
-              if (payloadSchedule.isEmpty) return;
-
-              final remote = serviceLocator<StudentRemoteDataSource>();
-              await remote.updateStudentRegularSchedules(
-                schoolCode: profile.schoolCode,
-                studentCode: profile.code,
-                schedule: payloadSchedule,
-              );
-
-              await widget.onRefresh?.call();
-
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: 'Schedule updated successfully',
-                isSuccess: true,
-              );
-            } catch (e) {
-              final message = ApiErrorHandler.extractErrorMessage(e);
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: message,
-                isError: true,
-              );
-            }
-          },
-            child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Schedule',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.edit,
-                    size: 16,
-                    color: Color(0x99573353),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        'Monday',
-                        'Tuesday',
-                        'Wednesday',
-                        'Thursday',
-                        'Friday',
-                      ].map((fullDay) {
-                      // Build a lookup of time ranges from regularSchedules.
-                      String? _findTimeRangeForDay(String dayLabel) {
-                        final profile = widget.studentProfile;
-                        final schedules = profile?.regularSchedules ?? [];
-                        if (schedules.isEmpty) return null;
-
-                        String _fullToEnum(String full) {
-                          switch (full) {
-                            case 'Monday':
-                              return 'MONDAY';
-                            case 'Tuesday':
-                              return 'TUESDAY';
-                            case 'Wednesday':
-                              return 'WEDNESDAY';
-                            case 'Thursday':
-                              return 'THURSDAY';
-                            case 'Friday':
-                              return 'FRIDAY';
-                            default:
-                              return full.toUpperCase();
-                          }
-                        }
-
-                        TimeOfDay? _parseLocalTime(dynamic value) {
-                          if (value == null) return null;
-                          if (value is String) {
-                            final parts = value.split(':');
-                            if (parts.length >= 2) {
-                              final hour = int.tryParse(parts[0]) ?? 0;
-                              final minute = int.tryParse(parts[1]) ?? 0;
-                              return TimeOfDay(hour: hour, minute: minute);
-                            }
-                            return null;
-                          }
-                          if (value is Map) {
-                            final hour =
-                                int.tryParse(value['hour']?.toString() ?? '');
-                            final minute =
-                                int.tryParse(value['minute']?.toString() ?? '');
-                            if (hour != null && minute != null) {
-                              return TimeOfDay(hour: hour, minute: minute);
-                            }
-                          }
-                          return null;
-                        }
-
-                        String _formatTimeOfDay(TimeOfDay time) {
-                          final now = DateTime.now();
-                          final dt = DateTime(
-                            now.year,
-                            now.month,
-                            now.day,
-                            time.hour,
-                            time.minute,
-                          );
-                          return DateFormat('h:mm a').format(dt);
-                        }
-
-                        final targetEnum = _fullToEnum(dayLabel);
-                        for (final raw in schedules) {
-                          if (raw is! Map<String, dynamic>) continue;
-                          final dow =
-                              (raw['dayOfWeek'] ?? '').toString().toUpperCase();
-                          if (dow != targetEnum) continue;
-
-                          final start = _parseLocalTime(raw['startTime']);
-                          final end = _parseLocalTime(raw['endTime']);
-                          if (start == null || end == null) continue;
-
-                          return '${_formatTimeOfDay(start)}–${_formatTimeOfDay(end)}';
-                        }
-                        return null;
+                  TimeOfDay? _parseLocalTime(dynamic value) {
+                    if (value == null) return null;
+                    if (value is String) {
+                      final parts = value.split(':');
+                      if (parts.length >= 2) {
+                        final hour = int.tryParse(parts[0]) ?? 0;
+                        final minute = int.tryParse(parts[1]) ?? 0;
+                        return TimeOfDay(hour: hour, minute: minute);
                       }
-
-                      final timeText = _findTimeRangeForDay(fullDay);
-                      final isAvailable = timeText != null;
-
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _ScheduleChip(
-                            width: 110,
-                            label: fullDay,
-                            labelColor: isAvailable
-                                ? const Color.fromRGBO(27, 35, 126, 1)
-                                : Colors.grey.shade700,
-                            color: isAvailable
-                                ? const Color(0x4DB1AFE9)
-                                : const Color(0xFFF3F4FB),
-                          ),
-                          if (isAvailable) ...[
-                            const SizedBox(height: 6),
-                            _ScheduleChip(
-                              width: 110,
-                              label: timeText,
-                              labelColor: const Color.fromRGBO(27, 35, 126, 1),
-                              color: Colors.transparent,
-                              isTimeChip: true,
-                            ),
-                          ],
-                        ],
+                      return null;
+                    }
+                    if (value is Map) {
+                      final hour = int.tryParse(
+                        value['hour']?.toString() ?? '',
                       );
-                    }).toList(),
-                    ),
+                      final minute = int.tryParse(
+                        value['minute']?.toString() ?? '',
+                      );
+                      if (hour != null && minute != null) {
+                        return TimeOfDay(hour: hour, minute: minute);
+                      }
+                    }
+                    return null;
+                  }
+
+                  for (final raw in profile.regularSchedules) {
+                    if (raw is! Map<String, dynamic>) continue;
+                    final dayOfWeekRaw = (raw['dayOfWeek'] ?? '').toString();
+                    if (dayOfWeekRaw.isEmpty) continue;
+
+                    final fullDay = _dayOfWeekToFullName(dayOfWeekRaw);
+                    final start = _parseLocalTime(raw['startTime']);
+                    final end = _parseLocalTime(raw['endTime']);
+
+                    if (start == null || end == null) continue;
+
+                    temp[fullDay] = {'start': start, 'end': end};
+                  }
+
+                  if (temp.isNotEmpty) {
+                    initialSchedule = temp;
+                  }
+                } catch (_) {
+                  initialSchedule = null;
+                }
+
+                final result =
+                    await Navigator.push<Map<String, Map<String, TimeOfDay>>?>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddStudentStep3Screen(
+                          title: 'Edit Schedule',
+                          primaryButtonLabel: 'Save',
+                          showSkip: false,
+                          initialSchedule: initialSchedule,
+                        ),
+                      ),
+                    );
+
+                if (result == null || result.isEmpty) return;
+
+                try {
+                  final List<Map<String, dynamic>> payloadSchedule = [];
+
+                  String _formatLocalTime(TimeOfDay time) {
+                    final h = time.hour.toString().padLeft(2, '0');
+                    final m = time.minute.toString().padLeft(2, '0');
+                    return '$h:$m:00';
+                  }
+
+                  for (final entry in result.entries) {
+                    final dayName = entry.key.toString();
+                    final timesMap = Map<String, TimeOfDay>.from(entry.value);
+                    final start = timesMap['start'];
+                    final end = timesMap['end'];
+
+                    if (start == null || end == null) {
+                      continue;
+                    }
+
+                    final startMinutes = start.hour * 60 + start.minute;
+                    final endMinutes = end.hour * 60 + end.minute;
+                    final midMinutes = ((startMinutes + endMinutes) / 2)
+                        .floor();
+                    final halfDay = TimeOfDay(
+                      hour: (midMinutes ~/ 60) % 24,
+                      minute: midMinutes % 60,
+                    );
+
+                    payloadSchedule.add({
+                      'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
+                      'startTime': _formatLocalTime(start),
+                      'halfDay': _formatLocalTime(halfDay),
+                      'endTime': _formatLocalTime(end),
+                    });
+                  }
+
+                  if (payloadSchedule.isEmpty) return;
+
+                  final remote = serviceLocator<StudentRemoteDataSource>();
+                  await remote.updateStudentRegularSchedules(
+                    schoolCode: profile.schoolCode,
+                    studentCode: profile.code,
+                    schedule: payloadSchedule,
+                  );
+
+                  await widget.onRefresh?.call();
+
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: 'Schedule updated successfully',
+                    isSuccess: true,
+                  );
+                } catch (e) {
+                  final message = ApiErrorHandler.extractErrorMessage(e);
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: message,
+                    isError: true,
+                  );
+                }
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Schedule',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff573353),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: Color(0x99573353),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children:
+                              [
+                                'Monday',
+                                'Tuesday',
+                                'Wednesday',
+                                'Thursday',
+                                'Friday',
+                              ].map((fullDay) {
+                                // Build a lookup of time ranges from regularSchedules.
+                                String? _findTimeRangeForDay(String dayLabel) {
+                                  final profile = widget.studentProfile;
+                                  final schedules =
+                                      profile?.regularSchedules ?? [];
+                                  if (schedules.isEmpty) return null;
+
+                                  String _fullToEnum(String full) {
+                                    switch (full) {
+                                      case 'Monday':
+                                        return 'MONDAY';
+                                      case 'Tuesday':
+                                        return 'TUESDAY';
+                                      case 'Wednesday':
+                                        return 'WEDNESDAY';
+                                      case 'Thursday':
+                                        return 'THURSDAY';
+                                      case 'Friday':
+                                        return 'FRIDAY';
+                                      default:
+                                        return full.toUpperCase();
+                                    }
+                                  }
+
+                                  TimeOfDay? _parseLocalTime(dynamic value) {
+                                    if (value == null) return null;
+                                    if (value is String) {
+                                      final parts = value.split(':');
+                                      if (parts.length >= 2) {
+                                        final hour =
+                                            int.tryParse(parts[0]) ?? 0;
+                                        final minute =
+                                            int.tryParse(parts[1]) ?? 0;
+                                        return TimeOfDay(
+                                          hour: hour,
+                                          minute: minute,
+                                        );
+                                      }
+                                      return null;
+                                    }
+                                    if (value is Map) {
+                                      final hour = int.tryParse(
+                                        value['hour']?.toString() ?? '',
+                                      );
+                                      final minute = int.tryParse(
+                                        value['minute']?.toString() ?? '',
+                                      );
+                                      if (hour != null && minute != null) {
+                                        return TimeOfDay(
+                                          hour: hour,
+                                          minute: minute,
+                                        );
+                                      }
+                                    }
+                                    return null;
+                                  }
+
+                                  String _formatTimeOfDay(TimeOfDay time) {
+                                    final now = DateTime.now();
+                                    final dt = DateTime(
+                                      now.year,
+                                      now.month,
+                                      now.day,
+                                      time.hour,
+                                      time.minute,
+                                    );
+                                    return DateFormat('h:mm a').format(dt);
+                                  }
+
+                                  final targetEnum = _fullToEnum(dayLabel);
+                                  for (final raw in schedules) {
+                                    if (raw is! Map<String, dynamic>) continue;
+                                    final dow = (raw['dayOfWeek'] ?? '')
+                                        .toString()
+                                        .toUpperCase();
+                                    if (dow != targetEnum) continue;
+
+                                    final start = _parseLocalTime(
+                                      raw['startTime'],
+                                    );
+                                    final end = _parseLocalTime(raw['endTime']);
+                                    if (start == null || end == null) continue;
+
+                                    return '${_formatTimeOfDay(start)}–${_formatTimeOfDay(end)}';
+                                  }
+                                  return null;
+                                }
+
+                                final timeText = _findTimeRangeForDay(fullDay);
+                                final isAvailable = timeText != null;
+
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _ScheduleChip(
+                                      width: 110,
+                                      label: fullDay,
+                                      labelColor: isAvailable
+                                          ? const Color.fromRGBO(27, 35, 126, 1)
+                                          : Colors.grey.shade700,
+                                      color: isAvailable
+                                          ? const Color(0x4DB1AFE9)
+                                          : const Color(0xFFF3F4FB),
+                                    ),
+                                    if (isAvailable) ...[
+                                      const SizedBox(height: 6),
+                                      _ScheduleChip(
+                                        width: 110,
+                                        label: timeText,
+                                        labelColor: const Color.fromRGBO(
+                                          27,
+                                          35,
+                                          126,
+                                          1,
+                                        ),
+                                        color: Colors.transparent,
+                                        isTimeChip: true,
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              }).toList(),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          ),
+            ),
 
-        _buildUpcomingMove(),
-      ],
+          _buildUpcomingMove(),
+        ],
       ),
     );
     // this was before using the reusable widget
@@ -1016,24 +1057,42 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
   Widget _buildStatusChip(String status) {
     final upperStatus = status.toUpperCase();
-    final label = upperStatus == 'ACTIVE' || status == 'A'
-        ? 'Active'
-        : upperStatus == 'INACTIVE' || status == 'I'
-        ? 'Inactive'
-        : status == 'Upcoming'
-        ? 'Upcoming'
-        : 'Active';
-    final labelColor = upperStatus == 'ACTIVE' || status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 1)
-        : status == 'Upcoming'
-        ? const Color.fromARGB(255, 238, 223, 8)
-        : const Color.fromRGBO(250, 65, 65, 1);
-    final bgColor = upperStatus == 'ACTIVE' || status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 0.1)
-        : status == 'Upcoming'
-        ? const Color.fromARGB(255, 242, 238, 176)
-        : const Color.fromRGBO(250, 65, 65, 0.1);
-    final icon = upperStatus == 'ACTIVE' || status == 'A'
+    final isActive = upperStatus == 'ACTIVE' || upperStatus == 'A';
+    final isInactive = upperStatus == 'INACTIVE' || upperStatus == 'I';
+    final isUpcoming = upperStatus == 'UPCOMING';
+    final isWaitlist = upperStatus == 'WAITLIST';
+    final isGraduated = upperStatus == 'GRADUATED';
+
+    final String label;
+    final Color labelColor;
+    final Color bgColor;
+    if (isActive) {
+      label = 'Active';
+      labelColor = const Color.fromRGBO(56, 200, 32, 1);
+      bgColor = const Color.fromRGBO(56, 200, 32, 0.1);
+    } else if (isUpcoming) {
+      label = 'Upcoming';
+      labelColor = const Color.fromARGB(255, 138, 110, 0);
+      bgColor = const Color.fromARGB(255, 242, 238, 176);
+    } else if (isWaitlist) {
+      label = 'Waitlist';
+      labelColor = const Color.fromRGBO(27, 35, 126, 1);
+      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+    } else if (isGraduated) {
+      label = 'Graduated';
+      labelColor = const Color.fromRGBO(27, 35, 126, 1);
+      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+    } else if (isInactive) {
+      label = 'Inactive';
+      labelColor = const Color.fromRGBO(250, 65, 65, 1);
+      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+    } else {
+      label = status.isEmpty ? '-' : status;
+      labelColor = const Color.fromRGBO(250, 65, 65, 1);
+      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+    }
+
+    final icon = isActive
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 
@@ -1073,10 +1132,7 @@ class _tags extends StatelessWidget {
 }
 
 class _ProfileTagChip extends StatelessWidget {
-  const _ProfileTagChip({
-    required this.label,
-    required this.color,
-  });
+  const _ProfileTagChip({required this.label, required this.color});
 
   final String label;
   final Color color;

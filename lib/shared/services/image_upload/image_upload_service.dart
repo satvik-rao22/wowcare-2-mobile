@@ -58,7 +58,11 @@ class ImageUploadService {
     }
     final sessionCode = (data['sessionCode'] ?? '').toString().trim();
     final documentApiBasePath =
-        (data['documentApiBasePath'] ?? ApiPaths.documentUploadSessionsRoot.replaceFirst('/upload-sessions', ''))
+        (data['documentApiBasePath'] ??
+                ApiPaths.documentUploadSessionsRoot.replaceFirst(
+                  '/upload-sessions',
+                  '',
+                ))
             .toString()
             .trim();
     if (sessionCode.isEmpty) {
@@ -67,7 +71,10 @@ class ImageUploadService {
     return UploadSessionResult(
       sessionCode: sessionCode,
       documentApiBasePath: documentApiBasePath.isEmpty
-          ? ApiPaths.documentUploadSessionsRoot.replaceFirst('/upload-sessions', '')
+          ? ApiPaths.documentUploadSessionsRoot.replaceFirst(
+              '/upload-sessions',
+              '',
+            )
           : documentApiBasePath,
     );
   }
@@ -83,30 +90,41 @@ class ImageUploadService {
     required String ownerType,
     required String ownerCode,
   }) async {
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final path = ApiPaths.documentAssetPresignPath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
     );
     final endpoint = '$origin$path';
 
-    final response = await _apiClient.client.post<dynamic>(
-      endpoint,
-      data: <String, dynamic>{
-        'assets': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'fileName': fileName,
-            'contentType': contentType,
-            'contentLengthBytes': contentLengthBytes,
-            if ((checksumSha256 ?? '').trim().isNotEmpty)
-              'checksumSha256': checksumSha256!.trim(),
-            'mediaType': mediaType,
-            'ownerType': ownerType,
-            'ownerCode': ownerCode,
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assets': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'fileName': fileName,
+                'contentType': contentType,
+                'contentLengthBytes': contentLengthBytes,
+                if ((checksumSha256 ?? '').trim().isNotEmpty)
+                  'checksumSha256': checksumSha256!.trim(),
+                'mediaType': mediaType,
+                'ownerType': ownerType,
+                'ownerCode': ownerCode,
+              },
+            ],
           },
-        ],
-      },
-    );
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            final message = _extractErrorMessageFromDio(error);
+            throw Exception(message);
+          }
+          throw error;
+        });
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -132,10 +150,13 @@ class ImageUploadService {
     }
 
     final assetCode = (firstUpload['assetCode'] ?? '').toString().trim();
-    final presignedPutUrl =
-        (firstUpload['presignedPutUrl'] ?? '').toString().trim();
+    final presignedPutUrl = (firstUpload['presignedPutUrl'] ?? '')
+        .toString()
+        .trim();
     if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
-      throw Exception('Missing assetCode or presignedPutUrl in presign response');
+      throw Exception(
+        'Missing assetCode or presignedPutUrl in presign response',
+      );
     }
 
     final rawHeaders = firstUpload['requiredHeaders'];
@@ -157,6 +178,21 @@ class ImageUploadService {
     );
   }
 
+  String _extractErrorMessageFromDio(DioException error) {
+    final data = error.response?.data;
+    if (data is Map) {
+      final message = (data['message'] ?? '').toString().trim();
+      if (message.isNotEmpty) return message;
+      final errorMessage = (data['error'] ?? '').toString().trim();
+      if (errorMessage.isNotEmpty) return errorMessage;
+    }
+    final raw = error.message?.trim() ?? error.toString();
+    if (raw.startsWith('Exception:')) {
+      return raw.replaceFirst('Exception:', '').trim();
+    }
+    return raw;
+  }
+
   Future<String> computeFileChecksumSha256(File file) async {
     final bytes = await file.readAsBytes();
     // S3 `x-amz-checksum-sha256` must be base64-encoded raw SHA-256 bytes.
@@ -168,7 +204,10 @@ class ImageUploadService {
     required String assetCode,
     required String documentApiBasePath,
   }) async {
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final path = ApiPaths.documentAssetCompletePath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
@@ -219,8 +258,9 @@ class ImageUploadService {
               status != null && status >= 200 && status < 300,
         ),
         onSendProgress: (sent, total) {
-          final effectiveTotal =
-              (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+          final effectiveTotal = (total > 0)
+              ? total
+              : (bytes.isNotEmpty ? bytes.length : 0);
           if (effectiveTotal <= 0) return;
           final fraction = sent / effectiveTotal;
           final percent = (fraction * 100).clamp(0, 100).round();
@@ -273,7 +313,9 @@ class ImageUploadService {
         throw Exception(result.failureMessage);
       }
       if (DateTime.now().isAfter(deadline)) {
-        throw Exception('Photo processing is taking too long. Please try again.');
+        throw Exception(
+          'Photo processing is taking too long. Please try again.',
+        );
       }
       await Future.delayed(pollEvery);
     }
@@ -402,9 +444,7 @@ class ImageUploadService {
     );
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
-      data: <String, dynamic>{
-        'assetCode': assetCode.trim(),
-      },
+      data: <String, dynamic>{'assetCode': assetCode.trim()},
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -424,8 +464,9 @@ class ImageUploadService {
         (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
             .toString()
             .trim();
-    final effectiveAssetCode =
-        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final effectiveAssetCode = finalizedAssetCode.isNotEmpty
+        ? finalizedAssetCode
+        : assetCode.trim();
     final directUrl = (data['url'] ?? '').toString().trim();
     final thumbnailUrl = (data['thumbnailUrl'] ?? '').toString().trim();
     if (directUrl.isNotEmpty) return directUrl;
@@ -436,9 +477,7 @@ class ImageUploadService {
     );
     if (mediaAssetUrl.isNotEmpty) return mediaAssetUrl;
 
-    final profileUrl = await _waitForStaffProfilePhotoUrl(
-      staffCode: staffCode,
-    );
+    final profileUrl = await _waitForStaffProfilePhotoUrl(staffCode: staffCode);
     if (profileUrl.isNotEmpty) return profileUrl;
     throw Exception('Profile photo URL missing after finalize');
   }
@@ -478,6 +517,44 @@ class ImageUploadService {
       throw Exception('Upload session code is missing');
     }
     return sessionCode;
+  }
+
+  Future<UploadSessionResult> createStudentDocumentUploadSession({
+    required String studentCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/student-documents/${studentCode.trim()}/upload-session',
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'organizationCode': organizationCode.trim(),
+      },
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  Future<UploadSessionResult> createStaffDocumentUploadSession({
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/staff-documents/${staffCode.trim()}/upload-session',
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'organizationCode': organizationCode.trim(),
+      },
+    );
+    return _parseUploadSessionResponse(response.data);
   }
 
   Future<String> createGuardianProfilePhotoUploadSession({
@@ -552,8 +629,9 @@ class ImageUploadService {
         (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
             .toString()
             .trim();
-    final effectiveAssetCode =
-        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final effectiveAssetCode = finalizedAssetCode.isNotEmpty
+        ? finalizedAssetCode
+        : assetCode.trim();
     final url = (data['url'] ?? '').toString().trim();
     if (url.isEmpty) {
       final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
@@ -590,9 +668,7 @@ class ImageUploadService {
     );
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
-      data: <String, dynamic>{
-        'assetCode': assetCode.trim(),
-      },
+      data: <String, dynamic>{'assetCode': assetCode.trim()},
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -612,8 +688,9 @@ class ImageUploadService {
         (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
             .toString()
             .trim();
-    final effectiveAssetCode =
-        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final effectiveAssetCode = finalizedAssetCode.isNotEmpty
+        ? finalizedAssetCode
+        : assetCode.trim();
     final directUrl = (data['url'] ?? '').toString().trim();
     if (directUrl.isNotEmpty) return directUrl;
 
@@ -653,6 +730,39 @@ class ImageUploadService {
       if (DateTime.now().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
+  }
+
+  Future<String> getMediaAssetUrlByCode({required String assetCode}) async {
+    return _waitForDocumentAssetUrlByCode(assetCode: assetCode);
+  }
+
+  UploadSessionResult _parseUploadSessionResponse(dynamic body) {
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create upload session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    final documentApiBasePath = (data['documentApiBasePath'] ?? '/api/v1')
+        .toString()
+        .trim();
+    return UploadSessionResult(
+      sessionCode: sessionCode,
+      documentApiBasePath: documentApiBasePath.isEmpty
+          ? '/api/v1'
+          : documentApiBasePath,
+    );
   }
 
   String _extractDocumentAssetUrl(dynamic body) {
@@ -728,8 +838,10 @@ class ImageUploadService {
                   normalizedStudent,
               orElse: () => <String, dynamic>{},
             );
-            final mappedAssetCode =
-                (matched['assetCode'] ?? '').toString().trim().toUpperCase();
+            final mappedAssetCode = (matched['assetCode'] ?? '')
+                .toString()
+                .trim()
+                .toUpperCase();
             if (mappedAssetCode.isNotEmpty &&
                 (normalizedExpectedAsset.isEmpty ||
                     mappedAssetCode == normalizedExpectedAsset)) {
@@ -819,8 +931,9 @@ class ImageUploadService {
             final value = (raw ?? '').toString().trim();
             if (value.isNotEmpty) return value;
           }
-          final profilePhotoAssetCode =
-              (data['profilePhotoAssetCode'] ?? '').toString().trim();
+          final profilePhotoAssetCode = (data['profilePhotoAssetCode'] ?? '')
+              .toString()
+              .trim();
           if (profilePhotoAssetCode.isNotEmpty) {
             final resolved = await _waitForDocumentAssetUrlByCode(
               assetCode: profilePhotoAssetCode,
@@ -892,4 +1005,3 @@ class _UploadSessionStatusResult {
   final bool isReady;
   final String? failureMessage;
 }
-

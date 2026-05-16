@@ -18,85 +18,120 @@ const StaffShiftCollectionSchema = CollectionSchema(
   name: r'StaffShiftCollection',
   id: 1383217482202801667,
   properties: {
-    r'breakEndTime': PropertySchema(
+    r'availableHours': PropertySchema(
       id: 0,
+      name: r'availableHours',
+      type: IsarType.double,
+    ),
+    r'breakEndTime': PropertySchema(
+      id: 1,
       name: r'breakEndTime',
       type: IsarType.string,
     ),
     r'breakStartTime': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'breakStartTime',
       type: IsarType.string,
     ),
     r'classroomCode': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'classroomCode',
       type: IsarType.string,
     ),
     r'endTime': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'endTime',
       type: IsarType.string,
     ),
     r'forceAdd': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'forceAdd',
       type: IsarType.bool,
     ),
+    r'image': PropertySchema(
+      id: 6,
+      name: r'image',
+      type: IsarType.string,
+    ),
     r'notes': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'notes',
       type: IsarType.string,
     ),
     r'organizationCode': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'organizationCode',
       type: IsarType.string,
     ),
     r'overrideConflicts': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'overrideConflicts',
       type: IsarType.bool,
     ),
     r'publish': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'publish',
       type: IsarType.bool,
     ),
     r'repeat': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'repeat',
       type: IsarType.bool,
     ),
+    r'scheduledHours': PropertySchema(
+      id: 12,
+      name: r'scheduledHours',
+      type: IsarType.double,
+    ),
     r'schoolCode': PropertySchema(
-      id: 10,
+      id: 13,
       name: r'schoolCode',
       type: IsarType.string,
     ),
     r'seriesCode': PropertySchema(
-      id: 11,
+      id: 14,
       name: r'seriesCode',
       type: IsarType.string,
     ),
     r'shiftCode': PropertySchema(
-      id: 12,
+      id: 15,
       name: r'shiftCode',
       type: IsarType.string,
     ),
     r'shiftDate': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'shiftDate',
       type: IsarType.string,
     ),
+    r'shiftStatus': PropertySchema(
+      id: 17,
+      name: r'shiftStatus',
+      type: IsarType.string,
+    ),
     r'staffCode': PropertySchema(
-      id: 14,
+      id: 18,
       name: r'staffCode',
       type: IsarType.string,
     ),
+    r'staffFirstName': PropertySchema(
+      id: 19,
+      name: r'staffFirstName',
+      type: IsarType.string,
+    ),
+    r'staffLastName': PropertySchema(
+      id: 20,
+      name: r'staffLastName',
+      type: IsarType.string,
+    ),
     r'startTime': PropertySchema(
-      id: 15,
+      id: 21,
       name: r'startTime',
       type: IsarType.string,
+    ),
+    r'unscheduledHours': PropertySchema(
+      id: 22,
+      name: r'unscheduledHours',
+      type: IsarType.double,
     )
   },
   estimateSize: _staffShiftCollectionEstimateSize,
@@ -133,6 +168,7 @@ int _staffShiftCollectionEstimateSize(
   }
   bytesCount += 3 + object.classroomCode.length * 3;
   bytesCount += 3 + object.endTime.length * 3;
+  bytesCount += 3 + object.image.length * 3;
   {
     final value = object.notes;
     if (value != null) {
@@ -154,7 +190,10 @@ int _staffShiftCollectionEstimateSize(
     }
   }
   bytesCount += 3 + object.shiftDate.length * 3;
+  bytesCount += 3 + object.shiftStatus.length * 3;
   bytesCount += 3 + object.staffCode.length * 3;
+  bytesCount += 3 + object.staffFirstName.length * 3;
+  bytesCount += 3 + object.staffLastName.length * 3;
   bytesCount += 3 + object.startTime.length * 3;
   return bytesCount;
 }
@@ -165,22 +204,29 @@ void _staffShiftCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.breakEndTime);
-  writer.writeString(offsets[1], object.breakStartTime);
-  writer.writeString(offsets[2], object.classroomCode);
-  writer.writeString(offsets[3], object.endTime);
-  writer.writeBool(offsets[4], object.forceAdd);
-  writer.writeString(offsets[5], object.notes);
-  writer.writeString(offsets[6], object.organizationCode);
-  writer.writeBool(offsets[7], object.overrideConflicts);
-  writer.writeBool(offsets[8], object.publish);
-  writer.writeBool(offsets[9], object.repeat);
-  writer.writeString(offsets[10], object.schoolCode);
-  writer.writeString(offsets[11], object.seriesCode);
-  writer.writeString(offsets[12], object.shiftCode);
-  writer.writeString(offsets[13], object.shiftDate);
-  writer.writeString(offsets[14], object.staffCode);
-  writer.writeString(offsets[15], object.startTime);
+  writer.writeDouble(offsets[0], object.availableHours);
+  writer.writeString(offsets[1], object.breakEndTime);
+  writer.writeString(offsets[2], object.breakStartTime);
+  writer.writeString(offsets[3], object.classroomCode);
+  writer.writeString(offsets[4], object.endTime);
+  writer.writeBool(offsets[5], object.forceAdd);
+  writer.writeString(offsets[6], object.image);
+  writer.writeString(offsets[7], object.notes);
+  writer.writeString(offsets[8], object.organizationCode);
+  writer.writeBool(offsets[9], object.overrideConflicts);
+  writer.writeBool(offsets[10], object.publish);
+  writer.writeBool(offsets[11], object.repeat);
+  writer.writeDouble(offsets[12], object.scheduledHours);
+  writer.writeString(offsets[13], object.schoolCode);
+  writer.writeString(offsets[14], object.seriesCode);
+  writer.writeString(offsets[15], object.shiftCode);
+  writer.writeString(offsets[16], object.shiftDate);
+  writer.writeString(offsets[17], object.shiftStatus);
+  writer.writeString(offsets[18], object.staffCode);
+  writer.writeString(offsets[19], object.staffFirstName);
+  writer.writeString(offsets[20], object.staffLastName);
+  writer.writeString(offsets[21], object.startTime);
+  writer.writeDouble(offsets[22], object.unscheduledHours);
 }
 
 StaffShiftCollection _staffShiftCollectionDeserialize(
@@ -190,22 +236,29 @@ StaffShiftCollection _staffShiftCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = StaffShiftCollection();
-  object.breakEndTime = reader.readStringOrNull(offsets[0]);
-  object.breakStartTime = reader.readStringOrNull(offsets[1]);
-  object.classroomCode = reader.readString(offsets[2]);
-  object.endTime = reader.readString(offsets[3]);
-  object.forceAdd = reader.readBool(offsets[4]);
-  object.notes = reader.readStringOrNull(offsets[5]);
-  object.organizationCode = reader.readString(offsets[6]);
-  object.overrideConflicts = reader.readBool(offsets[7]);
-  object.publish = reader.readBool(offsets[8]);
-  object.repeat = reader.readBool(offsets[9]);
-  object.schoolCode = reader.readString(offsets[10]);
-  object.seriesCode = reader.readStringOrNull(offsets[11]);
-  object.shiftCode = reader.readStringOrNull(offsets[12]);
-  object.shiftDate = reader.readString(offsets[13]);
-  object.staffCode = reader.readString(offsets[14]);
-  object.startTime = reader.readString(offsets[15]);
+  object.availableHours = reader.readDouble(offsets[0]);
+  object.breakEndTime = reader.readStringOrNull(offsets[1]);
+  object.breakStartTime = reader.readStringOrNull(offsets[2]);
+  object.classroomCode = reader.readString(offsets[3]);
+  object.endTime = reader.readString(offsets[4]);
+  object.forceAdd = reader.readBool(offsets[5]);
+  object.image = reader.readString(offsets[6]);
+  object.notes = reader.readStringOrNull(offsets[7]);
+  object.organizationCode = reader.readString(offsets[8]);
+  object.overrideConflicts = reader.readBool(offsets[9]);
+  object.publish = reader.readBool(offsets[10]);
+  object.repeat = reader.readBool(offsets[11]);
+  object.scheduledHours = reader.readDouble(offsets[12]);
+  object.schoolCode = reader.readString(offsets[13]);
+  object.seriesCode = reader.readStringOrNull(offsets[14]);
+  object.shiftCode = reader.readStringOrNull(offsets[15]);
+  object.shiftDate = reader.readString(offsets[16]);
+  object.shiftStatus = reader.readString(offsets[17]);
+  object.staffCode = reader.readString(offsets[18]);
+  object.staffFirstName = reader.readString(offsets[19]);
+  object.staffLastName = reader.readString(offsets[20]);
+  object.startTime = reader.readString(offsets[21]);
+  object.unscheduledHours = reader.readDouble(offsets[22]);
   return object;
 }
 
@@ -217,37 +270,51 @@ P _staffShiftCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 1:
       return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 5:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 6:
       return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 9:
       return (reader.readBool(offset)) as P;
     case 10:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 13:
       return (reader.readString(offset)) as P;
     case 14:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
       return (reader.readString(offset)) as P;
+    case 17:
+      return (reader.readString(offset)) as P;
+    case 18:
+      return (reader.readString(offset)) as P;
+    case 19:
+      return (reader.readString(offset)) as P;
+    case 20:
+      return (reader.readString(offset)) as P;
+    case 21:
+      return (reader.readString(offset)) as P;
+    case 22:
+      return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -348,6 +415,72 @@ extension StaffShiftCollectionQueryWhere
 
 extension StaffShiftCollectionQueryFilter on QueryBuilder<StaffShiftCollection,
     StaffShiftCollection, QFilterCondition> {
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> availableHoursEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'availableHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> availableHoursGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'availableHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> availableHoursLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'availableHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> availableHoursBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'availableHours',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<StaffShiftCollection, StaffShiftCollection,
       QAfterFilterCondition> breakEndTimeIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -947,6 +1080,144 @@ extension StaffShiftCollectionQueryFilter on QueryBuilder<StaffShiftCollection,
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'image',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'image',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'image',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'image',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'image',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'image',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      imageContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'image',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      imageMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'image',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'image',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> imageIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'image',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
       QAfterFilterCondition> isarIdEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -1322,6 +1593,72 @@ extension StaffShiftCollectionQueryFilter on QueryBuilder<StaffShiftCollection,
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'repeat',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> scheduledHoursEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'scheduledHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> scheduledHoursGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'scheduledHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> scheduledHoursLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'scheduledHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> scheduledHoursBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'scheduledHours',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }
@@ -1915,6 +2252,144 @@ extension StaffShiftCollectionQueryFilter on QueryBuilder<StaffShiftCollection,
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'shiftStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'shiftStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'shiftStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'shiftStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'shiftStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'shiftStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      shiftStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'shiftStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      shiftStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'shiftStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'shiftStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> shiftStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'shiftStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
       QAfterFilterCondition> staffCodeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2047,6 +2522,282 @@ extension StaffShiftCollectionQueryFilter on QueryBuilder<StaffShiftCollection,
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'staffCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffFirstName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffFirstName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffFirstName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffFirstName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffFirstName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffFirstName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      staffFirstNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffFirstName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      staffFirstNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffFirstName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffFirstName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffFirstNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffFirstName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffLastName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffLastName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffLastName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffLastName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffLastName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffLastName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      staffLastNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffLastName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+          QAfterFilterCondition>
+      staffLastNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffLastName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffLastName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> staffLastNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffLastName',
         value: '',
       ));
     });
@@ -2189,6 +2940,72 @@ extension StaffShiftCollectionQueryFilter on QueryBuilder<StaffShiftCollection,
       ));
     });
   }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> unscheduledHoursEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'unscheduledHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> unscheduledHoursGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'unscheduledHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> unscheduledHoursLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'unscheduledHours',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection,
+      QAfterFilterCondition> unscheduledHoursBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'unscheduledHours',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
 }
 
 extension StaffShiftCollectionQueryObject on QueryBuilder<StaffShiftCollection,
@@ -2199,6 +3016,20 @@ extension StaffShiftCollectionQueryLinks on QueryBuilder<StaffShiftCollection,
 
 extension StaffShiftCollectionQuerySortBy
     on QueryBuilder<StaffShiftCollection, StaffShiftCollection, QSortBy> {
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByAvailableHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'availableHours', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByAvailableHoursDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'availableHours', Sort.desc);
+    });
+  }
+
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
       sortByBreakEndTime() {
     return QueryBuilder.apply(this, (query) {
@@ -2266,6 +3097,20 @@ extension StaffShiftCollectionQuerySortBy
       sortByForceAddDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'forceAdd', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByImage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'image', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByImageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'image', Sort.desc);
     });
   }
 
@@ -2340,6 +3185,20 @@ extension StaffShiftCollectionQuerySortBy
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByScheduledHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'scheduledHours', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByScheduledHoursDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'scheduledHours', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
       sortBySchoolCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schoolCode', Sort.asc);
@@ -2396,6 +3255,20 @@ extension StaffShiftCollectionQuerySortBy
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByShiftStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'shiftStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByShiftStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'shiftStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
       sortByStaffCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'staffCode', Sort.asc);
@@ -2406,6 +3279,34 @@ extension StaffShiftCollectionQuerySortBy
       sortByStaffCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'staffCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByStaffFirstName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffFirstName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByStaffFirstNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffFirstName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByStaffLastName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffLastName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByStaffLastNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffLastName', Sort.desc);
     });
   }
 
@@ -2422,10 +3323,38 @@ extension StaffShiftCollectionQuerySortBy
       return query.addSortBy(r'startTime', Sort.desc);
     });
   }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByUnscheduledHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unscheduledHours', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      sortByUnscheduledHoursDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unscheduledHours', Sort.desc);
+    });
+  }
 }
 
 extension StaffShiftCollectionQuerySortThenBy
     on QueryBuilder<StaffShiftCollection, StaffShiftCollection, QSortThenBy> {
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByAvailableHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'availableHours', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByAvailableHoursDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'availableHours', Sort.desc);
+    });
+  }
+
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
       thenByBreakEndTime() {
     return QueryBuilder.apply(this, (query) {
@@ -2493,6 +3422,20 @@ extension StaffShiftCollectionQuerySortThenBy
       thenByForceAddDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'forceAdd', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByImage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'image', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByImageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'image', Sort.desc);
     });
   }
 
@@ -2581,6 +3524,20 @@ extension StaffShiftCollectionQuerySortThenBy
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByScheduledHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'scheduledHours', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByScheduledHoursDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'scheduledHours', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
       thenBySchoolCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schoolCode', Sort.asc);
@@ -2637,6 +3594,20 @@ extension StaffShiftCollectionQuerySortThenBy
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByShiftStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'shiftStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByShiftStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'shiftStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
       thenByStaffCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'staffCode', Sort.asc);
@@ -2647,6 +3618,34 @@ extension StaffShiftCollectionQuerySortThenBy
       thenByStaffCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'staffCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByStaffFirstName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffFirstName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByStaffFirstNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffFirstName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByStaffLastName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffLastName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByStaffLastNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'staffLastName', Sort.desc);
     });
   }
 
@@ -2663,10 +3662,31 @@ extension StaffShiftCollectionQuerySortThenBy
       return query.addSortBy(r'startTime', Sort.desc);
     });
   }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByUnscheduledHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unscheduledHours', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QAfterSortBy>
+      thenByUnscheduledHoursDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'unscheduledHours', Sort.desc);
+    });
+  }
 }
 
 extension StaffShiftCollectionQueryWhereDistinct
     on QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct> {
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByAvailableHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'availableHours');
+    });
+  }
+
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
       distinctByBreakEndTime({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2701,6 +3721,13 @@ extension StaffShiftCollectionQueryWhereDistinct
       distinctByForceAdd() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'forceAdd');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByImage({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'image', caseSensitive: caseSensitive);
     });
   }
 
@@ -2741,6 +3768,13 @@ extension StaffShiftCollectionQueryWhereDistinct
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByScheduledHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'scheduledHours');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
       distinctBySchoolCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'schoolCode', caseSensitive: caseSensitive);
@@ -2769,9 +3803,32 @@ extension StaffShiftCollectionQueryWhereDistinct
   }
 
   QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByShiftStatus({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'shiftStatus', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
       distinctByStaffCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'staffCode', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByStaffFirstName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'staffFirstName',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByStaffLastName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'staffLastName',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2781,6 +3838,13 @@ extension StaffShiftCollectionQueryWhereDistinct
       return query.addDistinctBy(r'startTime', caseSensitive: caseSensitive);
     });
   }
+
+  QueryBuilder<StaffShiftCollection, StaffShiftCollection, QDistinct>
+      distinctByUnscheduledHours() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'unscheduledHours');
+    });
+  }
 }
 
 extension StaffShiftCollectionQueryProperty on QueryBuilder<
@@ -2788,6 +3852,13 @@ extension StaffShiftCollectionQueryProperty on QueryBuilder<
   QueryBuilder<StaffShiftCollection, int, QQueryOperations> isarIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isarId');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, double, QQueryOperations>
+      availableHoursProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'availableHours');
     });
   }
 
@@ -2826,6 +3897,12 @@ extension StaffShiftCollectionQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<StaffShiftCollection, String, QQueryOperations> imageProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'image');
+    });
+  }
+
   QueryBuilder<StaffShiftCollection, String?, QQueryOperations>
       notesProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -2859,6 +3936,13 @@ extension StaffShiftCollectionQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<StaffShiftCollection, double, QQueryOperations>
+      scheduledHoursProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'scheduledHours');
+    });
+  }
+
   QueryBuilder<StaffShiftCollection, String, QQueryOperations>
       schoolCodeProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -2888,6 +3972,13 @@ extension StaffShiftCollectionQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<StaffShiftCollection, String, QQueryOperations>
+      shiftStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'shiftStatus');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, String, QQueryOperations>
       staffCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'staffCode');
@@ -2895,9 +3986,30 @@ extension StaffShiftCollectionQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<StaffShiftCollection, String, QQueryOperations>
+      staffFirstNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'staffFirstName');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, String, QQueryOperations>
+      staffLastNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'staffLastName');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, String, QQueryOperations>
       startTimeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'startTime');
+    });
+  }
+
+  QueryBuilder<StaffShiftCollection, double, QQueryOperations>
+      unscheduledHoursProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'unscheduledHours');
     });
   }
 }

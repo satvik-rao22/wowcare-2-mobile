@@ -13,5 +13,3 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     return dtos.map((d) => d.toEntity()).toList();
   }
 }
-
-

@@ -6,10 +6,12 @@ import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 
 class CustomHorizontalDatePicker extends StatefulWidget {
   @override
-  _CustomHorizontalDatePickerState createState() => _CustomHorizontalDatePickerState();
+  _CustomHorizontalDatePickerState createState() =>
+      _CustomHorizontalDatePickerState();
 }
 
-class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker> {
+class _CustomHorizontalDatePickerState
+    extends State<CustomHorizontalDatePicker> {
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -22,15 +24,21 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
 
   void _previousWeek() {
     setState(() {
-      _focusedDay =
-          DateTime(_focusedDay.year, _focusedDay.month, _focusedDay.day - 7);
+      _focusedDay = DateTime(
+        _focusedDay.year,
+        _focusedDay.month,
+        _focusedDay.day - 7,
+      );
     });
   }
 
   void _nextWeek() {
     setState(() {
-      _focusedDay =
-          DateTime(_focusedDay.year, _focusedDay.month, _focusedDay.day + 7);
+      _focusedDay = DateTime(
+        _focusedDay.year,
+        _focusedDay.month,
+        _focusedDay.day + 7,
+      );
     });
   }
 
@@ -47,9 +55,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                 color: AppColors.primaryColor,
                 size: 28,
               ),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(100),
-              ),
+              borderRadius: const BorderRadius.all(Radius.circular(100)),
               onTap: _previousWeek,
             ),
             const SizedBox(height: 12),
@@ -66,9 +72,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
               focusedDay: _focusedDay,
               calendarFormat: _calendarFormat,
               headerVisible: false,
-              availableCalendarFormats: const {
-                CalendarFormat.week: 'Week',
-              },
+              availableCalendarFormats: const {CalendarFormat.week: 'Week'},
               selectedDayPredicate: (day) {
                 return isSameDay(_selectedDay, day);
               },
@@ -131,9 +135,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                 color: AppColors.primaryColor,
                 size: 28,
               ),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(100),
-              ),
+              borderRadius: const BorderRadius.all(Radius.circular(100)),
               onTap: _nextWeek,
             ),
             const SizedBox(height: 12),

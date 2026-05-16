@@ -11,7 +11,8 @@ class OnboardingRemoteDataSourceMock implements OnboardingRemoteDataSource {
       OnboardingDto(
         image: 'assets/images/WowCarePNG.png',
         title: 'Welcome to WowCare',
-        description: 'Manage classrooms, attendance, and communication in one app.',
+        description:
+            'Manage classrooms, attendance, and communication in one app.',
       ),
       OnboardingDto(
         image: 'assets/images/WowCarePNG.png',
@@ -31,5 +32,3 @@ class OnboardingRemoteDataSourceMock implements OnboardingRemoteDataSource {
     ];
   }
 }
-
-

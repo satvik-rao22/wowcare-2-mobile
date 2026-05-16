@@ -14,13 +14,11 @@ import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
 class TransactionDetailsScreen extends StatefulWidget {
   final TransactionItem transaction;
 
-  const TransactionDetailsScreen({
-    super.key,
-    required this.transaction,
-  });
+  const TransactionDetailsScreen({super.key, required this.transaction});
 
   @override
-  State<TransactionDetailsScreen> createState() => _TransactionDetailsScreenState();
+  State<TransactionDetailsScreen> createState() =>
+      _TransactionDetailsScreenState();
 }
 
 class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
@@ -61,7 +59,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   double get _amountRefund => _summaryDouble('amountRefund');
   double get _amountPaid => _summaryDouble('amountPaid');
 
-  double get _familyTotalInvoiced => _netPaidAmount + _amountUnpaid + _amountInProcess;
+  double get _familyTotalInvoiced =>
+      _netPaidAmount + _amountUnpaid + _amountInProcess;
 
   double _percentage(double value, double total) {
     if (total <= 0) return 0;
@@ -231,7 +230,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients || _isLoadingMore || !_hasMoreData) return;
+    if (!_scrollController.hasClients || _isLoadingMore || !_hasMoreData)
+      return;
 
     final position = _scrollController.position;
     final threshold = position.maxScrollExtent > 200
@@ -265,7 +265,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     if (item.id == widget.transaction.id) {
       return;
     }
-    Navigator.of(context).push(
+    // Replace, don't stack — otherwise tapping multiple siblings builds up
+    // a deep navigator stack of TransactionDetailsScreen copies and back
+    // walks through every one.
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => TransactionDetailsScreen(transaction: item),
       ),
@@ -341,18 +344,24 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                       child: GestureDetector(
                         onTap: () async {
                           try {
-                            final start = _startDate ??
-                                DateTime.now().subtract(const Duration(days: 7));
+                            final start =
+                                _startDate ??
+                                DateTime.now().subtract(
+                                  const Duration(days: 7),
+                                );
                             final end = _endDate ?? DateTime.now();
-                            final result = await showDialog<Map<String, dynamic>>(
-                              context: context,
-                              builder: (context) => CalendarDialog(
-                                isRangePicker: true,
-                                isTimePicker: false,
-                                initialDate: start,
-                                initialEndDate: end.isAfter(start) ? end : null,
-                              ),
-                            );
+                            final result =
+                                await showDialog<Map<String, dynamic>>(
+                                  context: context,
+                                  builder: (context) => CalendarDialog(
+                                    isRangePicker: true,
+                                    isTimePicker: false,
+                                    initialDate: start,
+                                    initialEndDate: end.isAfter(start)
+                                        ? end
+                                        : null,
+                                  ),
+                                );
                             if (result != null) {
                               setState(() {
                                 _startDate = result['startDate'];
@@ -429,12 +438,19 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: AppColors.billingErrorIconColor, size: 20),
+                Icon(
+                  Icons.error_outline,
+                  color: AppColors.billingErrorIconColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Error loading family transactions: $_errorMessage',
-                    style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.billingErrorTextColor,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -476,12 +492,19 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: AppColors.billingErrorIconColor, size: 20),
+                Icon(
+                  Icons.error_outline,
+                  color: AppColors.billingErrorIconColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Error loading family transactions: $_errorMessage',
-                    style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.billingErrorTextColor,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -496,7 +519,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
           ...List.generate(
             3,
             (index) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 8.0,
+              ),
               child: ShimmerLoaderCard(
                 child: Container(
                   height: 80,
@@ -542,7 +568,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             child: Center(
               child: Text(
                 'No family transactions found',
-                style: TextStyle(fontSize: 16, color: AppColors.billingTextColor),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.billingTextColor,
+                ),
               ),
             ),
           )
@@ -559,9 +588,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                       onView: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => ViewInvoiceScreen(
-                              transaction: transaction,
-                            ),
+                            builder: (context) =>
+                                ViewInvoiceScreen(transaction: transaction),
                           ),
                         );
                       },
@@ -577,23 +605,32 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                       },
                       onSendInvoice: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Send Invoice tapped (UI only)')),
+                          const SnackBar(
+                            content: Text('Send Invoice tapped (UI only)'),
+                          ),
                         );
                       },
                       onReceivePayment: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Receive Payment tapped (UI only)')),
+                          const SnackBar(
+                            content: Text('Receive Payment tapped (UI only)'),
+                          ),
                         );
                       },
                       onIssueRefund: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Issue Refund tapped (UI only)')),
+                          const SnackBar(
+                            content: Text('Issue Refund tapped (UI only)'),
+                          ),
                         );
                       },
-                      onBillingProfile: () => _openTransactionDetails(transaction),
+                      onBillingProfile: () =>
+                          _openTransactionDetails(transaction),
                       onDelete: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Delete tapped (UI only)')),
+                          const SnackBar(
+                            content: Text('Delete tapped (UI only)'),
+                          ),
                         );
                       },
                     ),
@@ -728,7 +765,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
         ),
         child: Text(
           'Failed to load family: $_familyError',
-          style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 12),
+          style: TextStyle(
+            color: AppColors.billingErrorTextColor,
+            fontSize: 12,
+          ),
         ),
       );
     }
@@ -755,14 +795,16 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: _familyChildren
-                      .map((c) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _FamilyChip(
-                              name: (c['fullName'] ?? '').toString(),
-                              photoUuid: c['photoUuid'],
-                              backgroundColor: AppColors.warningColor,
-                            ),
-                          ))
+                      .map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: _FamilyChip(
+                            name: (c['fullName'] ?? '').toString(),
+                            photoUuid: c['photoUuid'],
+                            backgroundColor: AppColors.warningColor,
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -823,7 +865,9 @@ class _FamilyChip extends StatelessWidget {
     final parts = name.trim().split(RegExp(r"\s+"));
     final first = parts.isNotEmpty ? parts.first : '';
     final last = parts.length > 1 ? parts.last : '';
-    return ((first.isNotEmpty ? first[0] : '') + (last.isNotEmpty ? last[0] : '')).toUpperCase();
+    return ((first.isNotEmpty ? first[0] : '') +
+            (last.isNotEmpty ? last[0] : ''))
+        .toUpperCase();
   }
 
   @override
@@ -861,4 +905,3 @@ class _FamilyChip extends StatelessWidget {
     );
   }
 }
-

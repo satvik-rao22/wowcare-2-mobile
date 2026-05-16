@@ -79,7 +79,9 @@ class GradientTimePickerField extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Row(
               children: [
@@ -97,7 +99,10 @@ class GradientTimePickerField extends StatelessWidget {
                 SvgPicture.asset(
                   MediaRes.clock_icon,
                   height: responsive.isTablet ? 20.0 : 18.0,
-                  colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xff573353),
+                    BlendMode.srcIn,
+                  ),
                 ),
               ],
             ),
@@ -107,5 +112,3 @@ class GradientTimePickerField extends StatelessWidget {
     );
   }
 }
-
-

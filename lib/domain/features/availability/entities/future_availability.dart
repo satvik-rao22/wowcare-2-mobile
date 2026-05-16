@@ -1,9 +1,4 @@
-enum FutureAvailabilityShift {
-  fullDay,
-  morning,
-  afternoon,
-  all,
-}
+enum FutureAvailabilityShift { fullDay, morning, afternoon, all }
 
 class FutureAvailabilityGrid {
   const FutureAvailabilityGrid({

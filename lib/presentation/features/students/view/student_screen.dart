@@ -48,6 +48,8 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
@@ -57,10 +59,14 @@ class StudentScreen extends StatefulWidget {
   const StudentScreen({
     super.key,
     this.incomingStatusFilter,
+    this.incomingClassroomSelections,
   });
 
-  static const String routeName = '/students';
+  static const String routeName = '/dashboard/students';
   final String? incomingStatusFilter;
+
+  /// Classroom names or codes (same as filter sheet / [StudentCubit] — both resolve).
+  final List<String>? incomingClassroomSelections;
 
   @override
   State<StudentScreen> createState() => _StudentScreenState();
@@ -74,7 +80,9 @@ class _StudentScreenState extends State<StudentScreen> {
   List<bool> _selectedDemo = [];
   bool _selectAll = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
-  Map<String, List<String>> _currentFilters = {'Status': ['Active']};
+  Map<String, List<String>> _currentFilters = {
+    'Status': ['Active'],
+  };
   Map<String, String> _tagNameToCode = <String, String>{};
   Map<String, String> _guardianNameToCode = <String, String>{};
   int _activeCount = 0;
@@ -85,8 +93,7 @@ class _StudentScreenState extends State<StudentScreen> {
   int _expectedSignedOut = 0;
   int _expectedNotMarked = 0;
   bool _isAttendanceActionLoading = false;
-  final Map<String, String> _attendanceStatusByStudentCode =
-      <String, String>{};
+  final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
   bool _hideSummaryCardsForScopedStaff = false;
@@ -99,9 +106,10 @@ class _StudentScreenState extends State<StudentScreen> {
   String _lastClassroomPrefetchFingerprint = '';
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     _applyIncomingStatusFilter();
+    _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -125,8 +133,9 @@ class _StudentScreenState extends State<StudentScreen> {
   Future<void> _resolveSummaryVisibilityForPersona() async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final staffTypeRaw =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+    final staffTypeRaw = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
 
     bool hasGuardianRole = false;
     bool hasAdminRole = false;
@@ -166,7 +175,8 @@ class _StudentScreenState extends State<StudentScreen> {
         staffTypeRaw.isNotEmpty && !isAdminByStaffType;
 
     // Hide only for non-admin staff personas.
-    final shouldHide = !hasGuardianRole &&
+    final shouldHide =
+        !hasGuardianRole &&
         !hasAdminRole &&
         (isNonAdminStaffByStaffType || hasStaffRole);
     if (!mounted) return;
@@ -177,12 +187,25 @@ class _StudentScreenState extends State<StudentScreen> {
 
   void _applyIncomingStatusFilter() {
     final incoming = (widget.incomingStatusFilter ?? '').trim().toUpperCase();
-    if (incoming != 'ACTIVE' && incoming != 'UPCOMING' && incoming != 'INACTIVE') {
+    if (incoming != 'ACTIVE' &&
+        incoming != 'UPCOMING' &&
+        incoming != 'INACTIVE') {
       return;
     }
     final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
     _currentFilters['Status'] = [statusLabel];
     _syncShowInactiveFromStatus(statusLabel);
+  }
+
+  void _applyIncomingClassroomSelections() {
+    final raw = widget.incomingClassroomSelections;
+    if (raw == null || raw.isEmpty) return;
+    final cleaned = raw
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return;
+    _currentFilters['Classroom'] = cleaned;
   }
 
   @override
@@ -207,8 +230,7 @@ class _StudentScreenState extends State<StudentScreen> {
           await storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final useCase =
-          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final useCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
       final map = await useCase(schoolCode: schoolCode);
       if (!mounted) return;
 
@@ -227,8 +249,7 @@ class _StudentScreenState extends State<StudentScreen> {
           await storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final useCase =
-          serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
+      final useCase = serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
       final map = await useCase(schoolCode: schoolCode);
       if (!mounted) return;
 
@@ -263,7 +284,8 @@ class _StudentScreenState extends State<StudentScreen> {
   Future<void> _loadExpectedStudentsSummary() async {
     if (!mounted) return;
     try {
-      final useCase = serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
+      final useCase =
+          serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
       final summary = await useCase();
       if (!mounted) return;
       setState(() {
@@ -348,7 +370,9 @@ class _StudentScreenState extends State<StudentScreen> {
       final state = address?['state']?.toString() ?? '';
       final country = address?['country']?.toString() ?? '';
       final zipCode =
-          address?['zipCode']?.toString() ?? address?['postalCode']?.toString() ?? '';
+          address?['zipCode']?.toString() ??
+          address?['postalCode']?.toString() ??
+          '';
 
       // Extract tags as display names from profile.tags[]
       final tags = <String>[];
@@ -490,8 +514,7 @@ class _StudentScreenState extends State<StudentScreen> {
         .toSet()
         .toList();
 
-    final selectedTagNames =
-        _currentFilters['Tags'] ?? const <String>[];
+    final selectedTagNames = _currentFilters['Tags'] ?? const <String>[];
     final tagCodes = selectedTagNames
         .map((name) => _tagNameToCode[name])
         .whereType<String>()
@@ -522,6 +545,8 @@ class _StudentScreenState extends State<StudentScreen> {
   }) {
     return {
       'name': student.fullName,
+      'profileImage': student.profileImage,
+      'profilePhotoAssetCode': student.profilePhotoAssetCode,
       'Classroom': _classroomDisplayName(
         student.classroom,
         classroomNameByCode: classroomNameByCode,
@@ -536,7 +561,11 @@ class _StudentScreenState extends State<StudentScreen> {
       'Status': student.status,
       'Attendance': 'Expected', // API doesn't provide attendance yet
       'Parents': <String>[], // API doesn't provide parents yet
-      'sibling': {'name': [], 'relation': [], 'status': []}, // API doesn't provide siblings yet
+      'sibling': {
+        'name': [],
+        'relation': [],
+        'status': [],
+      }, // API doesn't provide siblings yet
       'activities': <String>[], // API doesn't provide activities yet
       'code': student.code,
     };
@@ -656,14 +685,34 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  String _resolveClassroomCodeForStudent(
+    Student student, {
+    required Map<String, String> classroomCodeByName,
+  }) {
+    final raw = student.classroom.trim();
+    if (raw.isEmpty) return '';
+    if (raw.toUpperCase().startsWith('CLS_')) return raw;
+    final mapped = classroomCodeByName[raw];
+    if (mapped != null && mapped.trim().isNotEmpty) {
+      return mapped.trim();
+    }
+    return raw;
+  }
+
   /// Same shape as [ChooseActivity.selectedStudents] for class-scoped activity list + create flow.
-  List<Map<String, dynamic>> _activityStudentMaps(List<Student> students) {
+  List<Map<String, dynamic>> _activityStudentMaps(
+    List<Student> students, {
+    required Map<String, String> classroomCodeByName,
+  }) {
     return _getSelectedStudents(students)
         .map(
           (s) => <String, dynamic>{
             'name': s.fullName,
             'studentCode': s.code,
-            'classroomCode': s.classroom.trim(),
+            'classroomCode': _resolveClassroomCodeForStudent(
+              s,
+              classroomCodeByName: classroomCodeByName,
+            ),
           },
         )
         .toList();
@@ -802,24 +851,28 @@ class _StudentScreenState extends State<StudentScreen> {
           size: 500,
         );
         final entities = page.items
-            .where((item) =>
-                selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+            .where(
+              (item) => selectedCodes.contains(
+                _normalizeStudentCode(item.studentCode),
+              ),
+            )
             .toList()
             .asMap()
             .entries
             .map((entry) {
-          final item = entry.value;
-          return sign_in_form.StudentEntity(
-            id: entry.key + 1,
-            studentCode: item.studentCode,
-            fullName: item.studentName,
-            roomId: 0,
-            roomName: item.classroomName,
-            classroomCode: item.classroomCode,
-            photoUuid: null,
-            isExpectedToday: item.isExpectedToday,
-          );
-        }).toList();
+              final item = entry.value;
+              return sign_in_form.StudentEntity(
+                id: entry.key + 1,
+                studentCode: item.studentCode,
+                fullName: item.studentName,
+                roomId: 0,
+                roomName: item.classroomName,
+                classroomCode: item.classroomCode,
+                photoUuid: null,
+                isExpectedToday: item.isExpectedToday,
+              );
+            })
+            .toList();
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Sign-In');
         }
@@ -848,22 +901,26 @@ class _StudentScreenState extends State<StudentScreen> {
           size: 500,
         );
         final entities = page.items
-            .where((item) =>
-                selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+            .where(
+              (item) => selectedCodes.contains(
+                _normalizeStudentCode(item.studentCode),
+              ),
+            )
             .toList()
             .asMap()
             .entries
             .map((entry) {
-          final item = entry.value;
-          return sign_out_form.StudentEntity(
-            id: entry.key + 1,
-            studentCode: item.studentCode,
-            fullName: item.studentName,
-            roomId: 0,
-            roomName: item.classroomName,
-            classroomCode: item.classroomCode,
-          );
-        }).toList();
+              final item = entry.value;
+              return sign_out_form.StudentEntity(
+                id: entry.key + 1,
+                studentCode: item.studentCode,
+                fullName: item.studentName,
+                roomId: 0,
+                roomName: item.classroomName,
+                classroomCode: item.classroomCode,
+              );
+            })
+            .toList();
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Sign-Out');
         }
@@ -892,25 +949,29 @@ class _StudentScreenState extends State<StudentScreen> {
           size: 500,
         );
         final entities = page.items
-            .where((item) =>
-                selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+            .where(
+              (item) => selectedCodes.contains(
+                _normalizeStudentCode(item.studentCode),
+              ),
+            )
             .toList()
             .asMap()
             .entries
             .map((entry) {
-          final item = entry.value;
-          return transfer_form.StudentEntity(
-            id: entry.key + 1,
-            studentCode: item.studentCode,
-            fullName: item.studentName,
-            roomId: 0,
-            roomName: item.classroomName,
-            classroomCode: item.classroomCode,
-            tags: item.tagNames
-                .map((name) => transfer_form.TagEntity(name: name))
-                .toList(),
-          );
-        }).toList();
+              final item = entry.value;
+              return transfer_form.StudentEntity(
+                id: entry.key + 1,
+                studentCode: item.studentCode,
+                fullName: item.studentName,
+                roomId: 0,
+                roomName: item.classroomName,
+                classroomCode: item.classroomCode,
+                tags: item.tagNames
+                    .map((name) => transfer_form.TagEntity(name: name))
+                    .toList(),
+              );
+            })
+            .toList();
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Transfer');
         }
@@ -944,22 +1005,25 @@ class _StudentScreenState extends State<StudentScreen> {
         size: 500,
       );
       final entities = page.items
-          .where((item) =>
-              selectedCodes.contains(_normalizeStudentCode(item.studentCode)))
+          .where(
+            (item) =>
+                selectedCodes.contains(_normalizeStudentCode(item.studentCode)),
+          )
           .toList()
           .asMap()
           .entries
           .map((entry) {
-        final item = entry.value;
-        return absent_form.StudentEntity(
-          id: entry.key + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          classroomCode: item.classroomCode,
-        );
-      }).toList();
+            final item = entry.value;
+            return absent_form.StudentEntity(
+              id: entry.key + 1,
+              studentCode: item.studentCode,
+              fullName: item.studentName,
+              roomId: 0,
+              roomName: item.classroomName,
+              classroomCode: item.classroomCode,
+            );
+          })
+          .toList();
       if (entities.isEmpty) {
         throw Exception('No selected students are eligible for Mark Absent');
       }
@@ -1015,14 +1079,25 @@ class _StudentScreenState extends State<StudentScreen> {
 
     if (selectedIndices.isEmpty) return false;
 
-    // Note: Attendance check removed since API doesn't provide it yet
+    // Today's attendance must be loaded before we can decide.
+    if (_attendanceStatusLoading || _attendanceStatusError) return false;
+
     // If more than one selected → must be in same classroom
     if (selectedCount > 1) {
       final firstClassroom = students[selectedIndices.first].classroom;
-      return selectedIndices.every((i) => students[i].classroom == firstClassroom);
+      final sameClassroom = selectedIndices.every(
+        (i) => students[i].classroom == firstClassroom,
+      );
+      if (!sameClassroom) return false;
     }
 
-    return true; // Single student → allowed
+    // Activities can only be recorded for students signed in today. A mixed
+    // selection (one signed-in + one signed-out / not-marked / absent)
+    // therefore disables the option.
+    return selectedIndices.every((i) {
+      final raw = _todayStatusForStudentCode(students[i].code);
+      return (raw ?? '').trim().toUpperCase() == 'SIGNED_IN';
+    });
   }
 
   @override
@@ -1038,8 +1113,9 @@ class _StudentScreenState extends State<StudentScreen> {
       builder: (context, state) {
         final studentCubit = context.read<StudentCubit>();
         final students = state.items;
-        final mergedClassroomNames =
-            _mergedClassroomDisplayNames(classroomNameByCode);
+        final mergedClassroomNames = _mergedClassroomDisplayNames(
+          classroomNameByCode,
+        );
         _scheduleClassroomDetailFetchesIfNeeded(students, classroomNameByCode);
         final bool anySelected = _selectedDemo.any((e) => e);
         final int selectedCount = _selectedDemo.where((e) => e).length;
@@ -1059,98 +1135,140 @@ class _StudentScreenState extends State<StudentScreen> {
         final actionPanel = anySelected
             ? Positioned(
                 right: 16,
-                bottom: 16,
-                child: Row(
-                  children: [
-                    StudentActionPanel(
-                      currentPanel: _currentPanel,
-                      activityStudentMaps:
-                          _canShowActivitiesButton(selectedCount, students)
-                              ? _activityStudentMaps(students)
-                              : null,
-                      attendanceAvailability:
-                          _attendanceAvailabilityForSelection(students),
-                      onAttendanceTap: (){
-                        setState(() {
-                          final open = _currentPanel == StudentPanelType.attendance;
-                          _currentPanel = open ? StudentPanelType.none : StudentPanelType.attendance;
-                          _showActivitiesPanel = false;
-                        });
-                      },
-                      onActivitiesTap: _canShowActivitiesButton(selectedCount, students) ? () {
-                        setState(() {
-                          _showActivitiesPanel = !_showActivitiesPanel;
-                          _currentPanel = _showActivitiesPanel ? StudentPanelType.activities : StudentPanelType.none;
-                        });
-                      } : null,
-                      onMessageTap: (){},
-                      onProfileTap: selectedCount == 1 ? (){
-                        final idx = _selectedDemo.indexWhere((e) => e);
-                        if(idx != -1 && idx < students.length){
-                          final student = students[idx];
-                          final studentMap = _studentToMap(
-                            student,
-                            classroomNameByCode: mergedClassroomNames,
-                          );
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BlocProvider.value(
-                                value: context.read<ClassroomCubit>(),
-                                child: StudentProfileScreen(
-                                  name: studentMap['name'] as String? ?? "Unknown Student",
-                                  sibling: studentMap['sibling'] as Map<String, dynamic>,
-                                  schedule: (studentMap['schedule'] as List<dynamic>?)
-                                          ?.map((e) => e.toString())
-                                          .toList() ??
-                                      <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-                                  classroom: studentMap['Classroom'] as String? ?? "Unknown Class",
-                                  tags: (studentMap['Tags'] as List<dynamic>?)
-                                      ?.map((e) => e.toString())
-                                      .toList() ??
-                                      [],
-                                  studentCode: studentMap['code'] as String?,
-                                  initialEnrollmentStatus:
-                                      studentMap['Status'] as String?,
-                                ),
-                              ),
-                            )
-                          );
-                        }
-                      }: null,
-                      onClearSelections: (){
-                        setState(() {
-                          for (int i = 0; i < _selectedDemo.length; i++){
-                            _selectedDemo[i] = false;
-                          }
-                          _selectAll = false;
-                          _showActivitiesPanel = false;
-                          _currentPanel = StudentPanelType.none;
-                        });
-                        _refreshAttendanceStatusForSelection(students);
-                      },
-                      isProfileEnabled: selectedCount == 1,
-                      activitiesEnabled: _canShowActivitiesButton(selectedCount, students),
-                      showAttendanceActions: _currentPanel == StudentPanelType.attendance,
-                      isAttendanceActionLoading: _isAttendanceActionLoading,
-                      onSignInTap: () => _openAttendanceActionFlow(
-                        students: students,
-                        actionName: 'sign_in',
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StudentActionPanel(
+                        currentPanel: _currentPanel,
+                        activityStudentMaps:
+                            _canShowActivitiesButton(selectedCount, students)
+                            ? _activityStudentMaps(
+                                students,
+                                classroomCodeByName: {
+                                  for (final c in classroomState.classrooms)
+                                    c.name.trim(): c.code.trim(),
+                                },
+                              )
+                            : null,
+                        attendanceAvailability:
+                            _attendanceAvailabilityForSelection(students),
+                        onAttendanceTap: () {
+                          setState(() {
+                            final open =
+                                _currentPanel == StudentPanelType.attendance;
+                            _currentPanel = open
+                                ? StudentPanelType.none
+                                : StudentPanelType.attendance;
+                            _showActivitiesPanel = false;
+                          });
+                        },
+                        onActivitiesTap:
+                            _canShowActivitiesButton(selectedCount, students)
+                            ? () {
+                                setState(() {
+                                  _showActivitiesPanel = !_showActivitiesPanel;
+                                  _currentPanel = _showActivitiesPanel
+                                      ? StudentPanelType.activities
+                                      : StudentPanelType.none;
+                                });
+                              }
+                            : null,
+                        onMessageTap: () {},
+                        onProfileTap: selectedCount == 1
+                            ? () {
+                                final idx = _selectedDemo.indexWhere((e) => e);
+                                if (idx != -1 && idx < students.length) {
+                                  final student = students[idx];
+                                  final studentMap = _studentToMap(
+                                    student,
+                                    classroomNameByCode: mergedClassroomNames,
+                                  );
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BlocProvider.value(
+                                        value: context.read<ClassroomCubit>(),
+                                        child: StudentProfileScreen(
+                                          name:
+                                              studentMap['name'] as String? ??
+                                              "Unknown Student",
+                                          sibling:
+                                              studentMap['sibling']
+                                                  as Map<String, dynamic>,
+                                          schedule:
+                                              (studentMap['schedule']
+                                                      as List<dynamic>?)
+                                                  ?.map((e) => e.toString())
+                                                  .toList() ??
+                                              <String>[
+                                                'Mon',
+                                                'Tue',
+                                                'Wed',
+                                                'Thu',
+                                                'Fri',
+                                              ],
+                                          classroom:
+                                              studentMap['Classroom']
+                                                  as String? ??
+                                              "Unknown Class",
+                                          tags:
+                                              (studentMap['Tags']
+                                                      as List<dynamic>?)
+                                                  ?.map((e) => e.toString())
+                                                  .toList() ??
+                                              [],
+                                          studentCode:
+                                              studentMap['code'] as String?,
+                                          initialEnrollmentStatus:
+                                              studentMap['Status'] as String?,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        onClearSelections: () {
+                          setState(() {
+                            for (int i = 0; i < _selectedDemo.length; i++) {
+                              _selectedDemo[i] = false;
+                            }
+                            _selectAll = false;
+                            _showActivitiesPanel = false;
+                            _currentPanel = StudentPanelType.none;
+                          });
+                          _refreshAttendanceStatusForSelection(students);
+                        },
+                        isProfileEnabled: selectedCount == 1,
+                        activitiesEnabled: _canShowActivitiesButton(
+                          selectedCount,
+                          students,
+                        ),
+                        showAttendanceActions:
+                            _currentPanel == StudentPanelType.attendance,
+                        isAttendanceActionLoading: _isAttendanceActionLoading,
+                        onSignInTap: () => _openAttendanceActionFlow(
+                          students: students,
+                          actionName: 'sign_in',
+                        ),
+                        onSignOutTap: () => _openAttendanceActionFlow(
+                          students: students,
+                          actionName: 'sign_out',
+                        ),
+                        onTransferTap: () => _openAttendanceActionFlow(
+                          students: students,
+                          actionName: 'transfer',
+                        ),
+                        onMarkAbsentTap: () => _openAttendanceActionFlow(
+                          students: students,
+                          actionName: 'mark_absent',
+                        ),
                       ),
-                      onSignOutTap: () => _openAttendanceActionFlow(
-                        students: students,
-                        actionName: 'sign_out',
-                      ),
-                      onTransferTap: () => _openAttendanceActionFlow(
-                        students: students,
-                        actionName: 'transfer',
-                      ),
-                      onMarkAbsentTap: () => _openAttendanceActionFlow(
-                        students: students,
-                        actionName: 'mark_absent',
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               )
             : null;
@@ -1166,13 +1284,11 @@ class _StudentScreenState extends State<StudentScreen> {
               }
               await Future.wait([
                 studentCubit.refresh(),
-                context
-                    .read<ClassroomCubit>()
-                    .loadActiveClassrooms(
-                      force: true,
-                      onlyTypeClassroom: false,
-                      applyAttendanceStaffScope: true,
-                    ),
+                context.read<ClassroomCubit>().loadActiveClassrooms(
+                  force: true,
+                  onlyTypeClassroom: false,
+                  applyAttendanceStaffScope: true,
+                ),
                 // Keep these in sync on refresh as well (but DO NOT call tags API).
                 _loadGuardianNameCodeMap(),
                 _loadStudentCounts(),
@@ -1198,574 +1314,662 @@ class _StudentScreenState extends State<StudentScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Students',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
-                            height: titleLineHeight,
-                          ),
-                          textAlign: TextAlign.left,
-                        ),
-                      ),
-                      GradientAddButton(
-                        onTap: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const AddStudentWizardScreen()),
-                          );
-                          if (!mounted) return;
-                          print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
-                          if (result is Map && (result['showPostAddPrompt'] == true)) {
-                            final studentName = (result['studentName'] as String?) ?? '';
-                            final studentCode = (result['studentCode'] as String?) ?? '';
-                            // New student added successfully → reset cache + refresh list
-                            await _refreshAllStudentApis();
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.white,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: Radius.circular(24),
-                                    topRight: Radius.circular(24),
-                                  ),
-                                ),
-                                builder: (ctx) => PostAddStudentBottomSheet(
-                                  studentName: studentName,
-                                  onLater: () => Navigator.of(ctx).pop(),
-                                  onYes: () {
-                                    Navigator.of(ctx).pop();
-                                    if (studentCode.isNotEmpty) {
-                                      _openEditStudentDetails(studentCode);
-                                    }
-                                  },
-                                ),
-                              );
-                            });
-                          }
-                        },
-                        isTablet: MediaQuery.of(context).size.width >= 600,
-                        isLargeTablet: MediaQuery.of(context).size.width >= 900,
-                      ),
-                      SizedBox(width: 10,),
-                      // Clock action button
-                      // Container(
-                      //   width: 38,
-                      //   height: 38,
-                      //   margin: const EdgeInsets.only(right: 8),
-                      //   decoration: BoxDecoration(
-                      //     gradient: AppColors.buildPrimaryGradient(),
-                      //     borderRadius: BorderRadius.circular(8),
-                      //   ),
-                      //   alignment: Alignment.center,
-                      //   child: GestureDetector(
-                      //     onTap: () {},
-                      //     child: SvgPicture.asset(
-                      //       MediaRes.calenderClockIcon,
-                      //       width: 22,
-                      //       height: 22,
-                      //       fit: BoxFit.contain,
-                      //       colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (!_hideSummaryCardsForScopedStaff) ...[
-                    // Total Students stat card
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final bool isTablet = constraints.maxWidth >= 600;
-                        final double active = _activeCount.toDouble();
-                        final double upcoming = _upcomingCount.toDouble();
-                        final int totalCount = (active + upcoming).toInt();
-                        final String total = '$totalCount';
-                        final items = [
-                          ProgressItemHelper(
-                            label: 'Active (${active.toInt()})',
-                            value: active,
-                            color: AppColors.lightBlueProgressBar,
-                            filterValue: 'Active'
-                          ),
-                          ProgressItemHelper(
-                            label: 'Upcoming (${upcoming.toInt()})',
-                            value: upcoming,
-                            color: AppColors.mustardProgressBar,
-                            filterValue: 'Upcoming'
-                          ),
-                        ];
-                        return Container(
-                          margin: EdgeInsets.only(top: isTablet ? 16 : 12, bottom: isTablet ? 8 : 8),
-                          child: CustomStatBarCard(
-                            title: 'Total\nStudents',
-                            number: total,
-                            items: items,
-                            fullWidthBar: false,
-                            onLegendTap: (String label, String? filterValue) async {
-                              setState(() {
-                                final current = _currentFilters['Status'];
-                                if (current != null && current.length == 1 && current.first == filterValue){
-                                  _currentFilters.remove('Status');
-                                } else {
-                                  _currentFilters['Status'] = [filterValue!];
-                                }
-                                _syncShowInactiveFromStatus(
-                                  _currentFilters['Status']?.isNotEmpty == true
-                                      ? _currentFilters['Status']!.first
-                                      : null,
-                                );
-                              });
-                              await _applyFiltersToCubit();
-                            },
-
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    // Expected Students (same breakdown as Student Attendance daily summary)
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final bool isTablet = constraints.maxWidth >= 600;
-                        final present = _expectedSignedIn.toDouble();
-                        final absent = _expectedAbsent.toDouble();
-                        final signedOut = _expectedSignedOut.toDouble();
-                        final notMarked = _expectedNotMarked.toDouble();
-                        final items = [
-                          ProgressItemHelper(
-                            label: 'Signed-In (${present.toInt()})',
-                            value: present,
-                            color: AppColors.lightGreenProgressBar,
-                            filterValue: 'Signed-In',
-                          ),
-                          ProgressItemHelper(
-                            label: 'Absent (${absent.toInt()})',
-                            value: absent,
-                            color: AppColors.redProgressBar,
-                            filterValue: 'Absent',
-                          ),
-                          ProgressItemHelper(
-                            label: 'Signed Out (${signedOut.toInt()})',
-                            value: signedOut,
-                            color: AppColors.lightBlueProgressBar,
-                            filterValue: 'Signed Out',
-                          ),
-                          ProgressItemHelper(
-                            label: 'Not Marked (${notMarked.toInt()})',
-                            value: notMarked,
-                            color: AppColors.mustardProgressBar,
-                            filterValue: 'Not Marked',
-                          ),
-                        ];
-                        return Container(
-                          margin: EdgeInsets.only(top: isTablet ? 8 : 8, bottom: isTablet ? 8 : 8),
-                          child: CustomStatBarCard(
-                            title: 'Expected\nStudents',
-                            number: '$_expectedStudentsTotal',
-                            items: items,
-                            fullWidthBar: false,
-                            normalizeBarByItemSum: true,
-                            onLegendTap: (String label, String? filterValue) {
-                              final status = label.split(' ').first;
-                              if (status == 'Signed-In' ||
-                                  status == 'Absent' ||
-                                  status == 'Signed' ||
-                                  status == 'Not') {
-                                if (status == 'Signed') {
-                                  _openStudentAttendanceWithLegendFilter('Signed Out');
-                                } else if (status == 'Not') {
-                                  _openStudentAttendanceWithLegendFilter('Not Marked');
-                                } else {
-                                  _openStudentAttendanceWithLegendFilter(status);
-                                }
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Filter/search card
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.cardBorderColor),
-                      borderRadius: BorderRadius.circular(12),
-                      color: AppColors.cardColor,
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomSearchBar(
-                                controller: _searchController,
-                                hintText: 'Search Student',
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Students',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff573353),
+                                height: titleLineHeight,
                               ),
+                              textAlign: TextAlign.left,
                             ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => BlocProvider.value(
-                                        value: context.read<ClassroomCubit>(),
-                                        child: StudentFilterScreen(
-                                          initialFilters: _currentFilters,
+                          ),
+                          if (ModuleAccess.mayWrite(
+                            context.watch<RoleProvider>(),
+                            AppAccessModules.student,
+                          ))
+                            GradientAddButton(
+                              onTap: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const AddStudentWizardScreen(),
+                                  ),
+                                );
+                                if (!mounted) return;
+                                print(
+                                  '[StudentScreen] Received result from AddStudentWizardScreen: ' +
+                                      result.toString(),
+                                );
+                                if (result is Map &&
+                                    (result['showPostAddPrompt'] == true)) {
+                                  final studentName =
+                                      (result['studentName'] as String?) ?? '';
+                                  final studentCode =
+                                      (result['studentCode'] as String?) ?? '';
+                                  // New student added successfully → reset cache + refresh list
+                                  await _refreshAllStudentApis();
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.white,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(24),
+                                          topRight: Radius.circular(24),
                                         ),
                                       ),
-                                    ),
-                                  );
-                                  if (!mounted) return;
-                                  if (result is Map) {
-                                    final normalized = <String, List<String>>{};
-                                    result.forEach((key, value) {
-                                      final k = key.toString();
-                                      if (value is List) {
-                                        normalized[k] = value.map((e) => e.toString()).toList();
-                                      } else if (value != null) {
-                                        normalized[k] = [value.toString()];
-                                      }
-                                    });
-
-                                    setState(() {
-                                      _currentFilters = normalized;
-                                    });
-                                    await _applyFiltersToCubit();
+                                      builder: (ctx) =>
+                                          PostAddStudentBottomSheet(
+                                            studentName: studentName,
+                                            onLater: () =>
+                                                Navigator.of(ctx).pop(),
+                                            onYes: () {
+                                              Navigator.of(ctx).pop();
+                                              if (studentCode.isNotEmpty) {
+                                                _openEditStudentDetails(
+                                                  studentCode,
+                                                );
+                                              }
+                                            },
+                                          ),
+                                    );
+                                  });
+                                }
+                              },
+                              isTablet:
+                                  MediaQuery.of(context).size.width >= 600,
+                              isLargeTablet:
+                                  MediaQuery.of(context).size.width >= 900,
+                            ),
+                          SizedBox(width: 10),
+                          // Clock action button
+                          // Container(
+                          //   width: 38,
+                          //   height: 38,
+                          //   margin: const EdgeInsets.only(right: 8),
+                          //   decoration: BoxDecoration(
+                          //     gradient: AppColors.buildPrimaryGradient(),
+                          //     borderRadius: BorderRadius.circular(8),
+                          //   ),
+                          //   alignment: Alignment.center,
+                          //   child: GestureDetector(
+                          //     onTap: () {},
+                          //     child: SvgPicture.asset(
+                          //       MediaRes.calenderClockIcon,
+                          //       width: 22,
+                          //       height: 22,
+                          //       fit: BoxFit.contain,
+                          //       colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                          //     ),
+                          //   ),
+                          // ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (!_hideSummaryCardsForScopedStaff) ...[
+                        // Total Students stat card
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final bool isTablet = constraints.maxWidth >= 600;
+                            final double active = _activeCount.toDouble();
+                            final double upcoming = _upcomingCount.toDouble();
+                            final int totalCount = (active + upcoming).toInt();
+                            final String total = '$totalCount';
+                            final items = [
+                              ProgressItemHelper(
+                                label: 'Active (${active.toInt()})',
+                                value: active,
+                                color: AppColors.lightBlueProgressBar,
+                                filterValue: 'Active',
+                              ),
+                              ProgressItemHelper(
+                                label: 'Upcoming (${upcoming.toInt()})',
+                                value: upcoming,
+                                color: AppColors.mustardProgressBar,
+                                filterValue: 'Upcoming',
+                              ),
+                            ];
+                            return Container(
+                              margin: EdgeInsets.only(
+                                top: isTablet ? 16 : 12,
+                                bottom: isTablet ? 8 : 8,
+                              ),
+                              child: CustomStatBarCard(
+                                title: 'Total\nStudents',
+                                number: total,
+                                items: items,
+                                fullWidthBar: false,
+                                onLegendTap:
+                                    (String label, String? filterValue) async {
+                                      setState(() {
+                                        final current =
+                                            _currentFilters['Status'];
+                                        if (current != null &&
+                                            current.length == 1 &&
+                                            current.first == filterValue) {
+                                          _currentFilters.remove('Status');
+                                        } else {
+                                          _currentFilters['Status'] = [
+                                            filterValue!,
+                                          ];
+                                        }
+                                        _syncShowInactiveFromStatus(
+                                          _currentFilters['Status']
+                                                      ?.isNotEmpty ==
+                                                  true
+                                              ? _currentFilters['Status']!.first
+                                              : null,
+                                        );
+                                      });
+                                      await _applyFiltersToCubit();
+                                    },
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // Expected Students (same breakdown as Student Attendance daily summary)
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final bool isTablet = constraints.maxWidth >= 600;
+                            final present = _expectedSignedIn.toDouble();
+                            final absent = _expectedAbsent.toDouble();
+                            final signedOut = _expectedSignedOut.toDouble();
+                            final notMarked = _expectedNotMarked.toDouble();
+                            final items = [
+                              ProgressItemHelper(
+                                label: 'Signed-In (${present.toInt()})',
+                                value: present,
+                                color: AppColors.lightGreenProgressBar,
+                                filterValue: 'Signed-In',
+                              ),
+                              ProgressItemHelper(
+                                label: 'Absent (${absent.toInt()})',
+                                value: absent,
+                                color: AppColors.redProgressBar,
+                                filterValue: 'Absent',
+                              ),
+                              ProgressItemHelper(
+                                label: 'Signed Out (${signedOut.toInt()})',
+                                value: signedOut,
+                                color: AppColors.lightBlueProgressBar,
+                                filterValue: 'Signed Out',
+                              ),
+                              ProgressItemHelper(
+                                label: 'Not Marked (${notMarked.toInt()})',
+                                value: notMarked,
+                                color: AppColors.mustardProgressBar,
+                                filterValue: 'Not Marked',
+                              ),
+                            ];
+                            return Container(
+                              margin: EdgeInsets.only(
+                                top: isTablet ? 8 : 8,
+                                bottom: isTablet ? 8 : 8,
+                              ),
+                              child: CustomStatBarCard(
+                                title: 'Expected\nStudents',
+                                number: '$_expectedStudentsTotal',
+                                items: items,
+                                fullWidthBar: false,
+                                normalizeBarByItemSum: true,
+                                onLegendTap: (String label, String? filterValue) {
+                                  final status = label.split(' ').first;
+                                  if (status == 'Signed-In' ||
+                                      status == 'Absent' ||
+                                      status == 'Signed' ||
+                                      status == 'Not') {
+                                    if (status == 'Signed') {
+                                      _openStudentAttendanceWithLegendFilter(
+                                        'Signed Out',
+                                      );
+                                    } else if (status == 'Not') {
+                                      _openStudentAttendanceWithLegendFilter(
+                                        'Not Marked',
+                                      );
+                                    } else {
+                                      _openStudentAttendanceWithLegendFilter(
+                                        status,
+                                      );
+                                    }
                                   }
                                 },
-                                borderRadius: BorderRadius.circular(100),
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    Padding(
-                                  padding: const EdgeInsets.all(8),
-                                      child: SvgPicture.asset(
-                                        MediaRes.filterIcon,
-                                        height: 20,
-                                      ),
-                                    ),
-                                    Builder(
-                                      builder: (context) {
-                                        final statusList =
-                                            _currentFilters['Status'] ?? const <String>[];
-                                        final classroomList =
-                                            _currentFilters['Classroom'] ?? const <String>[];
-                                        final tagsList =
-                                            _currentFilters['Tags'] ?? const <String>[];
-                                        final parentsList =
-                                            _currentFilters['Parents'] ?? const <String>[];
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      // Filter/search card
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.cardBorderColor),
+                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.cardColor,
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CustomSearchBar(
+                                    controller: _searchController,
+                                    hintText: 'Search Student',
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => BlocProvider.value(
+                                            value: context
+                                                .read<ClassroomCubit>(),
+                                            child: StudentFilterScreen(
+                                              initialFilters: _currentFilters,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                      if (!mounted) return;
+                                      if (result is Map) {
+                                        final normalized =
+                                            <String, List<String>>{};
+                                        result.forEach((key, value) {
+                                          final k = key.toString();
+                                          if (value is List) {
+                                            normalized[k] = value
+                                                .map((e) => e.toString())
+                                                .toList();
+                                          } else if (value != null) {
+                                            normalized[k] = [value.toString()];
+                                          }
+                                        });
 
-                                        final String status =
-                                            statusList.isNotEmpty ? statusList.first : '';
-                                        final statusUpper = status.trim().toUpperCase();
+                                        setState(() {
+                                          _currentFilters = normalized;
+                                        });
+                                        await _applyFiltersToCubit();
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(100),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: SvgPicture.asset(
+                                            MediaRes.filterIcon,
+                                            height: 20,
+                                          ),
+                                        ),
+                                        Builder(
+                                          builder: (context) {
+                                            final statusList =
+                                                _currentFilters['Status'] ??
+                                                const <String>[];
+                                            final classroomList =
+                                                _currentFilters['Classroom'] ??
+                                                const <String>[];
+                                            final tagsList =
+                                                _currentFilters['Tags'] ??
+                                                const <String>[];
+                                            final parentsList =
+                                                _currentFilters['Parents'] ??
+                                                const <String>[];
 
-                                        // Treat empty or ACTIVE as default (no badge contribution).
-                                        final bool hasNonDefaultStatus =
-                                            statusUpper.isNotEmpty &&
+                                            final String status =
+                                                statusList.isNotEmpty
+                                                ? statusList.first
+                                                : '';
+                                            final statusUpper = status
+                                                .trim()
+                                                .toUpperCase();
+
+                                            // Treat empty or ACTIVE as default (no badge contribution).
+                                            final bool hasNonDefaultStatus =
+                                                statusUpper.isNotEmpty &&
                                                 statusUpper != 'ACTIVE';
-                                        final bool hasClassroomFilter =
-                                            classroomList.isNotEmpty;
-                                        final bool hasTagsFilter = tagsList.isNotEmpty;
-                                        final bool hasParentsFilter =
-                                            parentsList.isNotEmpty;
+                                            final bool hasClassroomFilter =
+                                                classroomList.isNotEmpty;
+                                            final bool hasTagsFilter =
+                                                tagsList.isNotEmpty;
+                                            final bool hasParentsFilter =
+                                                parentsList.isNotEmpty;
 
-                                        final int badgeCount =
-                                            (hasNonDefaultStatus ? 1 : 0) +
+                                            final int badgeCount =
+                                                (hasNonDefaultStatus ? 1 : 0) +
                                                 (hasClassroomFilter ? 1 : 0) +
                                                 (hasTagsFilter ? 1 : 0) +
                                                 (hasParentsFilter ? 1 : 0);
 
-                                        if (badgeCount == 0) {
-                                          return const SizedBox.shrink();
-                                        }
+                                            if (badgeCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
 
-                                        return Positioned(
-                                          right: 2,
-                                          top: 2,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 5,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color.fromRGBO(179, 38, 30, 1),
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                            child: Text(
-                                              badgeCount > 99 ? '99+' : '$badgeCount',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w700,
+                                            return Positioned(
+                                              right: 2,
+                                              top: 2,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color.fromRGBO(
+                                                    179,
+                                                    38,
+                                                    30,
+                                                    1,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  badgeCount > 99
+                                                      ? '99+'
+                                                      : '$badgeCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                        );
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // const CustomChip(
+                                    //   label: 'Active',
+                                    //   labelStyle: TextStyle(
+                                    //     color: AppColors.secondaryColor,
+                                    //     fontSize: 13,
+                                    //     fontWeight: FontWeight.w500,
+                                    //   ),
+                                    //   color: Color.fromRGBO(177, 175, 233, 0.3),
+                                    // ),
+                                    CustomClearAllChip(
+                                      onTap: null,
+                                      label: _statusChipLabel(),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    CustomClearAllChip(
+                                      onTap: () => _clearAllFilters(),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      'Show inactive',
+                                      style: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xff573353),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    CustomToggle(
+                                      label: '',
+                                      isToggled: _showInactive,
+                                      onToggle: (v) async {
+                                        setState(() {
+                                          _showInactive = v;
+                                          _currentFilters['Status'] = [
+                                            v ? 'Inactive' : 'Active',
+                                          ];
+                                        });
+                                        await _applyFiltersToCubit();
+
+                                        if (!mounted) return;
+                                        final err = context
+                                            .read<StudentCubit>()
+                                            .state
+                                            .errorMessage;
+                                        if (err != null && err.isNotEmpty) {
+                                          CoreUtils.logApiError(err);
+                                        } else {
+                                          CoreUtils.showTopSnackBar(
+                                            context: context,
+                                            message: v
+                                                ? 'Showing inactive students'
+                                                : 'Showing active students',
+                                            isSuccess: true,
+                                          );
+                                        }
                                       },
                                     ),
                                   ],
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // const CustomChip(
-                                //   label: 'Active',
-                                //   labelStyle: TextStyle(
-                                //     color: AppColors.secondaryColor,
-                                //     fontSize: 13,
-                                //     fontWeight: FontWeight.w500,
-                                //   ),
-                                //   color: Color.fromRGBO(177, 175, 233, 0.3),
-                                // ),
-                                CustomClearAllChip(
-                                  onTap: null,
-                                  label: _statusChipLabel(),
-                                ),
-                                const SizedBox(width: 8),
-                                CustomClearAllChip(onTap: () => _clearAllFilters()),
                               ],
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Show inactive',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                CustomToggle(
-                                  label: '',
-                                  isToggled: _showInactive,
-                                  onToggle: (v) async {
-                                    setState(() {
-                                      _showInactive = v;
-                                      _currentFilters['Status'] =
-                                          [v ? 'Inactive' : 'Active'];
-                                    });
-                                    await _applyFiltersToCubit();
-
-                                    if (!mounted) return;
-                                    final err = context
-                                        .read<StudentCubit>()
-                                        .state
-                                        .errorMessage;
-                                    if (err != null && err.isNotEmpty) {
-                                      CoreUtils.logApiError(err);
-                                    } else {
-                                      CoreUtils.showTopSnackBar(
-                                        context: context,
-                                        message: v
-                                            ? 'Showing inactive students'
-                                            : 'Showing active students',
-                                        isSuccess: true,
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Select All
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: CustomCheckbox(
-                      label: 'Select All',
-                      value: _selectAll,
-                      onChanged: (v) {
-                        final newVal = v ?? false;
-                        setState(() {
-                          _selectAll = newVal;
-                          _selectedDemo = List.filled(students.length, newVal);
-                        });
-                        _refreshAttendanceStatusForSelection(students);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Student list from API
-                  if (state.isLoading && students.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Center(child: PrimaryCircularLoader()),
-                    )
-                  else if (state.errorMessage != null && students.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Text(
-                              'Error loading students',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: () => context.read<StudentCubit>().refresh(),
-                              child: Text('Retry'),
                             ),
                           ],
                         ),
                       ),
-                    )
-                  else if (students.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Center(child: Text('No students found')),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: students.length,
-                      itemBuilder: (context, index) {
-                        final student = students[index];
-                        final studentMap = _studentToMap(
-                          student,
-                          classroomNameByCode: mergedClassroomNames,
-                        );
-                        final isActive =
-                            (student.status).toUpperCase() == 'ACTIVE';
-
-                        return Column(
-                          children: [
-                            StudentCard(
-                              studentCode: studentMap['code'] as String,
-                              name: studentMap['name'] as String,
-                              classroom: studentMap['Classroom'] as String,
-                              tags: studentMap['Tags'] as List<String>,
-                              sibling:
-                                  studentMap['sibling'] as Map<String, dynamic>,
-                              schedule: studentMap['schedule'] as List<String>,
-                              scheduleByDay: studentMap['scheduleByDay'] as Map<String, String>? ?? const <String, String>{},
-                              birthDate: studentMap['birthDate'] as String,
-                              movementDate:
-                                  studentMap['movementDate'] as String,
-                              status: studentMap['Status'] as String,
-                              isActive: isActive,
-                              isSelected: index < _selectedDemo.length
-                                  ? _selectedDemo[index]
-                                  : false,
-                              onSelected: (v) {
-                                setState(() {
-                                  if (index < _selectedDemo.length) {
-                                    _selectedDemo[index] = v ?? false;
-                                  }
-                                  if (!_selectedDemo.any((e) => e)) {
-                                    _currentPanel = StudentPanelType.none;
-                                    _showActivitiesPanel = false;
-                                  }
-                                  _selectAll = _selectedDemo.every((e) => e);
-                                });
-                                _refreshAttendanceStatusForSelection(students);
-                              },
-                              onEdit: () => _openEditStudentDetails(student.code),
-                              onPrimaryAction: () async {
-                                try {
-                                  final message = isActive
-                                      ? await studentCubit
-                                          .deactivateStudent(student.code)
-                                      : await studentCubit
-                                          .reactivateStudent(student.code);
-                                  if (!mounted) return;
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message: message,
-                                    isSuccess: true,
-                                  );
-                                  await _refreshAllStudentApis();
-                                  Navigator.of(context).maybePop();
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  final msg =
-                                      ApiErrorHandler.extractErrorMessage(e);
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message: msg,
-                                    isError: true,
-                                  );
-                                }
-                              },
-                              onDeleteAction: () async {
-                                try {
-                                  final message =
-                                      await studentCubit.deleteStudent(student.code);
-                                  if (!mounted) return;
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message: message,
-                                    isSuccess: true,
-                                  );
-                                  await _refreshAllStudentApis();
-                                  Navigator.of(context).maybePop();
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  final msg =
-                                      ApiErrorHandler.extractErrorMessage(e);
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message: msg,
-                                    isError: true,
-                                  );
-                                }
-                              },
+                      const SizedBox(height: 12),
+                      // Select All
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: CustomCheckbox(
+                          label: 'Select All',
+                          value: _selectAll,
+                          onChanged: (v) {
+                            final newVal = v ?? false;
+                            setState(() {
+                              _selectAll = newVal;
+                              _selectedDemo = List.filled(
+                                students.length,
+                                newVal,
+                              );
+                            });
+                            _refreshAttendanceStatusForSelection(students);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Student list from API
+                      if (state.isLoading && students.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Center(child: PrimaryCircularLoader()),
+                        )
+                      else if (state.errorMessage != null && students.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Error loading students',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton(
+                                  onPressed: () =>
+                                      context.read<StudentCubit>().refresh(),
+                                  child: Text('Retry'),
+                                ),
+                              ],
                             ),
-                            if (index != students.length - 1)
-                              const SizedBox(height: 10),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
+                          ),
+                        )
+                      else if (students.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Center(child: Text('No students found')),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: students.length,
+                          itemBuilder: (context, index) {
+                            final student = students[index];
+                            final studentMap = _studentToMap(
+                              student,
+                              classroomNameByCode: mergedClassroomNames,
+                            );
+                            final isActive =
+                                (student.status).toUpperCase() == 'ACTIVE';
+
+                            return Column(
+                              children: [
+                                StudentCard(
+                                  studentCode: studentMap['code'] as String,
+                                  name: studentMap['name'] as String,
+                                  profileImage:
+                                      studentMap['profileImage'] as String?,
+                                  profilePhotoAssetCode:
+                                      studentMap['profilePhotoAssetCode']
+                                          as String?,
+                                  classroom: studentMap['Classroom'] as String,
+                                  tags: studentMap['Tags'] as List<String>,
+                                  sibling:
+                                      studentMap['sibling']
+                                          as Map<String, dynamic>,
+                                  schedule:
+                                      studentMap['schedule'] as List<String>,
+                                  scheduleByDay:
+                                      studentMap['scheduleByDay']
+                                          as Map<String, String>? ??
+                                      const <String, String>{},
+                                  birthDate: studentMap['birthDate'] as String,
+                                  movementDate:
+                                      studentMap['movementDate'] as String,
+                                  status: studentMap['Status'] as String,
+                                  isActive: isActive,
+                                  isSelected: index < _selectedDemo.length
+                                      ? _selectedDemo[index]
+                                      : false,
+                                  onSelected: (v) {
+                                    setState(() {
+                                      if (index < _selectedDemo.length) {
+                                        _selectedDemo[index] = v ?? false;
+                                      }
+                                      if (!_selectedDemo.any((e) => e)) {
+                                        _currentPanel = StudentPanelType.none;
+                                        _showActivitiesPanel = false;
+                                      }
+                                      _selectAll = _selectedDemo.every(
+                                        (e) => e,
+                                      );
+                                    });
+                                    _refreshAttendanceStatusForSelection(
+                                      students,
+                                    );
+                                  },
+                                  onEdit: () =>
+                                      _openEditStudentDetails(student.code),
+                                  onPrimaryAction: () async {
+                                    try {
+                                      final message = isActive
+                                          ? await studentCubit
+                                                .deactivateStudent(student.code)
+                                          : await studentCubit
+                                                .reactivateStudent(
+                                                  student.code,
+                                                );
+                                      if (!mounted) return;
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: message,
+                                        isSuccess: true,
+                                      );
+                                      await _refreshAllStudentApis();
+                                      Navigator.of(context).maybePop();
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      final msg =
+                                          ApiErrorHandler.extractErrorMessage(
+                                            e,
+                                          );
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: msg,
+                                        isError: true,
+                                      );
+                                    }
+                                  },
+                                  onDeleteAction: () async {
+                                    try {
+                                      final message = await studentCubit
+                                          .deleteStudent(student.code);
+                                      if (!mounted) return;
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: message,
+                                        isSuccess: true,
+                                      );
+                                      await _refreshAllStudentApis();
+                                      Navigator.of(context).maybePop();
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      final msg =
+                                          ApiErrorHandler.extractErrorMessage(
+                                            e,
+                                          );
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: msg,
+                                        isError: true,
+                                      );
+                                    }
+                                  },
+                                ),
+                                if (index != students.length - 1)
+                                  const SizedBox(height: 10),
+                              ],
+                            );
+                          },
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
         ];
-        
+
         if (actionPanel != null) {
           stackChildren.add(actionPanel);
         }
 
         return GlobalScaffold(
-          body: Stack(
-            children: stackChildren,
-          ),
+          body: Stack(children: stackChildren),
           showCustomNavigationBar: true,
         );
       },

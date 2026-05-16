@@ -16,9 +16,7 @@ class CreateInvoiceDialog extends StatelessWidget {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -45,7 +43,11 @@ class CreateInvoiceDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
-                      child: Icon(Icons.close, size: 18, color: Color(0x99573353)),
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Color(0x99573353),
+                      ),
                     ),
                   ),
                 ],
@@ -118,17 +120,29 @@ class _CreateInvoiceTypeCardState extends State<_CreateInvoiceTypeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final Color bgColor = _isHighlighted ? AppColors.themeColor : AppColors.cardColor;
-    final Color borderColor = _isHighlighted ? AppColors.themeColor : AppColors.cardBorderColor;
-    final Color primaryText = _isHighlighted ? AppColors.billingButtonTextColor : AppColors.billingTextColor;
-    final Color secondaryText = _isHighlighted ? Colors.white70 : const Color(0x99573353);
-    final Color iconBg = _isHighlighted ? Colors.white24 : AppColors.themeColor.withOpacity(0.1);
-    final Color iconColor = _isHighlighted ? Colors.white : AppColors.themeColor;
+    final Color bgColor = _isHighlighted
+        ? AppColors.themeColor
+        : AppColors.cardColor;
+    final Color borderColor = _isHighlighted
+        ? AppColors.themeColor
+        : AppColors.cardBorderColor;
+    final Color primaryText = _isHighlighted
+        ? AppColors.billingButtonTextColor
+        : AppColors.billingTextColor;
+    final Color secondaryText = _isHighlighted
+        ? Colors.white70
+        : const Color(0x99573353);
+    final Color iconBg = _isHighlighted
+        ? Colors.white24
+        : AppColors.themeColor.withOpacity(0.1);
+    final Color iconColor = _isHighlighted
+        ? Colors.white
+        : AppColors.themeColor;
 
     return InkWell(
       onTap: widget.onTap,
       onHighlightChanged: _setHighlight,
-      overlayColor: MaterialStatePropertyAll(
+      overlayColor: WidgetStatePropertyAll(
         AppColors.themeColor.withOpacity(0.12),
       ),
       splashColor: AppColors.themeColor.withOpacity(0.16),

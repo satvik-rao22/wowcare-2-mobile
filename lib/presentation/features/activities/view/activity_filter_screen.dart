@@ -66,8 +66,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
 
     final initial = widget.initialFilters ?? const {};
     _selectedTags = List<String>.from(initial['Tags'] ?? const []);
-    _selectedActivityTypes =
-        List<String>.from(initial['Activity Type'] ?? const []);
+    _selectedActivityTypes = List<String>.from(
+      initial['Activity Type'] ?? const [],
+    );
     _selectedStatuses = List<String>.from(initial['Status'] ?? const []);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMetadata());
@@ -87,10 +88,10 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
       );
       final typesFuture =
           ActivityFilterMetadataCache.loadActiveActivityTypesForSchool(
-        cacheManager: _cacheManager,
-        useCase: _activityTypesUseCase,
-        schoolCode: widget.schoolCode,
-      );
+            cacheManager: _cacheManager,
+            useCase: _activityTypesUseCase,
+            schoolCode: widget.schoolCode,
+          );
       final tagMap = await tagMapFuture;
       final types = await typesFuture;
 
@@ -98,21 +99,24 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
 
       final tagNames = tagMap.keys.toList()
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      final typeNames = types
-          .map((ActivityTypeSummary s) => s.name.trim())
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final typeNames =
+          types
+              .map((ActivityTypeSummary s) => s.name.trim())
+              .where((n) => n.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
       setState(() {
         _tagOptions = tagNames;
         _activityTypeOptions = typeNames;
         _selectedTags.removeWhere((t) => !_tagOptions.contains(t));
-        _selectedActivityTypes
-            .removeWhere((t) => !_activityTypeOptions.contains(t));
-        _selectedStatuses
-            .removeWhere((s) => !_approvalStatusOptions.contains(s));
+        _selectedActivityTypes.removeWhere(
+          (t) => !_activityTypeOptions.contains(t),
+        );
+        _selectedStatuses.removeWhere(
+          (s) => !_approvalStatusOptions.contains(s),
+        );
         _loading = false;
       });
     } catch (e) {
@@ -213,10 +217,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: _loadMetadata,
-                child: const Text('Retry'),
-              ),
+              TextButton(onPressed: _loadMetadata, child: const Text('Retry')),
             ],
           ),
         ),
@@ -254,7 +255,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             selectedItems: _selectedActivityTypes,
             labelBottomSpacing: 4,
             onChanged: (values) {
-              setState(() => _selectedActivityTypes = List<String>.from(values));
+              setState(
+                () => _selectedActivityTypes = List<String>.from(values),
+              );
             },
           );
         }

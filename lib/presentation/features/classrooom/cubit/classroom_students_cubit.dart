@@ -10,24 +10,70 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
   ClassroomStudentsCubit({
     required GetStudentClassroomListUseCase getStudentClassroomListUseCase,
     required StorageService storageService,
-  })  : _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
-        _storageService = storageService,
-        super(const ClassroomStudentsState.initial());
+  }) : _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
+       _storageService = storageService,
+       super(const ClassroomStudentsState.initial());
 
   final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   final StorageService _storageService;
 
+  String? _lastSuccessfulStudentListKey;
+
+  static String studentListRequestKey({
+    required String classroomCode,
+    String? search,
+    List<String>? studentCodes,
+    List<String>? status,
+    List<String>? tagCodes,
+  }) {
+    final sc =
+        List<String>.from(studentCodes ?? const <String>[])
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    final st =
+        List<String>.from(status ?? const <String>[])
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    final tg = List<String>.from(
+      tagCodes ?? const <String>[],
+    ).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()..sort();
+    return [
+      classroomCode.trim(),
+      's=${(search ?? '').trim().toLowerCase()}',
+      'sc=${sc.join(',')}',
+      'st=${st.join(',')}',
+      'tg=${tg.join(',')}',
+    ].join('|');
+  }
+
   Future<void> loadInitial({
     required String classroomCode,
     String? search,
+    List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
   }) async {
     if (state.isLoading) return;
 
+    final key = studentListRequestKey(
+      classroomCode: classroomCode,
+      search: search,
+      studentCodes: studentCodes,
+      status: status,
+      tagCodes: tagCodes,
+    );
+    final preserve =
+        key == _lastSuccessfulStudentListKey && state.students.isNotEmpty;
+
     emit(
       state.copyWith(
-        isLoading: true,
+        students: preserve ? state.students : [],
+        isLoading: !preserve,
+        isRefreshing: false,
         errorMessage: null,
         lastClassroomCode: classroomCode,
       ),
@@ -40,12 +86,14 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         schoolCode: schoolCode,
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
         refresh: false,
       );
 
       if (isClosed) return;
+      _lastSuccessfulStudentListKey = key;
       emit(
         state.copyWith(
           students: items,
@@ -71,10 +119,19 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
   Future<void> refresh({
     required String classroomCode,
     String? search,
+    List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
   }) async {
     if (state.isRefreshing) return;
+
+    final key = studentListRequestKey(
+      classroomCode: classroomCode,
+      search: search,
+      studentCodes: studentCodes,
+      status: status,
+      tagCodes: tagCodes,
+    );
 
     emit(
       state.copyWith(
@@ -91,12 +148,14 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         schoolCode: schoolCode,
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
         refresh: true,
       );
 
       if (isClosed) return;
+      _lastSuccessfulStudentListKey = key;
       emit(
         state.copyWith(
           students: items,
@@ -134,4 +193,3 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
     }).toList();
   }
 }
-

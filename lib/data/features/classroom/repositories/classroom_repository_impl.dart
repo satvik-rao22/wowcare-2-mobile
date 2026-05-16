@@ -6,7 +6,10 @@ import '../../../../domain/features/student_classroom/repositories/student_class
 import '../datasources/classroom_remote_datasource.dart';
 
 class ClassroomRepositoryImpl implements ClassroomRepository {
-  ClassroomRepositoryImpl(this._remoteDataSource, this._studentClassroomRepository);
+  ClassroomRepositoryImpl(
+    this._remoteDataSource,
+    this._studentClassroomRepository,
+  );
 
   final ClassroomRemoteDataSource _remoteDataSource;
   final StudentClassroomRepository _studentClassroomRepository;
@@ -22,19 +25,12 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     );
 
     return response.items
-        .map(
-          (model) => Classroom(
-            code: model.code,
-            name: model.name,
-          ),
-        )
+        .map((model) => Classroom(code: model.code, name: model.name))
         .toList();
   }
 
   @override
-  Future<ClassroomDetails> getClassroomByCode({
-    required String code,
-  }) async {
+  Future<ClassroomDetails> getClassroomByCode({required String code}) async {
     final response = await _remoteDataSource.getClassroomByCode(code: code);
     final details = response.data;
 
@@ -47,10 +43,8 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       name: details.name,
       capacity: details.capacity,
       studentsPerTeacher: details.studentsPerTeacher,
-      minAgeYear: details.minAgeYear,
-      minAgeMonths: details.minAgeMonths,
-      maxAgeYear: details.maxAgeYear,
-      maxAgeMonths: details.maxAgeMonths,
+      minAgeTotalMonths: details.minAgeTotalMonths,
+      maxAgeTotalMonths: details.maxAgeTotalMonths,
       type: details.type,
       school: details.school,
       status: details.status,
@@ -88,4 +82,3 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     );
   }
 }
-

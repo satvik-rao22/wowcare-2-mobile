@@ -22,32 +22,20 @@ class SelectFlowHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const SizedBox(height: 8),
-        Image.asset(
-          logoAsset,
-          height: 82,
-          fit: BoxFit.contain,
-        ),
+        Image.asset(logoAsset, height: 82, fit: BoxFit.contain),
         const SizedBox(height: 2),
-        AppText.title(
-          'WowCare!',
-          textAlign: TextAlign.center,
-        ),
+        AppText.title('WowCare!', textAlign: TextAlign.center),
         const SizedBox(height: 16),
         CircleAvatar(
           radius: 28,
           backgroundImage: avatar ?? const AssetImage(MediaRes.userImageFemale),
         ),
         const SizedBox(height: 10),
-        AppText.title(
-          userName,
-          textAlign: TextAlign.center,
-        ),
+        AppText.title(userName, textAlign: TextAlign.center),
         const SizedBox(height: 4),
         AppText.small(
           userRole,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
       ],

@@ -8,10 +8,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class EditLedgerScreen extends StatefulWidget {
-  const EditLedgerScreen({
-    required this.ledger,
-    super.key,
-  });
+  const EditLedgerScreen({required this.ledger, super.key});
 
   final LedgerAccountModel ledger;
 
@@ -119,18 +116,18 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
     final double containerWidth = isLargeTablet
         ? (screenWidth * 0.8).clamp(800.0, 1200.0)
         : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
+        ? screenWidth * 0.9
+        : screenWidth - 32.0;
     final double horizontalSpacing = isLargeTablet
         ? (screenWidth * 0.1).clamp(32.0, 64.0)
         : isTablet
-            ? 32.0
-            : 16.0;
+        ? 32.0
+        : 16.0;
     final double verticalSpacing = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
@@ -163,8 +160,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                   children: [
                     const SizedBox(height: 16),
                     Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalSpacing,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -180,8 +178,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                     Expanded(
                       child: Container(
                         width: containerWidth,
-                        margin:
-                            EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                        margin: EdgeInsets.symmetric(
+                          horizontal: horizontalSpacing,
+                        ),
                         padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
                         decoration: BoxDecoration(
                           color: AppColors.billingCardColor,
@@ -266,7 +265,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                   ],
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight: Radius.circular(
+                      responsive.isTablet ? 40.0 : 24.0,
+                    ),
                   ),
                 ),
                 child: Container(
@@ -278,9 +279,12 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ),
-                    color: _isSubmitting ? AppColors.billingButtonDisabled : null,
-                    borderRadius:
-                        BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+                    color: _isSubmitting
+                        ? AppColors.billingButtonDisabled
+                        : null,
+                    borderRadius: BorderRadius.circular(
+                      responsive.isTablet ? 16.0 : 8.0,
+                    ),
                   ),
                   child: TextButton(
                     onPressed: _isSubmitting ? null : _onSave,
@@ -325,7 +329,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
               if (required)
                 TextSpan(
                   text: ' *',
-                  style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
+                  style: AppTextStyles.small.copyWith(
+                    color: AppColors.errorColor,
+                  ),
                 ),
             ],
           ),
@@ -336,8 +342,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -386,7 +393,12 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              TextSpan(text: ' *', style: AppTextStyles.small.copyWith(color: AppColors.errorColor)),
+              TextSpan(
+                text: ' *',
+                style: AppTextStyles.small.copyWith(
+                  color: AppColors.errorColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -396,11 +408,12 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: DropdownButtonFormField<String>(
-            value: value,
+            initialValue: value,
             isExpanded: true,
             decoration: const InputDecoration(
               border: InputBorder.none,
@@ -433,4 +446,3 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
     );
   }
 }
-

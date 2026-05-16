@@ -40,7 +40,6 @@ import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class LearningActivityScreen extends StatefulWidget {
@@ -64,13 +63,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -135,9 +134,10 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     for (final p in rows) {
       final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (n != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -163,7 +163,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _activityDate =
+          resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -225,7 +226,11 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       if (!_lastUpdateSucceeded) return;
       final msg = await _approveActivityUseCase(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -251,7 +256,11 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     try {
       final msg = await _rejectActivityUseCase(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -323,8 +332,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
         .trim();
     final organizationCode =
@@ -339,7 +348,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
@@ -528,9 +539,13 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final hasSharedAttachmentInEdit = widget.isEdit &&
+    final hasSharedAttachmentInEdit =
+        widget.isEdit &&
         _detailAttachmentRows.any((row) {
-          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
+          final binding = (row['bindingMode'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
           final student = (row['studentCode'] ?? '').toString().trim();
           return binding == 'SHARED' || student.isEmpty;
         });
@@ -569,8 +584,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
-          final checksumSha256 =
-              await _imageUploadService.computeFileChecksumSha256(photo);
+          final checksumSha256 = await _imageUploadService
+              .computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
@@ -591,10 +606,12 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               if (!mounted) return;
               final overallFraction =
                   ((fileIndex - 1) + (percent / 100)) / totalFiles;
-              final overallPercent =
-                  (overallFraction * 100).clamp(0, 100).round();
-              final displayPercent =
-                  overallPercent >= 100 ? 99 : overallPercent;
+              final overallPercent = (overallFraction * 100)
+                  .clamp(0, 100)
+                  .round();
+              final displayPercent = overallPercent >= 100
+                  ? 99
+                  : overallPercent;
               setState(() => _uploadProgressPercent = displayPercent);
             },
           );
@@ -752,14 +769,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     if (_selectedActivityType == null ||
         _selectedActivityType!.trim().isEmpty) {
@@ -987,9 +1004,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -1021,14 +1036,14 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     if (_selectedActivityType == null ||
         _selectedActivityType!.trim().isEmpty) {
@@ -1248,8 +1263,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (categoryEntry != null) categoryEntry,
       ];
 
-      final patchAttachments =
-          attachmentsForActivityPatchRequest(mergedRows);
+      final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: _selectedStudentsData,
@@ -1257,8 +1271,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -1302,9 +1316,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (e) {
       if (!mounted) return;
@@ -1478,7 +1490,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+            if (widget.isEdit &&
+                !widget.readOnly &&
+                _selectedStudents.length > 1) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -1506,7 +1520,9 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
+                          initialDate: formatSelectedDateForDateWidget(
+                            _activityDate,
+                          ),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -1536,7 +1552,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     dropDownName: 'Activity Name',
                     selectedValue: _selectedActivityType,
                     isRequired: true,
-                    isEnabled: _canInteract &&
+                    isEnabled:
+                        _canInteract &&
                         !_loadingLearningOptions &&
                         _activityType.isNotEmpty,
                     onSelect: (value) {
@@ -1553,7 +1570,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     hintText: 'Select category',
                     items: _category,
                     selectedItem: _selectedCategory,
-                    isEnabled: _canInteract &&
+                    isEnabled:
+                        _canInteract &&
                         !_loadingLearningOptions &&
                         _category.isNotEmpty,
                     onSelect: (value) {
@@ -1568,8 +1586,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
+                final isAdminPersona = _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
@@ -1582,9 +1599,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                               : _effectiveActivity.staffPresent)
                         : null,
                   ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
+                  isEditable: lockToLoggedInStaff ? false : _canInteract,
                   onStaffChanged: (_, selectedCode) {
                     _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
                         ? selectedCode!.trim()
@@ -1602,8 +1617,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
             if (_showRequireAdminApprovalToggle)
               CustomToggle(
                 label: 'Requires Admin Approval',
@@ -1663,7 +1677,8 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _isUploadingMedia ||
                           _loadingActivityDetail ||
@@ -1673,16 +1688,17 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onPressedBottom,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail ||
-                          _loadingLearningOptions,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onPressedBottom,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _isUploadingMedia ||
+                            _loadingActivityDetail ||
+                            _loadingLearningOptions,
+                      ),
                   ],
                 ),
               ),
@@ -1690,6 +1706,3 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     );
   }
 }
-
-
-

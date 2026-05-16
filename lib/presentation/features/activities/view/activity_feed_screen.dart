@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import 'choose_activity.dart';
@@ -21,6 +22,7 @@ class ActivityFeedScreen extends StatefulWidget {
 
   final bool fromStudentProfile;
   final Map<String, dynamic>? studentName;
+
   /// When false, hide add / edit / delete (from [DAILY_ACTIVITY] `write` permission).
   final bool allowActivityWrite;
 
@@ -30,7 +32,8 @@ class ActivityFeedScreen extends StatefulWidget {
   State<ActivityFeedScreen> createState() => _ActivityFeedScreenState();
 }
 
-class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerProviderStateMixin{
+class _ActivityFeedScreenState extends State<ActivityFeedScreen>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _dailyScrollController = ScrollController();
   final ScrollController _customScrollController = ScrollController();
@@ -38,7 +41,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2 , vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -51,11 +54,13 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
     _customScrollController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
     final staffLike = !role.isParent;
-    final allowWrite = widget.allowActivityWrite &&
+    final allowWrite =
+        widget.allowActivityWrite &&
         ModuleAccess.mayWrite(role, AppAccessModules.dailyActivity);
 
     return GlobalScaffold(
@@ -95,9 +100,17 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
+                                    settings: const RouteSettings(
+                                      name: CoreUtils.chooseActivityRouteName,
+                                    ),
                                     builder: (_) => ChooseActivity(
-                                      selectedStudents: widget.studentName != null
-                                          ? [Map<String, dynamic>.from(widget.studentName!)]
+                                      selectedStudents:
+                                          widget.studentName != null
+                                          ? [
+                                              Map<String, dynamic>.from(
+                                                widget.studentName!,
+                                              ),
+                                            ]
                                           : <Map<String, dynamic>>[],
                                     ),
                                   ),
@@ -106,13 +119,18 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
+                                    settings: const RouteSettings(
+                                      name: CoreUtils
+                                          .activityStudentSelectionRouteName,
+                                    ),
                                     builder: (_) => ActivityStudentSelection(),
                                   ),
                                 );
                               }
                             },
                             isTablet: MediaQuery.of(context).size.width >= 600,
-                            isLargeTablet: MediaQuery.of(context).size.width >= 900,
+                            isLargeTablet:
+                                MediaQuery.of(context).size.width >= 900,
                           ),
                           const SizedBox(width: 10),
                         ],
@@ -197,10 +215,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
           decoration: BoxDecoration(
             border: isSelected
                 ? const Border(
-                    bottom: BorderSide(
-                      color: AppColors.themeColor,
-                      width: 2,
-                    ),
+                    bottom: BorderSide(color: AppColors.themeColor, width: 2),
                   )
                 : null,
           ),

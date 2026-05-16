@@ -73,10 +73,7 @@ final List<DemoStatement> demoStatements = [
 class ParentTransactionCard extends StatelessWidget {
   final DemoTransaction transaction;
 
-  const ParentTransactionCard({
-    super.key,
-    required this.transaction,
-  });
+  const ParentTransactionCard({super.key, required this.transaction});
 
   Widget _buildPaymentTile() {
     return ExpansionTile(
@@ -113,7 +110,9 @@ class ParentTransactionCard extends StatelessWidget {
         ],
       ),
       trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        padding: const EdgeInsets.only(
+          top: 4.0,
+        ), // Align with badge top padding
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -151,22 +150,16 @@ class ParentTransactionCard extends StatelessWidget {
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
+        Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -271,7 +264,9 @@ class ParentTransactionCard extends StatelessWidget {
         ],
       ),
       trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        padding: const EdgeInsets.only(
+          top: 4.0,
+        ), // Align with badge top padding
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -309,22 +304,16 @@ class ParentTransactionCard extends StatelessWidget {
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
+        Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -461,7 +450,9 @@ class ParentTransactionCard extends StatelessWidget {
         ],
       ),
       trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        padding: const EdgeInsets.only(
+          top: 4.0,
+        ), // Align with badge top padding
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -499,22 +490,16 @@ class ParentTransactionCard extends StatelessWidget {
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
+        Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 5),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -586,10 +571,7 @@ class ParentTransactionCard extends StatelessWidget {
 class ParentStatementCard extends StatelessWidget {
   final DemoStatement statement;
 
-  const ParentStatementCard({
-    super.key,
-    required this.statement,
-  });
+  const ParentStatementCard({super.key, required this.statement});
 
   @override
   Widget build(BuildContext context) {
@@ -601,7 +583,10 @@ class ParentStatementCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 4.0,
+            ),
             decoration: BoxDecoration(
               color: AppColors.billingPaymentBadgeColor,
               borderRadius: BorderRadius.circular(6),
@@ -628,7 +613,9 @@ class ParentStatementCard extends StatelessWidget {
         ],
       ),
       trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
+        padding: const EdgeInsets.only(
+          top: 4.0,
+        ), // Align with badge top padding
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -671,22 +658,16 @@ class ParentStatementCard extends StatelessWidget {
       backgroundColor: AppColors.cardColor,
       collapsedBackgroundColor: AppColors.cardColor,
       collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(14),
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
+        Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -814,4 +795,3 @@ class ParentStatementCard extends StatelessWidget {
     );
   }
 }
-

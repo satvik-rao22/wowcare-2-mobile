@@ -25,9 +25,7 @@ class CustomCancelButton extends StatelessWidget {
         style: TextButton.styleFrom(
           backgroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           cancelButtonLabel ?? 'Cancel',

@@ -21,6 +21,7 @@ class StudentRepositoryImpl
 
   final StudentRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
+  final Map<String, Set<String>> _studentListCacheKeysBySchool = {};
 
   /// Raw guardians list for a school (includes email/mobile/code).
   /// Not part of the domain interface; used by UI flows that need full guardian details.
@@ -135,9 +136,100 @@ class StudentRepositoryImpl
         identifier: studentCode,
       );
 
+  static String _studentCountsCacheKey(String schoolCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'counts',
+        identifier: schoolCode.trim(),
+      );
+
+  static String _studentTagNamesCacheKey(String schoolCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'tag_names',
+        identifier: schoolCode.trim(),
+      );
+
+  static String _studentTagNameCodeMapCacheKey(String schoolCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'tag_name_code_map',
+        identifier: schoolCode.trim(),
+      );
+
+  static String _studentGuardianNamesCacheKey(String schoolCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'guardian_names',
+        identifier: schoolCode.trim(),
+      );
+
+  static String _studentGuardianNameCodeMapCacheKey(String schoolCode) =>
+      CacheManager.buildCacheKey(
+        feature: 'student',
+        resource: 'guardian_name_code_map',
+        identifier: schoolCode.trim(),
+      );
+
+  void _registerStudentListCacheKey(String schoolCode, String key) {
+    _studentListCacheKeysBySchool
+        .putIfAbsent(schoolCode.trim(), () => <String>{})
+        .add(key);
+  }
+
+  Future<void> _invalidateStudentListAndSummaryCaches({
+    required String schoolCode,
+    bool includeFilterMetadata = false,
+  }) async {
+    final school = schoolCode.trim();
+    final keys = <String>{
+      ...(_studentListCacheKeysBySchool[school] ?? const <String>{}),
+      _studentCountsCacheKey(school),
+    };
+    if (includeFilterMetadata) {
+      keys.addAll(<String>{
+        _studentTagNamesCacheKey(school),
+        _studentTagNameCodeMapCacheKey(school),
+        _studentGuardianNamesCacheKey(school),
+        _studentGuardianNameCodeMapCacheKey(school),
+      });
+    }
+    if (keys.isEmpty) return;
+    await _cacheManager.invalidateCaches(keys.toList(growable: false));
+  }
+
+  Future<void> _invalidateAllStudentListAndSummaryCaches() async {
+    final keys = <String>{};
+    for (final entry in _studentListCacheKeysBySchool.entries) {
+      keys.addAll(entry.value);
+      keys.add(_studentCountsCacheKey(entry.key));
+    }
+    if (keys.isEmpty) return;
+    await _cacheManager.invalidateCaches(keys.toList(growable: false));
+  }
+
   @override
-  Future<Map<String, int>> getStudentCounts({required String schoolCode}) {
-    return _remoteDataSource.getStudentCounts(schoolCode: schoolCode);
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
+  }) async {
+    final key = _studentCountsCacheKey(schoolCode);
+    final cached = await _cacheManager.loadCache(key);
+    if (cached != null) {
+      return <String, int>{
+        'activeCount': (cached['activeCount'] as num?)?.toInt() ?? 0,
+        'upcomingCount': (cached['upcomingCount'] as num?)?.toInt() ?? 0,
+        'enrolledCount': (cached['enrolledCount'] as num?)?.toInt() ?? 0,
+      };
+    }
+    final fresh = await _remoteDataSource.getStudentCounts(
+      schoolCode: schoolCode,
+    );
+    await _cacheManager.saveCache(key, {
+      'activeCount': fresh['activeCount'] ?? 0,
+      'upcomingCount': fresh['upcomingCount'] ?? 0,
+      'enrolledCount': fresh['enrolledCount'] ?? 0,
+    });
+    return fresh;
   }
 
   static String _studentImmunizationCacheKey(String studentCode) =>
@@ -187,20 +279,19 @@ class StudentRepositoryImpl
 
     // Cache only the first page for simplicity, keyed by filters.
     if (page == 0) {
-      await _cacheManager.saveCache(
-        _studentListCacheKey(
-          schoolCode,
-          status: status,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          guardianCodes: guardianCodes,
-          search: search,
-          code: code,
-          firstName: firstName,
-          lastName: lastName,
-        ),
-        studentPageModel.toJson(),
+      final cacheKey = _studentListCacheKey(
+        schoolCode,
+        status: status,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        guardianCodes: guardianCodes,
+        search: search,
+        code: code,
+        firstName: firstName,
+        lastName: lastName,
       );
+      _registerStudentListCacheKey(schoolCode, cacheKey);
+      await _cacheManager.saveCache(cacheKey, studentPageModel.toJson());
     }
 
     return _mapPageModelToEntity(studentPageModel);
@@ -284,6 +375,7 @@ class StudentRepositoryImpl
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   }) async {
@@ -296,6 +388,7 @@ class StudentRepositoryImpl
       size: size,
       ownerType: 'STUDENT',
       ownerId: studentCode,
+      assetCode: assetCode,
       uploadedBy: uploadedBy,
       notes: notes,
     );
@@ -319,6 +412,7 @@ class StudentRepositoryImpl
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   }) async {
@@ -331,6 +425,7 @@ class StudentRepositoryImpl
       size: size,
       ownerType: 'STUDENT',
       ownerId: studentCode,
+      assetCode: assetCode,
       uploadedBy: uploadedBy,
       notes: notes,
     );
@@ -723,6 +818,15 @@ class StudentRepositoryImpl
   Future<Map<String, String>> getTagNameCodeMapForSchool({
     required String schoolCode,
   }) async {
+    final key = _studentTagNameCodeMapCacheKey(schoolCode);
+    final cached = await _cacheManager.loadCache(key);
+    if (cached != null) {
+      final raw = cached['map'] as Map<String, dynamic>?;
+      if (raw != null && raw.isNotEmpty) {
+        return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+    }
+
     final raw = await _remoteDataSource.getTagsBySchool(schoolCode: schoolCode);
 
     final map = <String, String>{};
@@ -736,6 +840,7 @@ class StudentRepositoryImpl
       }
     }
 
+    await _cacheManager.saveCache(key, {'map': map});
     return map;
   }
 
@@ -856,6 +961,10 @@ class StudentRepositoryImpl
 
     // New guardian added – invalidate guardians cache so next load is fresh.
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+    await _invalidateStudentListAndSummaryCaches(
+      schoolCode: schoolCode,
+      includeFilterMetadata: true,
+    );
 
     return message;
   }
@@ -864,6 +973,16 @@ class StudentRepositoryImpl
   Future<List<String>> getGuardianNamesForSchool({
     required String schoolCode,
   }) async {
+    final key = _studentGuardianNamesCacheKey(schoolCode);
+    final cached = await _cacheManager.loadCache(key);
+    if (cached != null) {
+      final values = (cached['names'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+      if (values.isNotEmpty) return values;
+    }
+
     final raw = await _remoteDataSource.getGuardiansBySchool(
       schoolCode: schoolCode,
     );
@@ -889,6 +1008,7 @@ class StudentRepositoryImpl
 
     final sorted = names.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    await _cacheManager.saveCache(key, {'names': sorted});
     return sorted;
   }
 
@@ -896,6 +1016,15 @@ class StudentRepositoryImpl
   Future<Map<String, String>> getGuardianNameCodeMapForSchool({
     required String schoolCode,
   }) async {
+    final key = _studentGuardianNameCodeMapCacheKey(schoolCode);
+    final cached = await _cacheManager.loadCache(key);
+    if (cached != null) {
+      final raw = cached['map'] as Map<String, dynamic>?;
+      if (raw != null && raw.isNotEmpty) {
+        return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+    }
+
     final raw = await _remoteDataSource.getGuardiansBySchool(
       schoolCode: schoolCode,
     );
@@ -922,6 +1051,7 @@ class StudentRepositoryImpl
       }
     }
 
+    await _cacheManager.saveCache(key, {'map': map});
     return map;
   }
 
@@ -952,6 +1082,7 @@ class StudentRepositoryImpl
 
     // Existing guardian linked – invalidate guardians cache so next load is fresh.
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+    await _invalidateAllStudentListAndSummaryCaches();
 
     return message;
   }
@@ -968,6 +1099,7 @@ class StudentRepositoryImpl
     );
 
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+    await _invalidateAllStudentListAndSummaryCaches();
 
     return message;
   }
@@ -983,6 +1115,7 @@ class StudentRepositoryImpl
     );
 
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+    await _invalidateAllStudentListAndSummaryCaches();
 
     return message;
   }
@@ -991,6 +1124,16 @@ class StudentRepositoryImpl
   Future<List<String>> getTagNamesForSchool({
     required String schoolCode,
   }) async {
+    final key = _studentTagNamesCacheKey(schoolCode);
+    final cached = await _cacheManager.loadCache(key);
+    if (cached != null) {
+      final values = (cached['names'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+      if (values.isNotEmpty) return values;
+    }
+
     final raw = await _remoteDataSource.getTagsBySchool(schoolCode: schoolCode);
 
     final names = <String>{};
@@ -1004,6 +1147,7 @@ class StudentRepositoryImpl
 
     final sorted = names.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    await _cacheManager.saveCache(key, {'names': sorted});
     return sorted;
   }
 
@@ -1087,19 +1231,19 @@ class StudentRepositoryImpl
     String? firstName,
     String? lastName,
   }) async {
-    final payload = await _cacheManager.loadCache(
-      _studentListCacheKey(
-        schoolCode,
-        status: status,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        guardianCodes: guardianCodes,
-        search: search,
-        code: code,
-        firstName: firstName,
-        lastName: lastName,
-      ),
+    final key = _studentListCacheKey(
+      schoolCode,
+      status: status,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      guardianCodes: guardianCodes,
+      search: search,
+      code: code,
+      firstName: firstName,
+      lastName: lastName,
     );
+    _registerStudentListCacheKey(schoolCode, key);
+    final payload = await _cacheManager.loadCache(key);
     if (payload == null) return null;
 
     final model = StudentPageModel.fromCacheJson(payload);
@@ -1144,6 +1288,7 @@ class StudentRepositoryImpl
               lastName: m.lastName,
               status: m.status,
               profileImage: m.profilePhotoUrl,
+              profilePhotoAssetCode: m.profilePhotoAssetCode,
               classroom: m.classroom,
               dob: m.dob,
               movementDate: m.movementDate,
@@ -1167,8 +1312,7 @@ class StudentRepositoryImpl
     required String schoolCode,
   }) async {
     final message = await _remoteDataSource.deactivateStudent(code);
-    // Invalidate student list cache since status change affects listing.
-    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+    await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
     return message;
   }
 
@@ -1178,8 +1322,7 @@ class StudentRepositoryImpl
     required String schoolCode,
   }) async {
     final message = await _remoteDataSource.reactivateStudent(code);
-    // Invalidate student list cache since status change affects listing.
-    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+    await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
     return message;
   }
 
@@ -1189,7 +1332,10 @@ class StudentRepositoryImpl
     required String schoolCode,
   }) async {
     final message = await _remoteDataSource.deleteStudent(code);
-    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+    await _invalidateStudentListAndSummaryCaches(
+      schoolCode: schoolCode,
+      includeFilterMetadata: true,
+    );
     return message;
   }
 
@@ -1215,8 +1361,7 @@ class StudentRepositoryImpl
       schoolStartDate: schoolStartDate,
     );
 
-    // New student created – invalidate first-page cache so next load/refresh sees it.
-    await _cacheManager.invalidateCache(_studentListCacheKey(schoolCode));
+    await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
 
     return Student(
       code: model.code,
@@ -1240,11 +1385,12 @@ class StudentRepositoryImpl
       body: fields,
     );
 
-    // Invalidate cached profile so subsequent loads use fresh data.
-    // Note: We don't have a profile cache key yet, but we should invalidate list cache
-    // since profile changes might affect list display.
-    // TODO: Add profile cache key if needed
-    // await _cacheManager.invalidateCache(_studentProfileCacheKey(code));
+    final schoolCode = (fields['schoolCode'] ?? '').toString().trim();
+    if (schoolCode.isNotEmpty) {
+      await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
+    } else {
+      await _invalidateAllStudentListAndSummaryCaches();
+    }
 
     return message;
   }
@@ -1259,6 +1405,13 @@ class StudentRepositoryImpl
       body: fields,
     );
 
+    final schoolCode = (fields['schoolCode'] ?? '').toString().trim();
+    if (schoolCode.isNotEmpty) {
+      await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
+    } else {
+      await _invalidateAllStudentListAndSummaryCaches();
+    }
+
     return message;
   }
 
@@ -1271,6 +1424,8 @@ class StudentRepositoryImpl
       studentCode: studentCode,
       siblingCodes: siblingCodes,
     );
+
+    await _invalidateAllStudentListAndSummaryCaches();
 
     return message;
   }
@@ -1287,8 +1442,12 @@ class StudentRepositoryImpl
       tagCodes: tagCodes,
     );
 
-    // Invalidate per-student tags cache so subsequent reads are fresh.
+    // Invalidate per-student tags cache and filter metadata caches.
     await _cacheManager.invalidateCache(_studentTagsCacheKey(studentCode));
+    await _invalidateStudentListAndSummaryCaches(
+      schoolCode: schoolCode,
+      includeFilterMetadata: true,
+    );
 
     return message;
   }

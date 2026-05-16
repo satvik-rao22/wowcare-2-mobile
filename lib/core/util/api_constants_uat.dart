@@ -34,6 +34,7 @@ class ApiConstantsUat {
 
   /// Activity APIs are on the shared UAT host.
   static const String activityBaseUrl = _host;
+
   /// Document APIs in UAT are rooted under `/api/v1/document`.
   static const String documentMsBaseUrl = '$_host/api/v1/document';
   static const String communicationBaseUrl = _host;

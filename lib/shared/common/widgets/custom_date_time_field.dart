@@ -28,6 +28,8 @@ class CustomDateTimeField extends StatefulWidget {
     this.fetchInitialTime = true, // New property to control fetch behavior
     this.isDisabled = false,
     this.isRequired = false, // ✅ ADD THIS
+    this.firstDate,
+    this.lastDate,
     super.key,
   });
 
@@ -42,6 +44,8 @@ class CustomDateTimeField extends StatefulWidget {
   final TimeOfDay? initialTime;
   final bool fetchInitialTime; // Control whether to fetch current time
   final bool isDisabled;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
 
   // Add callbacks for individual time components
   final ValueChanged<String>? onHourChanged;
@@ -121,11 +125,14 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   Future<void> setCurrentDateTime() async {
     DateTime dateTime = DateTime.now();
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        schoolTimeZone,
       );
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
       dateTime = DateTime(
         dt.$1.year,
         dt.$1.month,
@@ -243,6 +250,8 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                 initialDate: selectedDate,
                 initialTime: selectedTime,
                 initialEndDate: rangeEndDate,
+                firstDate: widget.firstDate,
+                lastDate: widget.lastDate,
               ),
             );
             if (result != null) {

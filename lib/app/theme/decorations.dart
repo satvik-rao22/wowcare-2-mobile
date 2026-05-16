@@ -12,8 +12,9 @@ class ContainerDecorations {
 
   static const BoxDecoration decoration1 = BoxDecoration(
     color: Colors.greenAccent, // Solid background color
-    borderRadius:
-        BorderRadius.all(Radius.circular(16.0)), // More rounded corners
+    borderRadius: BorderRadius.all(
+      Radius.circular(16.0),
+    ), // More rounded corners
     boxShadow: [
       BoxShadow(
         color: Colors.grey, // Gray shadow
@@ -30,7 +31,8 @@ class ContainerDecorations {
       end: Alignment.bottomCenter,
     ), // Vertical gradient
     borderRadius: const BorderRadius.all(
-        Radius.circular(20.0)), // More pronounced rounded corners
+      Radius.circular(20.0),
+    ), // More pronounced rounded corners
     border: Border.all(
       color: Colors.orangeAccent, // Border color
       width: 3.0, // Border width

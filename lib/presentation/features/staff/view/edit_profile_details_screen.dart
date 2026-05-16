@@ -41,7 +41,7 @@ class EditProfileDetailsScreen extends StatefulWidget {
     this.initialClassroomNames,
     this.initialClassroomCodeByName,
   });
-  static const String routeName = '/edit-profile-details-screen';
+  static const String routeName = '/dashboard/edit-profile-details-screen';
 
   final String staffCode;
   final String? initialFirstName;
@@ -59,13 +59,16 @@ class EditProfileDetailsScreen extends StatefulWidget {
   final String? initialState;
   final String? initialCountry;
   final String? initialZipCode;
+
   /// Optional cached classroom names (to avoid extra classroom API calls).
   final List<String>? initialClassroomNames;
+
   /// Optional mapping from classroom name -> classroom code.
   final Map<String, String>? initialClassroomCodeByName;
 
   @override
-  _EditProfileDetailsScreenState createState() => _EditProfileDetailsScreenState();
+  _EditProfileDetailsScreenState createState() =>
+      _EditProfileDetailsScreenState();
 }
 
 class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
@@ -78,7 +81,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
-  
+
   ClassroomCubit? _classroomCubit;
 
   String? _selectedStatus;
@@ -102,10 +105,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     'Inactive',
     'Upcoming',
   ];
-  static const List<String> _adminStatusOptions = [
-    'Active',
-    'Inactive',
-  ];
+  static const List<String> _adminStatusOptions = ['Active', 'Inactive'];
   // Full designation list (union of admin + staff) for mapping helpers.
   final List<String> _designationOptions = [
     'Director',
@@ -136,8 +136,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final List<String> _jobTagOptions = ['Full Time', 'Part Time'];
   // Gender is not needed for this form (per product requirement).
   // final List<String> _genderOptions = ['Male', 'Female'];
-  final List<String> _stateOptions =
-      US_STATES.map((s) => s.name).toList(growable: false);
+  final List<String> _stateOptions = US_STATES
+      .map((s) => s.name)
+      .toList(growable: false);
   // Country is fixed to United States for this screen; no need to build a dropdown list.
 
   late final GetStaffProfileUseCase _getStaffProfileUseCase;
@@ -210,7 +211,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
     // All fields are prefilled from GET /api/v1/staff/{staffCode}/profile (see _loadProfileForPrefill).
     if (widget.staffCode.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfileForPrefill());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadProfileForPrefill(),
+      );
     }
   }
 
@@ -270,17 +273,23 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String _statusApiToLabel(String? status) {
     if (status == null) return 'Active';
     switch (status.toUpperCase()) {
-      case 'ACTIVE': return 'Active';
-      case 'INACTIVE': return 'Inactive';
-      case 'UPCOMING': return 'Upcoming';
-      default: return status;
+      case 'ACTIVE':
+        return 'Active';
+      case 'INACTIVE':
+        return 'Inactive';
+      case 'UPCOMING':
+        return 'Upcoming';
+      default:
+        return status;
     }
   }
 
   Future<void> _loadProfileForPrefill() async {
     if (!mounted) return;
     try {
-      final profile = await _getStaffProfileUseCase(staffCode: widget.staffCode);
+      final profile = await _getStaffProfileUseCase(
+        staffCode: widget.staffCode,
+      );
       if (!mounted) return;
       final codeToName = {
         for (final e in _classroomCodeByName.entries) e.value: e.key,
@@ -296,8 +305,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _profileOrganizationCode = profile.organizationCode.trim();
         _profileSchoolCode = profile.schoolCode.trim();
         _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
-        _selectedDesignation =
-            _mapDesignationFromApiOrLabel(profile.designation);
+        _selectedDesignation = _mapDesignationFromApiOrLabel(
+          profile.designation,
+        );
         _selectedStatus = _statusApiToLabel(profile.status);
         // Admin roles cannot be Upcoming — normalize to Active if API returned it.
         if (_isAdminSelected && _selectedStatus == 'Upcoming') {
@@ -309,15 +319,16 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         // 2) Fallback to already-passed initialAllowedClassrooms when mapping is missing.
         final mappedAllowed = hasCodeToName
             ? profile.allowedClassroomCodes
-                .map((c) => codeToName[c] ?? c)
-                .toList()
+                  .map((c) => codeToName[c] ?? c)
+                  .toList()
             : const <String>[];
         if (mappedAllowed.isNotEmpty) {
           _selectedAllowedClassrooms = mappedAllowed;
         } else if (widget.initialAllowedClassrooms != null &&
             widget.initialAllowedClassrooms!.isNotEmpty) {
-          _selectedAllowedClassrooms =
-              List<String>.from(widget.initialAllowedClassrooms!);
+          _selectedAllowedClassrooms = List<String>.from(
+            widget.initialAllowedClassrooms!,
+          );
         } else {
           _selectedAllowedClassrooms = const <String>[];
         }
@@ -328,7 +339,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         if (profile.primaryClassroomCode.isNotEmpty && hasCodeToName) {
           _selectedPrimaryClassroom =
               codeToName[profile.primaryClassroomCode] ??
-                  profile.primaryClassroomCode;
+              profile.primaryClassroomCode;
         } else {
           _selectedPrimaryClassroom = widget.initialPrimaryClassroom;
         }
@@ -554,8 +565,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     try {
       final statusApi = _mapStatusToApiValue(_selectedStatus!);
       final designationApi = _mapDesignationToApiValue(_selectedDesignation);
-      final jobTagApi =
-          _selectedJobTag == null ? null : _mapJobTagToApiValue(_selectedJobTag!);
+      final jobTagApi = _selectedJobTag == null
+          ? null
+          : _mapJobTagToApiValue(_selectedJobTag!);
       // Backend contract uses `birthdate` (lowercase) and expects ISO timestamp.
       final birthDateApi = _selectedBirthDate == null
           ? null
@@ -565,7 +577,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       final primaryClassroomCode = _selectedPrimaryClassroom == null
           ? null
           : (_classroomCodeByName[_selectedPrimaryClassroom!] ??
-              _selectedPrimaryClassroom);
+                _selectedPrimaryClassroom);
       final allowedClassroomCodes = _selectedAllowedClassrooms
           .map((name) => _classroomCodeByName[name] ?? name)
           .toList();
@@ -852,7 +864,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                       const SizedBox(height: 16),
                       Padding(
                         padding: EdgeInsets.symmetric(
-                            horizontal: responsive.horizontalSpacing),
+                          horizontal: responsive.horizontalSpacing,
+                        ),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -866,19 +879,23 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(
-                          height: responsive.isTablet ? 32.0 : 20.0),
+                      SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
                       Expanded(
                         child: Container(
                           width: responsive.containerWidth,
                           margin: EdgeInsets.symmetric(
-                              horizontal: responsive.horizontalSpacing),
+                            horizontal: responsive.horizontalSpacing,
+                          ),
                           padding: EdgeInsets.all(
-                              responsive.isTablet ? 32.0 : 16.0),
+                            responsive.isTablet ? 32.0 : 16.0,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.all(Radius.circular(
-                                responsive.isTablet ? 40.0 : 24.0)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(
+                                responsive.isTablet ? 40.0 : 24.0,
+                              ),
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -890,277 +907,304 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           child: ListView(
                             padding: EdgeInsets.zero,
                             children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildInputField(
-                                "First Name",
-                                "E.g. John",
-                                _firstNameController,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildInputField(
+                                      "First Name",
+                                      "E.g. John",
+                                      _firstNameController,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: responsive.isTablet ? 24.0 : 16.0,
+                                  ),
+                                  Expanded(
+                                    child: _buildInputField(
+                                      "Last Name",
+                                      "E.g. Smith",
+                                      _lastNameController,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-                            Expanded(
-                              child: _buildInputField(
-                                "Last Name",
-                                "E.g. Smith",
-                                _lastNameController,
+                              SizedBox(height: responsive.verticalSpacing),
+                              // Gender is not needed for this form (per product requirement).
+                              // _buildCustomDropdown(
+                              //   "Gender",
+                              //   "Select",
+                              //   _genderOptions,
+                              //   _selectedGender,
+                              //   (v) => setState(() => _selectedGender = v),
+                              //   isRequired: false,
+                              // ),
+                              // SizedBox(height: responsive.verticalSpacing),
+                              _buildCustomDropdown(
+                                "Status",
+                                "Select",
+                                _statusOptionsForCurrentRole,
+                                _selectedStatus,
+                                (v) => setState(() => _selectedStatus = v),
+                                isRequired: true,
                               ),
-                            ),
-                          ],
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
-                        // Gender is not needed for this form (per product requirement).
-                        // _buildCustomDropdown(
-                        //   "Gender",
-                        //   "Select",
-                        //   _genderOptions,
-                        //   _selectedGender,
-                        //   (v) => setState(() => _selectedGender = v),
-                        //   isRequired: false,
-                        // ),
-                        // SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown(
-                          "Status",
-                          "Select",
-                          _statusOptionsForCurrentRole,
-                          _selectedStatus,
-                          (v) => setState(() => _selectedStatus = v),
-                          isRequired: true,
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown(
-                          "Designation",
-                          "Select",
-                          // Show only admin or staff designations based on current role.
-                          _isAdminSelected
-                              ? _adminDesignationOptions
-                              : _staffDesignationOptions,
-                          _selectedDesignation,
-                          (v) {
-                            setState(() {
-                              _selectedDesignation = v;
-                              // Upcoming is not valid for admin designations.
-                              if (_isAdminSelected &&
-                                  _selectedStatus == 'Upcoming') {
-                                _selectedStatus = 'Active';
-                              }
-                            });
-                            // Reload classrooms when switching between admin/staff
-                            // so we use the correct API (with or without type filter).
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _loadClassrooms(force: true);
-                            });
-                          },
-                          isRequired: true,
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildCustomDropdown(
+                                "Designation",
+                                "Select",
+                                // Show only admin or staff designations based on current role.
+                                _isAdminSelected
+                                    ? _adminDesignationOptions
+                                    : _staffDesignationOptions,
+                                _selectedDesignation,
+                                (v) {
+                                  setState(() {
+                                    _selectedDesignation = v;
+                                    // Upcoming is not valid for admin designations.
+                                    if (_isAdminSelected &&
+                                        _selectedStatus == 'Upcoming') {
+                                      _selectedStatus = 'Active';
+                                    }
+                                  });
+                                  // Reload classrooms when switching between admin/staff
+                                  // so we use the correct API (with or without type filter).
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    _loadClassrooms(force: true);
+                                  });
+                                },
+                                isRequired: true,
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
 
-                        // Allowed / Primary Classroom section (same view for staff & admin).
-                        // For admin roles: disabled (greyish), values visible but not editable.
-                        Opacity(
-                          opacity: _isAdminSelected ? 0.7 : 1.0,
-                          child: IgnorePointer(
-                            ignoring: _isAdminSelected,
-                            child: ClassroomSelectionWidgetExact(
-                              primaryClassroom: _selectedPrimaryClassroom,
-                              allowedClassrooms: _selectedAllowedClassrooms,
-                              availableClassrooms: _classroomOptions,
-                              onPrimaryClassroomChanged: (classroom) {
-                                setState(() {
-                                  _selectedPrimaryClassroom = classroom;
-                                });
-                              },
-                              onAllowedClassroomsChanged: (classrooms) {
-                                setState(() {
-                                  _selectedAllowedClassrooms = classrooms;
-                                  if (_selectedPrimaryClassroom != null &&
-                                      !classrooms
-                                          .contains(_selectedPrimaryClassroom)) {
-                                    _selectedPrimaryClassroom = null;
-                                  }
-                                });
-                              },
-                              primaryClassroomError: null,
-                              allowedClassroomsError: null,
-                              showPrimaryClassroom: false,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: responsive.verticalSpacing),
-                        // Primary Classroom Dropdown (disabled for admin roles)
-                        Stack(
-                          children: [
-                            Opacity(
-                              opacity: _isAdminSelected ? 0.7 : 1.0,
-                              child: CustomDropdown(
-                                label: "Primary Classroom",
-                                hintText: 'Select',
-                                items: _selectedAllowedClassrooms.isEmpty
-                                    ? []
-                                    : _selectedAllowedClassrooms,
-                                selectedItem: _selectedPrimaryClassroom,
-                                isEnabled: !_isAdminSelected,
-                                labelStyle: TextStyle(
-                                  fontSize: responsive.labelFontSize,
-                                  fontFamily: "Manrope",
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xff573353),
-                                ),
-                                showAsterisk: !_isAdminSelected,
-                                labelBottomSpacing:
-                                    responsive.isTablet ? 8.0 : 6.0,
-                                fieldHeight:
-                                    responsive.isTablet ? 64.0 : 56.0,
-                                selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: responsive.inputFontSize,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isAdminSelected
-                                      ? Colors.grey.shade600
-                                      : const Color(0xff573353),
-                                  height: 19 / 14,
-                                ),
-                                popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: responsive.inputFontSize,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xff573353),
-                                ),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal:
-                                      responsive.isTablet ? 16.0 : 12.0,
-                                  vertical:
-                                      responsive.isTablet ? 16.0 : 12.0,
-                                ),
-                                onSelect: _isAdminSelected
-                                    ? null
-                                    : (val) =>
-                                        setState(() => _selectedPrimaryClassroom = val),
-                              ),
-                            ),
-                            if (_selectedAllowedClassrooms.isEmpty && !_isAdminSelected)
-                              Positioned.fill(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () {
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message:
-                                          'Please select Allowed Classrooms first',
-                                      isError: true,
-                                    );
-                                  },
+                              // Allowed / Primary Classroom section (same view for staff & admin).
+                              // For admin roles: disabled (greyish), values visible but not editable.
+                              Opacity(
+                                opacity: _isAdminSelected ? 0.7 : 1.0,
+                                child: IgnorePointer(
+                                  ignoring: _isAdminSelected,
+                                  child: ClassroomSelectionWidgetExact(
+                                    primaryClassroom: _selectedPrimaryClassroom,
+                                    allowedClassrooms:
+                                        _selectedAllowedClassrooms,
+                                    availableClassrooms: _classroomOptions,
+                                    onPrimaryClassroomChanged: (classroom) {
+                                      setState(() {
+                                        _selectedPrimaryClassroom = classroom;
+                                      });
+                                    },
+                                    onAllowedClassroomsChanged: (classrooms) {
+                                      setState(() {
+                                        _selectedAllowedClassrooms = classrooms;
+                                        if (_selectedPrimaryClassroom != null &&
+                                            !classrooms.contains(
+                                              _selectedPrimaryClassroom,
+                                            )) {
+                                          _selectedPrimaryClassroom = null;
+                                        }
+                                      });
+                                    },
+                                    primaryClassroomError: null,
+                                    allowedClassroomsError: null,
+                                    showPrimaryClassroom: false,
+                                  ),
                                 ),
                               ),
-                          ],
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
-          
-          _buildDateField("Birthdate", _selectedBirthDate),
-          SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Job Tag", "Select", _jobTagOptions, _selectedJobTag, (v) => setState(() => _selectedJobTag = v)),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildInputField(
-            "Email",
-            "E.g. Jessica@wowcare.com",
-            _emailController,
-            isRequired: true,
-            keyboardType: TextInputType.emailAddress,
-            textCapitalization: TextCapitalization.none,
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField(
-                          "Phone Number",
-                          "E.g. (000) 000-0000",
-                          _phoneNumberController,
-                          isRequired: true,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(10),
-                            _EditPhoneNumberFormatter(),
-                          ],
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildInputField(
-            "Street",
-            "Eg. Street no",
-            _streetController,
-            isRequired: true,
-            textCapitalization: TextCapitalization.words,
-          ),
-                        SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField(
-                          "Address line 2",
-                          "(Optional)",
-                          _street2Controller,
-                          isRequired: false,
-                          textCapitalization: TextCapitalization.words,
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildInputField(
-            "City",
-            "Eg. Nashua",
-            _cityController,
-            isRequired: true,
-            textCapitalization: TextCapitalization.words,
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
-          SizedBox(height: responsive.verticalSpacing),
-                        // Country is fixed to United States; show as non-editable.
-                        Opacity(
-                          opacity: 0.8,
-                          child: CustomDropdown(
-                            label: "Country",
-                            hintText: 'United States',
-                            items: const <String>['United States'],
-                            selectedItem: 'United States',
-                            isEnabled: false,
-                            showAsterisk: true,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            ),
-                            selectedTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.inputFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
-                              height: 19 / 14,
-                            ),
-                            popupItemTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.inputFontSize,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: responsive.isTablet ? 16.0 : 12.0,
-                              vertical: responsive.isTablet ? 16.0 : 12.0,
-                            ),
-                            onSelect: null,
-                          ),
-                        ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildInputField(
-            "Zip Code",
-            "E.g. 12345 or 12345-6789",
-            _zipCodeController,
-            isRequired: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              // Limit to 9 digits; formatter will render it as either 12345 or 12345-6789.
-              LengthLimitingTextInputFormatter(9),
-              _ZipCodeFormatter(),
-            ],
-          ),
-                              SizedBox(
-                                  height: responsive.verticalSpacing),
+                              SizedBox(height: responsive.verticalSpacing),
+                              // Primary Classroom Dropdown (disabled for admin roles)
+                              Stack(
+                                children: [
+                                  Opacity(
+                                    opacity: _isAdminSelected ? 0.7 : 1.0,
+                                    child: CustomDropdown(
+                                      label: "Primary Classroom",
+                                      hintText: 'Select',
+                                      items: _selectedAllowedClassrooms.isEmpty
+                                          ? []
+                                          : _selectedAllowedClassrooms,
+                                      selectedItem: _selectedPrimaryClassroom,
+                                      isEnabled: !_isAdminSelected,
+                                      labelStyle: TextStyle(
+                                        fontSize: responsive.labelFontSize,
+                                        fontFamily: "Manrope",
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xff573353),
+                                      ),
+                                      showAsterisk: !_isAdminSelected,
+                                      labelBottomSpacing: responsive.isTablet
+                                          ? 8.0
+                                          : 6.0,
+                                      fieldHeight: responsive.isTablet
+                                          ? 64.0
+                                          : 56.0,
+                                      selectedTextStyle: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: responsive.inputFontSize,
+                                        fontWeight: FontWeight.w600,
+                                        color: _isAdminSelected
+                                            ? Colors.grey.shade600
+                                            : const Color(0xff573353),
+                                        height: 19 / 14,
+                                      ),
+                                      popupItemTextStyle: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: responsive.inputFontSize,
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xff573353),
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: responsive.isTablet
+                                            ? 16.0
+                                            : 12.0,
+                                        vertical: responsive.isTablet
+                                            ? 16.0
+                                            : 12.0,
+                                      ),
+                                      onSelect: _isAdminSelected
+                                          ? null
+                                          : (val) => setState(
+                                              () => _selectedPrimaryClassroom =
+                                                  val,
+                                            ),
+                                    ),
+                                  ),
+                                  if (_selectedAllowedClassrooms.isEmpty &&
+                                      !_isAdminSelected)
+                                    Positioned.fill(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          CoreUtils.showTopSnackBar(
+                                            context: context,
+                                            message:
+                                                'Please select Allowed Classrooms first',
+                                            isError: true,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+
+                              _buildDateField("Birthdate", _selectedBirthDate),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildCustomDropdown(
+                                "Job Tag",
+                                "Select",
+                                _jobTagOptions,
+                                _selectedJobTag,
+                                (v) => setState(() => _selectedJobTag = v),
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildInputField(
+                                "Email",
+                                "E.g. Jessica@wowcare.com",
+                                _emailController,
+                                isRequired: true,
+                                keyboardType: TextInputType.emailAddress,
+                                textCapitalization: TextCapitalization.none,
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildInputField(
+                                "Phone Number",
+                                "E.g. (000) 000-0000",
+                                _phoneNumberController,
+                                isRequired: true,
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                  _EditPhoneNumberFormatter(),
+                                ],
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildInputField(
+                                "Street",
+                                "Eg. Street no",
+                                _streetController,
+                                isRequired: true,
+                                textCapitalization: TextCapitalization.words,
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildInputField(
+                                "Address line 2",
+                                "(Optional)",
+                                _street2Controller,
+                                isRequired: false,
+                                textCapitalization: TextCapitalization.words,
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildInputField(
+                                "City",
+                                "Eg. Nashua",
+                                _cityController,
+                                isRequired: true,
+                                textCapitalization: TextCapitalization.words,
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildCustomDropdown(
+                                "State",
+                                "Select",
+                                _stateOptions,
+                                _selectedState,
+                                (v) => setState(() => _selectedState = v),
+                                isRequired: true,
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              // Country is fixed to United States; show as non-editable.
+                              Opacity(
+                                opacity: 0.8,
+                                child: CustomDropdown(
+                                  label: "Country",
+                                  hintText: 'United States',
+                                  items: const <String>['United States'],
+                                  selectedItem: 'United States',
+                                  isEnabled: false,
+                                  showAsterisk: true,
+                                  labelStyle: TextStyle(
+                                    fontSize: responsive.labelFontSize,
+                                    fontFamily: "Manrope",
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xff573353),
+                                  ),
+                                  selectedTextStyle: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: responsive.inputFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                    height: 19 / 14,
+                                  ),
+                                  popupItemTextStyle: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: responsive.inputFontSize,
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xff573353),
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: responsive.isTablet
+                                        ? 16.0
+                                        : 12.0,
+                                    vertical: responsive.isTablet ? 16.0 : 12.0,
+                                  ),
+                                  onSelect: null,
+                                ),
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildInputField(
+                                "Zip Code",
+                                "E.g. 12345 or 12345-6789",
+                                _zipCodeController,
+                                isRequired: true,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  // Limit to 9 digits; formatter will render it as either 12345 or 12345-6789.
+                                  LengthLimitingTextInputFormatter(9),
+                                  _ZipCodeFormatter(),
+                                ],
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
                               // _buildPinField(responsive),
                               // SizedBox(height: responsive.verticalSpacing),
                               // _buildWorkTimeSection(responsive),
@@ -1192,10 +1236,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                     ),
                   ],
                   borderRadius: BorderRadius.only(
-                    topLeft:
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight:
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight: Radius.circular(
+                      responsive.isTablet ? 40.0 : 24.0,
+                    ),
                   ),
                 ),
                 child: CustomButtonLayout(
@@ -1238,7 +1282,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -1248,7 +1296,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -1321,7 +1371,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     );
   }
 
-
   Widget _buildDateField(String label, DateTime? selectedDate) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
@@ -1344,7 +1393,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -1356,13 +1407,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                 children: [
                   Flexible(
                     child: Text(
-                      selectedDate != null 
+                      selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.inputFontSize,
-                        fontWeight: selectedDate != null ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: selectedDate != null
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: const Color(0xff573353),
                         height: 19 / 14,
                       ),
@@ -1373,7 +1426,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),
@@ -1383,7 +1439,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       ],
     );
   }
-
 }
 
 /// Simple phone formatter to display US numbers as (XXX) XXX-XXXX

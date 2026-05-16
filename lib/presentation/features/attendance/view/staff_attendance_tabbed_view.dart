@@ -35,20 +35,21 @@ import 'dart:convert';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
-    super.key, 
-    this.initialTabIndex = 0, 
+    super.key,
+    this.initialTabIndex = 0,
     this.dailyIncomingFilter,
     this.classroomFilter,
   });
 
-  static const String routeName = '/staff-attendance-tabbed-view';
+  static const String routeName = '/dashboard/staff-attendance-tabbed-view';
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
   final FilterData? classroomFilter; // classroom filter data
 
   @override
-  State<StaffAttendanceTabbedView> createState() => _StaffAttendanceTabbedViewState();
+  State<StaffAttendanceTabbedView> createState() =>
+      _StaffAttendanceTabbedViewState();
 }
 
 class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
@@ -57,7 +58,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   bool _isParentRole = false;
   bool? _isTeacherStaffPersona;
   String _loggedInStaffCode = '';
-  
+
   // Keys to access the state of each tab
   final GlobalKey _dailyViewKey = GlobalKey();
   final GlobalKey _customViewKey = GlobalKey();
@@ -66,7 +67,11 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _tabController.addListener(_onTabChanged);
     _initPersonaFlags();
   }
@@ -86,13 +91,17 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     if (context.read<RoleProvider>().isParent) return true;
     try {
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (rolesJson.isNotEmpty) {
         final decoded = jsonDecode(rolesJson);
         if (decoded is List) {
           for (final role in decoded) {
             if (role is! Map) continue;
-            final roleName = (role['role'] ?? '').toString().toUpperCase().trim();
+            final roleName = (role['role'] ?? '')
+                .toString()
+                .toUpperCase()
+                .trim();
             if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
               return true;
             }
@@ -100,7 +109,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         }
       }
       final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final raw = jsonEncode(loginContext ?? const <String, dynamic>{}).toUpperCase();
+      final raw = jsonEncode(
+        loginContext ?? const <String, dynamic>{},
+      ).toUpperCase();
       if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
         return true;
       }
@@ -113,12 +124,14 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   Future<void> _loadStaffPersonaFlags() async {
     try {
       final storage = serviceLocator<StorageService>();
-      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+          .trim();
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
 
       bool isStaffAdmin =
           staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
@@ -130,7 +143,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           isStaffAdmin = roles.any((r) {
             if (r is! Map<String, dynamic>) return false;
             final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+            return roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN';
           });
         }
       }
@@ -177,16 +191,20 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     final double screenWidth = mediaQuery.size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
-    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final double floatingButtonSize = isLargeTablet
+        ? 72.0
+        : (isTablet ? 56.0 : 40.0);
 
     // Align the button with the TabBar headings row (Daily/Custom/Absent)
     // by vertically centering it within the TabBar height.
     final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2;
     // Align the floating button horizontally with the main content padding,
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
-    
+
     return Stack(
       children: [
         Container(
@@ -198,13 +216,11 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           ),
           child: Scaffold(
             appBar: CustomAppBar(
-              hasBackButton: true,
+              hasBackButton: false,
               tabController: _tabController,
               tabBarStyle: TabBarStyle(
                 indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(
-                    color: AppColors.themeColor,
-                  ),
+                  borderSide: BorderSide(color: AppColors.themeColor),
                 ),
                 dividerColor: Colors.transparent,
                 indicatorPadding: EdgeInsets.only(
@@ -246,7 +262,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                     children: [
                       StaffAttendanceDailyViewScreen(
                         key: _dailyViewKey,
-                        incomingFilter: widget.dailyIncomingFilter, 
+                        incomingFilter: widget.dailyIncomingFilter,
                         contentOnly: true,
                         classroomFilter: widget.classroomFilter,
                       ),
@@ -264,7 +280,11 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               ),
             ),
             extendBody: true,
-            bottomNavigationBar: const CustomNavigationBar(),
+            // Attendance is the bottom-nav slot at index 1 (a popup slot with
+            // no branch), so highlight it explicitly while on this view.
+            bottomNavigationBar: const CustomNavigationBar(
+              activeTabIndexOverride: 1,
+            ),
           ),
         ),
         // Floating button above everything - responsive positioning
@@ -301,9 +321,13 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     final double screenWidth = mediaQuery.size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
-    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final double floatingButtonSize = isLargeTablet
+        ? 72.0
+        : (isTablet ? 56.0 : 40.0);
     final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2;
     final floatingButtonRight = contentPadding.right;
 
     showDialog(
@@ -326,7 +350,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+              border: Border.all(
+                color: AppColors.classroomStudentTabColor,
+                width: 2,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -391,7 +418,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text('Staff attendance actions are unavailable for parent accounts.'),
+          content: Text(
+            'Staff attendance actions are unavailable for parent accounts.',
+          ),
           backgroundColor: AppColors.warningColor,
         ),
       );
@@ -404,8 +433,12 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         id: 0,
         name: display.fullName.isNotEmpty ? display.fullName : 'My Attendance',
         primaryRoomId: 0,
-        photoUuid: display.profilePhotoUrl.isNotEmpty ? display.profilePhotoUrl : null,
-        staffCode: display.staffCode.isNotEmpty ? display.staffCode : _loggedInStaffCode,
+        photoUuid: display.profilePhotoUrl.isNotEmpty
+            ? display.profilePhotoUrl
+            : null,
+        staffCode: display.staffCode.isNotEmpty
+            ? display.staffCode
+            : _loggedInStaffCode,
       );
       if (!mounted) return;
       switch (label) {
@@ -436,7 +469,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         case 'Absent':
           Navigator.push<void>(
             context,
-            MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
+            MaterialPageRoute(
+              builder: (_) => StaffMarkAbsentForm(staff: staff),
+            ),
           ).then((_) {
             if (mounted) _refreshDailyAfterAttendanceFlow();
           });
@@ -473,7 +508,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       case 'Absent':
         Navigator.push<void>(
           context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionMarkAbsentForm()),
+          MaterialPageRoute(
+            builder: (_) => const StaffSelectionMarkAbsentForm(),
+          ),
         ).then((_) {
           if (mounted) _refreshDailyAfterAttendanceFlow();
         });

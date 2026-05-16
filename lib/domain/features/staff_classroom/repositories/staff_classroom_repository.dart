@@ -22,4 +22,3 @@ abstract class StaffClassroomRepository {
     required List<String> staffCodes,
   });
 }
-

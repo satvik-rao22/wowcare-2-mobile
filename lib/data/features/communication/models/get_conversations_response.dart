@@ -55,8 +55,11 @@ class ConversationsData extends Equatable {
 
   factory ConversationsData.fromJson(Map<String, dynamic> json) {
     return ConversationsData(
-      content: (json['content'] as List<dynamic>?)
-              ?.map((e) => ConversationModel.fromJson(e as Map<String, dynamic>))
+      content:
+          (json['content'] as List<dynamic>?)
+              ?.map(
+                (e) => ConversationModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       totalElements: json['totalElements'] as int? ?? 0,
@@ -71,13 +74,13 @@ class ConversationsData extends Equatable {
 
   @override
   List<Object?> get props => [
-        content,
-        totalElements,
-        totalPages,
-        size,
-        number,
-        first,
-        last,
-        empty,
-      ];
+    content,
+    totalElements,
+    totalPages,
+    size,
+    number,
+    first,
+    last,
+    empty,
+  ];
 }

@@ -44,10 +44,10 @@ class _SubsidiesSectionState extends State<SubsidiesSection> {
   ];
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    _searchController.addListener((){
-      if (_searchController.text.trim().isEmpty && _isToggled){
+    _searchController.addListener(() {
+      if (_searchController.text.trim().isEmpty && _isToggled) {
         setState(() {
           _isToggled = false;
         });
@@ -64,7 +64,7 @@ class _SubsidiesSectionState extends State<SubsidiesSection> {
   List<SubsidyItem> get _filteredSubsidiesList {
     final query = _searchController.text.trim().toLowerCase();
 
-    if (_isToggled || query.isEmpty){
+    if (_isToggled || query.isEmpty) {
       return _subsidyItems;
     }
     return _subsidyItems

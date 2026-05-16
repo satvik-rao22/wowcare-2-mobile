@@ -47,12 +47,12 @@ class ActivityFeedPageModel {
   }
 
   ActivityFeedPage toEntity() => ActivityFeedPage(
-        content: content,
-        totalElements: totalElements,
-        totalPages: totalPages,
-        pageNumber: pageNumber,
-        last: last,
-      );
+    content: content,
+    totalElements: totalElements,
+    totalPages: totalPages,
+    pageNumber: pageNumber,
+    last: last,
+  );
 
   static List<ActivityFeedRow> _rowsFromJson(Map<String, dynamic> json) {
     try {
@@ -108,21 +108,23 @@ class ActivityFeedPageModel {
         return const [];
       }
 
-      final code = (json['cardGroupCode'] ??
-              json['code'] ??
-              json['batchGroupCode'] ??
-              json['activityCode'] ??
-              '')
-          .toString()
-          .trim();
+      final code =
+          (json['cardGroupCode'] ??
+                  json['code'] ??
+                  json['batchGroupCode'] ??
+                  json['activityCode'] ??
+                  '')
+              .toString()
+              .trim();
       final room = (json['classroomCode'] ?? '').toString().trim();
       final activityTypeCode = (json['activityTypeCode'] ?? '').toString();
       final activityTypeName = (json['activityTypeName'] ?? '').toString();
       final description = (json['description'] ?? '').toString();
       final createdBy = (json['createdBy'] ?? '').toString();
       final staffCode = (json['staffCode'] ?? '').toString().trim();
-      final approvalStatus =
-          (json['approvalStatus'] ?? json['status'] ?? '').toString().trim();
+      final approvalStatus = (json['approvalStatus'] ?? json['status'] ?? '')
+          .toString()
+          .trim();
       final napStart = asNullableBool(json['napStart']);
       final napEnd = asNullableBool(json['napEnd']);
 
@@ -134,14 +136,20 @@ class ActivityFeedPageModel {
           final first = (s['firstName'] ?? '').toString().trim();
           final middle = (s['middleName'] ?? '').toString().trim();
           final last = (s['lastName'] ?? '').toString().trim();
-          final name = [first, middle, last].where((p) => p.isNotEmpty).join(' ');
+          final name = [
+            first,
+            middle,
+            last,
+          ].where((p) => p.isNotEmpty).join(' ');
           final stu = (s['studentCode'] ?? '').toString().trim();
           final napStartRaw = s['napStart'];
           final napEndRaw = s['napEnd'];
           final napStartText = napStartRaw == null
               ? ''
               : napStartRaw.toString().trim();
-          final napEndText = napEndRaw == null ? '' : napEndRaw.toString().trim();
+          final napEndText = napEndRaw == null
+              ? ''
+              : napEndRaw.toString().trim();
           if (name.isNotEmpty || stu.isNotEmpty) {
             students.add({
               if (name.isNotEmpty) 'name': name,
@@ -152,7 +160,10 @@ class ActivityFeedPageModel {
           }
         }
       }
-      final studentNapStart = aggregateNapFlagFromStudents(students, 'napStart');
+      final studentNapStart = aggregateNapFlagFromStudents(
+        students,
+        'napStart',
+      );
       final studentNapEnd = aggregateNapFlagFromStudents(students, 'napEnd');
       final effectiveNapStart = napStart ?? studentNapStart;
       final effectiveNapEnd = napEnd ?? studentNapEnd;
@@ -179,8 +190,9 @@ class ActivityFeedPageModel {
             students: students,
             napStart: effectiveNapStart,
             napEnd: effectiveNapEnd,
-            approvalStatus:
-                approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
+            approvalStatus: approvalStatus.isEmpty
+                ? null
+                : approvalStatus.toUpperCase(),
           ),
         ];
       }
@@ -206,8 +218,9 @@ class ActivityFeedPageModel {
           students: const [],
           napStart: effectiveNapStart,
           napEnd: effectiveNapEnd,
-          approvalStatus:
-              approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
+          approvalStatus: approvalStatus.isEmpty
+              ? null
+              : approvalStatus.toUpperCase(),
         ),
       ];
     } catch (_) {

@@ -85,9 +85,7 @@ class ActivitySettingModel {
 
 /// Simple wrapper model for caching a list of settings.
 class ActivitySettingsListModel {
-  ActivitySettingsListModel({
-    required this.items,
-  });
+  ActivitySettingsListModel({required this.items});
 
   final List<ActivitySettingModel> items;
 
@@ -95,17 +93,16 @@ class ActivitySettingsListModel {
     final list = json['items'] as List<dynamic>? ?? const [];
     return ActivitySettingsListModel(
       items: list
-          .map((e) => ActivitySettingModel.fromCacheJson(
-                (e as Map<String, dynamic>),
-              ))
+          .map(
+            (e) =>
+                ActivitySettingModel.fromCacheJson((e as Map<String, dynamic>)),
+          )
           .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'items': items.map((e) => e.toJson()).toList(),
-    };
+    return {'items': items.map((e) => e.toJson()).toList()};
   }
 }
 
@@ -165,4 +162,3 @@ class ActivityCreateRequestModel {
     };
   }
 }
-

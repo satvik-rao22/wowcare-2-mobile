@@ -7,7 +7,8 @@ class StudentDocumentState extends Equatable {
 
   const StudentDocumentState.loading() : this();
 
-  factory StudentDocumentState.success(String message) => _SuccessState(message);
+  factory StudentDocumentState.success(String message) =>
+      _SuccessState(message);
 
   factory StudentDocumentState.error(String message) => _ErrorState(message);
 
@@ -17,8 +18,8 @@ class StudentDocumentState extends Equatable {
   String? get message => this is _SuccessState
       ? (this as _SuccessState).message
       : this is _ErrorState
-          ? (this as _ErrorState).message
-          : null;
+      ? (this as _ErrorState).message
+      : null;
 
   @override
   List<Object?> get props => [];

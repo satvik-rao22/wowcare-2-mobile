@@ -7,9 +7,7 @@ class DeleteIndividualMovementUseCase {
 
   final AvailabilityRepository _repository;
 
-  Future<String> call({
-    required int id,
-  }) async {
+  Future<String> call({required int id}) async {
     try {
       return await _repository.deleteIndividualMovement(id: id);
     } catch (e) {
@@ -17,4 +15,3 @@ class DeleteIndividualMovementUseCase {
     }
   }
 }
-

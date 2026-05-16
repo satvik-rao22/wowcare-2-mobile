@@ -2,8 +2,10 @@ class SchoolNamesResponseModel {
   final bool success;
   final String message;
   final List<String> data;
+
   /// Full list of {schoolCode, schoolName} when API returns objects.
   final List<Map<String, String>> dataWithCodes;
+
   /// Optional organization display name when API returns
   /// { organizationName, schools: [...] }.
   final String organizationName;
@@ -40,8 +42,9 @@ class SchoolNamesResponseModel {
         final name = (item['schoolName'] ?? item['name'] ?? item['value'] ?? '')
             .toString()
             .trim();
-        final code =
-            (item['schoolCode'] ?? item['code'] ?? item['id'] ?? name).toString().trim();
+        final code = (item['schoolCode'] ?? item['code'] ?? item['id'] ?? name)
+            .toString()
+            .trim();
         if (name.isNotEmpty) {
           names.add(name);
           withCodes.add({'schoolCode': code, 'schoolName': name});

@@ -11,10 +11,10 @@ bool isIncidentActivityItem(ActivityItem activity) {
 }
 
 bool isAttendanceCardActivityItem(ActivityItem activity) {
-  final normalized = activity.name
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z]'), '');
+  final normalized = activity.name.trim().toLowerCase().replaceAll(
+    RegExp(r'[^a-z]'),
+    '',
+  );
   return normalized == 'signin' ||
       normalized == 'signout' ||
       normalized == 'transfer' ||
@@ -52,7 +52,10 @@ bool canEditActivityItem(
   return true;
 }
 
-bool canDeleteActivityItem(ActivityItem activity, {required bool isAdminPersona}) {
+bool canDeleteActivityItem(
+  ActivityItem activity, {
+  required bool isAdminPersona,
+}) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (isAdminPersona) {
     return true;
@@ -78,9 +81,7 @@ bool isLikelyAdminDesignationLabel(String raw) {
     'OWNER',
   };
   if (directMatches.contains(v)) return true;
-  return v.contains('ADMIN') ||
-      v.contains('DIRECTOR') ||
-      v.contains('OWNER');
+  return v.contains('ADMIN') || v.contains('DIRECTOR') || v.contains('OWNER');
 }
 
 bool canAdminApproveOrRejectActivityItem(

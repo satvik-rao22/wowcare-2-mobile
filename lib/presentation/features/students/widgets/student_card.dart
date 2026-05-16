@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -11,6 +16,8 @@ class StudentCard extends StatefulWidget {
     super.key,
     required this.studentCode,
     required this.name,
+    this.profileImage,
+    this.profilePhotoAssetCode,
     required this.classroom,
     required this.tags,
     required this.sibling,
@@ -25,10 +32,13 @@ class StudentCard extends StatefulWidget {
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
+    this.isNapping = false,
   });
 
   final String studentCode;
   final String name;
+  final String? profileImage;
+  final String? profilePhotoAssetCode;
   final String classroom;
   final List<String> tags;
   final Map<String, dynamic> sibling;
@@ -43,6 +53,9 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+
+  /// From nap-start API (current classroom roster); shown on avatar like classroom list.
+  final bool isNapping;
 
   @override
   State<StudentCard> createState() => _StudentCardState();
@@ -70,6 +83,11 @@ class _StudentCardState extends State<StudentCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleProvider>();
+    final canStudentWrite = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;
@@ -135,14 +153,33 @@ class _StudentCardState extends State<StudentCard> {
                               label: null,
                             ),
                           Stack(
+                            clipBehavior: Clip.none,
                             children: [
                               DocumentImageWidget(
                                 fileUuid: widget.studentCode,
+                                imageUrl: widget.profileImage,
+                                mediaAssetCode: widget.profilePhotoAssetCode,
                                 name: widget.name,
                                 size: 45,
                                 studentCode: widget.studentCode,
                                 studentEnrollmentStatus: widget.status,
+                                disableProfileLookupFallback: true,
                               ),
+                              if (widget.isNapping)
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Tooltip(
+                                    message: 'Student is currently napping',
+                                    child: SvgPicture.asset(
+                                      MediaRes.napIcon.isNotEmpty
+                                          ? MediaRes.napIcon
+                                          : MediaRes.sleepIcon,
+                                      height: 18,
+                                      width: 18,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -342,15 +379,17 @@ class _StudentCardState extends State<StudentCard> {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
                                             widget.scheduleByDay[enumDay];
-                                        final hasDayInList = widget.schedule.any(
-                                          (d) =>
-                                              d.trim().toLowerCase() ==
-                                              day.toLowerCase(),
-                                        );
+                                        final hasDayInList = widget.schedule
+                                            .any(
+                                              (d) =>
+                                                  d.trim().toLowerCase() ==
+                                                  day.toLowerCase(),
+                                            );
                                         final hasDayInMap =
                                             scheduleText != null &&
                                             scheduleText.trim().isNotEmpty;
-                                        final isActive = hasDayInList || hasDayInMap;
+                                        final isActive =
+                                            hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -448,63 +487,10 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 40,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (ctx) {
-                                            return DeleteConfirmationBottomSheet(
-                                              name: widget.name,
-                                              type: widget.isActive
-                                                  ? 'student_deactivate'
-                                                  : 'student_reactivate',
-                                              onDelete: () {
-                                                widget.onPrimaryAction?.call();
-                                                return Future.value();
-                                              },
-                                              onCancel: () {
-                                                Navigator.of(ctx).pop();
-                                              },
-                                            );
-                                          },
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: Color(0xFF6C7FD8),
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                      child: Text(
-                                        widget.isActive
-                                            ? 'Deactivate'
-                                            : 'Reactivate',
-                                        style: const TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
-                                          height: 16 / 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (!widget.isActive) ...[
-                                  const SizedBox(width: 16),
+                            if (canStudentWrite) ...[
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
                                   Expanded(
                                     child: SizedBox(
                                       height: 40,
@@ -517,9 +503,12 @@ class _StudentCardState extends State<StudentCard> {
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
-                                                type: 'student_delete',
+                                                type: widget.isActive
+                                                    ? 'student_deactivate'
+                                                    : 'student_reactivate',
                                                 onDelete: () {
-                                                  widget.onDeleteAction?.call();
+                                                  widget.onPrimaryAction
+                                                      ?.call();
                                                   return Future.value();
                                                 },
                                                 onCancel: () {
@@ -534,13 +523,17 @@ class _StudentCardState extends State<StudentCard> {
                                             color: Color(0xFF6C7FD8),
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
-                                        child: const Text(
-                                          'Delete',
-                                          style: TextStyle(
+                                        child: Text(
+                                          widget.isActive
+                                              ? 'Deactivate'
+                                              : 'Reactivate',
+                                          style: const TextStyle(
                                             fontFamily: 'Manrope',
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
@@ -551,36 +544,88 @@ class _StudentCardState extends State<StudentCard> {
                                       ),
                                     ),
                                   ),
-                                ],
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Container(
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                    ),
-                                    child: TextButton(
-                                      onPressed: widget.onEdit,
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
+                                  if (!widget.isActive) ...[
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 40,
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              builder: (ctx) {
+                                                return DeleteConfirmationBottomSheet(
+                                                  name: widget.name,
+                                                  type: 'student_delete',
+                                                  onDelete: () {
+                                                    widget.onDeleteAction
+                                                        ?.call();
+                                                    return Future.value();
+                                                  },
+                                                  onCancel: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                );
+                                              },
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: Color(0xFF6C7FD8),
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: const Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6C7FD8),
+                                              height: 16 / 16,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      child: const Text(
-                                        'Edit',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 16 / 16,
+                                    ),
+                                  ],
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        gradient:
+                                            AppColors.buildPrimaryGradient(),
+                                      ),
+                                      child: TextButton(
+                                        onPressed: widget.onEdit,
+                                        style: TextButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Edit',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                            height: 16 / 16,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),

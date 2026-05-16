@@ -106,18 +106,18 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     final double containerWidth = isLargeTablet
         ? (screenWidth * 0.8).clamp(800.0, 1200.0)
         : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
+        ? screenWidth * 0.9
+        : screenWidth - 32.0;
     final double horizontalSpacing = isLargeTablet
         ? (screenWidth * 0.1).clamp(32.0, 64.0)
         : isTablet
-            ? 32.0
-            : 16.0;
+        ? 32.0
+        : 16.0;
     final double verticalSpacing = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
@@ -152,8 +152,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                 children: [
                   const SizedBox(height: 16),
                   Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalSpacing,
+                    ),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -169,8 +170,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                   Expanded(
                     child: Container(
                       width: containerWidth,
-                      margin:
-                          EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                      margin: EdgeInsets.symmetric(
+                        horizontal: horizontalSpacing,
+                      ),
                       padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
                       decoration: BoxDecoration(
                         color: AppColors.billingCardColor,
@@ -207,8 +209,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                                 _typeError = false;
                               });
                             },
-                            error:
-                                _typeError ? '*This field is required.' : null,
+                            error: _typeError
+                                ? '*This field is required.'
+                                : null,
                           ),
                           SizedBox(height: verticalSpacing),
                           _buildInputField(
@@ -261,8 +264,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                       end: Alignment.centerRight,
                     ),
               color: _isSubmitting ? AppColors.billingButtonDisabled : null,
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 16.0 : 8.0,
+              ),
             ),
             child: TextButton(
               onPressed: _isSubmitting ? null : _onSave,
@@ -307,7 +311,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
               if (required)
                 TextSpan(
                   text: ' *',
-                  style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
+                  style: AppTextStyles.small.copyWith(
+                    color: AppColors.errorColor,
+                  ),
                 ),
             ],
           ),
@@ -318,8 +324,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -368,7 +375,12 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              TextSpan(text: ' *', style: AppTextStyles.small.copyWith(color: AppColors.errorColor)),
+              TextSpan(
+                text: ' *',
+                style: AppTextStyles.small.copyWith(
+                  color: AppColors.errorColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -378,11 +390,12 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: DropdownButtonFormField<String>(
-            value: value,
+            initialValue: value,
             isExpanded: true,
             decoration: const InputDecoration(
               border: InputBorder.none,
@@ -415,5 +428,3 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
     );
   }
 }
-
-

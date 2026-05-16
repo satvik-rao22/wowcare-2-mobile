@@ -49,10 +49,11 @@ class ActivityFeedRow extends Equatable {
     final firstName = d.studentFirstName.trim();
     final middleName = (d.studentMiddleName ?? '').trim();
     final lastName = d.studentLastName.trim();
-    final fullName = [firstName, middleName, lastName]
-        .where((p) => p.isNotEmpty)
-        .join(' ')
-        .trim();
+    final fullName = [
+      firstName,
+      middleName,
+      lastName,
+    ].where((p) => p.isNotEmpty).join(' ').trim();
     return ActivityFeedRow(
       activityCode: d.code,
       studentCode: d.studentCode,
@@ -101,25 +102,25 @@ class ActivityFeedRow extends Equatable {
 
   @override
   List<Object?> get props => [
-        activityCode,
-        studentCode,
-        classroomCode,
-        activityTypeCode,
-        activityTypeName,
-        activityDateIso,
-        description,
-        studentFirstName,
-        studentMiddleName,
-        studentLastName,
-        createdBy,
-        staffCode,
-        parameterValues,
-        attachments,
-        students,
-        napStart,
-        napEnd,
-        approvalStatus,
-      ];
+    activityCode,
+    studentCode,
+    classroomCode,
+    activityTypeCode,
+    activityTypeName,
+    activityDateIso,
+    description,
+    studentFirstName,
+    studentMiddleName,
+    studentLastName,
+    createdBy,
+    staffCode,
+    parameterValues,
+    attachments,
+    students,
+    napStart,
+    napEnd,
+    approvalStatus,
+  ];
 }
 
 class ActivityFeedPage extends Equatable {
@@ -138,6 +139,11 @@ class ActivityFeedPage extends Equatable {
   final bool last;
 
   @override
-  List<Object?> get props =>
-      [content, totalElements, totalPages, pageNumber, last];
+  List<Object?> get props => [
+    content,
+    totalElements,
+    totalPages,
+    pageNumber,
+    last,
+  ];
 }

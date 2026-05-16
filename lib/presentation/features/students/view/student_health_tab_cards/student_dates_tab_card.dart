@@ -104,7 +104,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         return 'Overdue';
       default:
         final lower = raw.toLowerCase();
-        return lower.isEmpty ? raw : lower[0].toUpperCase() + lower.substring(1);
+        return lower.isEmpty
+            ? raw
+            : lower[0].toUpperCase() + lower.substring(1);
     }
   }
 
@@ -132,12 +134,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
     DateTime? selectedDate = initialDate;
     final initialStatusTrim = (initialStatusUi ?? '').trim();
-    final initialIsOverdue = initialStatusTrim.toUpperCase() == 'OVERDUE' ||
+    final initialIsOverdue =
+        initialStatusTrim.toUpperCase() == 'OVERDUE' ||
         initialStatusTrim.toLowerCase() == 'overdue';
 
     // "Overdue" can be returned by API and should be displayed, but it should
     // not be a selectable option in the edit dropdown.
-    String statusUi = initialStatusTrim.isNotEmpty ? initialStatusTrim : 'Scheduled';
+    String statusUi = initialStatusTrim.isNotEmpty
+        ? initialStatusTrim
+        : 'Scheduled';
     bool didChangeStatus = false;
     if (initialIsOverdue) {
       statusUi = 'Due';
@@ -154,10 +159,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         final isLargeTablet = screenWidth > 900;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-        final horizontalPadding =
-            isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-        final verticalPadding =
-            isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final horizontalPadding = isLargeTablet
+            ? 32.0
+            : (isTablet ? 24.0 : 16.0);
+        final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
         final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
         final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
 
@@ -235,14 +240,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 onTap: () async {
                                   final result =
                                       await showDialog<Map<String, dynamic>>(
-                                    context: context,
-                                    builder: (context) => CalendarDialog(
-                                      isRangePicker: false,
-                                      isTimePicker: false,
-                                      initialDate: selectedDate,
-                                    ),
-                                  );
-                                  if (result == null || result['date'] == null) {
+                                        context: context,
+                                        builder: (context) => CalendarDialog(
+                                          isRangePicker: false,
+                                          isTimePicker: false,
+                                          initialDate: selectedDate,
+                                        ),
+                                      );
+                                  if (result == null ||
+                                      result['date'] == null) {
                                     return;
                                   }
                                   final picked = result['date'] as DateTime;
@@ -287,13 +293,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               onTap: () async {
                                 final result =
                                     await showDialog<Map<String, dynamic>>(
-                                  context: context,
-                                  builder: (context) => CalendarDialog(
-                                    isRangePicker: false,
-                                    isTimePicker: false,
-                                    initialDate: selectedDate,
-                                  ),
-                                );
+                                      context: context,
+                                      builder: (context) => CalendarDialog(
+                                        isRangePicker: false,
+                                        isTimePicker: false,
+                                        initialDate: selectedDate,
+                                      ),
+                                    );
                                 if (result == null || result['date'] == null) {
                                   return;
                                 }
@@ -305,11 +311,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             _DialogDropdown(
                               label: 'Status *',
                               value: statusUi,
-                              options: const [
-                                'Due',
-                                'Scheduled',
-                                'Completed',
-                              ],
+                              options: const ['Due', 'Scheduled', 'Completed'],
                               onChanged: (v) => setLocalState(() {
                                 didChangeStatus = true;
                                 statusUi = v;
@@ -327,7 +329,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         onPressedConfirm: canSave
                             ? () async {
                                 if (selectedDate == null) return;
-                                final statusApi = (!didChangeStatus && initialIsOverdue)
+                                final statusApi =
+                                    (!didChangeStatus && initialIsOverdue)
                                     ? 'OVERDUE'
                                     : switch (statusUi) {
                                         'Completed' => 'COMPLETED',
@@ -337,8 +340,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
                                 setLocalState(() => isSaving = true);
                                 try {
-                                  final repo = serviceLocator<StudentRepository>()
-                                      as StudentRepositoryImpl;
+                                  final repo =
+                                      serviceLocator<StudentRepository>()
+                                          as StudentRepositoryImpl;
                                   if (examCode != null &&
                                       examCode.trim().isNotEmpty) {
                                     await repo.updateStudentPhysicalExam(
@@ -394,10 +398,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
-    final canMutateStudent =
-        !isGuardianPersona &&
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canMutateStudent = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
 
     return CustomRefreshIndicator(
       onRefresh: _reloadPhysicalExams,
@@ -441,8 +445,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
             }
 
             final exams = snapshot.data ?? const <StudentPhysicalExamModel>[];
-            final bool hasCompletedExam =
-                exams.any((e) => _isCompletedStatus(e.status));
+            final bool hasCompletedExam = exams.any(
+              (e) => _isCompletedStatus(e.status),
+            );
             if (_disableAddPhysicalExam != hasCompletedExam) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
@@ -462,13 +467,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           : () async {
                               final code = widget.studentCode;
                               if (code == null || code.isEmpty) return;
-                              final result = await Navigator.of(context).push<bool>(
-                                MaterialPageRoute(
-                                  builder: (_) => EditStudentPhysicalExamScreen(
-                                    studentCode: code,
-                                  ),
-                                ),
-                              );
+                              final result = await Navigator.of(context)
+                                  .push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          EditStudentPhysicalExamScreen(
+                                            studentCode: code,
+                                          ),
+                                    ),
+                                  );
                               if (!mounted || result != true) return;
                               await _reloadPhysicalExams();
                             },
@@ -477,10 +484,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Physical Exams',
-                              style: AppTextStyles.title,
-                            ),
+                            Text('Physical Exams', style: AppTextStyles.title),
                             Container(
                               width: 38,
                               height: 38,
@@ -522,7 +526,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         notes: (e.notes ?? '').trim(),
                         showMore:
                             canMutateStudent && !_isCompletedStatus(e.status),
-                        onMore: !canMutateStudent || _isCompletedStatus(e.status)
+                        onMore:
+                            !canMutateStudent || _isCompletedStatus(e.status)
                             ? null
                             : () {
                                 _openEditPhysicalBottomSheet(
@@ -599,15 +604,15 @@ class _PhysicalExamCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Chip(
-                          label: status,
+                children: [
+                  _Chip(
+                    label: status,
                     labelColor: _statusLabelColor(),
                     color: _statusBgColor(),
                   ),
@@ -620,50 +625,52 @@ class _PhysicalExamCard extends StatelessWidget {
                         color: Color(0xFF573353),
                       ),
                       visualDensity: VisualDensity.compact,
-                      constraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     )
                   else
                     const SizedBox(width: 36, height: 36),
                 ],
               ),
               const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Checkup Date',
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Checkup Date',
                     style: AppTextStyles.value.copyWith(
                       color: AppColors.primaryColor.withOpacity(0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                    checkupDate.isEmpty ? '-' : checkupDate,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (notes != null && notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        notes!,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primaryColor.withOpacity(0.65),
-                        ),
-                      ),
+                      fontSize: 14,
                     ),
-                  ],
+                  ),
+                  Text(
+                    checkupDate.isEmpty ? '-' : checkupDate,
+                    style: AppTextStyles.value.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
+              if (notes != null && notes!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    notes!,
+                    style: AppTextStyles.value.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryColor.withOpacity(0.65),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -836,5 +843,3 @@ class _DialogDropdown extends StatelessWidget {
     );
   }
 }
-
-

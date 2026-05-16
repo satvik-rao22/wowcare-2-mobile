@@ -17,8 +17,8 @@ class StaffDocumentState extends Equatable {
   String? get message => this is _SuccessState
       ? (this as _SuccessState).message
       : this is _ErrorState
-          ? (this as _ErrorState).message
-          : null;
+      ? (this as _ErrorState).message
+      : null;
 
   @override
   List<Object?> get props => [];
@@ -45,4 +45,3 @@ class _ErrorState extends StaffDocumentState {
   @override
   List<Object?> get props => [message];
 }
-

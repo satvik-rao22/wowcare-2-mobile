@@ -34,10 +34,8 @@ class StudentPickupTabCard extends StatefulWidget {
   final String? studentCode;
   final Future<void> Function()? onRefresh;
 
-
   @override
-  State<StudentPickupTabCard> createState() =>
-      _StudentPickupTabCardState();
+  State<StudentPickupTabCard> createState() => _StudentPickupTabCardState();
 }
 
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
@@ -52,13 +50,18 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     _pickupsFuture = _buildPickupsFuture();
   }
 
-  Future<List<StudentPickupModel>> _buildPickupsFuture({bool forceRefresh = false}) {
+  Future<List<StudentPickupModel>> _buildPickupsFuture({
+    bool forceRefresh = false,
+  }) {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPickupModel>[]);
     }
     final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-    return repo.getStudentPickups(studentCode: code, forceRefresh: forceRefresh);
+    return repo.getStudentPickups(
+      studentCode: code,
+      forceRefresh: forceRefresh,
+    );
   }
 
   Future<void> _handleRefresh() async {
@@ -76,10 +79,10 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
-    final canStudentWrite =
-        !isGuardianPersona &&
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -109,9 +112,11 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           final code = widget.studentCode ?? '';
                           if (code.isEmpty) return;
                           final repo =
-                              serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-                          final current =
-                              await repo.getStudentPickups(studentCode: code);
+                              serviceLocator<StudentRepository>()
+                                  as StudentRepositoryImpl;
+                          final current = await repo.getStudentPickups(
+                            studentCode: code,
+                          );
                           if (current.length >= _maxPickupsPerStudent) {
                             if (!mounted) return;
                             CoreUtils.showTopSnackBar(
@@ -124,7 +129,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           }
                           final result = await Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => AddPickupScreen(studentCode: code),
+                              builder: (_) =>
+                                  AddPickupScreen(studentCode: code),
                             ),
                           );
                           if (result == true && mounted) {
@@ -147,10 +153,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
+                      child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
                     );
                   }
 
@@ -192,7 +195,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           relation: _formatRelation(pickups[i].relation),
                           email: _valueOrDash(pickups[i].email),
                           rawEmail: pickups[i].email,
-                          phoneNumber: _formatPhoneNumber(pickups[i].phoneNumber),
+                          phoneNumber: _formatPhoneNumber(
+                            pickups[i].phoneNumber,
+                          ),
                           rawRelation: pickups[i].relation,
                           rawPhoneNumber: pickups[i].phoneNumber,
                           firstName: pickups[i].firstName,
@@ -202,8 +207,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           onSetLoading: (v) => setState(() => _isMutating = v),
                           showActionButtons: canStudentWrite,
                         ),
-                        if (i != pickups.length - 1)
-                          const SizedBox(height: 12),
+                        if (i != pickups.length - 1) const SizedBox(height: 12),
                       ],
                     ],
                   );
@@ -215,7 +219,6 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
       ),
     );
   }
-
 }
 
 String _valueOrDash(String? v) {
@@ -284,6 +287,7 @@ class _PickupCard extends StatefulWidget {
   final String? email;
   final String? rawEmail;
   final String? phoneNumber;
+
   /// Called after edit or delete so parent can refresh pickups list and profile cache.
   final Future<void> Function()? onRefresh;
   final bool showActionButtons;
@@ -306,8 +310,9 @@ class _PickupCardState extends State<_PickupCard> {
       MaterialPageRoute(
         builder: (_) => AddPickupScreen(
           studentCode: widget.studentCode,
-          pickupCode:
-              widget.pickupCode.trim().isEmpty ? null : widget.pickupCode,
+          pickupCode: widget.pickupCode.trim().isEmpty
+              ? null
+              : widget.pickupCode,
           initialFirstName: widget.firstName,
           initialLastName: widget.lastName,
           initialEmail: widget.rawEmail,
@@ -342,7 +347,8 @@ class _PickupCardState extends State<_PickupCard> {
             }
             widget.onSetLoading(true);
             try {
-              final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+              final repo =
+                  serviceLocator<StudentRepository>() as StudentRepositoryImpl;
               final message = await repo.deletePickup(
                 code: widget.pickupCode,
                 studentCode: widget.studentCode,
@@ -443,9 +449,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                           Text(
                             _formatPickupType(widget.pickupType),
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ],
                       ),
@@ -464,9 +468,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                           Text(
                             widget.relation ?? '-',
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ],
                       ),
@@ -490,9 +492,7 @@ class _PickupCardState extends State<_PickupCard> {
                                       widget.email != '-')
                                   ? widget.email!
                                   : '-',
-                              style: AppTextStyles.value.copyWith(
-                                fontSize: 15,
-                              ),
+                              style: AppTextStyles.value.copyWith(fontSize: 15),
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.right,
                             ),
@@ -514,9 +514,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                           Text(
                             widget.phoneNumber ?? '-',
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ],
                       ),
@@ -525,7 +523,9 @@ class _PickupCardState extends State<_PickupCard> {
                         if (isCarpool)
                           CustomButtonLayout(
                             confirmButtonLabel: 'Delete',
-                            onPressedConfirm: widget.isLoading ? null : _onDelete,
+                            onPressedConfirm: widget.isLoading
+                                ? null
+                                : _onDelete,
                             showCancelButton: false,
                             isForm: false,
                             isLoading: widget.isLoading,
@@ -535,7 +535,9 @@ class _PickupCardState extends State<_PickupCard> {
                             confirmButtonLabel: 'Edit',
                             cancelButtonLabel: 'Delete',
                             onPressedConfirm: widget.isLoading ? null : _onEdit,
-                            onPressedCancel: widget.isLoading ? null : _onDelete,
+                            onPressedCancel: widget.isLoading
+                                ? null
+                                : _onDelete,
                             isForm: false,
                             isLoading: widget.isLoading,
                           ),
@@ -552,19 +554,3 @@ class _PickupCardState extends State<_PickupCard> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

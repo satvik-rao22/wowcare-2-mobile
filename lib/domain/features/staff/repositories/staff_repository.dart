@@ -12,9 +12,7 @@ abstract class StaffRepository {
     required String schoolCode,
   });
 
-  Future<List<StaffMember>> getStaffListBySchool({
-    required String schoolCode,
-  });
+  Future<List<StaffMember>> getStaffListBySchool({required String schoolCode});
 
   Future<StaffPage> getStaffPage({
     required String organizationCode,
@@ -116,9 +114,7 @@ abstract class StaffRepository {
   });
 
   /// Fetches the staff sign-in PIN via my-profile pin API.
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  });
+  Future<String> getStaffSignInPin({required String staffCode});
 
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
@@ -225,13 +221,23 @@ abstract class StaffRepositoryWithCache {
     List<String>? classCodes,
     String? sortBy,
   });
+  Future<void> invalidateCachedStaffPage(
+    String schoolCode, {
+    String? status,
+    String? designation,
+    String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
+  });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(
     String staffCode, {
     bool forEditStaff = false,
   });
   Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
+  Future<StaffCount?> loadCachedStaffCount({
+    required String organizationCode,
+    required String schoolCode,
+  });
 }
-
-
-

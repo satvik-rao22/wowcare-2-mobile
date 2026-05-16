@@ -28,7 +28,9 @@ class ParentChildRef {
   factory ParentChildRef.fromStudent(Student student) {
     return ParentChildRef(
       code: student.code,
-      name: student.fullName.trim().isNotEmpty ? student.fullName.trim() : student.code,
+      name: student.fullName.trim().isNotEmpty
+          ? student.fullName.trim()
+          : student.code,
       classroom: student.classroom,
       tags: student.tags,
       schedule: student.schedule,
@@ -41,6 +43,7 @@ class ParentChildProvider extends ChangeNotifier {
   List<ParentChildRef> _children = const <ParentChildRef>[];
   bool _isLoading = false;
   bool _isLoaded = false;
+
   /// Last session we successfully loaded for (user|org|school). Drives reload on context change.
   String _lastLoadedContextKey = '';
 
@@ -49,9 +52,14 @@ class ParentChildProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoaded => _isLoaded;
 
-  List<String> get childNames => _children.map((e) => e.name).toList(growable: false);
+  List<String> get childNames =>
+      _children.map((e) => e.name).toList(growable: false);
 
-  static String _contextKey(String userCode, String orgCode, String schoolCode) =>
+  static String _contextKey(
+    String userCode,
+    String orgCode,
+    String schoolCode,
+  ) =>
       '${userCode.toLowerCase()}|${orgCode.toLowerCase()}|${schoolCode.toLowerCase()}';
 
   /// Clears cached children so the next [ensureLoaded] runs a full fetch (e.g. logout, manual refresh).
@@ -68,8 +76,10 @@ class ParentChildProvider extends ChangeNotifier {
     if (_isLoading) return;
 
     final storage = serviceLocator<StorageService>();
-    final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final orgCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
@@ -143,7 +153,9 @@ class ParentChildProvider extends ChangeNotifier {
       );
       final byCode = <String, ParentChildRef>{};
       for (final row in rawChildren) {
-        final code = (row['code'] ?? row['studentCode'] ?? '').toString().trim();
+        final code = (row['code'] ?? row['studentCode'] ?? '')
+            .toString()
+            .trim();
         if (code.isEmpty) continue;
         final firstName = (row['firstName'] ?? '').toString().trim();
         final lastName = (row['lastName'] ?? '').toString().trim();

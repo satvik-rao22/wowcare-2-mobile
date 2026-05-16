@@ -40,11 +40,11 @@ class _PressEffectWrapperState extends State<PressEffectWrapper> {
         duration: widget.animationDuration,
         child: widget.isLoading
             ? widget.loadingIndicator ??
-                const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                  const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
             : widget.child,
       ),
     );

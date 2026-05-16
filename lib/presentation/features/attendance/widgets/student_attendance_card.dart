@@ -45,10 +45,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -64,7 +61,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                     // Header with date and attended time (always visible)
                     Container(
                       height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 24 : 16,
+                      ),
                       alignment: Alignment.center,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -80,7 +79,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                             ),
                           ),
                           Text(
-                            _calculateAttendedTime(widget.signIn, widget.signOut),
+                            _calculateAttendedTime(
+                              widget.signIn,
+                              widget.signOut,
+                            ),
                             style: const TextStyle(
                               fontFamily: 'Manrope',
                               fontSize: 14,
@@ -92,7 +94,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                         ],
                       ),
                     ),
-                    
+
                     // Expandable details section
                     if (isExpanded) ...[
                       // Divider
@@ -103,7 +105,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                         endIndent: 16,
                         color: Color(0xFFE9ECEF),
                       ),
-                      
+
                       // Details section
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -111,15 +113,27 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                           children: [
                             _buildDetailRow('Classroom', widget.roomName),
                             const SizedBox(height: 12),
-                            _buildDetailRow('Sign In', _formatTime(widget.signIn)),
+                            _buildDetailRow(
+                              'Sign In',
+                              _formatTime(widget.signIn),
+                            ),
                             const SizedBox(height: 12),
-                            _buildDetailRow('Sign In By', _firstName(widget.signInBy)),
+                            _buildDetailRow(
+                              'Sign In By',
+                              _firstName(widget.signInBy),
+                            ),
                             const SizedBox(height: 12),
-                            _buildDetailRow('Sign Out', _formatTime(widget.signOut)),
+                            _buildDetailRow(
+                              'Sign Out',
+                              _formatTime(widget.signOut),
+                            ),
                             const SizedBox(height: 12),
-                            _buildDetailRow('Sign Out By', _firstName(widget.signOutBy)),
+                            _buildDetailRow(
+                              'Sign Out By',
+                              _firstName(widget.signOutBy),
+                            ),
                             const SizedBox(height: 16),
-                            
+
                             // Action buttons
                             Row(
                               children: [
@@ -129,9 +143,13 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                     child: OutlinedButton(
                                       onPressed: widget.onDelete,
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                        side: const BorderSide(
+                                          color: Color(0xFF6C7FD8),
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
@@ -154,7 +172,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                     height: 40,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
-                                      gradient: AppColors.buildPrimaryGradient(),
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
                                       onPressed: widget.onEdit,

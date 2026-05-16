@@ -35,17 +35,20 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
   @override
   void initState() {
     super.initState();
-    if (widget.activity.videoUrl != null && widget.activity.videoUrl!.isNotEmpty) {
+    if (widget.activity.videoUrl != null &&
+        widget.activity.videoUrl!.isNotEmpty) {
       _initializeVideo();
     }
   }
 
   void _initializeVideo() async {
     _videoInitFailed = false;
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.activity.videoUrl!));
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.activity.videoUrl!),
+    );
     _controller!.addListener(() {
-      if(_controller!.value.position >= _controller!.value.duration){
-        if(mounted){
+      if (_controller!.value.position >= _controller!.value.duration) {
+        if (mounted) {
           setState(() {
             _isPlaying = false;
           });
@@ -102,25 +105,31 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final hasVideo = widget.activity.videoUrl != null && widget.activity.videoUrl!.isNotEmpty;
-    final hasPhoto = widget.activity.photoUrl != null && widget.activity.photoUrl!.isNotEmpty;
-    final hasProcessingMedia = _hasProcessingAttachment(widget.activity.snapshotAttachments);
+    final hasVideo =
+        widget.activity.videoUrl != null &&
+        widget.activity.videoUrl!.isNotEmpty;
+    final hasPhoto =
+        widget.activity.photoUrl != null &&
+        widget.activity.photoUrl!.isNotEmpty;
+    final hasProcessingMedia = _hasProcessingAttachment(
+      widget.activity.snapshotAttachments,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if(widget.label != null)
+        if (widget.label != null)
           Text(
             widget.label!,
             style: TextStyle(
               color: AppColors.primaryColor,
-              fontSize:  13,
+              fontSize: 13,
               fontWeight: FontWeight.w400,
               fontFamily: 'Manrope',
             ),
           ),
-        if(widget.label != null)
-          SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
+        if (widget.label != null)
+          SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
 
         ClipRRect(
           borderRadius: widget.borderRadius,
@@ -144,17 +153,24 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                           child: CircularProgressIndicator(color: Colors.white),
                         )
                 else if (hasPhoto)
-                    Image.network(
-                      widget.activity.photoUrl!,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) =>
-                      progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white)),
-                      errorBuilder: (context, error, _) => _buildErrorPlaceholder(),
-                    )
-                  else
-                    hasProcessingMedia
-                        ? _buildProcessingPlaceholder()
-                        : _buildErrorPlaceholder(),
+                  Image.network(
+                    widget.activity.photoUrl!,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                    errorBuilder: (context, error, _) =>
+                        _buildErrorPlaceholder(),
+                  )
+                else
+                  hasProcessingMedia
+                      ? _buildProcessingPlaceholder()
+                      : _buildErrorPlaceholder(),
 
                 // Tap to play/pause + big play icon overlay
                 if (hasVideo)
@@ -181,7 +197,6 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                     ),
                   ),
 
-
                 if (hasVideo && _isInitialized && _isPlaying)
                   Positioned(
                     bottom: 0,
@@ -195,7 +210,10 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                         backgroundColor: Colors.white24,
                         bufferedColor: Colors.white38,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 8,
+                      ),
                     ),
                   ),
               ],
@@ -238,7 +256,9 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
     if (attachments == null || attachments.isEmpty) return false;
     for (final row in attachments) {
       final status = (row['status'] ?? '').toString().trim().toUpperCase();
-      if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
+      if (status == 'PROCESSING' ||
+          status == 'UPLOADED' ||
+          status == 'PENDING') {
         return true;
       }
     }

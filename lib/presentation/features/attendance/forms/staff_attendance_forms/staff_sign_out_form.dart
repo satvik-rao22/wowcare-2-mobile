@@ -438,10 +438,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     );
   }
 
-  Widget _buildStaffCard(
-    StaffEntity staff, {
-    required bool canRemove,
-  }) {
+  Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

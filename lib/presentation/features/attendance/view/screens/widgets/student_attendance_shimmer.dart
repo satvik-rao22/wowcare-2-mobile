@@ -10,7 +10,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
+    final cardPadding = responsive.isTablet
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
     final spacing = responsive.isTablet ? 16.0 : 14.0;
@@ -96,7 +96,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
+    final cardPadding = responsive.isTablet
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
     final spacing = responsive.isTablet ? 16.0 : 14.0;

@@ -41,7 +41,8 @@ class StaffPresentWidget extends StatefulWidget {
   final bool prefillWithStaffName;
   final bool showStaffDropdown;
   final String? signatureEncodedValue;
-  final void Function(String? selectedName, String? selectedCode)? onStaffChanged;
+  final void Function(String? selectedName, String? selectedCode)?
+  onStaffChanged;
 
   /// When false, [staffName] is shown as-is (e.g. guardian name from profile API).
   /// When true, names may match the staff directory case-insensitive (can distort casing).
@@ -52,15 +53,15 @@ class StaffPresentWidget extends StatefulWidget {
 }
 
 class _StaffPresentWidgetState extends State<StaffPresentWidget> {
- List<String> staffList = const <String>[];
- String? selectedStaff;
- bool clickToSign = false;
- final List<String> _fetchedStaffNames = [];
-final Map<String, String> _staffCodeByNameLower = <String, String>{};
-final Map<String, String> _staffNameByCodeLower = <String, String>{};
- bool _loadingStaffs = false;
+  List<String> staffList = const <String>[];
+  String? selectedStaff;
+  bool clickToSign = false;
+  final List<String> _fetchedStaffNames = [];
+  final Map<String, String> _staffCodeByNameLower = <String, String>{};
+  final Map<String, String> _staffNameByCodeLower = <String, String>{};
+  bool _loadingStaffs = false;
   @override
-  void initState(){
+  void initState() {
     super.initState();
     _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
@@ -93,21 +94,22 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
       if (v.isEmpty) return;
       if (unique.add(v.toLowerCase())) ordered.add(v);
     }
+
     addName(seedName);
     if (widget.isEditable) {
       for (final n in _fetchedStaffNames) {
         addName(n);
       }
     }
-    staffList = [
-      ...ordered,
-    ];
+    staffList = [...ordered];
     if (seedName.isNotEmpty) {
       selectedStaff = staffList.firstWhere(
         (s) => s.toLowerCase() == seedName.toLowerCase(),
         orElse: () => seedName,
       );
-      if (!staffList.any((s) => s.toLowerCase() == selectedStaff!.toLowerCase())) {
+      if (!staffList.any(
+        (s) => s.toLowerCase() == selectedStaff!.toLowerCase(),
+      )) {
         staffList = [selectedStaff!, ...staffList];
       }
       _emitStaffChanged();
@@ -142,8 +144,9 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
 
   void _emitStaffChanged() {
     final selected = (selectedStaff ?? '').trim();
-    final code =
-        selected.isEmpty ? null : _staffCodeByNameLower[selected.toLowerCase()];
+    final code = selected.isEmpty
+        ? null
+        : _staffCodeByNameLower[selected.toLowerCase()];
     widget.onStaffChanged?.call(selectedStaff, code);
   }
 
@@ -174,10 +177,10 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
     _loadingStaffs = true;
     try {
       final storage = serviceLocator<StorageService>();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return;
 
       final repo = serviceLocator<StaffRepository>();
@@ -219,11 +222,12 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
     // signature band from a pre-filled fingerprint until checked.
     final gateSignatureRevealOnIncidentCheckbox =
         widget.incidentActivity && widget.showSignCheckbox && signEditable;
-    final showIncidentSignatureBand = widget.incidentActivity &&
+    final showIncidentSignatureBand =
+        widget.incidentActivity &&
         (gateSignatureRevealOnIncidentCheckbox
             ? clickToSign
             : (clickToSign ||
-                (widget.signatureEncodedValue ?? '').trim().isNotEmpty));
+                  (widget.signatureEncodedValue ?? '').trim().isNotEmpty));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -234,13 +238,16 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
               text: TextSpan(
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontSize:  13,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                   fontFamily: 'Manrope',
                 ),
                 children: [
                   TextSpan(text: widget.fieldLabel),
-                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ],
               ),
             ),
@@ -262,7 +269,7 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                   : const SizedBox.shrink(),
           ],
         ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         if (widget.showStaffDropdown)
           InkWell(
             onTap: null,
@@ -273,13 +280,14 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                 items: staffList,
                 selectedItem: selectedStaff,
                 isEnabled: widget.isEditable,
-                onSelect: widget.isEditable?
-                (String? value) {
-                  setState(() {
-                    selectedStaff = value;
-                  });
-                  _emitStaffChanged();
-                }: null,
+                onSelect: widget.isEditable
+                    ? (String? value) {
+                        setState(() {
+                          selectedStaff = value;
+                        });
+                        _emitStaffChanged();
+                      }
+                    : null,
               ),
             ),
           )
@@ -305,7 +313,7 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
               overflow: TextOverflow.ellipsis,
             ),
           ),
-        SizedBox(height: responsive.verticalSpacing,),
+        SizedBox(height: responsive.verticalSpacing),
         if (showIncidentSignatureBand)
           Container(
             constraints: const BoxConstraints(minHeight: 60),
@@ -321,18 +329,20 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                 children: [
                   Center(
                     child: Text(
-                    selectedStaff ?? widget.staffName,
-                    style: const TextStyle(
-                      fontFamily: 'MervaleScript',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xff573353),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                      selectedStaff ?? widget.staffName,
+                      style: const TextStyle(
+                        fontFamily: 'MervaleScript',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xff573353),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  if ((widget.signatureEncodedValue ?? '').trim().isNotEmpty) ...[
+                  if ((widget.signatureEncodedValue ?? '')
+                      .trim()
+                      .isNotEmpty) ...[
                     const SizedBox(height: 10),
                     SelectableText(
                       'Signature-ID - ${widget.signatureEncodedValue!.trim()}',
@@ -348,10 +358,11 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                 ],
               ),
             ),
-          )
+          ),
       ],
     );
   }
+
   // Widget _buildCustomDropdown(
   //     String hintText,
   //     List<String> items,

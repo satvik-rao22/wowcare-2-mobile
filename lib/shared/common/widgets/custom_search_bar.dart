@@ -32,12 +32,10 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
       ),
       child: SearchBar(
         controller: widget.controller,
-        constraints: const BoxConstraints(
-          minHeight: 44,
-          maxHeight: 44,
-        ),
+        constraints: const BoxConstraints(minHeight: 44, maxHeight: 44),
         elevation: const WidgetStatePropertyAll(0),
-        backgroundColor: widget.searchBarColor ?? const WidgetStatePropertyAll(Colors.white),
+        backgroundColor:
+            widget.searchBarColor ?? const WidgetStatePropertyAll(Colors.white),
         hintText: widget.hintText,
         onChanged: widget.onChanged,
         hintStyle: WidgetStatePropertyAll(
@@ -48,25 +46,21 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
         ),
         leading: const Padding(
           padding: EdgeInsets.only(left: 4),
-          child: Icon(
-            Icons.search,
-            color: AppColors.primaryColor,
-          ),
+          child: Icon(Icons.search, color: AppColors.primaryColor),
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: widget.borderColor ?? AppColors.primaryColor.withValues(alpha: 0.2),
+              color:
+                  widget.borderColor ??
+                  AppColors.primaryColor.withValues(alpha: 0.2),
               width: 1.2,
             ),
           ),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w500,
-          ),
+          TextStyle(color: AppColors.primaryColor, fontWeight: FontWeight.w500),
         ),
       ),
     );

@@ -1,4 +1,4 @@
-﻿// theme_provider.dart
+// theme_provider.dart
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_themes.dart';
 
@@ -13,4 +13,3 @@ class ThemeProvider with ChangeNotifier {
     notifyListeners();
   }
 }
-

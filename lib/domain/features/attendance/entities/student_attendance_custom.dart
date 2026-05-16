@@ -41,22 +41,22 @@ class StudentAttendanceCustomItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        studentCode,
-        studentName,
-        isExpectedToday,
-        classroomName,
-        classroomCode,
-        attendedDays,
-        attendedTime,
-        attendedHours,
-        attendedMinutes,
-        signedInBy,
-        signedInTime,
-        signedOutBy,
-        signedOutTime,
-        tagCodes,
-        tagNames,
-      ];
+    studentCode,
+    studentName,
+    isExpectedToday,
+    classroomName,
+    classroomCode,
+    attendedDays,
+    attendedTime,
+    attendedHours,
+    attendedMinutes,
+    signedInBy,
+    signedInTime,
+    signedOutBy,
+    signedOutTime,
+    tagCodes,
+    tagNames,
+  ];
 }
 
 class StudentAttendanceCustomPage extends Equatable {
@@ -77,7 +77,12 @@ class StudentAttendanceCustomPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-

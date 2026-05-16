@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:intl/intl.dart';
@@ -230,7 +229,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     );
   }
 
-  Future<void> _handleDownload(BuildContext context, StudentDocument doc) async {
+  Future<void> _handleDownload(
+    BuildContext context,
+    StudentDocument doc,
+  ) async {
     if (doc.documentUrl.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -256,7 +258,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Error downloading document: ${ApiErrorHandler.extractErrorMessage(e)}',
+        message:
+            'Error downloading document: ${ApiErrorHandler.extractErrorMessage(e)}',
         isError: true,
       );
     }
@@ -265,10 +268,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
-    final canStudentWrite =
-        !isGuardianPersona &&
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const Center(
@@ -300,14 +303,16 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
               final query = _searchController.text.trim().toLowerCase();
               final documents = query.isEmpty
                   ? state.documents
-                  : state.documents.where((d) {
-                      final name = d.documentName.toLowerCase();
-                      final type = d.documentType.toLowerCase();
-                      final uploadedBy = (d.uploadedBy ?? '').toLowerCase();
-                      return name.contains(query) ||
-                          type.contains(query) ||
-                          uploadedBy.contains(query);
-                    }).toList(growable: false);
+                  : state.documents
+                        .where((d) {
+                          final name = d.documentName.toLowerCase();
+                          final type = d.documentType.toLowerCase();
+                          final uploadedBy = (d.uploadedBy ?? '').toLowerCase();
+                          return name.contains(query) ||
+                              type.contains(query) ||
+                              uploadedBy.contains(query);
+                        })
+                        .toList(growable: false);
 
               return CustomRefreshIndicator(
                 onRefresh: () async {
@@ -356,7 +361,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   decoration: InputDecoration(
                                     hintText: 'Search documents...',
                                     prefixIcon: const Icon(Icons.search),
-                                    suffixIcon: _searchController.text.trim().isEmpty
+                                    suffixIcon:
+                                        _searchController.text.trim().isEmpty
                                         ? null
                                         : IconButton(
                                             onPressed: () => setState(() {
@@ -399,8 +405,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                               _showExpired
                                   ? 'No expired documents found'
                                   : (query.isEmpty
-                                      ? 'No documents found'
-                                      : 'No documents match your search'),
+                                        ? 'No documents found'
+                                        : 'No documents match your search'),
                               style: const TextStyle(
                                 color: AppColors.primaryColor,
                                 fontSize: 16,
@@ -415,13 +421,19 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                               itemCount: documents.length,
                               itemBuilder: (context, i) {
                                 final doc = documents[i];
-                                final uploadedOn = _formatIsoDate(doc.createdAt);
-                                final expiryDisplay = _formatExpiryDate(doc.expiryDate);
-                                final uploadedBy = (doc.uploadedBy ?? '').trim().isEmpty
+                                final uploadedOn = _formatIsoDate(
+                                  doc.createdAt,
+                                );
+                                final expiryDisplay = _formatExpiryDate(
+                                  doc.expiryDate,
+                                );
+                                final uploadedBy =
+                                    (doc.uploadedBy ?? '').trim().isEmpty
                                     ? 'system'
                                     : doc.uploadedBy!.trim();
-                                final docTypeDisplay =
-                                    _formatDocumentType(doc.documentType);
+                                final docTypeDisplay = _formatDocumentType(
+                                  doc.documentType,
+                                );
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: Container(
@@ -429,7 +441,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       color: Colors.white.withOpacity(0.88),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: AppColors.primaryColor.withOpacity(0.2),
+                                        color: AppColors.primaryColor
+                                            .withOpacity(0.2),
                                       ),
                                     ),
                                     child: Theme(
@@ -441,14 +454,16 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                           horizontal: 16,
                                           vertical: 4,
                                         ),
-                                        childrenPadding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          0,
-                                          16,
-                                          16,
-                                        ),
+                                        childrenPadding:
+                                            const EdgeInsets.fromLTRB(
+                                              16,
+                                              0,
+                                              16,
+                                              16,
+                                            ),
                                         title: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Text(
@@ -470,7 +485,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                 fontFamily: 'Manrope',
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w500,
-                                                color: AppColors.primaryColor.withOpacity(0.7),
+                                                color: AppColors.primaryColor
+                                                    .withOpacity(0.7),
                                               ),
                                             ),
                                           ],
@@ -508,20 +524,31 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   child: Container(
                                                     height: 40,
                                                     decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(8),
-                                                      gradient: AppColors.buildPrimaryGradient(),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      gradient:
+                                                          AppColors.buildPrimaryGradient(),
                                                     ),
                                                     child: TextButton(
-                                                      onPressed: () => _handleEdit(context, doc),
-                                                      style: TextButton.styleFrom(
-                                                        padding: EdgeInsets.zero,
-                                                      ),
+                                                      onPressed: () =>
+                                                          _handleEdit(
+                                                            context,
+                                                            doc,
+                                                          ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                          ),
                                                       child: const Text(
                                                         'Edit',
                                                         style: TextStyle(
                                                           fontFamily: 'Manrope',
                                                           fontSize: 16,
-                                                          fontWeight: FontWeight.w700,
+                                                          fontWeight:
+                                                              FontWeight.w700,
                                                           color: Colors.white,
                                                         ),
                                                       ),
@@ -533,23 +560,36 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   child: SizedBox(
                                                     height: 40,
                                                     child: OutlinedButton(
-                                                      onPressed: () => _handleDelete(context, doc),
+                                                      onPressed: () =>
+                                                          _handleDelete(
+                                                            context,
+                                                            doc,
+                                                          ),
                                                       style: OutlinedButton.styleFrom(
                                                         side: const BorderSide(
-                                                          color: Color(0xFF6C7FD8),
+                                                          color: Color(
+                                                            0xFF6C7FD8,
+                                                          ),
                                                         ),
                                                         shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(8),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
                                                         ),
-                                                        padding: EdgeInsets.zero,
+                                                        padding:
+                                                            EdgeInsets.zero,
                                                       ),
                                                       child: const Text(
                                                         'Delete',
                                                         style: TextStyle(
                                                           fontFamily: 'Manrope',
                                                           fontSize: 16,
-                                                          fontWeight: FontWeight.w700,
-                                                          color: Color(0xFF6C7FD8),
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Color(
+                                                            0xFF6C7FD8,
+                                                          ),
                                                         ),
                                                       ),
                                                     ),
@@ -561,11 +601,19 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                 child: Container(
                                                   height: 40,
                                                   decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    gradient: AppColors.buildPrimaryGradient(),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    gradient:
+                                                        AppColors.buildPrimaryGradient(),
                                                   ),
                                                   child: TextButton(
-                                                    onPressed: () => _handleDownload(context, doc),
+                                                    onPressed: () =>
+                                                        _handleDownload(
+                                                          context,
+                                                          doc,
+                                                        ),
                                                     style: TextButton.styleFrom(
                                                       padding: EdgeInsets.zero,
                                                     ),
@@ -574,7 +622,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                       style: TextStyle(
                                                         fontFamily: 'Manrope',
                                                         fontSize: 16,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         color: Colors.white,
                                                       ),
                                                     ),
@@ -618,13 +667,13 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                         ),
                       )
                       .then((result) {
-                    if (result == true && mounted) {
-                      _documentsListCubit.refresh(
-                        studentCode,
-                        expiredOnly: _showExpired ? true : null,
-                      );
-                    }
-                  });
+                        if (result == true && mounted) {
+                          _documentsListCubit.refresh(
+                            studentCode,
+                            expiredOnly: _showExpired ? true : null,
+                          );
+                        }
+                      });
                 },
                 size: 50.0,
                 iconSize: 28.0,
@@ -638,10 +687,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 }
 
 class _DocumentDetailRow extends StatelessWidget {
-  const _DocumentDetailRow({
-    required this.label,
-    required this.value,
-  });
+  const _DocumentDetailRow({required this.label, required this.value});
 
   final String label;
   final String value;

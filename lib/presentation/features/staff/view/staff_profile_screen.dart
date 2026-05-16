@@ -22,6 +22,8 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class StaffProfileScreen extends StatefulWidget {
+  static const String routeName = '/dashboard/staff-profile';
+
   const StaffProfileScreen({
     super.key,
     required this.staffCode,
@@ -36,13 +38,16 @@ class StaffProfileScreen extends StatefulWidget {
 
   final String staffCode;
   final String name;
+
   /// API employment status (e.g. ACTIVE, UPCOMING) for avatar status dot.
   final String? employmentStatus;
   final String classroom;
   final String designation;
   final String phoneNumber;
+
   /// Optional cached classroom names from StaffScreen (to avoid re-calling classrooms API).
   final List<String>? classroomNames;
+
   /// Optional mapping from classroom code -> display name.
   final Map<String, String>? classroomNameByCode;
 
@@ -80,11 +85,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     if (upper == 'PART_TIME') return 'Part-Time';
 
     final parts = upper.split(RegExp(r'[_\s]+'));
-    final words = parts.map((part) {
-      if (part.isEmpty) return '';
-      final lower = part.toLowerCase();
-      return lower[0].toUpperCase() + lower.substring(1);
-    }).where((w) => w.isNotEmpty);
+    final words = parts
+        .map((part) {
+          if (part.isEmpty) return '';
+          final lower = part.toLowerCase();
+          return lower[0].toUpperCase() + lower.substring(1);
+        })
+        .where((w) => w.isNotEmpty);
     return words.join(' ');
   }
 
@@ -106,8 +113,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   Future<void> _loadUploadContext() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     if (!mounted) return;
@@ -145,8 +152,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     setState(() => _isResolvingClassroom = true);
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       // Try active-classrooms list first (fast, cached on backend).
       if (schoolCode.isNotEmpty) {
         final useCase = serviceLocator<GetActiveClassroomsUseCase>();
@@ -169,7 +176,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       }
 
       // Fallback: fetch by code (works even when not in active list).
-      final details = await serviceLocator<GetClassroomByCodeUseCase>()(code: raw);
+      final details = await serviceLocator<GetClassroomByCodeUseCase>()(
+        code: raw,
+      );
       final name = details.name.trim();
       if (!mounted) return;
       if (name.isNotEmpty) {
@@ -246,15 +255,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       setState(() => _profilePhotoUploadPercent = 0);
       final uploadService = serviceLocator<ImageUploadService>();
       final file = File(image.path);
-      final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
+      final sessionCode = await uploadService
+          .createStaffProfilePhotoUploadSession(
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
       final lowerPath = image.path.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -382,12 +394,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   classroomNameByCode: widget.classroomNameByCode,
                   onProfileSummaryChanged:
                       (String name, String classroom, String designation) {
-                    setState(() {
-                      _displayName = name;
-                      _displayDesignation = _formatEnumLabel(designation);
-                    });
-                    _applyHeaderClassroomFromProfile(classroom);
-                  },
+                        setState(() {
+                          _displayName = name;
+                          _displayDesignation = _formatEnumLabel(designation);
+                        });
+                        _applyHeaderClassroomFromProfile(classroom);
+                      },
                 ),
                 StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(staffCode: widget.staffCode),
@@ -438,7 +450,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                   vertical: 7,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryColor.withOpacity(0.25),
+                                  color: AppColors.primaryColor.withOpacity(
+                                    0.25,
+                                  ),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.22),
@@ -459,20 +473,22 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(999),
                                       child: LinearProgressIndicator(
-                                        value: (_profilePhotoUploadPercent / 100)
-                                            .clamp(0.0, 1.0),
+                                        value:
+                                            (_profilePhotoUploadPercent / 100)
+                                                .clamp(0.0, 1.0),
                                         minHeight: 4,
-                                        backgroundColor:
-                                            Colors.white.withOpacity(0.22),
+                                        backgroundColor: Colors.white
+                                            .withOpacity(0.22),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
-                                          AppColors.themeColor,
-                                        ),
+                                              AppColors.themeColor,
+                                            ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         SvgPicture.asset(
                                           MediaRes.uploadIcon,
@@ -489,7 +505,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                               ? 'Finalizing'
                                               : 'Uploading',
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.92),
+                                            color: Colors.white.withOpacity(
+                                              0.92,
+                                            ),
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -512,7 +530,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
                             ],
                           ),
                           child: Container(
@@ -521,7 +543,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                               gradient: AppColors.buildPrimaryGradient(),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ),
@@ -557,7 +583,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(4),
@@ -592,44 +621,50 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildActionIcon(MediaRes.calenderClockIcon, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentCode: '',
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
+          _buildActionIcon(
+            MediaRes.calenderClockIcon,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StudentAttendanceProfile(
+                    studentCode: '',
+                    studentId: 0, // Staff profile - using placeholder ID
+                    studentName: widget.name,
+                    studentPhotoUuid: null,
+                    roomName: widget.classroom,
+                    isSignedIn: false,
+                    isAbsent: false,
+                    isExpectedToday: true,
+                    isPresentToday: false,
+                    profileStatus: 'A',
+                  ),
                 ),
-              ),
-            );
-          }),
-          _buildActionIcon(MediaRes.timerIcon, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentCode: '',
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
+              );
+            },
+          ),
+          _buildActionIcon(
+            MediaRes.timerIcon,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StudentAttendanceProfile(
+                    studentCode: '',
+                    studentId: 0, // Staff profile - using placeholder ID
+                    studentName: widget.name,
+                    studentPhotoUuid: null,
+                    roomName: widget.classroom,
+                    isSignedIn: false,
+                    isAbsent: false,
+                    isExpectedToday: true,
+                    isPresentToday: false,
+                    profileStatus: 'A',
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
           _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),
         ],
       ),
@@ -653,14 +688,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     BlendMode.srcIn,
                   ),
                 )
-              : Image.asset(
-                  asset,
-                  height: 28,
-                  color: Colors.white,
-                ),
+              : Image.asset(asset, height: 28, color: Colors.white),
         ),
       ),
     );
   }
-
 }

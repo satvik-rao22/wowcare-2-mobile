@@ -12,6 +12,7 @@ class GetStudentClassroomListUseCase {
     String? firstName,
     String? lastName,
     String? search,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -24,6 +25,7 @@ class GetStudentClassroomListUseCase {
       firstName: firstName,
       lastName: lastName,
       search: search,
+      studentCodes: studentCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
       status: status,
@@ -32,5 +34,3 @@ class GetStudentClassroomListUseCase {
     );
   }
 }
-
-

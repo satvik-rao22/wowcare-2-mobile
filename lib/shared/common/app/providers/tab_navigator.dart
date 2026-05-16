@@ -1,4 +1,4 @@
-﻿import 'package:equatable/equatable.dart';
+import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -53,9 +53,11 @@ class TabNavigator extends ChangeNotifier {
 }
 
 class TabNavigatorProvider extends InheritedNotifier<TabNavigator> {
-  const TabNavigatorProvider(
-      {super.key, required super.child, required this.navigator})
-      : super(notifier: navigator);
+  const TabNavigatorProvider({
+    super.key,
+    required super.child,
+    required this.navigator,
+  }) : super(notifier: navigator);
 
   final TabNavigator navigator;
 
@@ -75,4 +77,3 @@ class TabItem extends Equatable {
   @override
   List<dynamic> get props => [id];
 }
-

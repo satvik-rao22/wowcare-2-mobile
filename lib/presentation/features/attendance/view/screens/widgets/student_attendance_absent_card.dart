@@ -78,7 +78,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     final student = widget.student;
 
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
+    final cardPadding = responsive.isTablet
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
     final spacing = responsive.isTablet ? 16.0 : 14.0;
@@ -111,10 +111,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                     DocumentImageWidget(
                       fileUuid: student.photoUuid ?? '',
                       name: student.name,
-                      studentCode:
-                          (student.studentCode ?? '').trim().isNotEmpty
-                              ? student.studentCode
-                              : student.id,
+                      studentCode: (student.studentCode ?? '').trim().isNotEmpty
+                          ? student.studentCode
+                          : student.id,
                       size: avatarSize,
                       fontSize: responsive.isTablet ? 18 : 16,
                     ),
@@ -164,9 +163,15 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                 student.absentTime,
                 method: student.markAbsentMethod,
               ),
-              if (student.absentBy.isNotEmpty && student.absentBy != 'Unknown') ...[
+              if (student.absentBy.isNotEmpty &&
+                  student.absentBy != 'Unknown') ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
-                _buildDetailRow(context, responsive, 'Marked by', student.absentBy),
+                _buildDetailRow(
+                  context,
+                  responsive,
+                  'Marked by',
+                  student.absentBy,
+                ),
               ],
               if (student.note != null && student.note!.isNotEmpty) ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
@@ -267,9 +272,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
               Flexible(
                 child: AppText.value(
                   value,
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 14,
-                  ),
+                  style: TextStyle(fontSize: responsive.isTablet ? 16 : 14),
                   textAlign: TextAlign.end,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -282,28 +285,49 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     );
   }
 
-  Widget _buildMethodIcon(AbsentMarkMethod method, ResponsiveHelper responsive) {
+  Widget _buildMethodIcon(
+    AbsentMarkMethod method,
+    ResponsiveHelper responsive,
+  ) {
     final size = responsive.isTablet ? 20.0 : 18.0;
     switch (method) {
       case AbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.pinMethodIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.app:
         return SvgPicture.asset(
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case AbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }

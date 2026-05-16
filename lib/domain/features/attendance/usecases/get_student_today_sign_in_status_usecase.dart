@@ -13,4 +13,3 @@ class GetStudentTodaySignInStatusUseCase {
     return _repository.getStudentTodaySignInStatus(studentCode);
   }
 }
-

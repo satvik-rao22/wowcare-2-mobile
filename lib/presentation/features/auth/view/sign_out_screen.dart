@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -52,11 +53,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
           isSuccess: true,
         );
 
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          SignInScreen.routeName,
-          (route) => false,
-        );
+        context.go(SignInScreen.routeName);
       }
     } catch (e) {
       if (mounted) {
@@ -80,9 +77,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
         padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(16),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -90,10 +85,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
           children: [
             SizedBox(
               height: 160,
-              child: Image.asset(
-                MediaRes.logout_image,
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset(MediaRes.logout_image, fit: BoxFit.contain),
             ),
             const SizedBox(height: 16),
             const Text(

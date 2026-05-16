@@ -5,9 +5,7 @@ class GetNapStartStudentsUseCase {
 
   final ActivityRepository _repository;
 
-  Future<List<String>> call({
-    required String classroomCode,
-  }) {
+  Future<List<String>> call({required String classroomCode}) {
     return _repository.getNapStartStudents(classroomCode: classroomCode);
   }
 }

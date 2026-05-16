@@ -21,7 +21,7 @@ import 'add-schedule.dart';
 
 class StaffSchedulingScreen extends StatefulWidget {
   const StaffSchedulingScreen({super.key});
-
+  static const String routeName = '/dashboard/staff-scheduling';
   @override
   State<StaffSchedulingScreen> createState() => _StaffSchedulingScreenState();
 }

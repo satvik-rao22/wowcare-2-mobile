@@ -6,8 +6,8 @@ import '../../../../domain/features/staff/usecases/update_important_dates_usecas
 class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   ImportantDatesCubit({
     required UpdateImportantDatesUseCase updateImportantDatesUseCase,
-  })  : _updateImportantDatesUseCase = updateImportantDatesUseCase,
-        super(ImportantDatesState.initial());
+  }) : _updateImportantDatesUseCase = updateImportantDatesUseCase,
+       super(ImportantDatesState.initial());
 
   final UpdateImportantDatesUseCase _updateImportantDatesUseCase;
 
@@ -53,12 +53,11 @@ class ImportantDatesState extends Equatable {
   bool get isSuccess => this is _SuccessState;
   bool get isError => this is _ErrorState;
 
-  String? get message =>
-      this is _SuccessState
-          ? (this as _SuccessState).message
-          : this is _ErrorState
-              ? (this as _ErrorState).message
-              : null;
+  String? get message => this is _SuccessState
+      ? (this as _SuccessState).message
+      : this is _ErrorState
+      ? (this as _ErrorState).message
+      : null;
 
   @override
   List<Object?> get props => [];
@@ -87,4 +86,3 @@ class _ErrorState extends ImportantDatesState {
   @override
   List<Object?> get props => [message];
 }
-

@@ -71,8 +71,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
         (failure) {
           setState(() {
             _isLoading = false;
-            _errorMessage =
-                failure.message ?? 'Failed to load important dates';
+            _errorMessage = failure.message ?? 'Failed to load important dates';
             _dates = null;
           });
         },
@@ -126,10 +125,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
-    final canStudentWrite =
-        !isGuardianPersona &&
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(
@@ -171,7 +170,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     final entries = <MapEntry<String, String>>[
       MapEntry('Enroll Date', _format(_dates?.enrollDate)),
       MapEntry('School Start Date', _format(_dates?.schoolStartDate)),
-      MapEntry('Current Classroom Start Date', _format(_dates?.currentClassroomStartDate)),
+      MapEntry(
+        'Current Classroom Start Date',
+        _format(_dates?.currentClassroomStartDate),
+      ),
       MapEntry('Upcoming Moving Date', _format(_dates?.upcomingMoveDate)),
       MapEntry('School Leaving Date', _format(_dates?.schoolLeavingDate)),
     ];
@@ -204,7 +206,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: AppColors.cardBorderColor, width: 1),
+                  border: Border.all(
+                    color: AppColors.cardBorderColor,
+                    width: 1,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -213,10 +218,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Important Dates',
-                          style: AppTextStyles.title,
-                        ),
+                        Text('Important Dates', style: AppTextStyles.title),
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),
@@ -261,10 +263,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         if (i.isOdd) return const SizedBox(height: 16);
                         final idx = i ~/ 2;
                         final e = entries[idx];
-                        return _DateRow(
-                          label: e.key,
-                          text: e.value,
-                        );
+                        return _DateRow(label: e.key, text: e.value);
                       }),
                   ],
                 ),
@@ -286,8 +285,8 @@ class _DateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayText =
         (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda')
-            ? '-'
-            : text;
+        ? '-'
+        : text;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,9 +314,7 @@ class _DateRow extends StatelessWidget {
                 child: Text(
                   displayText,
                   textAlign: TextAlign.end,
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 15,
-                  ),
+                  style: AppTextStyles.value.copyWith(fontSize: 15),
                 ),
               ),
             ],

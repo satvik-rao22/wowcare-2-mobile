@@ -11,41 +11,41 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
     required GetFutureAvailabilityUseCase getFutureAvailabilityUseCase,
     required AvailabilityRepository repository,
     required StorageService storageService,
-  })  : _getFutureAvailabilityUseCase = getFutureAvailabilityUseCase,
-        _repository = repository,
-        _storageService = storageService,
-        super(const FutureAvailabilityState.initial());
+  }) : _getFutureAvailabilityUseCase = getFutureAvailabilityUseCase,
+       _repository = repository,
+       _storageService = storageService,
+       super(const FutureAvailabilityState.initial());
 
   final GetFutureAvailabilityUseCase _getFutureAvailabilityUseCase;
   final AvailabilityRepository _repository;
   final StorageService _storageService;
 
-  Future<void> load({
-    required DateTime date,
-    required bool isTwoShifts,
-  }) async {
-    final shift = isTwoShifts ? FutureAvailabilityShift.all : FutureAvailabilityShift.fullDay;
+  Future<void> load({required DateTime date, required bool isTwoShifts}) async {
+    final shift = isTwoShifts
+        ? FutureAvailabilityShift.all
+        : FutureAvailabilityShift.fullDay;
     final normalizedDate = DateTime(date.year, date.month, date.day);
     final schoolCode = await _resolveSchoolCode();
 
     final cached = await (_repository is AvailabilityRepositoryWithCache
-        ? (_repository as AvailabilityRepositoryWithCache).loadCachedFutureAvailability(
-            schoolCode: schoolCode,
-            startDate: normalizedDate,
-            endDate: normalizedDate,
-            shift: shift,
-          )
+        ? (_repository as AvailabilityRepositoryWithCache)
+              .loadCachedFutureAvailability(
+                schoolCode: schoolCode,
+                startDate: normalizedDate,
+                endDate: normalizedDate,
+                shift: shift,
+              )
         : Future.value(null));
 
     if (cached != null && !isClosed) {
-      emit(FutureAvailabilityState.loaded(
-        grid: cached,
-        selectedDate: normalizedDate,
-        isTwoShifts: isTwoShifts,
-        isFromCache: true,
-      ));
-      // ignore: unawaited_futures
-      refresh(date: normalizedDate, isTwoShifts: isTwoShifts);
+      emit(
+        FutureAvailabilityState.loaded(
+          grid: cached,
+          selectedDate: normalizedDate,
+          isTwoShifts: isTwoShifts,
+          isFromCache: true,
+        ),
+      );
       return;
     }
 
@@ -59,11 +59,31 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
     if (state.isRefreshing) return;
 
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    final shift = isTwoShifts ? FutureAvailabilityShift.all : FutureAvailabilityShift.fullDay;
-    emit(state.copyWith(isLoading: state.grid == null, isRefreshing: true, clearError: true));
+    final shift = isTwoShifts
+        ? FutureAvailabilityShift.all
+        : FutureAvailabilityShift.fullDay;
+    emit(
+      state.copyWith(
+        isLoading: state.grid == null,
+        isRefreshing: true,
+        clearError: true,
+      ),
+    );
 
     try {
       final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache)
+            .invalidateAvailabilityCache(schoolCode: schoolCode);
+      }
+
+      // Required flow: POST recompute first, then GET snapshots.
+      await _repository.recomputeFutureAvailability(
+        schoolCode: schoolCode,
+        startDate: normalizedDate,
+        endDate: normalizedDate,
+      );
+
       final grid = await _getFutureAvailabilityUseCase(
         schoolCode: schoolCode,
         startDate: normalizedDate,
@@ -71,26 +91,31 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
         shift: shift,
       );
       if (isClosed) return;
-      emit(FutureAvailabilityState.loaded(
-        grid: grid,
-        selectedDate: normalizedDate,
-        isTwoShifts: isTwoShifts,
-        isFromCache: false,
-      ));
+      emit(
+        FutureAvailabilityState.loaded(
+          grid: grid,
+          selectedDate: normalizedDate,
+          isTwoShifts: isTwoShifts,
+          isFromCache: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        selectedDate: normalizedDate,
-        isTwoShifts: isTwoShifts,
-        errorMessage: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          selectedDate: normalizedDate,
+          isTwoShifts: isTwoShifts,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
   Future<String> _resolveSchoolCode() async {
-    final schoolCode = (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
     if (schoolCode.isEmpty) {
       throw Exception('School code is missing. Please re-login and try again.');
     }
@@ -110,26 +135,26 @@ class FutureAvailabilityState extends Equatable {
   });
 
   const FutureAvailabilityState.initial()
-      : grid = null,
-        selectedDate = null,
-        isTwoShifts = true,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        errorMessage = null;
+    : grid = null,
+      selectedDate = null,
+      isTwoShifts = true,
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      errorMessage = null;
 
   const FutureAvailabilityState.loaded({
     required FutureAvailabilityGrid grid,
     required DateTime selectedDate,
     required bool isTwoShifts,
     required bool isFromCache,
-  })  : grid = grid,
-        selectedDate = selectedDate,
-        isTwoShifts = isTwoShifts,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        errorMessage = null;
+  }) : grid = grid,
+       selectedDate = selectedDate,
+       isTwoShifts = isTwoShifts,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       errorMessage = null;
 
   final FutureAvailabilityGrid? grid;
   final DateTime? selectedDate;
@@ -162,12 +187,12 @@ class FutureAvailabilityState extends Equatable {
 
   @override
   List<Object?> get props => [
-        grid,
-        selectedDate,
-        isTwoShifts,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        errorMessage,
-      ];
+    grid,
+    selectedDate,
+    isTwoShifts,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    errorMessage,
+  ];
 }

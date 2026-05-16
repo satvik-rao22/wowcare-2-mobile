@@ -39,8 +39,9 @@ Future<void> showActivityStudentListSheet(
                   padding: const EdgeInsets.fromLTRB(16, 14, 4, 12),
                   decoration: BoxDecoration(
                     color: AppColors.themeColor.withValues(alpha: 0.08),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -65,8 +66,10 @@ Future<void> showActivityStudentListSheet(
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: names.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {

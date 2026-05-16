@@ -19,13 +19,8 @@ class ClassroomScheduleCubit extends Cubit<ClassroomScheduleState> {
         dateFrom: date,
         dateTo: date,
       );
-      
-      emit(
-        ClassroomScheduleLoaded(
-          shifts: shifts,
-          date: date,
-        ),
-      );
+
+      emit(ClassroomScheduleLoaded(shifts: shifts, date: date));
     } catch (e) {
       emit(ClassroomScheduleError(e.toString()));
     }

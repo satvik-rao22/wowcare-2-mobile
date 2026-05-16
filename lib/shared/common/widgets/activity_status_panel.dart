@@ -10,7 +10,6 @@ class ActivityStatusPanel extends StatelessWidget {
     this.napEndStatus = false,
     this.bathroomStatus = false,
     required this.onGoingActivities,
-
   });
 
   final bool napStartStatus;
@@ -18,7 +17,19 @@ class ActivityStatusPanel extends StatelessWidget {
   final bool bathroomStatus;
   final bool isSignedIN;
   final List<String> onGoingActivities;
-  static const Map<String, String> activityIcons = { 'Nap start' : MediaRes.napActivityIcon, 'Nap end' : MediaRes.napActivityIcon, 'Bathroom' : MediaRes.bathroomActivityIcon, 'Bottle' : MediaRes.bottleActivityIcon, 'Meal': MediaRes.mealActivityIcon, 'Incident' : MediaRes.incidentActivityIcon, 'Photo': MediaRes.photoVideoActivityIcon, 'Medication': MediaRes.medicationActivityIcon, 'Notes' : MediaRes.notesActivityIcon, 'Outdoor' : MediaRes.outdoorActivityIcon, 'Learning' : MediaRes.learningActivityIcon};
+  static const Map<String, String> activityIcons = {
+    'Nap start': MediaRes.napActivityIcon,
+    'Nap end': MediaRes.napActivityIcon,
+    'Bathroom': MediaRes.bathroomActivityIcon,
+    'Bottle': MediaRes.bottleActivityIcon,
+    'Meal': MediaRes.mealActivityIcon,
+    'Incident': MediaRes.incidentActivityIcon,
+    'Photo': MediaRes.photoVideoActivityIcon,
+    'Medication': MediaRes.medicationActivityIcon,
+    'Notes': MediaRes.notesActivityIcon,
+    'Outdoor': MediaRes.outdoorActivityIcon,
+    'Learning': MediaRes.learningActivityIcon,
+  };
   static const List<String> _allLabels = [
     'Nap start',
     'Nap end',
@@ -45,7 +56,7 @@ class ActivityStatusPanel extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.themeColor),
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(10)
+          borderRadius: BorderRadius.circular(10),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -53,18 +64,19 @@ class ActivityStatusPanel extends StatelessWidget {
             children: allItems.asMap().entries.map((entry) {
               final index = entry.key;
               final label = entry.value;
-              final iconPath = activityIcons[label] ?? MediaRes.notesActivityIcon;
-              final bool isActive = isSignedIN && !onGoingActivities.contains(label);
+              final iconPath =
+                  activityIcons[label] ?? MediaRes.notesActivityIcon;
+              final bool isActive =
+                  isSignedIN && !onGoingActivities.contains(label);
 
               return Column(
                 children: [
                   _ActivityStatusIcon(
-                      iconPath: iconPath,
-                      label: label,
-                      onGoingActivity: isActive ,
+                    iconPath: iconPath,
+                    label: label,
+                    onGoingActivity: isActive,
                   ),
-                  if (index < allItems.length -1)
-                    const SizedBox(height: 10,)
+                  if (index < allItems.length - 1) const SizedBox(height: 10),
                 ],
               );
             }).toList(),
@@ -91,8 +103,6 @@ class ActivityStatusPanel extends StatelessWidget {
             // ],
           ),
         ),
-        
-
       ),
     );
   }
@@ -111,16 +121,14 @@ class ActivityStatusPanel extends StatelessWidget {
 
 class _ActivityStatusIcon extends StatelessWidget {
   const _ActivityStatusIcon({
-    super.key,
     required this.iconPath,
     required this.label,
-    this.onGoingActivity = false
+    this.onGoingActivity = false,
   });
 
   final String iconPath;
   final String label;
   final bool onGoingActivity;
-
 
   @override
   Widget build(BuildContext context) {
@@ -129,19 +137,11 @@ class _ActivityStatusIcon extends StatelessWidget {
       opacity: opacity,
       child: Column(
         children: [
-          Image.asset(
-            iconPath,
-            height: 30,
-            width: 30,
-
-          ),
+          Image.asset(iconPath, height: 30, width: 30),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppColors.primaryColor, fontSize: 12),
           ),
         ],
       ),

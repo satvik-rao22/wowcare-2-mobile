@@ -1381,7 +1381,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                       //   ),
                       // );
                     }
-                  } else if (att.remoteUrl != null) {
+                  } else
                     try {
                       // CoreUtils.showTopSnackBar(
                       //   context: context,
@@ -1392,9 +1392,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                       //   const SnackBar(content: Text('Downloading file...')),
                       // );
 
-                      final response = await http.get(
-                        Uri.parse(att.remoteUrl!),
-                      );
+                      final response = await http.get(Uri.parse(att.remoteUrl));
                       if (response.statusCode == 200) {
                         final tempDir = await getTemporaryDirectory();
                         final tempFile = File('${tempDir.path}/${att.name}');
@@ -1431,7 +1429,6 @@ class _MessageBubbleState extends State<MessageBubble> {
                       //   SnackBar(content: Text('Error: $e')),
                       // );
                     }
-                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -1457,18 +1454,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                                 child: Thumbnail(
                                   mimeType: att.mimeType ?? 'application/pdf',
                                   dataResolver: () async {
-                                    if (att.remoteUrl != null) {
-                                      try {
-                                        final response = await http.get(
-                                          Uri.parse(source),
-                                        );
-                                        if (response.statusCode == 200)
-                                          return response.bodyBytes;
-                                      } catch (_) {}
-                                      return Uint8List(0);
-                                    } else {
-                                      return await File(source).readAsBytes();
-                                    }
+                                    try {
+                                      final response = await http.get(
+                                        Uri.parse(source),
+                                      );
+                                      if (response.statusCode == 200)
+                                        return response.bodyBytes;
+                                    } catch (_) {}
+                                    return Uint8List(0);
                                   },
                                   //widgetSize: 80,
                                   widgetSize: multiImageWidth * 0.4,
@@ -1551,18 +1544,12 @@ class _MessageBubbleState extends State<MessageBubble> {
                         mimeType: displayImages.first.mimeType ?? 'image/jpeg',
                         dataResolver: () async {
                           final source = displayImages.first.displaySource!;
-                          if (displayImages.first.remoteUrl != null) {
-                            try {
-                              final response = await http.get(
-                                Uri.parse(source),
-                              );
-                              if (response.statusCode == 200)
-                                return response.bodyBytes;
-                            } catch (_) {}
-                            return Uint8List(0);
-                          } else {
-                            return await File(source).readAsBytes();
-                          }
+                          try {
+                            final response = await http.get(Uri.parse(source));
+                            if (response.statusCode == 200)
+                              return response.bodyBytes;
+                          } catch (_) {}
+                          return Uint8List(0);
                         },
                         //widgetSize: 300,
                         widgetSize: singleImageWidth,
@@ -1641,18 +1628,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                                 mimeType: att.mimeType ?? 'image/jpeg',
                                 dataResolver: () async {
                                   final source = att.displaySource!;
-                                  if (att.remoteUrl != null) {
-                                    try {
-                                      final response = await http.get(
-                                        Uri.parse(source),
-                                      );
-                                      if (response.statusCode == 200)
-                                        return response.bodyBytes;
-                                    } catch (_) {}
-                                    return Uint8List(0);
-                                  } else {
-                                    return await File(source).readAsBytes();
-                                  }
+                                  try {
+                                    final response = await http.get(
+                                      Uri.parse(source),
+                                    );
+                                    if (response.statusCode == 200)
+                                      return response.bodyBytes;
+                                  } catch (_) {}
+                                  return Uint8List(0);
                                 },
                                 //widgetSize: 180,
                                 widgetSize: multiImageWidth,
@@ -1715,18 +1698,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                                     mimeType: att.mimeType ?? 'image/jpeg',
                                     dataResolver: () async {
                                       final source = att.displaySource!;
-                                      if (att.remoteUrl != null) {
-                                        try {
-                                          final response = await http.get(
-                                            Uri.parse(source),
-                                          );
-                                          if (response.statusCode == 200)
-                                            return response.bodyBytes;
-                                        } catch (_) {}
-                                        return Uint8List(0);
-                                      } else {
-                                        return await File(source).readAsBytes();
-                                      }
+                                      try {
+                                        final response = await http.get(
+                                          Uri.parse(source),
+                                        );
+                                        if (response.statusCode == 200)
+                                          return response.bodyBytes;
+                                      } catch (_) {}
+                                      return Uint8List(0);
                                     },
                                     //widgetSize: 180,
                                     widgetSize: multiImageWidth,
@@ -1787,18 +1766,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                             mimeType: displayImages[2].mimeType ?? 'image/jpeg',
                             dataResolver: () async {
                               final source = displayImages[2].displaySource!;
-                              if (displayImages[2].remoteUrl != null) {
-                                try {
-                                  final response = await http.get(
-                                    Uri.parse(source),
-                                  );
-                                  if (response.statusCode == 200)
-                                    return response.bodyBytes;
-                                } catch (_) {}
-                                return Uint8List(0);
-                              } else {
-                                return await File(source).readAsBytes();
-                              }
+                              try {
+                                final response = await http.get(
+                                  Uri.parse(source),
+                                );
+                                if (response.statusCode == 200)
+                                  return response.bodyBytes;
+                              } catch (_) {}
+                              return Uint8List(0);
                             },
                             //widgetSize: 200,
                             widgetSize: singleImageWidth,
@@ -1882,18 +1857,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                                 mimeType: att.mimeType ?? 'image/jpeg',
                                 dataResolver: () async {
                                   final source = att.displaySource!;
-                                  if (att.remoteUrl != null) {
-                                    try {
-                                      final response = await http.get(
-                                        Uri.parse(source),
-                                      );
-                                      if (response.statusCode == 200)
-                                        return response.bodyBytes;
-                                    } catch (_) {}
-                                    return Uint8List(0);
-                                  } else {
-                                    return await File(source).readAsBytes();
-                                  }
+                                  try {
+                                    final response = await http.get(
+                                      Uri.parse(source),
+                                    );
+                                    if (response.statusCode == 200)
+                                      return response.bodyBytes;
+                                  } catch (_) {}
+                                  return Uint8List(0);
                                 },
                                 //widgetSize: 180,
                                 widgetSize: multiImageWidth,

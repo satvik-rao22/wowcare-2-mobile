@@ -13,7 +13,6 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
 class TransactionsSection extends StatefulWidget {
@@ -165,22 +164,26 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   @override
   Widget build(BuildContext context) {
     final List<_TransactionRecord> visibleTransactions = _visibleTransactions();
-    final double totalInvoiced = _totalAmountFor(
-      <TransactionStatus>{
-        TransactionStatus.paid,
-        TransactionStatus.inProcess,
-        TransactionStatus.unpaid,
-      },
-    );
-    final double totalPaid = _totalAmountFor(<TransactionStatus>{TransactionStatus.paid});
-    final double totalInProcess =
-        _totalAmountFor(<TransactionStatus>{TransactionStatus.inProcess});
+    final double totalInvoiced = _totalAmountFor(<TransactionStatus>{
+      TransactionStatus.paid,
+      TransactionStatus.inProcess,
+      TransactionStatus.unpaid,
+    });
+    final double totalPaid = _totalAmountFor(<TransactionStatus>{
+      TransactionStatus.paid,
+    });
+    final double totalInProcess = _totalAmountFor(<TransactionStatus>{
+      TransactionStatus.inProcess,
+    });
     final double paidPercent = _percentage(totalPaid, totalInvoiced);
     final double inProcessPercent = _percentage(totalInProcess, totalInvoiced);
-    final double unpaidPercent =
-        _percentage(_totalAmountFor(<TransactionStatus>{TransactionStatus.unpaid}), totalInvoiced);
-    final double totalRefund =
-        _totalAmountFor(<TransactionStatus>{TransactionStatus.refund});
+    final double unpaidPercent = _percentage(
+      _totalAmountFor(<TransactionStatus>{TransactionStatus.unpaid}),
+      totalInvoiced,
+    );
+    final double totalRefund = _totalAmountFor(<TransactionStatus>{
+      TransactionStatus.refund,
+    });
     final double refundPercent = _percentage(totalRefund, totalInvoiced);
 
     return Column(
@@ -233,11 +236,13 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     child: BillingTransactionCard(
                       transaction: record.item,
                       onView: () => _openViewInvoice(record.item),
-                      onViewReceipt: () => _openViewReceipt(record.item, 'receipt'),
+                      onViewReceipt: () =>
+                          _openViewReceipt(record.item, 'receipt'),
                       onSendInvoice: () => _openSendInvoice(record.item),
                       onReceivePayment: () => _openReceivePayment(record.item),
                       onIssueRefund: () => _openIssueRefund(record.item),
-                      onBillingProfile: () => _openTransactionDetails(record.item),
+                      onBillingProfile: () =>
+                          _openTransactionDetails(record.item),
                       onDelete: () => _showActionFeedback('Delete confirmed'),
                       onLongPress: () => _openTransactionDetails(record.item),
                     ),
@@ -287,9 +292,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  CustomClearAllChip(
-                    onTap: _clearSearch,
-                  ),
+                  CustomClearAllChip(onTap: _clearSearch),
                 ],
               ),
             ],
@@ -307,9 +310,12 @@ class _TransactionsSectionState extends State<TransactionsSection> {
 
   List<_TransactionRecord> _visibleTransactions() {
     final String query = _searchController.text.trim().toLowerCase();
-    final Iterable<_TransactionRecord> filtered = _transactions.where((_TransactionRecord transaction) {
+    final Iterable<_TransactionRecord> filtered = _transactions.where((
+      _TransactionRecord transaction,
+    ) {
       final TransactionItem item = transaction.item;
-      final bool matchesQuery = query.isEmpty ||
+      final bool matchesQuery =
+          query.isEmpty ||
           item.studentName.toLowerCase().contains(query) ||
           item.id.toString().contains(query) ||
           item.description.toLowerCase().contains(query);
@@ -320,8 +326,14 @@ class _TransactionsSectionState extends State<TransactionsSection> {
 
   double _totalAmountFor(Set<TransactionStatus> statuses) {
     return _transactions
-        .where((_TransactionRecord transaction) => statuses.contains(transaction.status))
-        .fold<double>(0, (double sum, _TransactionRecord record) => sum + record.item.amount);
+        .where(
+          (_TransactionRecord transaction) =>
+              statuses.contains(transaction.status),
+        )
+        .fold<double>(
+          0,
+          (double sum, _TransactionRecord record) => sum + record.item.amount,
+        );
   }
 
   double _percentage(double value, double total) {
@@ -332,11 +344,9 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   }
 
   void _showActionFeedback(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label tapped (UI only).'),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$label tapped (UI only).')));
   }
 
   void _openSendInvoice(TransactionItem item) {
@@ -359,10 +369,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openIssueRefund(TransactionItem item) {
     Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (context) => ReceivePaymentIssueRefundScreen(
-          transaction: item,
-          isRefund: true,
-        ),
+        builder: (context) =>
+            ReceivePaymentIssueRefundScreen(transaction: item, isRefund: true),
       ),
     );
   }
@@ -370,9 +378,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openTransactionDetails(TransactionItem item) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(
-          transaction: item,
-        ),
+        builder: (context) => TransactionDetailsScreen(transaction: item),
       ),
     );
   }
@@ -380,10 +386,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openViewReceipt(TransactionItem item, String viewType) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ViewReceiptScreen(
-          transaction: item,
-          viewType: viewType,
-        ),
+        builder: (context) =>
+            ViewReceiptScreen(transaction: item, viewType: viewType),
       ),
     );
   }
@@ -391,31 +395,20 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openViewInvoice(TransactionItem item) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ViewInvoiceScreen(
-          transaction: item,
-        ),
+        builder: (context) => ViewInvoiceScreen(transaction: item),
       ),
     );
   }
 }
 
 class _TransactionRecord {
-  const _TransactionRecord({
-    required this.item,
-    required this.status,
-  });
+  const _TransactionRecord({required this.item, required this.status});
 
   final TransactionItem item;
   final TransactionStatus status;
 }
 
-enum TransactionStatus {
-  paid,
-  inProcess,
-  unpaid,
-  refund,
-  failed,
-}
+enum TransactionStatus { paid, inProcess, unpaid, refund, failed }
 
 extension on TransactionStatus {
   String get displayLabel {
@@ -433,5 +426,3 @@ extension on TransactionStatus {
     }
   }
 }
-
-

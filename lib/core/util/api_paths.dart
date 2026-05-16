@@ -277,8 +277,11 @@ class ApiPaths {
   static const String staffClassrooms = '/api/v1/staff-classrooms';
   static const String staffClassroomsAssignStaff =
       '/api/v1/staff-classrooms/assign-staff';
+  static const String staffClassroomsManageStaffList =
+      '/api/v1/staff-classrooms/manage-staff-list';
   static const String staffCount = '/api/v1/staff/count';
-  static String staffListBySchool(String schoolCode) => '/api/v1/staff/$schoolCode/list';
+  static String staffListBySchool(String schoolCode) =>
+      '/api/v1/staff/$schoolCode/list';
   static String get staffProfile => staffList;
 
   static const String staffMyProfile = '/api/v1/staff/my-profile';
@@ -361,6 +364,7 @@ class ApiPaths {
   static String studentSiblings(String code) =>
       '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
+
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
   static const String studentTagsActivityFilter =
       '/api/v1/student-tags/activity-filter';
@@ -400,6 +404,8 @@ class ApiPaths {
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String futureAvailability = '/api/v1/future-availability';
+  static const String futureAvailabilityRecompute =
+      '/api/v1/future-availability/recompute';
   static String individualMovementById(int id) =>
       '/api/v1/individual-movements/$id';
   static String individualMovementStatusById(int id) =>
@@ -520,6 +526,12 @@ class ApiPaths {
   static const String classroomAll = '/api/v1/classroom/all';
   static const String classroomAllStatuses = '/api/v1/classroom/all-classrooms';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
+  static const String classroomLogoAssetCodes =
+      '/api/v1/classroom/classroom-logo/asset-codes';
+  static String classroomLogoUploadSessionPath(String classroomCode) =>
+      '/api/v1/classroom/${classroomCode.trim()}/logo/upload-session';
+  static String classroomLogoFinalizePath(String classroomCode) =>
+      '/api/v1/classroom/${classroomCode.trim()}/logo/finalize';
   static const String classroomActivitySettingsRoot = '/api/v1/classrooms';
 
   // —— Activity host ——
@@ -554,9 +566,8 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
-  static String get documentUploadSessionsRoot => ApiConstants.isUat
-      ? '/upload-sessions'
-      : '/api/v1/upload-sessions';
+  static String get documentUploadSessionsRoot =>
+      ApiConstants.isUat ? '/upload-sessions' : '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
@@ -619,8 +630,8 @@ class ApiPaths {
       '$documentUploadSessionsRoot/$sessionCode';
   static String documentMediaAssetByCodePath(String assetCode) =>
       ApiConstants.isUat
-          ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
-          : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
+      ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
+      : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>

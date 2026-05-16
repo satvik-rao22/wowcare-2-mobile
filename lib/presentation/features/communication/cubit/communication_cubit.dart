@@ -91,7 +91,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       emit(CommunicationLoading());
     }
 
-    final result = await getMessagesUseCase(threadId, currentUserId: currentUserId);
+    final result = await getMessagesUseCase(
+      threadId,
+      currentUserId: currentUserId,
+    );
     if (isClosed) return;
 
     result.fold(

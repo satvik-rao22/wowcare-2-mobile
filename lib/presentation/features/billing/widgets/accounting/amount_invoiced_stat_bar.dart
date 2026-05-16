@@ -40,15 +40,15 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
     final numberFormat = NumberFormat('#,##0');
     String formatAmount(double value) => '\$${numberFormat.format(value)}';
 
-    final double paidAmt = (widget.totalAmount *
-            (widget.paidPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-    final double inProcessAmt = (widget.totalAmount *
-            (widget.inProcessPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-    final double unpaidAmt = (widget.totalAmount *
-            (widget.unpaidPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
+    final double paidAmt =
+        (widget.totalAmount * (widget.paidPercentage.clamp(0, 100) / 100))
+            .clamp(0, widget.totalAmount);
+    final double inProcessAmt =
+        (widget.totalAmount * (widget.inProcessPercentage.clamp(0, 100) / 100))
+            .clamp(0, widget.totalAmount);
+    final double unpaidAmt =
+        (widget.totalAmount * (widget.unpaidPercentage.clamp(0, 100) / 100))
+            .clamp(0, widget.totalAmount);
 
     // Keep Net Paid and Outstanding as the first-row items
     final netPaidItem = ProgressItemHelper(
@@ -72,8 +72,8 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       color: Colors.yellow,
     );
 
-    final double refundAmt = widget.totalAmount *
-        (widget.refundPercentage.clamp(0, 100) / 100);
+    final double refundAmt =
+        widget.totalAmount * (widget.refundPercentage.clamp(0, 100) / 100);
 
     final refundItem = ProgressItemHelper(
       label:
@@ -89,10 +89,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       color: AppColors.paidLegendColor,
     );
 
-    final collapsedItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-    ];
+    final collapsedItems = <ProgressItemHelper>[netPaidItem, outstandingItem];
 
     final expandedItems = <ProgressItemHelper>[
       netPaidItem,
@@ -110,8 +107,9 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
     ];
 
     final outstandingAmountText = formatAmount(unpaidAmt);
-    final outstandingPercentage =
-        widget.unpaidPercentage.clamp(0, 100).toStringAsFixed(1);
+    final outstandingPercentage = widget.unpaidPercentage
+        .clamp(0, 100)
+        .toStringAsFixed(1);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -231,6 +229,3 @@ class _TotalOutstandingSummary extends StatelessWidget {
     );
   }
 }
-
-
-

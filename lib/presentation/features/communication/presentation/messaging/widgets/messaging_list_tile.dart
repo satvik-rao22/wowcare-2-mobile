@@ -115,8 +115,8 @@ class MessagingListTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: CustomTextWidget(
-                    text: conversation.title.isNotEmpty 
-                        ? conversation.title 
+                    text: conversation.title.isNotEmpty
+                        ? conversation.title
                         : 'Unnamed Conversation',
                     fontWeight: FontWeight.w700,
                     fontSize: 17,
@@ -153,7 +153,10 @@ class MessagingListTile extends StatelessWidget {
               if (conversation.unreadCount > 0)
                 Container(
                   margin: const EdgeInsets.only(left: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6C5CE7), // Theme color
                     borderRadius: BorderRadius.circular(12),

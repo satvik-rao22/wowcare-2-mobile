@@ -77,19 +77,21 @@ bool activityHasMediaOrProcessing(ActivityItem activity) {
   final photo = (activity.photoUrl ?? '').trim();
   final video = (activity.videoUrl ?? '').trim();
   if (photo.isNotEmpty || video.isNotEmpty) return true;
-  final attachments = activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+  final attachments =
+      activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
   for (final row in attachments) {
     final status = (row['status'] ?? '').toString().trim().toUpperCase();
     if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
       return true;
     }
-    final anyUrl = (row['deliveryUrl'] ??
-            row['thumbnailUrl'] ??
-            row['artifactUrl'] ??
-            row['originalDownloadUrl'] ??
-            '')
-        .toString()
-        .trim();
+    final anyUrl =
+        (row['deliveryUrl'] ??
+                row['thumbnailUrl'] ??
+                row['artifactUrl'] ??
+                row['originalDownloadUrl'] ??
+                '')
+            .toString()
+            .trim();
     if (anyUrl.isNotEmpty) return true;
   }
   return false;
@@ -167,6 +169,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   bool _lastFeedCompletedWithError = false;
   String? _feedError;
   String? _schoolCode;
+
   /// Logged-in user's display name; used when feed [createdBy] is "system", etc.
   String _viewerStaffDisplayName = '';
   String _viewerStaffCode = '';
@@ -189,15 +192,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetActiveActivityTypesForSchoolUseCase
-      _getActiveActivityTypesForSchoolUseCase;
+  _getActiveActivityTypesForSchoolUseCase;
   late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetTagNameCodeMapForSchoolUseCase
+  _getTagNameCodeMapForSchoolUseCase;
   late final GetStudentCodesForActivityTagFilterUseCase
-      _getStudentCodesForActivityTagFilterUseCase;
+  _getStudentCodesForActivityTagFilterUseCase;
   late final GetStudentPageUseCase _getStudentPageUseCase;
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final GetStudentAbsentRecordsActivityUseCase
-      _getStudentAbsentRecordsActivityUseCase;
+  _getStudentAbsentRecordsActivityUseCase;
   late final DeleteActivityUseCase _deleteActivityUseCase;
   late final ApproveActivityUseCase _approveActivityUseCase;
   late final RejectActivityUseCase _rejectActivityUseCase;
@@ -353,7 +357,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           (await _storageService.getString(StorageKeys.organizationCode) ?? '')
               .trim();
       final school =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       if (org.isNotEmpty && school.isNotEmpty) {
         final staffKey = CacheManager.buildCacheKey(
           feature: 'staff',
@@ -558,8 +563,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
     final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-    final roles =
-        (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
     final staffType =
         (await _storageService.getString(StorageKeys.staffType) ?? '')
             .trim()
@@ -568,7 +573,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       setState(() {
         _viewerStaffDisplayName = viewerName;
         _viewerStaffCode = viewerStaffCode;
-        _isAdminPersona = roles.contains('ADMIN') ||
+        _isAdminPersona =
+            roles.contains('ADMIN') ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
       });
@@ -618,8 +624,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           final scoped = _allowedClassroomCodes.isEmpty
               ? list
               : list
-                  .where((c) => _allowedClassroomCodes.contains((c['code'] ?? '').trim()))
-                  .toList();
+                    .where(
+                      (c) => _allowedClassroomCodes.contains(
+                        (c['code'] ?? '').trim(),
+                      ),
+                    )
+                    .toList();
           _classroomCodeByName
             ..clear()
             ..addEntries(scoped.map((c) => MapEntry(c['name']!, c['code']!)));
@@ -637,8 +647,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 _selectdClassroom = _selectdClassroom;
               } else {
                 final primaryCode = (_primaryClassroomCode ?? '').trim();
-                final primaryName =
-                    primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+                final primaryName = primaryCode.isNotEmpty
+                    ? _classroomNameByCode[primaryCode]
+                    : null;
                 _selectdClassroom = primaryName ?? _classroomOptions.first;
               }
               // Keep multi-select UI in sync with default classroom.
@@ -681,8 +692,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       var scoped = _allowedClassroomCodes.isEmpty
           ? classrooms
           : classrooms
-              .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
-              .toList();
+                .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+                .toList();
       if (scoped.isEmpty &&
           classrooms.isNotEmpty &&
           _allowedClassroomCodes.isNotEmpty) {
@@ -721,12 +732,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _selectdClassroom = _selectdClassroom;
           } else {
             final primaryCode = (_primaryClassroomCode ?? '').trim();
-            final primaryName =
-                primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
+            final primaryName = primaryCode.isNotEmpty
+                ? _classroomNameByCode[primaryCode]
+                : null;
             _selectdClassroom = primaryName ?? _classroomOptions.first;
           }
           // Keep multi-select UI in sync with default classroom.
-          if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
+          if (_selectdClassroom != null &&
+              _selectdClassroom!.trim().isNotEmpty) {
             _selectedClassrooms = <String>[_selectdClassroom!];
           }
         } else {
@@ -758,8 +771,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   Future<void> _loadStaffClassroomScope() async {
     // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles =
-        (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
     if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
@@ -791,7 +804,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     final cached =
-        (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ??
+        (await _storageService.getString(
+                  StorageKeys.staffAllowedClassroomCodes,
+                ) ??
                 '')
             .trim();
     var allowed = decodeCodes(cached);
@@ -947,7 +962,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _loadDailyFeed(refresh: true);
   }
 
-  Future<void> _reloadStudentsAndSettings({bool forceRefreshApis = false}) async {
+  Future<void> _reloadStudentsAndSettings({
+    bool forceRefreshApis = false,
+  }) async {
     _studentCodeByName.clear();
     _classroomStudents.clear();
     _availableStudents = [];
@@ -977,11 +994,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       final settings =
           await ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
-        cacheManager: _cacheManager,
-        useCase: _getActiveActivityTypesForSchoolUseCase,
-        schoolCode: school,
-        forceRefresh: forceRefreshApis,
-      );
+            cacheManager: _cacheManager,
+            useCase: _getActiveActivityTypesForSchoolUseCase,
+            schoolCode: school,
+            forceRefresh: forceRefreshApis,
+          );
       if (!mounted) return;
       setState(() {
         _classroomActivitySettings = settings;
@@ -997,20 +1014,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (!forceRefreshApis) {
       try {
         final cachedStudents = await _cacheManager.loadCache(studentsCacheKey);
-        if (cachedStudents != null && cachedStudents['students'] is List && mounted) {
+        if (cachedStudents != null &&
+            cachedStudents['students'] is List &&
+            mounted) {
           final list = (cachedStudents['students'] as List)
               .whereType<Map>()
-              .map((e) => <String, String>{
-                    'fullName': (e['fullName'] ?? '').toString(),
-                    'studentCode': (e['studentCode'] ?? '').toString(),
-                  })
-              .where((e) =>
-                  e['fullName']!.isNotEmpty && e['studentCode']!.isNotEmpty)
+              .map(
+                (e) => <String, String>{
+                  'fullName': (e['fullName'] ?? '').toString(),
+                  'studentCode': (e['studentCode'] ?? '').toString(),
+                },
+              )
+              .where(
+                (e) =>
+                    e['fullName']!.isNotEmpty && e['studentCode']!.isNotEmpty,
+              )
               .toList();
           _studentCodeByName
             ..clear()
             ..addEntries(
-                list.map((e) => MapEntry(e['fullName']!, e['studentCode']!)));
+              list.map((e) => MapEntry(e['fullName']!, e['studentCode']!)),
+            );
           setState(() {
             _classroomStudents[classroomName] =
                 list.map((e) => e['fullName']!).toList()..sort();
@@ -1101,7 +1125,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     bool forceRefreshApis = false,
   }) async {
     final school = _schoolCode;
-    if (school == null || school.isEmpty || selectedClassroomNames.isEmpty) return;
+    if (school == null || school.isEmpty || selectedClassroomNames.isEmpty)
+      return;
 
     final mergedByName = Map<String, String>.from(_studentCodeByName);
     final byClassroom = Map<String, List<String>>.from(_classroomStudents);
@@ -1163,8 +1188,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
             schoolIana: _schoolIana,
             staffDisplayNameByCode: _staffDisplayNameByCode,
-            activityTypeOptionCodeToLabel:
-                activityFeedOptionLabelsForType(row.activityTypeCode),
+            activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
+              row.activityTypeCode,
+            ),
           ),
         )
         .toList();
@@ -1182,13 +1208,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             .trim()
             .toLowerCase();
         if (pName != 'staff present') continue;
-        final raw = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-            .toString()
-            .trim();
+        final raw =
+            (p['selectedOptionCode'] ??
+                    p['valueText'] ??
+                    p['valueNumber'] ??
+                    '')
+                .toString()
+                .trim();
         if (raw.isNotEmpty) return raw;
       }
       return null;
     }
+
     for (final row in rows) {
       final codeCandidates = <String>{
         (row.staffCode ?? '').trim(),
@@ -1327,10 +1358,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return const <String>[];
   }
 
-  String _displayClassroomName({
-    String? classroomCode,
-    String? classroomName,
-  }) {
+  String _displayClassroomName({String? classroomCode, String? classroomName}) {
     final n = (classroomName ?? '').trim();
     if (n.isNotEmpty && !n.startsWith('CLS_')) return n;
     final c = (classroomCode ?? '').trim();
@@ -1338,10 +1366,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return _classroomNameByCode[c] ?? c;
   }
 
-  DateTime? _attendanceClockToDateTime(
-    StudentAttendanceTime? t,
-    DateTime day,
-  ) {
+  DateTime? _attendanceClockToDateTime(StudentAttendanceTime? t, DateTime day) {
     if (t == null) return null;
     return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
   }
@@ -1384,7 +1409,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     } else if (ampm == 'PM') {
       if (hour < 12) hour += 12;
     }
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+    if (hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59 ||
+        second < 0 ||
+        second > 59) {
       return null;
     }
     return DateTime(day.year, day.month, day.day, hour, minute, second);
@@ -1411,9 +1441,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   int _compareActivityItemsByTimeDesc(ActivityItem a, ActivityItem b) {
-    final byTime = _activityItemSortDateTime(b).compareTo(
-      _activityItemSortDateTime(a),
-    );
+    final byTime = _activityItemSortDateTime(
+      b,
+    ).compareTo(_activityItemSortDateTime(a));
     if (byTime != 0) return byTime;
     return b.name.compareTo(a.name);
   }
@@ -1440,7 +1470,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       if (row.isTransfer == true) {
         if (eventFilter == null || eventFilter == 'Transfer') {
-          final at = _attendanceClockToDateTime(row.transferTime, day) ??
+          final at =
+              _attendanceClockToDateTime(row.transferTime, day) ??
               _attendanceClockToDateTime(row.nextActionTime, day) ??
               day;
           final fromName = _displayClassroomName(
@@ -1456,9 +1487,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
           final selectedCode = (selectedClassroomCode ?? '').trim();
           final bool viewingFromClassroom =
-              selectedCode.isNotEmpty && fromCode.isNotEmpty && selectedCode == fromCode;
+              selectedCode.isNotEmpty &&
+              fromCode.isNotEmpty &&
+              selectedCode == fromCode;
           final bool viewingToClassroom =
-              selectedCode.isNotEmpty && toCode.isNotEmpty && selectedCode == toCode;
+              selectedCode.isNotEmpty &&
+              toCode.isNotEmpty &&
+              selectedCode == toCode;
 
           final String transferLine;
           if (viewingFromClassroom) {
@@ -1505,12 +1540,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           final effectiveClassName = _displayClassroomName(
             classroomCode:
                 (row.toClassroomCode ?? row.classroomCode).trim().isEmpty
-                    ? row.classroomCode
-                    : row.toClassroomCode,
+                ? row.classroomCode
+                : row.toClassroomCode,
             classroomName:
                 (row.toClassroomName ?? row.classroomName).trim().isEmpty
-                    ? row.classroomName
-                    : row.toClassroomName!,
+                ? row.classroomName
+                : row.toClassroomName!,
           );
           out.add(
             ActivityItem(
@@ -1524,8 +1559,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                   ? _viewerStaffDisplayName
                   : row.signedOutBy!.trim(),
               studentCode: studentCode?.isEmpty == true ? null : studentCode,
-              classroomCode:
-                  (row.toClassroomCode ?? row.classroomCode).trim(),
+              classroomCode: (row.toClassroomCode ?? row.classroomCode).trim(),
               activityDateIso: at.toIso8601String(),
               studentActivityRefs: <Map<String, String>>[
                 {
@@ -1608,11 +1642,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       DateTime recordDay;
       try {
         final src = row.absenceDate.trim();
-        recordDay = src.isEmpty ? (_selectedDate ?? DateTime.now()) : DateTime.parse(src);
+        recordDay = src.isEmpty
+            ? (_selectedDate ?? DateTime.now())
+            : DateTime.parse(src);
       } catch (_) {
         recordDay = _selectedDate ?? DateTime.now();
       }
-      final at = _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
+      final at =
+          _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
       final studentName = row.studentName.trim().isEmpty
           ? 'Student'
           : row.studentName.trim();
@@ -1712,8 +1749,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       final selectedStudentCode =
           (studentCodes != null && studentCodes.isNotEmpty)
-              ? studentCodes.first
-              : null;
+          ? studentCodes.first
+          : null;
       final classroomCodes = _selectedClassroomCodesForFeed();
       final typeCodes = _activityTypeCodesForApiFilter();
       final pageIndex = _feedNextPage;
@@ -1788,7 +1825,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null)
+          ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
@@ -1897,7 +1935,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       StudentAttendanceDailyPage? attendancePage;
       StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries()) {
+      if (_filterApprovalStatuses.isEmpty &&
+          _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
@@ -1966,7 +2005,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
       await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null)
+          ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
@@ -2044,7 +2084,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       StudentAttendanceDailyPage? attendancePage;
       StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries()) {
+      if (_filterApprovalStatuses.isEmpty &&
+          _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
           absentPage = await _getStudentAbsentRecordsActivityUseCase(
             fromAbsenceDate: dateStr,
@@ -2113,7 +2154,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await _primeStaffDisplayNamesFromFeedRows(merged.content);
       await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null)
+          ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
@@ -2159,7 +2201,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final school = _schoolCode;
     final date = _selectedDate;
     final classroomCodes = _selectedClassroomCodesForFeed();
-    final classroomCode = classroomCodes.isNotEmpty ? classroomCodes.first : null;
+    final classroomCode = classroomCodes.isNotEmpty
+        ? classroomCodes.first
+        : null;
     if (school == null ||
         school.isEmpty ||
         date == null ||
@@ -2230,8 +2274,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       final selectedStudentCode =
           (studentCodes != null && studentCodes.isNotEmpty)
-              ? studentCodes.first
-              : null;
+          ? studentCodes.first
+          : null;
       final typeCodes = _activityTypeCodesForApiFilter();
       final approvalStatuses = _approvalStatusesForApiFilter();
 
@@ -2299,7 +2343,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
       final items = <ActivityItem>[
-        if (attendancePage != null) ..._mapAttendanceDailyPageToItems(attendancePage),
+        if (attendancePage != null)
+          ..._mapAttendanceDailyPageToItems(attendancePage),
         if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
@@ -2414,11 +2459,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   void _updateAvailableStudents() {
     if (_selectedClassrooms.isNotEmpty) {
       final selectedClassroomNames = _selectedClassrooms;
-      final mergedStudents = selectedClassroomNames
-          .expand((name) => _classroomStudents[name] ?? const <String>[])
-          .toSet()
-          .toList()
-        ..sort();
+      final mergedStudents =
+          selectedClassroomNames
+              .expand((name) => _classroomStudents[name] ?? const <String>[])
+              .toSet()
+              .toList()
+            ..sort();
       _availableStudents = mergedStudents;
       if (_selectedStudent != null &&
           !_availableStudents.contains(_selectedStudent)) {
@@ -2428,11 +2474,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           .where((name) => _availableStudents.contains(name))
           .toList();
     } else {
-      _availableStudents = _classroomStudents.values
-          .expand((students) => students)
-          .toSet()
-          .toList()
-        ..sort();
+      _availableStudents =
+          _classroomStudents.values
+              .expand((students) => students)
+              .toSet()
+              .toList()
+            ..sort();
       _selectedStudents = _selectedStudents
           .where((name) => _availableStudents.contains(name))
           .toList();
@@ -2772,8 +2819,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                             _selectdClassroom = values.first;
                                             _updateAvailableStudents();
                                           });
-                                          if (values.length > 1 && isNotParent) {
-                                            await _loadStudentsForSelectedClassrooms(values);
+                                          if (values.length > 1 &&
+                                              isNotParent) {
+                                            await _loadStudentsForSelectedClassrooms(
+                                              values,
+                                            );
                                             await _loadDailyFeed(refresh: true);
                                           } else {
                                             await _reloadStudentsAndSettingsThenFeed();
@@ -2798,8 +2848,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                         (values) {
                                           setState(() {
                                             _selectedStudents = values;
-                                            _selectedStudent =
-                                                values.isNotEmpty
+                                            _selectedStudent = values.isNotEmpty
                                                 ? values.first
                                                 : null;
                                           });
@@ -2895,40 +2944,43 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () async {
                                         setState(() {
-                                  final now = DateTime.now();
-                                  _selectedDate =
-                                      DateTime(now.year, now.month, now.day);
-                                  _selectdClassroom = null;
-                                  _selectedClassrooms = <String>[];
-                                  _selectedStudent = null;
-                                  _selectedStudents = [];
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                  _filterApprovalStatuses.clear();
-                                });
-                                await _refreshDropdownsAfterClearAll();
-                                await _loadDailyFeed(refresh: true);
-                              },
-                              label: 'Clear All',
+                                          final now = DateTime.now();
+                                          _selectedDate = DateTime(
+                                            now.year,
+                                            now.month,
+                                            now.day,
+                                          );
+                                          _selectdClassroom = null;
+                                          _selectedClassrooms = <String>[];
+                                          _selectedStudent = null;
+                                          _selectedStudents = [];
+                                          _filterActivityTypes.clear();
+                                          _filterTags.clear();
+                                          _filterApprovalStatuses.clear();
+                                        });
+                                        await _refreshDropdownsAfterClearAll();
+                                        await _loadDailyFeed(refresh: true);
+                                      },
+                                      label: 'Clear All',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            )
+                          : SizedBox(
+                              height: 40,
+                              child: _datePickerFilter(
+                                selectedDate: _selectedDate,
+                                onDateSelected: (date) {
+                                  setState(() {
+                                    _selectedDate = date;
+                                  });
+                                  _loadDailyFeed();
+                                },
+                              ),
                             ),
-                          ],
-                        ),
-                      ],
-                    )
-                        : SizedBox(
-                            height: 40,
-                            child: _datePickerFilter(
-                              selectedDate: _selectedDate,
-                              onDateSelected: (date) {
-                                setState(() {
-                                  _selectedDate = date;
-                                });
-                                _loadDailyFeed();
-                              },
-                            ),
-                          ),
+                    ),
                   ),
-                ),
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(height: _parentHome ? 0 : 12),
@@ -2962,25 +3014,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 if (!_loadingFeed &&
                     !_loadingParentContext &&
                     _activities.isEmpty)
-                  SliverToBoxAdapter(child: Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.dividerColor),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.white,
-                      ),
-                      child: Center(
-                        child: AppText.title(
-                          _feedError ?? 'No Activities found',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.title
-                              .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.dividerColor),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
+                        ),
+                        child: Center(
+                          child: AppText.title(
+                            _feedError ?? 'No Activities found',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.title.copyWith(
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  )),
+                  ),
 
                 // if (activities.isNotEmpty)
                 //   SliverPadding(
@@ -3105,12 +3162,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                 widget.allowActivityWrite &&
                                                 canEditActivityItem(
                                                   activity,
-                                                  isAdminPersona: _isAdminPersona,
-                                                  viewerStaffCode: _viewerStaffCode,
+                                                  isAdminPersona:
+                                                      _isAdminPersona,
+                                                  viewerStaffCode:
+                                                      _viewerStaffCode,
                                                 );
                                             final destinationBuilder =
                                                 canOpenEdit
-                                                ? editActivityRoutes[activity.name]
+                                                ? editActivityRoutes[activity
+                                                      .name]
                                                 : activityRoutes[activity.name];
                                             if (destinationBuilder != null) {
                                               final nextScreen =
@@ -3157,7 +3217,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                     width: 140,
                                                     height: 120,
                                                     child:
-                                                        activityHasMediaOrProcessing(activity)
+                                                        activityHasMediaOrProcessing(
+                                                          activity,
+                                                        )
                                                         ? ActivityMediaPreview(
                                                             activity: activity,
                                                             activityColor:
@@ -3223,8 +3285,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                 builder: (_) {
                                                                   final iconPath =
                                                                       (activityIcons[activity.name] ??
-                                                                              MediaRes
-                                                                                  .notesActivityIcon)
+                                                                              MediaRes.notesActivityIcon)
                                                                           .toString();
                                                                   if (iconPath
                                                                       .toLowerCase()
@@ -3239,7 +3300,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                   }
                                                                   return Image.asset(
                                                                     iconPath,
-                                                                    fit: BoxFit.fill,
+                                                                    fit: BoxFit
+                                                                        .fill,
                                                                   );
                                                                 },
                                                               ),
@@ -3299,7 +3361,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                               ),
                                                             ),
                                                           ),
-                                                          if (!isAttendanceCardActivityItem(activity))
+                                                          if (!isAttendanceCardActivityItem(
+                                                            activity,
+                                                          ))
                                                             PopupMenuButton<
                                                               String
                                                             >(
@@ -3353,7 +3417,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                 ),
                                                                 if (isNotParent &&
                                                                     widget
-                                                                    .allowActivityWrite &&
+                                                                        .allowActivityWrite &&
                                                                     canEditActivityItem(
                                                                       activity,
                                                                       isAdminPersona:
@@ -3404,17 +3468,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     },
                                                                   ),
                                                                 if (canAdminApproveOrRejectActivityItem(
-                                                                  activity,
-                                                                  isAdminPersona:
-                                                                      _isAdminPersona,
-                                                                ) &&
+                                                                      activity,
+                                                                      isAdminPersona:
+                                                                          _isAdminPersona,
+                                                                    ) &&
                                                                     !isIncidentActivityItem(
                                                                       activity,
                                                                     )) ...[
                                                                   PopupMenuItem<
                                                                     String
                                                                   >(
-                                                                    value: 'approve',
+                                                                    value:
+                                                                        'approve',
                                                                     child: PopupItem(
                                                                       title:
                                                                           'Approve',
@@ -3437,7 +3502,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                   PopupMenuItem<
                                                                     String
                                                                   >(
-                                                                    value: 'reject',
+                                                                    value:
+                                                                        'reject',
                                                                     child: PopupItem(
                                                                       title:
                                                                           'Reject',
@@ -3459,7 +3525,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                   ),
                                                                 ],
                                                                 if (isNotParent &&
-                                                                        widget
+                                                                    widget
                                                                         .allowActivityWrite &&
                                                                     canDeleteActivityItem(
                                                                       activity,
@@ -3517,15 +3583,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                         height: 10,
                                                       ),
 
-                                                          activityFeedStudentAvatarStack(
-                                                            students,
-                                                            onOpenStudentList: () =>
-                                                                showActivityStudentListSheet(
+                                                      activityFeedStudentAvatarStack(
+                                                        students,
+                                                        onOpenStudentList: () =>
+                                                            showActivityStudentListSheet(
                                                               context,
                                                               students,
                                                             ),
-                                                          ),
-                                                          const SizedBox(height: 10),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
 
                                                       Text(
                                                         activityFeedCardBodyLine(
@@ -4367,8 +4435,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                         if (values.isEmpty && isNotParent) {
                                           await _loadAllStudentsForAllowedClassrooms();
                                           await _loadDailyFeed(refresh: true);
-                                        } else if (values.length > 1 && isNotParent) {
-                                          await _loadStudentsForSelectedClassrooms(values);
+                                        } else if (values.length > 1 &&
+                                            isNotParent) {
+                                          await _loadStudentsForSelectedClassrooms(
+                                            values,
+                                          );
                                           await _loadDailyFeed(refresh: true);
                                         } else {
                                           await _reloadStudentsAndSettingsThenFeed();
@@ -4434,13 +4505,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                         vertical: 2,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color:
-                                                        const Color.fromRGBO(
-                                                          179,
-                                                          38,
-                                                          30,
-                                                          1,
-                                                        ),
+                                                    color: const Color.fromRGBO(
+                                                      179,
+                                                      38,
+                                                      30,
+                                                      1,
+                                                    ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,
@@ -4487,26 +4557,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () async {
                                       setState(() {
-                                  final now = DateTime.now();
-                                  _selectedDate =
-                                      DateTime(now.year, now.month, now.day);
-                                  _selectdClassroom = null;
-                                  _selectedClassrooms = <String>[];
-                                  _selectedStudent = null;
-                                  _selectedStudents = [];
-                                  _filterActivityTypes.clear();
-                                  _filterTags.clear();
-                                  _filterApprovalStatuses.clear();
-                                });
-                                await _refreshDropdownsAfterClearAll();
-                                await _loadDailyFeed(refresh: true);
-                              },
-                              label: 'Clear All',
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
+                                        final now = DateTime.now();
+                                        _selectedDate = DateTime(
+                                          now.year,
+                                          now.month,
+                                          now.day,
+                                        );
+                                        _selectdClassroom = null;
+                                        _selectedClassrooms = <String>[];
+                                        _selectedStudent = null;
+                                        _selectedStudents = [];
+                                        _filterActivityTypes.clear();
+                                        _filterTags.clear();
+                                        _filterApprovalStatuses.clear();
+                                      });
+                                      await _refreshDropdownsAfterClearAll();
+                                      await _loadDailyFeed(refresh: true);
+                                    },
+                                    label: 'Clear All',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
                         : SizedBox(
                             height: 40,
                             child: _datePickerFilter(
@@ -4550,8 +4623,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                             child: AppText.title(
                               _feedError ?? 'No Activities found',
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.title
-                                  .copyWith(color: AppColors.primaryColor.withValues(alpha: 0.55)),
+                              style: AppTextStyles.title.copyWith(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -4673,7 +4749,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                   final canOpenEdit =
                                                       hasStatusBadge &&
                                                       isNotParent &&
-                                                      widget.allowActivityWrite &&
+                                                      widget
+                                                          .allowActivityWrite &&
                                                       canEditActivityItem(
                                                         activity,
                                                         isAdminPersona:
@@ -4745,7 +4822,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                           width: 140,
                                                           height: 120,
                                                           child:
-                                                              activityHasMediaOrProcessing(activity)
+                                                              activityHasMediaOrProcessing(
+                                                                activity,
+                                                              )
                                                               ? ActivityMediaPreview(
                                                                   activity:
                                                                       activity,
@@ -4828,8 +4907,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         }
                                                                         return Image.asset(
                                                                           iconPath,
-                                                                          fit:
-                                                                              BoxFit.fill,
+                                                                          fit: BoxFit
+                                                                              .fill,
                                                                         );
                                                                       },
                                                                     ),
@@ -4858,15 +4937,20 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         Alignment
                                                                             .centerLeft,
                                                                     child: Wrap(
-                                                                      spacing: 8,
-                                                                      runSpacing: 6,
+                                                                      spacing:
+                                                                          8,
+                                                                      runSpacing:
+                                                                          6,
                                                                       crossAxisAlignment:
-                                                                          WrapCrossAlignment.center,
+                                                                          WrapCrossAlignment
+                                                                              .center,
                                                                       children: [
                                                                         Container(
                                                                           padding: const EdgeInsets.symmetric(
-                                                                            horizontal: 12,
-                                                                            vertical: 6,
+                                                                            horizontal:
+                                                                                12,
+                                                                            vertical:
+                                                                                6,
                                                                           ),
                                                                           decoration: BoxDecoration(
                                                                             color: activityColor.withOpacity(
@@ -4878,15 +4962,20 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                           ),
                                                                           child: Text(
                                                                             activity.name,
-                                                                            maxLines: 1,
-                                                                            overflow: TextOverflow.ellipsis,
+                                                                            maxLines:
+                                                                                1,
+                                                                            overflow:
+                                                                                TextOverflow.ellipsis,
                                                                             style: const TextStyle(
                                                                               color: AppColors.primaryColor,
                                                                               fontSize: 12,
                                                                             ),
                                                                           ),
                                                                         ),
-                                                                        if (activityApprovalStatusBadgeLabel(activity.approvalStatus) != null)
+                                                                        if (activityApprovalStatusBadgeLabel(
+                                                                              activity.approvalStatus,
+                                                                            ) !=
+                                                                            null)
                                                                           Container(
                                                                             padding: const EdgeInsets.symmetric(
                                                                               horizontal: 10,
@@ -4916,7 +5005,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (!isAttendanceCardActivityItem(activity))
+                                                                if (!isAttendanceCardActivityItem(
+                                                                  activity,
+                                                                ))
                                                                   PopupMenuButton<
                                                                     String
                                                                   >(
@@ -4969,7 +5060,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         },
                                                                       ),
                                                                       if (isNotParent &&
-                                                                              widget
+                                                                          widget
                                                                               .allowActivityWrite &&
                                                                           canEditActivityItem(
                                                                             activity,
@@ -5018,10 +5109,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                           },
                                                                         ),
                                                                       if (canAdminApproveOrRejectActivityItem(
-                                                                        activity,
-                                                                        isAdminPersona:
-                                                                            _isAdminPersona,
-                                                                      ) &&
+                                                                            activity,
+                                                                            isAdminPersona:
+                                                                                _isAdminPersona,
+                                                                          ) &&
                                                                           !isIncidentActivityItem(
                                                                             activity,
                                                                           )) ...[
@@ -5040,10 +5131,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                           ),
                                                                           onTap: () async {
                                                                             await _showApprovalActionBottomSheet(
-                                                                              activity:
-                                                                                  activity,
-                                                                              isApprove:
-                                                                                  true,
+                                                                              activity: activity,
+                                                                              isApprove: true,
                                                                             );
                                                                           },
                                                                         ),
@@ -5062,16 +5151,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                           ),
                                                                           onTap: () async {
                                                                             await _showApprovalActionBottomSheet(
-                                                                              activity:
-                                                                                  activity,
-                                                                              isApprove:
-                                                                                  false,
+                                                                              activity: activity,
+                                                                              isApprove: false,
                                                                             );
                                                                           },
                                                                         ),
                                                                       ],
                                                                       if (isNotParent &&
-                                                                              widget
+                                                                          widget
                                                                               .allowActivityWrite &&
                                                                           canDeleteActivityItem(
                                                                             activity,
@@ -5126,14 +5213,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                             ),
 
                                                             activityFeedStudentAvatarStack(
-                                                            students,
-                                                            onOpenStudentList: () =>
-                                                                showActivityStudentListSheet(
-                                                              context,
                                                               students,
+                                                              onOpenStudentList:
+                                                                  () =>
+                                                                      showActivityStudentListSheet(
+                                                                        context,
+                                                                        students,
+                                                                      ),
                                                             ),
-                                                          ),
-                                                            const SizedBox(height: 10),
+                                                            const SizedBox(
+                                                              height: 10,
+                                                            ),
 
                                                             Text(
                                                               activityFeedCardBodyLine(
@@ -5465,8 +5555,7 @@ String activityFeedCardBodyLine(ActivityItem activity) {
   }
   if (activity.name == 'Bottle') {
     final desc = activity.description?.trim();
-    final consumedLine =
-        _formatBottleOzConsumedLine(activity.amountConsumed);
+    final consumedLine = _formatBottleOzConsumedLine(activity.amountConsumed);
     final st = activity.bottleConsumptionStatus?.trim();
     final stClean = (st == null || st.isEmpty)
         ? null
@@ -5503,12 +5592,13 @@ String activityFeedCardBodyLine(ActivityItem activity) {
               ? activity.napStartTime!.trim()
               : activity.time.trim())
         : (activity.napEndTime?.trim().isNotEmpty == true
-            ? activity.napEndTime!.trim()
-            : (activity.napStartTime?.trim().isNotEmpty == true
-                ? activity.napStartTime!.trim()
-                : activity.time.trim()));
-    final firstLine =
-        at.isNotEmpty ? 'Nap ${isStart ? 'started' : 'ended'} at $at' : 'Nap';
+              ? activity.napEndTime!.trim()
+              : (activity.napStartTime?.trim().isNotEmpty == true
+                    ? activity.napStartTime!.trim()
+                    : activity.time.trim()));
+    final firstLine = at.isNotEmpty
+        ? 'Nap ${isStart ? 'started' : 'ended'} at $at'
+        : 'Nap';
     return _joinPrimaryAndOptionalDescription(
       activityName: activity.name,
       primary: firstLine,
@@ -5642,7 +5732,8 @@ String? _formatBottleOzConsumedLine(String? raw) {
 }
 
 /// Public for bottle detail view; same numeric formatting as the feed (`6 OZ`).
-String? formatBottleAmountForDisplay(String? raw) => _formatBottleOzCompact(raw);
+String? formatBottleAmountForDisplay(String? raw) =>
+    _formatBottleOzCompact(raw);
 
 /// Activity types where the API may return one feed row per student; adjacent
 /// rows that match the same logged event are merged for display.
@@ -5768,6 +5859,7 @@ ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
       if (!names.contains(t)) names.add(t);
     }
   }
+
   addUnique(a.studentList);
   addUnique(b.studentList);
   if (names.isEmpty) names.add('Student');
@@ -5818,7 +5910,9 @@ ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
   );
 }
 
-List<ActivityItem> mergeAdjacentMultiStudentFeedItems(List<ActivityItem> items) {
+List<ActivityItem> mergeAdjacentMultiStudentFeedItems(
+  List<ActivityItem> items,
+) {
   if (items.length < 2) return items;
   final out = <ActivityItem>[items.first];
   for (var i = 1; i < items.length; i++) {
@@ -5844,8 +5938,9 @@ String? _feedGroupKeyForItem(
     final date = x.date.trim();
     final cc = (x.classroomCode ?? '').trim();
     final desc = (x.description ?? '').trim();
-    final dtPart =
-        attendanceRequireDateAndTimeMatch ? '|$date|$time' : '|$time';
+    final dtPart = attendanceRequireDateAndTimeMatch
+        ? '|$date|$time'
+        : '|$time';
     return 'ATT|$name$dtPart|$cc|$desc';
   }
 
@@ -5965,13 +6060,16 @@ ActivityItem activityItemFromActivityDetail(
   return activityItemFromFeedRow(
     ActivityFeedRow.fromActivityDetail(detail),
     viewerDisplayName: viewerDisplayName,
-    activityTypeOptionCodeToLabel:
-        activityFeedOptionLabelsForType(detail.activityTypeCode),
+    activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
+      detail.activityTypeCode,
+    ),
   );
 }
 
 /// Maps [ActivityItem] to student maps used by create/edit activity screens.
-List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity) {
+List<Map<String, dynamic>> studentDataMapsForActivityEdit(
+  ActivityItem activity,
+) {
   final room = activity.classroomCode?.trim();
   final refs = activity.studentActivityRefs;
   if (refs != null && refs.isNotEmpty) {
@@ -6010,7 +6108,9 @@ List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity)
 /// Option code → label for activity type definitions (`GET …/activity-types/{code}`).
 final Map<String, Map<String, String>> _activityFeedOptionLabelCache = {};
 
-Future<void> ensureActivityFeedOptionLabelsForType(String activityTypeCode) async {
+Future<void> ensureActivityFeedOptionLabelsForType(
+  String activityTypeCode,
+) async {
   final c = activityTypeCode.trim();
   if (c.isEmpty) return;
   if (_activityFeedOptionLabelCache.containsKey(c)) return;
@@ -6034,10 +6134,13 @@ Future<void> ensureActivityFeedOptionLabelsForType(String activityTypeCode) asyn
   }
 }
 
-Future<void> primeActivityFeedOptionLabelsFromRows(Iterable<ActivityFeedRow> rows) async {
+Future<void> primeActivityFeedOptionLabelsFromRows(
+  Iterable<ActivityFeedRow> rows,
+) async {
   final codes = <String>{};
   for (final r in rows) {
-    if (mapApiActivityTypeNameToUiLabel(r.activityTypeName) != 'Learning') continue;
+    if (mapApiActivityTypeNameToUiLabel(r.activityTypeName) != 'Learning')
+      continue;
     final code = r.activityTypeCode.trim();
     if (code.isNotEmpty) codes.add(code);
   }
@@ -6141,7 +6244,9 @@ ActivityItem activityItemFromFeedRow(
       final name = (p['parameterName'] ?? '').toString().toLowerCase().trim();
       if (!name.contains('nap')) continue;
       final hasTarget = wantEnd
-          ? (name.contains('end') || name.contains('wake') || name.contains('stop'))
+          ? (name.contains('end') ||
+                name.contains('wake') ||
+                name.contains('stop'))
           : (name.contains('start') || name.contains('begin'));
       if (!hasTarget) continue;
       final fromBool = _boolFromAny(p['valueBool']);
@@ -6277,8 +6382,9 @@ ActivityItem activityItemFromFeedRow(
 
     double? numFromText;
     if (textVal != null) {
-      final m = RegExp(r'(\d+(?:\.\d+)?)')
-          .firstMatch(textVal.replaceAll(',', ''));
+      final m = RegExp(
+        r'(\d+(?:\.\d+)?)',
+      ).firstMatch(textVal.replaceAll(',', ''));
       if (m != null) {
         numFromText = double.tryParse(m.group(1)!);
       }
@@ -6311,7 +6417,8 @@ ActivityItem activityItemFromFeedRow(
   String? pickParamBottleVolume() {
     for (final p in row.parameterValues) {
       final pn = (p['parameterName'] ?? '').toString().toLowerCase();
-      final isVol = pn.contains('amount') ||
+      final isVol =
+          pn.contains('amount') ||
           pn.contains('ounce') ||
           pn.contains('volume') ||
           pn.contains(' ml') ||
@@ -6331,9 +6438,10 @@ ActivityItem activityItemFromFeedRow(
       final dt = (p['dataType'] ?? '').toString().toUpperCase();
       if (pn.contains('staff')) continue;
       if (dt == 'DATE' || dt == 'TIME') continue;
-      if (pn == 'description' ||
-          (pn.contains('description') && dt == 'TEXT')) continue;
-      final isConsumptionDropdown = dt == 'DROPDOWN' &&
+      if (pn == 'description' || (pn.contains('description') && dt == 'TEXT'))
+        continue;
+      final isConsumptionDropdown =
+          dt == 'DROPDOWN' &&
           (pn.contains('consum') ||
               pn.contains('intake') ||
               pn.contains('status') ||
@@ -6366,14 +6474,14 @@ ActivityItem activityItemFromFeedRow(
 
   final amountConsumed = name == 'Bottle'
       ? (bottleVolumeFromParams ??
-          pickParamBottleVolume() ??
-          pickParam(
-            (n) =>
-                (n.contains('amount') ||
-                    n.contains('ounce') ||
-                    n.contains('oz')) &&
-                !n.contains('consumption'),
-          ))
+            pickParamBottleVolume() ??
+            pickParam(
+              (n) =>
+                  (n.contains('amount') ||
+                      n.contains('ounce') ||
+                      n.contains('oz')) &&
+                  !n.contains('consumption'),
+            ))
       : pickParam(
           (n) =>
               n.contains('amount') ||
@@ -6433,8 +6541,9 @@ ActivityItem activityItemFromFeedRow(
     return null;
   }
 
-  final bathroomDiaperSizeLabel =
-      name == 'Bathroom' ? pickBathroomDiaperSizeFromParams() : null;
+  final bathroomDiaperSizeLabel = name == 'Bathroom'
+      ? pickBathroomDiaperSizeFromParams()
+      : null;
 
   final desc = row.description.trim();
   final napDescription = (name == 'Nap End')
@@ -6447,8 +6556,9 @@ ActivityItem activityItemFromFeedRow(
       .map((s) => (s['name'] ?? '').trim())
       .where((s) => s.isNotEmpty)
       .toList();
-  final studentName =
-      row.studentDisplayName.isEmpty ? 'Student' : row.studentDisplayName;
+  final studentName = row.studentDisplayName.isEmpty
+      ? 'Student'
+      : row.studentDisplayName;
   final studentListForItem = studentNamesFromApi.isNotEmpty
       ? studentNamesFromApi
       : [studentName];
@@ -6504,8 +6614,9 @@ ActivityItem activityItemFromFeedRow(
         : null,
     napEndTime: name == 'Nap End' ? (napEndTime ?? napTimeParam) : null,
     whatHappened:
-        (name == 'Incident' || name == 'Notes') && effectiveDescription.isNotEmpty
-            ? effectiveDescription
+        (name == 'Incident' || name == 'Notes') &&
+            effectiveDescription.isNotEmpty
+        ? effectiveDescription
         : null,
     staffPresent: by,
     staffPresentCode: (staffFromParams ?? '').trim().isEmpty
@@ -6527,21 +6638,19 @@ ActivityItem activityItemFromFeedRow(
         : row.activityDateIso.trim(),
     snapshotAttachments: row.attachments.isEmpty
         ? null
-        : row.attachments
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
+        : row.attachments.map((e) => Map<String, dynamic>.from(e)).toList(),
     studentActivityRefs: row.students.isNotEmpty
         ? row.students
-            .map(
-              (s) => <String, String>{
-                'name': (s['name'] ?? '').trim(),
-                if ((s['studentCode'] ?? '').trim().isNotEmpty)
-                  'studentCode': s['studentCode']!.trim(),
-                if (ac.isNotEmpty) 'activityCode': ac,
-              },
-            )
-            .where((m) => (m['name'] ?? '').isNotEmpty)
-            .toList()
+              .map(
+                (s) => <String, String>{
+                  'name': (s['name'] ?? '').trim(),
+                  if ((s['studentCode'] ?? '').trim().isNotEmpty)
+                    'studentCode': s['studentCode']!.trim(),
+                  if (ac.isNotEmpty) 'activityCode': ac,
+                },
+              )
+              .where((m) => (m['name'] ?? '').isNotEmpty)
+              .toList()
         : [
             {
               'name': studentName,

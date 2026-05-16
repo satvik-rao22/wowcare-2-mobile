@@ -6,9 +6,7 @@ class GetClassroomByCodeUseCase {
 
   final ClassroomRepository _repository;
 
-  Future<ClassroomDetails> call({
-    required String code,
-  }) {
+  Future<ClassroomDetails> call({required String code}) {
     return _repository.getClassroomByCode(code: code);
   }
 }

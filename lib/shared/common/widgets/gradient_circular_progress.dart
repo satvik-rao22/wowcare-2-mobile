@@ -42,15 +42,17 @@ class GradientCircularProgress extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               loadingText!,
-              style: textStyle ?? TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style:
+                  textStyle ??
+                  TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
             ),
           ],
         ],
       ),
     );
   }
-} 
+}

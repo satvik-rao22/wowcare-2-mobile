@@ -92,7 +92,8 @@ class FilePickerUtils {
       'pdf': 'application/pdf',
       'doc': 'application/msword',
 
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 
       'jpeg': 'image/jpeg',
       'jpg': 'image/jpeg',
@@ -109,11 +110,11 @@ class FilePickerUtils {
       'tiff': 'image/tiff',
       'xls': 'application/vnd.ms-excel',
 
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xlsx':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'mp4': 'video/mp4',
       'mov': 'video/quicktime',
       'webm': 'video/webm',
-
     };
 
     return mimeTypes[ext] ?? 'application/octet-stream';

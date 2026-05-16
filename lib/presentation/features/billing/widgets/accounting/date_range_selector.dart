@@ -59,7 +59,7 @@ class _AccountingDateRangeSelectorState
       'Sep',
       'Oct',
       'Nov',
-      'Dec'
+      'Dec',
     ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
@@ -101,9 +101,7 @@ class _AccountingDateRangeSelectorState
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withOpacity(0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,10 +113,7 @@ class _AccountingDateRangeSelectorState
               children: [
                 Text(
                   'Select Date Range',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
                 ),
               ],
             ),
@@ -164,5 +159,3 @@ class _AccountingDateRangeSelectorState
     );
   }
 }
-
-

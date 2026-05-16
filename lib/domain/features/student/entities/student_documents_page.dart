@@ -19,5 +19,12 @@ class StudentDocumentsPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props => [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }

@@ -17,15 +17,15 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class StudentAttendanceTabbedView extends StatefulWidget {
   const StudentAttendanceTabbedView({
-    super.key, 
-    this.initialTabIndex = 0, 
+    super.key,
+    this.initialTabIndex = 0,
     this.dailyIncomingFilter,
     this.classroomFilter,
     this.staffAllowedClassrooms,
     this.staffAllowedClassroomIds,
   });
 
-  static const String routeName = '/student-attendance-tabbed-view';
+  static const String routeName = '/dashboard/student-attendance-tabbed-view';
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
@@ -34,13 +34,15 @@ class StudentAttendanceTabbedView extends StatefulWidget {
   final List<int>? staffAllowedClassroomIds; // staff's allowed classroom IDs
 
   @override
-  State<StudentAttendanceTabbedView> createState() => _StudentAttendanceTabbedViewState();
+  State<StudentAttendanceTabbedView> createState() =>
+      _StudentAttendanceTabbedViewState();
 }
 
-class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedView>
+class _StudentAttendanceTabbedViewState
+    extends State<StudentAttendanceTabbedView>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final TabController _tabController;
-  
+
   // Keys to access the state of each tab
   final GlobalKey _dailyViewKey = GlobalKey();
   final GlobalKey _customViewKey = GlobalKey();
@@ -49,7 +51,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _tabController.addListener(_onTabChanged);
   }
 
@@ -81,16 +87,20 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     final double screenWidth = mediaQuery.size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
-    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final double floatingButtonSize = isLargeTablet
+        ? 72.0
+        : (isTablet ? 56.0 : 40.0);
 
     // Align the button with the TabBar headings row (Daily/Custom/Absent)
     // by vertically centering it within the TabBar height.
     final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2;
     // Align the floating button horizontally with the main content padding,
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
-    
+
     return Stack(
       children: [
         Container(
@@ -102,13 +112,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
           ),
           child: Scaffold(
             appBar: CustomAppBar(
-              hasBackButton: true,
+              hasBackButton: false,
               tabController: _tabController,
               tabBarStyle: TabBarStyle(
                 indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(
-                    color: AppColors.themeColor,
-                  ),
+                  borderSide: BorderSide(color: AppColors.themeColor),
                 ),
                 dividerColor: Colors.transparent,
                 indicatorPadding: EdgeInsets.only(
@@ -154,23 +162,26 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                     children: [
                       StudentAttendanceDailyViewScreen(
                         key: _dailyViewKey,
-                        incomingFilter: widget.dailyIncomingFilter, 
+                        incomingFilter: widget.dailyIncomingFilter,
                         contentOnly: true,
                         classroomFilter: widget.classroomFilter,
                         staffAllowedClassrooms: widget.staffAllowedClassrooms,
-                        staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
+                        staffAllowedClassroomIds:
+                            widget.staffAllowedClassroomIds,
                       ),
                       StudentAttendanceCustomView(
                         key: _customViewKey,
                         contentOnly: true,
                         staffAllowedClassrooms: widget.staffAllowedClassrooms,
-                        staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
+                        staffAllowedClassroomIds:
+                            widget.staffAllowedClassroomIds,
                       ),
                       StudentAttendanceAbsentView(
                         key: _absentViewKey,
                         contentOnly: true,
                         staffAllowedClassrooms: widget.staffAllowedClassrooms,
-                        staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
+                        staffAllowedClassroomIds:
+                            widget.staffAllowedClassroomIds,
                       ),
                     ],
                   ),
@@ -178,7 +189,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
               ),
             ),
             extendBody: true,
-            bottomNavigationBar: const CustomNavigationBar(),
+            // Attendance is the bottom-nav slot at index 1 (a popup slot with
+            // no branch), so highlight it explicitly while on this view.
+            bottomNavigationBar: const CustomNavigationBar(
+              activeTabIndexOverride: 1,
+            ),
           ),
         ),
         // Floating button above everything - responsive positioning

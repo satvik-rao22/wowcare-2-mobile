@@ -34,9 +34,7 @@ class _EditStudentPhysicalExamScreenState
   String? _status;
   bool _isSaving = false;
 
-  static const List<String> _statusOptions = <String>[
-    'Completed',
-  ];
+  static const List<String> _statusOptions = <String>['Completed'];
 
   @override
   void initState() {
@@ -63,10 +61,8 @@ class _EditStudentPhysicalExamScreenState
     try {
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (context) => const CalendarDialog(
-          isRangePicker: false,
-          isTimePicker: false,
-        ),
+        builder: (context) =>
+            const CalendarDialog(isRangePicker: false, isTimePicker: false),
       );
 
       if (result != null && result['date'] != null) {
@@ -250,5 +246,3 @@ class _EditStudentPhysicalExamScreenState
     );
   }
 }
-
-

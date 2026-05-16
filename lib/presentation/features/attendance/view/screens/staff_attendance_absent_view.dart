@@ -63,15 +63,13 @@ class _AbsentStaffModel {
 }
 
 class StaffAttendanceAbsentView extends StatefulWidget {
-  const StaffAttendanceAbsentView({
-    super.key,
-    this.contentOnly = false,
-  });
+  const StaffAttendanceAbsentView({super.key, this.contentOnly = false});
 
   final bool contentOnly;
 
   @override
-  State<StaffAttendanceAbsentView> createState() => _StaffAttendanceAbsentViewState();
+  State<StaffAttendanceAbsentView> createState() =>
+      _StaffAttendanceAbsentViewState();
 }
 
 class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
@@ -140,7 +138,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
 
     if (!mounted) return;
     setState(() {
-      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+      _isClassroomDataReady =
+          !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
   }
@@ -298,7 +297,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     // Apply date range filter
     if (_rangeStart != null && _rangeEnd != null) {
       filtered = filtered.where((staff) {
-        return staff.startDate.isAfter(_rangeStart!.subtract(const Duration(days: 1))) &&
+        return staff.startDate.isAfter(
+              _rangeStart!.subtract(const Duration(days: 1)),
+            ) &&
             staff.startDate.isBefore(_rangeEnd!.add(const Duration(days: 1)));
       }).toList();
     }
@@ -400,35 +401,39 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                             SizedBox(width: responsive.horizontalSpacing / 2),
                             Expanded(
                               flex: responsive.isTablet ? 2 : 1,
-                              child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                                builder: (context, classroomState) {
-                                  final items = classroomState.classrooms
-                                      .map((c) => c.name)
-                                      .toList();
-                                  final isLoading = classroomState.isLoading ||
-                                      !_isClassroomDataReady;
-                                  if (isLoading && items.isEmpty) {
-                                    return ShimmerLoader(
-                                      height: 40,
-                                      borderRadius: BorderRadius.circular(12),
-                                    );
-                                  }
+                              child:
+                                  BlocBuilder<ClassroomCubit, ClassroomState>(
+                                    builder: (context, classroomState) {
+                                      final items = classroomState.classrooms
+                                          .map((c) => c.name)
+                                          .toList();
+                                      final isLoading =
+                                          classroomState.isLoading ||
+                                          !_isClassroomDataReady;
+                                      if (isLoading && items.isEmpty) {
+                                        return ShimmerLoader(
+                                          height: 40,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        );
+                                      }
 
-                                  return CustomMultiSelectDropdown(
-                                    hintText: 'Classroom',
-                                    items: items,
-                                    selectedItems: _selectedClassroomNames,
-                                    onChanged: (values) {
-                                      if (isLoading) return;
-                                      setState(() {
-                                        _selectedClassroomNames =
-                                            List<String>.from(values);
-                                      });
-                                      _loadAbsentStaff(reset: true);
+                                      return CustomMultiSelectDropdown(
+                                        hintText: 'Classroom',
+                                        items: items,
+                                        selectedItems: _selectedClassroomNames,
+                                        onChanged: (values) {
+                                          if (isLoading) return;
+                                          setState(() {
+                                            _selectedClassroomNames =
+                                                List<String>.from(values);
+                                          });
+                                          _loadAbsentStaff(reset: true);
+                                        },
+                                      );
                                     },
-                                  );
-                                },
-                              ),
+                                  ),
                             ),
                           ],
                         ),
@@ -451,9 +456,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                                   if (start.isAfter(end)) {
                                     CoreUtils.showTopSnackBarFromSnackBar(
                                       context: context,
-                                      snackBar: 
-                                      SnackBar(
-                                        content: const Text('Start date cannot be after end date'),
+                                      snackBar: SnackBar(
+                                        content: const Text(
+                                          'Start date cannot be after end date',
+                                        ),
                                         backgroundColor: AppColors.errorColor,
                                       ),
                                     );
@@ -474,8 +480,16 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                                   _searchController.clear();
                                   _selectedClassroomNames = <String>[];
                                   final now = DateTime.now();
-                                  _rangeStart = DateTime(now.year, now.month, 1);
-                                  _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                                  _rangeStart = DateTime(
+                                    now.year,
+                                    now.month,
+                                    1,
+                                  );
+                                  _rangeEnd = DateTime(
+                                    now.year,
+                                    now.month + 1,
+                                    0,
+                                  );
                                 });
                                 _loadAbsentStaff(reset: true);
                               },
@@ -493,7 +507,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                         ShimmerLoader(
                           height: 100,
                           margin: EdgeInsets.only(
-                              bottom: responsive.verticalSpacing / 2),
+                            bottom: responsive.verticalSpacing / 2,
+                          ),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         ...List.generate(
@@ -517,9 +532,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                             const SizedBox(height: 16),
                             AppText.body(
                               'No absent staff found',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                              ),
+                              style: TextStyle(color: Colors.grey[600]),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -536,8 +549,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                         }).toList(),
                         if (state.isLoadingMore)
                           Padding(
-                            padding:
-                                EdgeInsets.all(responsive.verticalSpacing / 2),
+                            padding: EdgeInsets.all(
+                              responsive.verticalSpacing / 2,
+                            ),
                             child: const PrimaryCircularLoader(),
                           ),
                       ],

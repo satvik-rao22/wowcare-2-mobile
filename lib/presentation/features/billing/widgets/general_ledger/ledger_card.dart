@@ -37,10 +37,7 @@ class _LedgerCardState extends State<LedgerCard> {
             decoration: BoxDecoration(
               color: AppColors.billingCardColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.billingBorderLight,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.billingBorderLight, width: 1),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.billingCardShadowColor,
@@ -105,13 +102,13 @@ class _LedgerCardState extends State<LedgerCard> {
                                   shaderCallback: (bounds) {
                                     return AppColors.buildPrimaryGradient()
                                         .createShader(
-                                      Rect.fromLTWH(
-                                        0,
-                                        0,
-                                        bounds.width,
-                                        bounds.height,
-                                      ),
-                                    );
+                                          Rect.fromLTWH(
+                                            0,
+                                            0,
+                                            bounds.width,
+                                            bounds.height,
+                                          ),
+                                        );
                                   },
                                   child: Text(
                                     widget.type,
@@ -155,14 +152,17 @@ class _LedgerCardState extends State<LedgerCard> {
                                           color: AppColors.themeColor,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: Text(
                                         'Delete',
-                                        style: AppTextStyles.button(color: AppColors.themeColor),
+                                        style: AppTextStyles.button(
+                                          color: AppColors.themeColor,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -183,7 +183,10 @@ class _LedgerCardState extends State<LedgerCard> {
                                       ),
                                       child: Text(
                                         'Edit',
-                                        style: AppTextStyles.button(color: AppColors.billingButtonTextColor),
+                                        style: AppTextStyles.button(
+                                          color:
+                                              AppColors.billingButtonTextColor,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -204,4 +207,3 @@ class _LedgerCardState extends State<LedgerCard> {
     );
   }
 }
-

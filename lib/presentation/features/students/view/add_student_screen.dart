@@ -138,7 +138,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         '[AddStudent] Returning to previous screen with studentName="$studentName"',
       );
       CoreUtils.showTopSnackBar(
-        duration: sameName ? Duration(seconds: 2) :Duration(seconds: 4) ,
+        duration: sameName ? Duration(seconds: 2) : Duration(seconds: 4),
         context: context,
         message: widget.isEdit
             ? (sameName

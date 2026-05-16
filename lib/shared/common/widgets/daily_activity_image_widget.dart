@@ -9,7 +9,6 @@
 // import 'package:schoolerp/src/documents/presentation/bloc/document_bloc.dart';
 // import 'package:shimmer/shimmer.dart';
 
-
 // class RectangularDocumentWidget extends StatefulWidget {
 //   final String fileUuid;
 //   final double width;

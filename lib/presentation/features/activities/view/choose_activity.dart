@@ -25,7 +25,7 @@ import 'edit_create_activity_screens/photo_activity.dart';
 class ChooseActivity extends StatefulWidget {
   const ChooseActivity({super.key, required this.selectedStudents});
 
-  final List<Map<String, dynamic>> selectedStudents ;
+  final List<Map<String, dynamic>> selectedStudents;
   static final Map<String, String> activityIcons = {
     'Nap': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
@@ -40,18 +40,25 @@ class ChooseActivity extends StatefulWidget {
     'Learning': MediaRes.learningActivityIcon,
   };
   // Map activity name to the destination widget/screen
-  static final Map<String, Widget Function(List<Map<String, dynamic>>)> activityRoutes = {
+  static final Map<String, Widget Function(List<Map<String, dynamic>>)>
+  activityRoutes = {
     'Nap': (students) => NapActivityScreen(selectedStudents: students),
-    'Bathroom': (students) => BathroomActivityScreen(selectedStudents: students),
+    'Bathroom': (students) =>
+        BathroomActivityScreen(selectedStudents: students),
     'Bottle': (students) => BottleActivityScreen(selectedStudents: students),
     'Meal': (students) => MealActivityScreen(selectedStudents: students),
-    'Incident': (students) => IncidentActivityScreen(selectedStudents: students),
-    'Photo': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true,),
-    'Video': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
-    'Medication': (students) => MedicationActivityScreen(selectedStudents: students),
+    'Incident': (students) =>
+        IncidentActivityScreen(selectedStudents: students),
+    'Photo': (students) =>
+        PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true),
+    'Video': (students) =>
+        PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
+    'Medication': (students) =>
+        MedicationActivityScreen(selectedStudents: students),
     'Notes': (students) => NotesActivityScreen(selectedStudents: students),
     'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
-    'Learning': (students) => LearningActivityScreen(selectedStudents: students),
+    'Learning': (students) =>
+        LearningActivityScreen(selectedStudents: students),
   };
 
   @override
@@ -60,7 +67,7 @@ class ChooseActivity extends StatefulWidget {
 
 class _ChooseActivityState extends State<ChooseActivity> {
   late final GetClassroomActivitySettingsUseCase
-      _getClassroomActivitySettingsUseCase;
+  _getClassroomActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
 
   bool get _isMultipleStudentsSelected => widget.selectedStudents.length > 1;
@@ -71,8 +78,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
   // Activity settings fetched from /api/v1/classrooms/{classroomCode}/activity-settings
   Set<String>? _enabledActivities; // normalized (lowercase) names
   Set<String>? _multiStudentAllowed; // normalized (lowercase) names
-  final Map<String, String> _activityTypeCodeByName = {}; // normalized name -> code
-  final Map<String, String> _activityDisplayNameByKey = {}; // known key -> API name
+  final Map<String, String> _activityTypeCodeByName =
+      {}; // normalized name -> code
+  final Map<String, String> _activityDisplayNameByKey =
+      {}; // known key -> API name
   List<String> _visibleActivityKeys = [];
 
   String? _getKnownActivityKeyByNormalized(String normalizedName) {
@@ -119,9 +128,9 @@ class _ChooseActivityState extends State<ChooseActivity> {
     try {
       final List<ActivitySetting> settings =
           await _getClassroomActivitySettingsUseCase(
-        classroomCode: classroomCode,
-        refresh: true,
-      );
+            classroomCode: classroomCode,
+            refresh: true,
+          );
 
       final enabled = <String>{};
       final multiAllowed = <String>{};
@@ -198,7 +207,9 @@ class _ChooseActivityState extends State<ChooseActivity> {
     }
 
     // Fallback rule for Incident if settings are not yet loaded.
-    if (_enabledActivities == null && activityName == 'Incident' && _isMultipleStudentsSelected) {
+    if (_enabledActivities == null &&
+        activityName == 'Incident' &&
+        _isMultipleStudentsSelected) {
       return true;
     }
 
@@ -234,7 +245,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
     return hasNapping && hasNotNapping;
   }
 
-  void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {
+  void _showDisabledActivityTooltip(
+    BuildContext tileContext,
+    String activityName,
+  ) {
     final RenderBox renderBox = tileContext.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -262,10 +276,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
               child: Text(
                 _getDisabledActivityTooltip(activityName),
                 softWrap: true,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
           ),
@@ -297,101 +308,110 @@ class _ChooseActivityState extends State<ChooseActivity> {
 
     return StaffFormLayout(
       title: 'Choose Activity',
-              child: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+        children: [
           Expanded(
             child: _isLoadingActivities
                 ? const Center(child: PrimaryCircularLoader())
                 : _visibleActivityKeys.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No activities available from API.',
-                          style: TextStyle(fontSize: 14),
+                ? const Center(
+                    child: Text(
+                      'No activities available from API.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  )
+                : GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    shrinkWrap: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          mainAxisExtent: 52,
                         ),
-                      )
-                    : GridView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              shrinkWrap: false,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                mainAxisExtent: 52,
-                      ),
-              itemCount: _visibleActivityKeys.length,
-                      itemBuilder: (context, index) {
-                final String activityKey = _visibleActivityKeys[index];
-                final iconPath = ChooseActivity.activityIcons[activityKey]!;
-                final String activityName =
-                    _activityDisplayNameByKey[activityKey] ?? activityKey;
-                final bool isDisabled = _isActivityDisabled(activityName);
-                final bool isSelected = _selectedActivity == activityKey;
+                    itemCount: _visibleActivityKeys.length,
+                    itemBuilder: (context, index) {
+                      final String activityKey = _visibleActivityKeys[index];
+                      final iconPath =
+                          ChooseActivity.activityIcons[activityKey]!;
+                      final String activityName =
+                          _activityDisplayNameByKey[activityKey] ?? activityKey;
+                      final bool isDisabled = _isActivityDisabled(activityName);
+                      final bool isSelected = _selectedActivity == activityKey;
 
-                return Builder(
-                  builder: (tileContext) {
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: isDisabled
-                          ? () => _showDisabledActivityTooltip(tileContext, activityName)
-                          : () {
-                              setState(() {
-                                _selectedActivity = activityKey;
-                              });
-                            },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: isDisabled
-                                ? Colors.grey.withOpacity(0.3)
-                                : AppColors.primaryColor.withOpacity(0.1),
-                            width: 1.5,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          color: isDisabled
-                              ? Colors.grey.withOpacity(0.1)
-                              : isSelected
-                                  ? const Color.fromARGB(255, 249, 245, 250)
-                                  : Colors.transparent,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: Image.asset(
-                                iconPath,
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
+                      return Builder(
+                        builder: (tileContext) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: isDisabled
+                                ? () => _showDisabledActivityTooltip(
+                                    tileContext,
+                                    activityName,
+                                  )
+                                : () {
+                                    setState(() {
+                                      _selectedActivity = activityKey;
+                                    });
+                                  },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: isDisabled
+                                      ? Colors.grey.withOpacity(0.3)
+                                      : AppColors.primaryColor.withOpacity(0.1),
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                color: isDisabled
+                                    ? Colors.grey.withOpacity(0.1)
+                                    : isSelected
+                                    ? const Color.fromARGB(255, 249, 245, 250)
+                                    : Colors.transparent,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: Image.asset(
+                                      iconPath,
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      activityName,
+                                      softWrap: true,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: activityName.contains(' ')
+                                          ? 2
+                                          : 1,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDisabled
+                                            ? Colors.grey
+                                            : AppColors.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                activityName,
-                                softWrap: true,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: activityName.contains(' ') ? 2 : 1,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDisabled
-                                      ? Colors.grey
-                                      : AppColors.primaryColor,
-                                ),
-              ),
-            ),
-          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -404,50 +424,54 @@ class _ChooseActivityState extends State<ChooseActivity> {
           onPressedConfirm: _isLoadingNext
               ? null
               : () async {
-            if (_selectedActivity == null) {
-              _showWarningMessage('Select an activity.');
-              return;
-            }
+                  if (_selectedActivity == null) {
+                    _showWarningMessage('Select an activity.');
+                    return;
+                  }
 
-            // Always hit: GET /api/v1/activity-types/{code}
-            final selectedApiName =
-                _activityDisplayNameByKey[_selectedActivity!] ?? _selectedActivity!;
-            final code = _activityTypeCodeByName[selectedApiName.toLowerCase()];
-            if (code == null || code.trim().isEmpty) {
-              _showWarningMessage('Unable to resolve activity code.');
-              return;
-            }
+                  // Always hit: GET /api/v1/activity-types/{code}
+                  final selectedApiName =
+                      _activityDisplayNameByKey[_selectedActivity!] ??
+                      _selectedActivity!;
+                  final code =
+                      _activityTypeCodeByName[selectedApiName.toLowerCase()];
+                  if (code == null || code.trim().isEmpty) {
+                    _showWarningMessage('Unable to resolve activity code.');
+                    return;
+                  }
 
-            setState(() {
-              _isLoadingNext = true;
-            });
+                  setState(() {
+                    _isLoadingNext = true;
+                  });
 
-            try {
-              await _getActivityTypeDetailsUseCase(code: code);
-              // NOTE: We fetch details (including parameters) here so the next
-              // screen can use cached/stateful details later. Upload-session /
-              // presign / S3 PUT / session GET happen on activity screens (e.g. Notes)
-              // when the user adds media.
-            } catch (e) {
-              _showWarningMessage(e.toString());
-              return;
-            } finally {
-              if (mounted) {
-                setState(() {
-                  _isLoadingNext = false;
-                });
-              }
-            }
+                  try {
+                    await _getActivityTypeDetailsUseCase(code: code);
+                    // NOTE: We fetch details (including parameters) here so the next
+                    // screen can use cached/stateful details later. Upload-session /
+                    // presign / S3 PUT / session GET happen on activity screens (e.g. Notes)
+                    // when the user adds media.
+                  } catch (e) {
+                    _showWarningMessage(e.toString());
+                    return;
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        _isLoadingNext = false;
+                      });
+                    }
+                  }
 
-            final destinationBuilder =
-                ChooseActivity.activityRoutes[_selectedActivity!];
-            if (destinationBuilder != null) {
-              final nextScreen = destinationBuilder(widget.selectedStudents);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => nextScreen),
-              );
-            }
-          },
+                  final destinationBuilder =
+                      ChooseActivity.activityRoutes[_selectedActivity!];
+                  if (destinationBuilder != null) {
+                    final nextScreen = destinationBuilder(
+                      widget.selectedStudents,
+                    );
+                    Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute(builder: (_) => nextScreen));
+                  }
+                },
         ),
       ),
     );

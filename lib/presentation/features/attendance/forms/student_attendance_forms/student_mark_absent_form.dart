@@ -65,10 +65,15 @@ class StudentMarkAbsentForm extends StatefulWidget {
     super.key,
     required this.students,
     this.refreshCallback,
+    this.popOnSuccess = false,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
+  // When true, pops back to the caller after a successful submission instead of
+  // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
+  // outside the Attendance tab (e.g. the Classroom Students card).
+  final bool popOnSuccess;
 
   @override
   State<StudentMarkAbsentForm> createState() => _StudentMarkAbsentFormState();
@@ -109,17 +114,21 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       } catch (_) {}
 
       final storage = serviceLocator<StorageService>();
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
+      bool isAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
       if (!isAdmin) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
           for (final r in roles) {
-            final roleCode =
-                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+                .toString()
+                .toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN') {
               isAdmin = true;
               break;
             }
@@ -174,8 +183,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     if (currentStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Please select at least one student'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -188,8 +196,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -200,10 +207,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     // classroomCode is required by API; use the first non-empty classroomCode.
     final classroomCode = currentStudents
         .map((s) => s.classroomCode.trim())
-        .firstWhere(
-          (c) => c.isNotEmpty,
-          orElse: () => '',
-        );
+        .firstWhere((c) => c.isNotEmpty, orElse: () => '');
 
     final absenceFromDate = _formatDate(startDate);
     final absenceToDate = _formatDate(endDate);
@@ -218,8 +222,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     if (studentCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -260,24 +263,29 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
-          content: Text(message.isNotEmpty ? message : 'Marked Absent successfully'),
+        snackBar: SnackBar(
+          content: Text(
+            message.isNotEmpty ? message : 'Marked Absent successfully',
+          ),
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const StudentAttendanceTabbedView(),
-        ),
-        (route) => false,
-      );
+      if (widget.popOnSuccess) {
+        widget.refreshCallback?.call();
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const StudentAttendanceTabbedView(),
+          ),
+          (route) => false,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.warningColor,
         ),
@@ -352,10 +360,19 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                           setState(() {
                             final iana = _schoolIana;
                             final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
-                            final picked = DateTime(date.year, date.month, date.day);
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final picked = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
                             startDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
@@ -384,10 +401,19 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                           setState(() {
                             final iana = _schoolIana;
                             final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
-                            final picked = DateTime(date.year, date.month, date.day);
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final picked = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
                             endDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
@@ -426,7 +452,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                              color: Color.fromRGBO(87, 51, 83, 0.4)),
+                            color: Color.fromRGBO(87, 51, 83, 0.4),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -491,14 +518,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -534,7 +556,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

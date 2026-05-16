@@ -36,7 +36,12 @@ class ImportantDateRequestModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [importantDateType, dueDate, completedDate, status];
+  List<Object?> get props => [
+    importantDateType,
+    dueDate,
+    completedDate,
+    status,
+  ];
 }
 
 class ImportantDatesResponseModel extends Equatable {
@@ -64,4 +69,3 @@ class ImportantDatesResponseModel extends Equatable {
   @override
   List<Object?> get props => [success, message, data, timestamp];
 }
-

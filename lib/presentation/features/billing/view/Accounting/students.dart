@@ -28,7 +28,8 @@ class StudentsAccountingSection extends StatefulWidget {
   });
 
   @override
-  State<StudentsAccountingSection> createState() => _StudentsAccountingSectionState();
+  State<StudentsAccountingSection> createState() =>
+      _StudentsAccountingSectionState();
 }
 
 class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
@@ -61,7 +62,8 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
     final TransactionItem transaction = _buildSampleTransaction();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(transaction: transaction),
+        builder: (context) =>
+            TransactionDetailsScreen(transaction: transaction),
       ),
     );
   }

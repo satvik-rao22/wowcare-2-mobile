@@ -25,10 +25,7 @@ class _CustomChipState extends State<CustomChip> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(0),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         color: widget.color,
@@ -37,10 +34,7 @@ class _CustomChipState extends State<CustomChip> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.label,
-            style: widget.labelStyle,
-          ),
+          Text(widget.label, style: widget.labelStyle),
           if (widget.widget != null) const SizedBox(width: 8),
           if (widget.widget != null) widget.widget!,
         ],

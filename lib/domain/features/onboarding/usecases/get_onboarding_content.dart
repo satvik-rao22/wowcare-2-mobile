@@ -8,5 +8,3 @@ class GetOnboardingContent {
 
   Future<List<OnboardingEntity>> call() => repository.getPages();
 }
-
-

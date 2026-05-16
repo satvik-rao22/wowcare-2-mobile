@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 class MessageDateSeperatorRow extends StatelessWidget {
-  const MessageDateSeperatorRow({
-    super.key,
-    required this.timeStamp,
-  });
+  const MessageDateSeperatorRow({super.key, required this.timeStamp});
   final String timeStamp;
 
   @override

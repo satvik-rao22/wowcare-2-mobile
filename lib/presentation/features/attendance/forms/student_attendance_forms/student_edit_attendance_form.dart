@@ -30,7 +30,8 @@ class StudentEditAttendanceForm extends StatefulWidget {
   final DateTime attendanceDate;
 
   @override
-  State<StudentEditAttendanceForm> createState() => _StudentEditAttendanceFormState();
+  State<StudentEditAttendanceForm> createState() =>
+      _StudentEditAttendanceFormState();
 }
 
 class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
@@ -84,7 +85,10 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     try {
       final iso = DateTime.tryParse(raw);
       if (iso != null) {
-        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(iso, _schoolIana);
+        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(
+          iso,
+          _schoolIana,
+        );
       }
     } catch (_) {}
 
@@ -107,11 +111,18 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       } catch (_) {}
     }
 
-    final hmsMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?').firstMatch(normalized);
+    final hmsMatch = RegExp(
+      r'(\d{1,2}):(\d{2})(?::\d{2})?',
+    ).firstMatch(normalized);
     if (hmsMatch != null) {
       final hour = int.tryParse(hmsMatch.group(1)!);
       final minute = int.tryParse(hmsMatch.group(2)!);
-      if (hour != null && minute != null && hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+      if (hour != null &&
+          minute != null &&
+          hour >= 0 &&
+          hour < 24 &&
+          minute >= 0 &&
+          minute < 60) {
         return TimeOfDay(hour: hour, minute: minute);
       }
     }
@@ -128,8 +139,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     Navigator.pop(context);
   }
 
-  Future<String> _resolveStaffCode() =>
-      resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   Future<void> _submitAsync() async {
     setState(() {
@@ -140,8 +150,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     if (attendanceCode == null || attendanceCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to update: missing attendance record code.'),
           backgroundColor: AppColors.errorColor,
         ),
@@ -159,8 +168,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.errorColor,
         ),
@@ -233,8 +241,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
           backgroundColor: AppColors.successColor,
         ),
@@ -244,8 +251,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.errorColor,
         ),
@@ -334,9 +340,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
                 const SizedBox(height: 4),
                 AppText.small(
                   student.roomName,
-                  style: const TextStyle(
-                    color: AppColors.secondaryColor,
-                  ),
+                  style: const TextStyle(color: AppColors.secondaryColor),
                 ),
               ],
             ),
@@ -365,4 +369,3 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     );
   }
 }
-

@@ -149,6 +149,7 @@ class CustomDropdown extends StatefulWidget {
     this.contentPadding,
     this.height = null,
     this.leadingIcon,
+
     /// When true (default), [hintText] is the first menu item; choosing it clears the selection.
     /// Set false when a value must always stay chosen (e.g. parent global child picker).
     this.prependHintAsSelectableItem = true,

@@ -69,16 +69,14 @@ class ConfirmationBottomSheet extends StatelessWidget {
                       gradient: AppColors.buildPrimaryGradient(),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 36,
-                    ),
+                    child: Icon(icon, color: Colors.white, size: 36),
                   ),
                 ),
               if (icon != null) SizedBox(height: verticalPadding),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   title,
                   style: TextStyle(
@@ -119,13 +117,17 @@ class ConfirmationBottomSheet extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2 - 1,
+                            ),
                           ),
                           child: TextButton(
                             onPressed: onCancel,
                             style: TextButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                                borderRadius: BorderRadius.circular(
+                                  borderRadius / 2 - 1,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -155,7 +157,9 @@ class ConfirmationBottomSheet extends StatelessWidget {
                         onPressed: onConfirm,
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -180,4 +184,3 @@ class ConfirmationBottomSheet extends StatelessWidget {
     );
   }
 }
-

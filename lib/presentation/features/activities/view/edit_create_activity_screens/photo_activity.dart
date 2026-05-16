@@ -40,7 +40,6 @@ import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class PhotoVideoActivityScreen extends StatefulWidget {
@@ -60,7 +59,8 @@ class PhotoVideoActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<PhotoVideoActivityScreen> createState() => _PhotoVideoActivityScreenState();
+  State<PhotoVideoActivityScreen> createState() =>
+      _PhotoVideoActivityScreenState();
 }
 
 class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
@@ -69,13 +69,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -114,6 +114,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   File? _video;
   List<String> _existingPhotoUrls = [];
   String? _existingVideoUrl;
+
   /// URLs still shown in the editor; used to merge PATCH attachments without duplicating rows.
   List<String> _remainingExistingPhotoUrls = [];
   String? _remainingExistingVideoUrl;
@@ -135,8 +136,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   late final RejectActivityUseCase _rejectActivityUseCase;
   late final ImageUploadService _uploadService;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -146,9 +146,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     for (final p in rows) {
       final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (n != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -192,19 +193,23 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _uploadService = serviceLocator<ImageUploadService>();
 
-    // Keep create flow aligned with other activity forms where date/time default
-    // to "now" and are not blocked by initial widget callback timing.
+    // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
+    // [resolveForCurrentSchool] (avoid stale [lastKnownTimeZone] from classroom tab).
     if (!widget.isEdit && !widget.readOnly) {
-      _activityDate = DateTime.now();
-      _activityTime = TimeOfDay.now();
+      _activityDate = null;
+      _activityTime = null;
     }
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
-      _selectedStudents =
-          _selectedStudentsData.map((student) => student['name'] as String).toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _selectedStudents = _selectedStudentsData
+          .map((student) => student['name'] as String)
+          .toList();
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
       _loadActivityTypeCode();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncSchoolAttendanceDateForCreate();
+      });
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
@@ -236,6 +241,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     _restorePendingProcessingPollIfAny();
   }
 
+  Future<void> _syncSchoolAttendanceDateForCreate() async {
+    if (!mounted || _layoutAsEdit) return;
+    if (_selectedStudentsData.isEmpty) return;
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(
+      _selectedStudentsData,
+    );
+    if (!mounted) return;
+    setState(() {
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+    });
+  }
+
   bool get _showAdminApproveRejectActions {
     if (!widget.isEdit || widget.readOnly) return false;
     if (!_isAdminDesignation) return false;
@@ -257,7 +274,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       if (!_lastUpdateSucceeded) return;
       final msg = await _approveActivityUseCase(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -283,7 +304,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     try {
       final msg = await _rejectActivityUseCase(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -322,10 +347,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        _applyExistingMediaFromAttachmentRows(
-          item.photoUrl,
-          item.videoUrl,
-        );
+        _applyExistingMediaFromAttachmentRows(item.photoUrl, item.videoUrl);
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -354,7 +376,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       if (fromRows.isNotEmpty) {
         _existingPhotoUrls = fromRows;
         _remainingExistingPhotoUrls = List<String>.from(fromRows);
-      } else if (fallbackPhotoUrl != null && fallbackPhotoUrl.trim().isNotEmpty) {
+      } else if (fallbackPhotoUrl != null &&
+          fallbackPhotoUrl.trim().isNotEmpty) {
         _existingPhotoUrls = [fallbackPhotoUrl.trim()];
         _remainingExistingPhotoUrls = List<String>.from(_existingPhotoUrls);
       } else {
@@ -379,10 +402,10 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -394,21 +417,28 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
   Future<void> _loadActivityTypeCode() async {
-    if (widget.selectedStudents == null || widget.selectedStudents!.isEmpty) return;
+    if (widget.selectedStudents == null || widget.selectedStudents!.isEmpty)
+      return;
     final first = widget.selectedStudents!.first;
-    final dynamic classroomCodeRaw = first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode = classroomCodeRaw is String ? classroomCodeRaw.trim() : '';
+    final dynamic classroomCodeRaw =
+        first['classroomCode'] ?? first['classroomcode'];
+    final classroomCode = classroomCodeRaw is String
+        ? classroomCodeRaw.trim()
+        : '';
     if (classroomCode.isEmpty) return;
     try {
-      final List<ActivitySetting> settings =
-          await _getSettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getSettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? matched;
       for (final setting in settings) {
         final name = setting.activityTypeName.toLowerCase();
@@ -462,7 +492,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (photoCount > maxPhotoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum $maxPhotoCount photo${maxPhotoCount == 1 ? '' : 's'} can be attached.',
+        message:
+            'Maximum $maxPhotoCount photo${maxPhotoCount == 1 ? '' : 's'} can be attached.',
         isError: true,
       );
       return;
@@ -481,7 +512,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _video = video;
       _existingPhotoUrls = remainingExistingPhotoUrls;
       _existingVideoUrl = remainingExistingVideoUrl;
-      _remainingExistingPhotoUrls = List<String>.from(remainingExistingPhotoUrls);
+      _remainingExistingPhotoUrls = List<String>.from(
+        remainingExistingPhotoUrls,
+      );
       _remainingExistingVideoUrl = remainingExistingVideoUrl;
       _uploadedAttachments = [];
     });
@@ -505,9 +538,12 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       return;
     }
 
-    final classroomCodeRaw = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeRaw =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeRaw is String ? classroomCodeRaw.trim() : '';
+    final classroomCode = classroomCodeRaw is String
+        ? classroomCodeRaw.trim()
+        : '';
     final scopeMaps = widget.isEdit
         ? studentMapsForScopedActivityUpdate(
             allStudentMaps: _selectedStudentsData,
@@ -600,21 +636,26 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       }
       final lower = file.path.toLowerCase();
       final isVideoByExt =
-          lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
+          lower.endsWith('.mp4') ||
+          lower.endsWith('.mov') ||
+          lower.endsWith('.webm');
       final forceVideoPayload = !widget.isPhoto;
       final isVideo = forceVideoPayload || isVideoByExt;
-      final extension = lower.contains('.') ? lower.split('.').last : (isVideo ? 'mp4' : 'jpg');
+      final extension = lower.contains('.')
+          ? lower.split('.').last
+          : (isVideo ? 'mp4' : 'jpg');
       final generatedFileName =
           '${isVideo ? 'video' : 'photo'}_${DateTime.now().millisecondsSinceEpoch}.$extension';
       final contentType = isVideo
           ? (lower.endsWith('.mov')
-              ? 'video/quicktime'
-              : lower.endsWith('.webm')
-                  ? 'video/webm'
-                  : 'video/mp4')
+                ? 'video/quicktime'
+                : lower.endsWith('.webm')
+                ? 'video/webm'
+                : 'video/mp4')
           : 'image/jpeg';
-      final checksumSha256 =
-          await _uploadService.computeFileChecksumSha256(file);
+      final checksumSha256 = await _uploadService.computeFileChecksumSha256(
+        file,
+      );
       final presign = await _uploadService.createAssetPresign(
         sessionCode: uploadSession.sessionCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
@@ -635,8 +676,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           if (!mounted) return;
           final overallFraction =
               ((fileIndex - 1) + (percent / 100)) / totalFiles;
-          final overallPercent =
-              (overallFraction * 100).clamp(0, 100).round();
+          final overallPercent = (overallFraction * 100).clamp(0, 100).round();
           final displayPercent = overallPercent >= 100 ? 99 : overallPercent;
           setState(() => _uploadProgressPercent = displayPercent);
         },
@@ -661,7 +701,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       assetCodes: uploadedCodes,
       persist: true,
     );
-    return uploadedCodes.map((code) => <String, dynamic>{'assetCode': code}).toList();
+    return uploadedCodes
+        .map((code) => <String, dynamic>{'assetCode': code})
+        .toList();
   }
 
   Future<void> _restorePendingProcessingPollIfAny() async {
@@ -671,16 +713,19 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       if (raw == null || raw.trim().isEmpty) return;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return;
-      final typeKey = (decoded['mediaType'] ?? '').toString().trim().toUpperCase();
+      final typeKey = (decoded['mediaType'] ?? '')
+          .toString()
+          .trim()
+          .toUpperCase();
       if (typeKey.isEmpty) return;
       if (typeKey != (widget.isPhoto ? 'PHOTO' : 'VIDEO')) return;
       final sessionCode = (decoded['sessionCode'] ?? '').toString().trim();
       final assetsRaw = decoded['assetCodes'];
       final assetCodes = (assetsRaw is List)
           ? assetsRaw
-              .map((e) => e.toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toList()
+                .map((e) => e.toString().trim())
+                .where((e) => e.isNotEmpty)
+                .toList()
           : <String>[];
       if (sessionCode.isEmpty || assetCodes.isEmpty) return;
       _startProcessingPoll(
@@ -754,7 +799,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   Future<void> _pollProcessingStatusOnce() async {
     final sessionCode = _processingSessionCode;
     final assetCodes = _processingAssetCodes;
-    if (sessionCode == null || sessionCode.isEmpty || assetCodes.isEmpty) return;
+    if (sessionCode == null || sessionCode.isEmpty || assetCodes.isEmpty)
+      return;
     try {
       final statuses = await _uploadService.getUploadAssetStatuses(
         sessionCode: sessionCode,
@@ -791,7 +837,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         _processingAssetCodes = const [];
         setState(() {
           _isMediaProcessing = false;
-          _mediaProcessingStatusText = widget.isPhoto ? 'Photo ready' : 'Video ready';
+          _mediaProcessingStatusText = widget.isPhoto
+              ? 'Photo ready'
+              : 'Video ready';
         });
         await _clearPendingProcessingPoll();
         return;
@@ -828,12 +876,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
 
     if (!_hasMedia) {
@@ -855,8 +904,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       return;
     }
     final classroomCodeRaw =
-        _selectedStudentsData.first['classroomCode'] ?? _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeRaw is String ? classroomCodeRaw.trim() : '';
+        _selectedStudentsData.first['classroomCode'] ??
+        _selectedStudentsData.first['classroomcode'];
+    final classroomCode = classroomCodeRaw is String
+        ? classroomCodeRaw.trim()
+        : '';
     if (classroomCode.isEmpty) return;
     final studentCodes = _selectedStudentsData
         .map((s) => (s['studentCode'] as String?)?.trim())
@@ -946,27 +998,30 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       final createParameterValues = <Map<String, dynamic>>[
         if (_findParameterCode(details.parameters, exactName: 'date') != null)
           {
-            'parameterCode':
-                _findParameterCode(details.parameters, exactName: 'date'),
+            'parameterCode': _findParameterCode(
+              details.parameters,
+              exactName: 'date',
+            ),
             'value': localDate,
           },
         if (_findParameterCode(details.parameters, exactName: 'time') != null)
           {
-            'parameterCode':
-                _findParameterCode(details.parameters, exactName: 'time'),
+            'parameterCode': _findParameterCode(
+              details.parameters,
+              exactName: 'time',
+            ),
             'value': localTime,
           },
         if (_findParameterCode(details.parameters, contains: 'staff') != null)
           {
-            'parameterCode':
-                _findParameterCode(details.parameters, contains: 'staff'),
+            'parameterCode': _findParameterCode(
+              details.parameters,
+              contains: 'staff',
+            ),
             'value': staffPresentCode,
           },
         if (descriptionTrim.isNotEmpty &&
-            _findParameterCode(
-                  details.parameters,
-                  exactName: 'description',
-                ) !=
+            _findParameterCode(details.parameters, exactName: 'description') !=
                 null)
           {
             'parameterCode': _findParameterCode(
@@ -1004,7 +1059,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         message: 'Shared activity created successfully',
         isSuccess: true,
       );
-      Navigator.of(context).popUntil((route) => route.settings.name == ActivityFeedScreen.routeName);
+      CoreUtils.exitActivityFlow(context);
     } catch (error) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -1047,14 +1102,14 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     if (!_hasMedia) {
       CoreUtils.showTopSnackBar(
@@ -1076,10 +1131,12 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       return;
     }
 
-    final classroomCodeRaw = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeRaw =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeRaw is String ? classroomCodeRaw.trim() : '';
+    final classroomCode = classroomCodeRaw is String
+        ? classroomCodeRaw.trim()
+        : '';
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1185,12 +1242,17 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         newUploadRows: newUploads,
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
-      final patchAttachments =
-          attachmentsForActivityPatchRequest(mergedRows);
+      final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
 
       final details = await _getDetailsUseCase(code: activityTypeCode);
-      final dateCode = _findParameterCode(details.parameters, exactName: 'date');
-      final timeCode = _findParameterCode(details.parameters, exactName: 'time');
+      final dateCode = _findParameterCode(
+        details.parameters,
+        exactName: 'date',
+      );
+      final timeCode = _findParameterCode(
+        details.parameters,
+        exactName: 'time',
+      );
       final staffCodeParam = _findParameterCode(
         details.parameters,
         contains: 'staff',
@@ -1227,8 +1289,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -1271,9 +1333,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil(
-          (route) => route.settings.name == ActivityFeedScreen.routeName,
-        );
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (error) {
       if (!mounted) return;
@@ -1311,7 +1371,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+          padding: EdgeInsets.symmetric(
+            horizontal: responsive.horizontalSpacing,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1361,7 +1423,9 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     );
                   },
                 ),
-              if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+              if (widget.isEdit &&
+                  !widget.readOnly &&
+                  _selectedStudents.length > 1) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: ActivityEditStudentScopeCheckboxes(
@@ -1378,27 +1442,46 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               Row(
                 children: [
                   Flexible(
-                    child: DateWidget(
-                      isEditable: false,
-                      isRequired: true,
-                      initialDate: _layoutAsEdit
-                          ? _effectiveActivity.date
-                          : formatSelectedDateForDateWidget(_activityDate),
-                      onDateChanged: (d) => _activityDate = d,
-                    ),
+                    child: _layoutAsEdit
+                        ? DateWidget(
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: _effectiveActivity.date,
+                            onDateChanged: (d) {
+                              setState(() => _activityDate = d);
+                            },
+                          )
+                        : DateWidget(
+                            key: ValueKey<String>(
+                              formatSelectedDateForDateWidget(_activityDate) ??
+                                  'school_date',
+                            ),
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: formatSelectedDateForDateWidget(
+                              _activityDate,
+                            ),
+                            onDateChanged: (d) {
+                              setState(() => _activityDate = d);
+                            },
+                          ),
                   ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: TimeWidget(
                       isEditable: _layoutAsEdit ? _canInteract : true,
                       isRequired: true,
-                      prefilledTime:
-                          _layoutAsEdit ? _effectiveActivity.time : null,
-                      onTimeChanged: (t) => _activityTime = t,
+                      prefilledTime: _layoutAsEdit
+                          ? _effectiveActivity.time
+                          : null,
+                      onTimeChanged: (t) {
+                        setState(() => _activityTime = t);
+                      },
                     ),
                   ),
                 ],
               ),
+              const ActivitySchoolTimeZoneHint(),
               SizedBox(height: responsive.verticalSpacing),
               MediaUploader(
                 isRequired: true,
@@ -1407,23 +1490,29 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 limit: widget.isPhoto ? 10 : 1,
                 readOnly: widget.readOnly,
                 autoReplaceFirstPhotoWhenMaxReached: _layoutAsEdit,
-                onMediaChanged:
-                    _layoutAsEdit && !_canInteract ? null : _onMediaChanged,
-                initialPhotoUrls:
-                    _layoutAsEdit ? _existingPhotoUrls : const [],
+                onMediaChanged: _layoutAsEdit && !_canInteract
+                    ? null
+                    : _onMediaChanged,
+                initialPhotoUrls: _layoutAsEdit ? _existingPhotoUrls : const [],
                 initialVideoUrl: _layoutAsEdit ? _existingVideoUrl : null,
               ),
               if (_isUploadingMedia) ...[
                 const SizedBox(height: 8),
                 Text(
                   '${widget.isPhoto ? 'Uploading photo' : 'Uploading video'}... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-                  style: const TextStyle(color: AppColors.primaryColor, fontSize: 13),
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
+                  ),
                 ),
               ] else if (_isMediaProcessing) ...[
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF2F8FF),
                     border: Border.all(color: const Color(0xFFD5E9FF)),
@@ -1445,8 +1534,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                           _mediaProcessingStatusText.isNotEmpty
                               ? _mediaProcessingStatusText
                               : (widget.isPhoto
-                                  ? 'Photo processing in background...'
-                                  : 'Video processing in background...'),
+                                    ? 'Photo processing in background...'
+                                    : 'Video processing in background...'),
                           style: const TextStyle(
                             color: Color(0xFF1F3B64),
                             fontSize: 12.5,
@@ -1463,8 +1552,11 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.check_circle,
-                        size: 16, color: Colors.green),
+                    const Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: Colors.green,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
@@ -1493,9 +1585,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                                 : _effectiveActivity.staffPresent)
                           : null,
                     ),
-                    isEditable: lockToLoggedInStaff
-                        ? false
-                        : _canInteract,
+                    isEditable: lockToLoggedInStaff ? false : _canInteract,
                     onStaffChanged: (_, selectedCode) {
                       _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
                           ? selectedCode!.trim()
@@ -1512,8 +1602,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                 readOnly: !_canInteract,
                 maxLength: ActivityDescriptionLimits.maxLength,
               ),
-              if (_showRequireAdminApprovalToggle)
-                const SizedBox(height: 4),
+              if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
               if (_showRequireAdminApprovalToggle)
                 CustomToggle(
                   label: 'Requires Admin Approval',
@@ -1539,7 +1628,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _isUploadingMedia ||
                           _loadingActivityDetail,
@@ -1548,15 +1638,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _isUploadingMedia ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -1564,6 +1655,3 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     );
   }
 }
-
-
-

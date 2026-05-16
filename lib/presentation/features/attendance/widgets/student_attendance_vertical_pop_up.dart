@@ -69,9 +69,16 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+              border: Border.all(
+                color: AppColors.classroomStudentTabColor,
+                width: 2,
+              ),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
             child: Column(
@@ -98,13 +105,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
       onTap: isDisabled
           ? null
           : () {
-        Navigator.pop(context);
-        if (onActionTap != null) {
-          onActionTap!(label);
-          return;
-        }
-        _navigateToForm(context, label);
-      },
+              Navigator.pop(context);
+              if (onActionTap != null) {
+                onActionTap!(label);
+                return;
+              }
+              _navigateToForm(context, label);
+            },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -113,7 +120,10 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
               child: SvgPicture.asset(svgPath, height: 24, width: 24),
             ),
           ),
@@ -123,7 +133,12 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, fontFamily: 'Manrope', color: AppColors.primaryColor),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Manrope',
+                color: AppColors.primaryColor,
+              ),
             ),
           ),
         ],
@@ -133,7 +148,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
 
   void _navigateToForm(BuildContext context, String label) {
     Widget? form;
-    
+
     switch (label) {
       case 'Sign-in':
         form = const StudentSelectionSignInForm();

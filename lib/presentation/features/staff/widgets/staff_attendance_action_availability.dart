@@ -56,20 +56,20 @@ class StaffAttendanceActionAvailability {
   /// All actions disabled (e.g. loading or no selection).
   static const StaffAttendanceActionAvailability allDisabled =
       StaffAttendanceActionAvailability(
-    signInEnabled: false,
-    signOutEnabled: false,
-    transferEnabled: false,
-    absentEnabled: false,
-  );
+        signInEnabled: false,
+        signOutEnabled: false,
+        transferEnabled: false,
+        absentEnabled: false,
+      );
 
   /// Default when parents do not pass availability (all tappable).
   static const StaffAttendanceActionAvailability allEnabled =
       StaffAttendanceActionAvailability(
-    signInEnabled: true,
-    signOutEnabled: true,
-    transferEnabled: true,
-    absentEnabled: true,
-  );
+        signInEnabled: true,
+        signOutEnabled: true,
+        transferEnabled: true,
+        absentEnabled: true,
+      );
 
   final bool signInEnabled;
   final bool signOutEnabled;
@@ -100,7 +100,8 @@ StaffAttendanceGate staffAttendanceGateFromTodayStatus({
   final su = (todayStatusRaw ?? '').trim().toUpperCase();
   final isSignedIn = su == 'SIGNED_IN';
   final isAbsent = su == 'ABSENT';
-  final hasSignedOut = su == 'SIGNED_OUT' ||
+  final hasSignedOut =
+      su == 'SIGNED_OUT' ||
       su == 'SIGN_OUT' ||
       su == 'COMPLETED' ||
       su == 'SIGNED_OUT_TODAY' ||

@@ -1,10 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 class AllowedClassroom extends Equatable {
-  const AllowedClassroom({
-    required this.code,
-    required this.name,
-  });
+  const AllowedClassroom({required this.code, required this.name});
 
   final String code;
   final String name;
@@ -106,7 +103,12 @@ class StaffProfileBreakSchedule extends Equatable {
   }
 
   @override
-  List<Object?> get props => [dayOfWeek, breakType, breakStartTime, breakEndTime];
+  List<Object?> get props => [
+    dayOfWeek,
+    breakType,
+    breakStartTime,
+    breakEndTime,
+  ];
 }
 
 class StaffProfile extends Equatable {
@@ -164,30 +166,29 @@ class StaffProfile extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        userCode,
-        organizationCode,
-        schoolCode,
-        firstName,
-        lastName,
-        fullName,
-        email,
-        phoneNumber,
-        profilePhotoUrl,
-        birthDate,
-        staffType,
-        status,
-        designation,
-        jobTag,
-        clockPin,
-        primaryClassroomCode,
-        allowedClassroomCodes,
-        allowedClassrooms,
-        address,
-        workSchedules,
-        breakSchedules,
-        createdAt,
-        updatedAt,
-      ];
+    staffCode,
+    userCode,
+    organizationCode,
+    schoolCode,
+    firstName,
+    lastName,
+    fullName,
+    email,
+    phoneNumber,
+    profilePhotoUrl,
+    birthDate,
+    staffType,
+    status,
+    designation,
+    jobTag,
+    clockPin,
+    primaryClassroomCode,
+    allowedClassroomCodes,
+    allowedClassrooms,
+    address,
+    workSchedules,
+    breakSchedules,
+    createdAt,
+    updatedAt,
+  ];
 }
-

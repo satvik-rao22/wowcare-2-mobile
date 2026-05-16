@@ -6,8 +6,12 @@ class ApiClient {
   ApiClient({
     required String baseUrl,
     List<Interceptor>? interceptors,
-    Duration connectTimeout = const Duration(minutes: 1),
-    Duration receiveTimeout = const Duration(minutes: 1),
+    // Fail fast — a 60s wait makes the UI feel "stuck" forever when the
+    // backend or dev tunnel is unreachable. 10s is long enough for slow
+    // mobile networks but short enough that the user sees the error
+    // promptly instead of a frozen loading spinner.
+    Duration connectTimeout = const Duration(seconds: 10),
+    Duration receiveTimeout = const Duration(seconds: 15),
   }) {
     _dio = Dio(
       BaseOptions(
@@ -33,8 +37,9 @@ class ApiClient {
             url: options.uri.toString(),
             method: options.method,
             headers: options.headers.cast<String, dynamic>(),
-            queryParameters:
-                options.queryParameters.isEmpty ? null : options.queryParameters,
+            queryParameters: options.queryParameters.isEmpty
+                ? null
+                : options.queryParameters,
             body: options.data,
           );
           handler.next(options);
@@ -79,5 +84,3 @@ class ApiClient {
 
   Dio get client => _dio;
 }
-
-

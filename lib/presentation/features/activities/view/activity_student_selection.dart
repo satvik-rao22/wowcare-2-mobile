@@ -70,7 +70,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
+  late final GetTagNameCodeMapForSchoolUseCase
+  _getTagNameCodeMapForSchoolUseCase;
   late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   late final Dio _dio;
   String? _schoolCode;
@@ -153,7 +154,6 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     });
   }
 
-
   @override
   void initState() {
     super.initState();
@@ -192,17 +192,18 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         storage: _storageService,
         apiClient: serviceLocator<ApiClient>(),
       );
-      final schoolNow =
-          SchoolZoneDateTime.schoolCalendarDateAndTimeNow(_schoolTimeZone).$1;
-      _selectedAttendanceDate =
-          DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
+      final schoolNow = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        _schoolTimeZone,
+      ).$1;
+      _selectedAttendanceDate = DateTime(
+        schoolNow.year,
+        schoolNow.month,
+        schoolNow.day,
+      );
 
       await _loadStaffClassroomScope();
 
-      await Future.wait([
-        _loadClassrooms(),
-        _loadTags(),
-      ]);
+      await Future.wait([_loadClassrooms(), _loadTags()]);
 
       if (_selectedClassroom != null) {
         await _loadStudentsForCurrentFilters();
@@ -237,31 +238,52 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         if (cached != null && cached['classrooms'] is List && mounted) {
           final list = (cached['classrooms'] as List)
               .whereType<Map>()
-              .map((e) => <String, String>{
-                    'name': (e['name'] ?? '').toString(),
-                    'code': (e['code'] ?? '').toString(),
-                  })
-              .where((e) => e['name']!.trim().isNotEmpty && e['code']!.trim().isNotEmpty)
+              .map(
+                (e) => <String, String>{
+                  'name': (e['name'] ?? '').toString(),
+                  'code': (e['code'] ?? '').toString(),
+                },
+              )
+              .where(
+                (e) =>
+                    e['name']!.trim().isNotEmpty &&
+                    e['code']!.trim().isNotEmpty,
+              )
               .toList();
           if (list.isNotEmpty) {
             final scoped = _allowedClassroomCodes.isEmpty
                 ? list
                 : list
-                    .where((c) => _allowedClassroomCodes.contains((c['code'] ?? '').trim()))
-                    .toList();
+                      .where(
+                        (c) => _allowedClassroomCodes.contains(
+                          (c['code'] ?? '').trim(),
+                        ),
+                      )
+                      .toList();
             setState(() {
               _classroomOptions = scoped.map((c) => c['name']!).toList();
               _classroomCodeByName
                 ..clear()
-                ..addEntries(scoped.map((c) => MapEntry(c['name']!, c['code']!)));
+                ..addEntries(
+                  scoped.map((c) => MapEntry(c['name']!, c['code']!)),
+                );
               _classroomNameByCode
                 ..clear()
-                ..addEntries(scoped.map((c) => MapEntry(c['code']!, c['name']!)));
+                ..addEntries(
+                  scoped.map((c) => MapEntry(c['code']!, c['name']!)),
+                );
 
-              if (_selectedClassroom == null || !_classroomOptions.contains(_selectedClassroom)) {
+              if (_selectedClassroom == null ||
+                  !_classroomOptions.contains(_selectedClassroom)) {
                 final primaryCode = (_primaryClassroomCode ?? '').trim();
-                final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-                _selectedClassroom = primaryName ?? (_classroomOptions.isNotEmpty ? _classroomOptions.first : null);
+                final primaryName = primaryCode.isNotEmpty
+                    ? _classroomNameByCode[primaryCode]
+                    : null;
+                _selectedClassroom =
+                    primaryName ??
+                    (_classroomOptions.isNotEmpty
+                        ? _classroomOptions.first
+                        : null);
               }
             });
             hydratedFromCache = true;
@@ -290,8 +312,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         final scoped = _allowedClassroomCodes.isEmpty
             ? classrooms
             : classrooms
-                .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
-                .toList();
+                  .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+                  .toList();
 
         _classroomOptions = scoped.map((c) => c.name).toList();
         _classroomCodeByName
@@ -302,16 +324,23 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           ..addEntries(scoped.map((c) => MapEntry(c.code, c.name)));
 
         // Default: primary classroom (if allowed), else first allowed.
-        if (_selectedClassroom == null || !_classroomOptions.contains(_selectedClassroom)) {
+        if (_selectedClassroom == null ||
+            !_classroomOptions.contains(_selectedClassroom)) {
           final primaryCode = (_primaryClassroomCode ?? '').trim();
-          final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-          _selectedClassroom = primaryName ?? (_classroomOptions.isNotEmpty ? _classroomOptions.first : null);
+          final primaryName = primaryCode.isNotEmpty
+              ? _classroomNameByCode[primaryCode]
+              : null;
+          _selectedClassroom =
+              primaryName ??
+              (_classroomOptions.isNotEmpty ? _classroomOptions.first : null);
         }
       });
 
       await _cacheManager.saveCache(classroomCacheKey, {
         // Persist full school classrooms; role-based filtering is applied per-session.
-        'classrooms': classrooms.map((c) => {'name': c.name, 'code': c.code}).toList(),
+        'classrooms': classrooms
+            .map((c) => {'name': c.name, 'code': c.code})
+            .toList(),
       });
     } catch (error) {
       final message = ApiErrorHandler.extractErrorMessage(error);
@@ -322,7 +351,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
   Future<void> _loadStaffClassroomScope() async {
     // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
     if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
@@ -330,7 +360,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     }
 
     final staffType =
-        (await _storageService.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+        (await _storageService.getString(StorageKeys.staffType) ?? '')
+            .trim()
+            .toUpperCase();
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
@@ -351,7 +383,12 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       return <String>[];
     }
 
-    final cached = (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ?? '').trim();
+    final cached =
+        (await _storageService.getString(
+                  StorageKeys.staffAllowedClassroomCodes,
+                ) ??
+                '')
+            .trim();
     var allowed = decodeCodes(cached);
 
     try {
@@ -420,8 +457,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         (_classroomCodeByName[_selectedClassroom]?.trim() ?? '');
     final classroomCodes = selectedClassroomCode.isEmpty
         ? (_primaryClassroomCode?.trim().isNotEmpty == true
-            ? <String>[_primaryClassroomCode!.trim()]
-            : null)
+              ? <String>[_primaryClassroomCode!.trim()]
+              : null)
         : <String>[selectedClassroomCode];
 
     final tagCodes = _selectedTags
@@ -530,7 +567,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     Map<String, dynamic> student, {
     required String selectedClassroomCode,
   }) {
-    final attendedClassrooms = (student['attendedClassrooms'] as List?)
+    final attendedClassrooms =
+        (student['attendedClassrooms'] as List?)
             ?.whereType<Map>()
             .map((entry) => Map<String, dynamic>.from(entry))
             .toList(growable: false) ??
@@ -545,10 +583,12 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           : <String, dynamic>{},
     );
 
-    final classroomCode =
-        (selectedTimelineEntry['classroomCode'] ?? '').toString().trim();
-    final classroomName =
-        (selectedTimelineEntry['classroomName'] ?? '').toString().trim();
+    final classroomCode = (selectedTimelineEntry['classroomCode'] ?? '')
+        .toString()
+        .trim();
+    final classroomName = (selectedTimelineEntry['classroomName'] ?? '')
+        .toString()
+        .trim();
 
     return StudentAttendanceCustomItem(
       studentCode: (student['studentCode'] ?? '').toString().trim(),
@@ -643,18 +683,18 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
     return StaffFormLayout(
       title: 'Add Activity',
-                  child: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+        children: [
           Text(
-                                  'Select Students',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
-                                  ),
-                                ),
+            'Select Students',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff573353),
+            ),
+          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -664,9 +704,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               border: Border.all(color: Colors.grey),
             ),
             child: TextField(
-                                    controller: _searchController,
+              controller: _searchController,
               decoration: InputDecoration(
-                                    hintText: 'Search Students',
+                hintText: 'Search Students',
                 hintStyle: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 14,
@@ -679,7 +719,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                     ? null
                     : IconButton(
                         onPressed: () {
-                                          _searchController.clear();
+                          _searchController.clear();
                           _applyFilters();
                           _updateSelectAllState();
                         },
@@ -688,10 +728,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               ),
               onChanged: (_) {
                 _applyFilters();
-                                          _updateSelectAllState();
-                                      },
-                                ),
-                            ),
+                _updateSelectAllState();
+              },
+            ),
+          ),
           const SizedBox(height: 12),
           CustomDateTimeField(
             hasLabel: false,
@@ -699,7 +739,11 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
             fetchInitialTime: false,
             onDateSelected: (date) {
               setState(() {
-                _selectedAttendanceDate = DateTime(date.year, date.month, date.day);
+                _selectedAttendanceDate = DateTime(
+                  date.year,
+                  date.month,
+                  date.day,
+                );
                 _selectedStudents.clear();
                 _selectAll = false;
               });
@@ -707,69 +751,72 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
             },
           ),
           const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildCustomDropdown(
-                                    'Classroom',
-                                    _classroomOptions,
-                                    _selectedClassroom,
+          Row(
+            children: [
+              Expanded(
+                child: _buildCustomDropdown(
+                  'Classroom',
+                  _classroomOptions,
+                  _selectedClassroom,
                   (v) {
                     setState(() {
-                                      _selectedClassroom = v;
+                      _selectedClassroom = v;
                       // Students across classrooms cannot be selected together
                       _selectedStudents.clear();
-                                      _selectAll = false;
+                      _selectAll = false;
                     });
                     _loadStudentsForCurrentFilters();
                   },
-                                  ),
-                                ),
+                ),
+              ),
               const SizedBox(width: 12),
-                                Expanded(
-                                  child: CustomMultiSelectDropdown(
-                                    hintText: 'Tags',
-                                    items: _tagOptions,
-                                    selectedItems: _selectedTags,
-                                    gapHeight: 6,
-                                    onChanged: (selectedItems) {
-                                      setState(() {
-                                        _selectedTags = selectedItems;
-                                      });
+              Expanded(
+                child: CustomMultiSelectDropdown(
+                  hintText: 'Tags',
+                  items: _tagOptions,
+                  selectedItems: _selectedTags,
+                  gapHeight: 6,
+                  onChanged: (selectedItems) {
+                    setState(() {
+                      _selectedTags = selectedItems;
+                    });
                     _loadStudentsForCurrentFilters();
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: CustomCheckbox(
-                                value: _selectAll,
-                                onChanged: (v) {
-                                  final newVal = v ?? false;
-                                  setState(() {
-                                    _selectAll = newVal;
-                                    if (newVal) {
+                child: CustomCheckbox(
+                  value: _selectAll,
+                  onChanged: (v) {
+                    final newVal = v ?? false;
+                    setState(() {
+                      _selectAll = newVal;
+                      if (newVal) {
                         for (final student in _filteredStudents) {
-                          final isNapping =
-                              _nappingStudentCodes.contains(student.studentCode);
-                                        _selectedStudents.add(
-                                          _buildSelectedStudentMap(
-                                            student,
-                                            isNapping: isNapping,
-                                          ),
-                                        );
-                                      }
-                                    } else {
-                                      _selectedStudents.removeWhere((s) =>
-                                          _filteredStudents.any((st) =>
-                                              st.studentCode == s['studentCode']));
-                                    }
-                                  });
+                          final isNapping = _nappingStudentCodes.contains(
+                            student.studentCode,
+                          );
+                          _selectedStudents.add(
+                            _buildSelectedStudentMap(
+                              student,
+                              isNapping: isNapping,
+                            ),
+                          );
+                        }
+                      } else {
+                        _selectedStudents.removeWhere(
+                          (s) => _filteredStudents.any(
+                            (st) => st.studentCode == s['studentCode'],
+                          ),
+                        );
+                      }
+                    });
                   },
                   borderColor: AppColors.themeColor,
                 ),
@@ -789,24 +836,32 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                   setState(() {
                     if (_classroomOptions.isNotEmpty) {
                       final primaryCode = (_primaryClassroomCode ?? '').trim();
-                      final primaryName = primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-                      _selectedClassroom = primaryName ?? _classroomOptions.first;
+                      final primaryName = primaryCode.isNotEmpty
+                          ? _classroomNameByCode[primaryCode]
+                          : null;
+                      _selectedClassroom =
+                          primaryName ?? _classroomOptions.first;
                     }
                     _selectedStudents.clear();
                     _searchController.clear();
                     _selectedTags = [];
                     final schoolNow =
-                        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(_schoolTimeZone).$1;
-                    _selectedAttendanceDate =
-                        DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
+                        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+                          _schoolTimeZone,
+                        ).$1;
+                    _selectedAttendanceDate = DateTime(
+                      schoolNow.year,
+                      schoolNow.month,
+                      schoolNow.day,
+                    );
                     _selectAll = false;
                   });
                   _loadStudentsForCurrentFilters();
                 },
                 child: const Text('Clear'),
-                              ),
+              ),
             ],
-                            ),
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: CustomRefreshIndicator(
@@ -827,7 +882,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                           _selectedClassroom == null
                               ? 'Select a classroom to view students or use the search bar'
                               : (_studentsError ??
-                                  'No students match the selected filters'),
+                                    'No students match the selected filters'),
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 14,
@@ -839,60 +894,57 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                     )
                   else
                     SliverGrid(
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: responsive.isTablet ? 3 : 2,
                         crossAxisSpacing: responsive.isTablet ? 16 : 12,
                         mainAxisSpacing: responsive.isTablet ? 16 : 12,
                         mainAxisExtent: 72,
                       ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final student = _filteredStudents[index];
-                          final String name = student.studentName;
-                          final String studentCode = student.studentCode;
-                          final bool isNapping =
-                              _nappingStudentCodes.contains(studentCode);
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final student = _filteredStudents[index];
+                        final String name = student.studentName;
+                        final String studentCode = student.studentCode;
+                        final bool isNapping = _nappingStudentCodes.contains(
+                          studentCode,
+                        );
 
-                          final bool isSelected = _selectedStudents.any(
-                            (s) => s['studentCode'] == studentCode,
-                          );
+                        final bool isSelected = _selectedStudents.any(
+                          (s) => s['studentCode'] == studentCode,
+                        );
 
-                          return _ActivityStudentListItem(
-                            name: name,
-                            isNapping: isNapping,
-                            isSelected: isSelected,
-                            onSelectionChanged: (selected) {
-                              ScaffoldMessenger.of(context)
-                                  .removeCurrentSnackBar();
-                              setState(() {
-                                if (selected == true) {
-                                  _selectedStudents.add(
-                                    _buildSelectedStudentMap(
-                                      student,
-                                      isNapping: isNapping,
-                                    ),
-                                  );
-                                } else {
-                                  _selectedStudents.removeWhere(
-                                    (s) =>
-                                        s['studentCode'] == studentCode,
-                                  );
-                                }
-                                _updateSelectAllState();
-                              });
-                            },
-                          );
-                        },
-                        childCount: _filteredStudents.length,
-                      ),
+                        return _ActivityStudentListItem(
+                          name: name,
+                          isNapping: isNapping,
+                          isSelected: isSelected,
+                          onSelectionChanged: (selected) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).removeCurrentSnackBar();
+                            setState(() {
+                              if (selected == true) {
+                                _selectedStudents.add(
+                                  _buildSelectedStudentMap(
+                                    student,
+                                    isNapping: isNapping,
+                                  ),
+                                );
+                              } else {
+                                _selectedStudents.removeWhere(
+                                  (s) => s['studentCode'] == studentCode,
+                                );
+                              }
+                              _updateSelectAllState();
+                            });
+                          },
+                        );
+                      }, childCount: _filteredStudents.length),
                     ),
                 ],
               ),
             ),
           ),
-            ],
-          ),
+        ],
+      ),
       bottomBar: Padding(
         padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
@@ -901,7 +953,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           onPressedCancel: () => Navigator.of(context).pop(),
           onPressedConfirm: () {
             if (_selectedStudents.isNotEmpty) {
-              final selectedDate = _formatAttendanceDate(_selectedAttendanceDate);
+              final selectedDate = _formatAttendanceDate(
+                _selectedAttendanceDate,
+              );
               final normalizedSelectedStudents = _selectedStudents
                   .map((student) {
                     final next = Map<String, dynamic>.from(student);
@@ -912,6 +966,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(
+                    name: CoreUtils.chooseActivityRouteName,
+                  ),
                   builder: (_) => ChooseActivity(
                     selectedStudents: normalizedSelectedStudents,
                   ),
@@ -991,7 +1048,6 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   //       }
   //   );
   // }
-
 }
 
 class _ActivityStudentListItem extends StatelessWidget {
@@ -1013,9 +1069,7 @@ class _ActivityStudentListItem extends StatelessWidget {
       onTap: () => onSelectionChanged(!isSelected),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)

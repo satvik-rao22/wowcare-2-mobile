@@ -2,10 +2,7 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_dai
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
 
 /// Combines a calendar [localDay] (date portion only) with wall-clock [t].
-DateTime? dateAtAttendanceClock(
-  DateTime localDay,
-  StudentAttendanceTime? t,
-) {
+DateTime? dateAtAttendanceClock(DateTime localDay, StudentAttendanceTime? t) {
   if (t == null) return null;
   return DateTime(
     localDay.year,

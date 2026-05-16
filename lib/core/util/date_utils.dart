@@ -94,5 +94,7 @@ class DateUtilsNew {
     return formatter.format(date);
   }
 
-  static DateTime? parseReadableDate(String text) {}
+  static DateTime? parseReadableDate(String text) {
+    return null;
+  }
 }

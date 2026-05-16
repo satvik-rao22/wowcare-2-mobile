@@ -45,26 +45,26 @@ class Conversation extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        title,
-        type,
-        organizationCode,
-        schoolCode,
-        status,
-        description,
-        avatarUrl,
-        createdAt,
-        createdBy,
-        updatedAt,
-        updatedBy,
-        lastMessageAt,
-        lastMessageBy,
-        participantCount,
-        unreadCount,
-        lastMessagePreview,
-        participants,
-      ];
+    id,
+    code,
+    title,
+    type,
+    organizationCode,
+    schoolCode,
+    status,
+    description,
+    avatarUrl,
+    createdAt,
+    createdBy,
+    updatedAt,
+    updatedBy,
+    lastMessageAt,
+    lastMessageBy,
+    participantCount,
+    unreadCount,
+    lastMessagePreview,
+    participants,
+  ];
 }
 
 class ConversationParticipant extends Equatable {
@@ -98,17 +98,17 @@ class ConversationParticipant extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        conversationId,
-        userCode,
-        userName,
-        role,
-        joinedAt,
-        leftAt,
-        lastReadAt,
-        muted,
-        notificationsEnabled,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    conversationId,
+    userCode,
+    userName,
+    role,
+    joinedAt,
+    leftAt,
+    lastReadAt,
+    muted,
+    notificationsEnabled,
+    createdAt,
+    updatedAt,
+  ];
 }

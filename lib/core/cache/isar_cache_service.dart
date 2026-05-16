@@ -3,7 +3,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
-import 'package:wowcare/data/features/Schedule-Classroom/models/staff_shift_collection.dart';
 
 class IsarCacheService implements CacheService {
   late Isar _isar;
@@ -13,7 +12,6 @@ class IsarCacheService implements CacheService {
     _isar = await Isar.open([
       MessageCollectionSchema,
       ConversationCollectionSchema,
-      StaffShiftCollectionSchema,
     ], directory: dir.path);
   }
 

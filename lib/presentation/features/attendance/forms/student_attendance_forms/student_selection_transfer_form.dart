@@ -79,9 +79,7 @@ class _StudentSelectionTransferFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: true,
-    );
+    _classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {

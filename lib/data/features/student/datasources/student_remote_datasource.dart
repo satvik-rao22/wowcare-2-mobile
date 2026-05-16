@@ -1288,9 +1288,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       return const <Map<String, dynamic>>[];
     }
 
-    return data
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
+    return data.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   @override

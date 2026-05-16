@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 
 class RoleProvider extends ChangeNotifier {
   String _role = 'admin'; // Default to admin
   final Set<String> _modulesWithRead = <String>{};
   final Set<String> _modulesWithWrite = <String>{};
+
   /// True when the matched school payload included a `permissions` list from
   /// `/users/details` (even if empty). All personas use the same read/write
   /// sets when this is on; when false, non-guardian roles keep legacy full access.
@@ -107,7 +109,8 @@ class RoleProvider extends ChangeNotifier {
     if (_initialized && !force) return;
     _initialized = true;
     final storage = serviceLocator<StorageService>();
-    final accessToken = (await storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final accessToken = (await storage.getString(StorageKeys.accessToken) ?? '')
+        .trim();
     if (accessToken.isEmpty) {
       notifyListeners();
       return;
@@ -118,7 +121,10 @@ class RoleProvider extends ChangeNotifier {
       final remote = serviceLocator<AuthRemoteDataSource>();
       final data = await remote.getUserDetails(accessToken: accessToken);
       if (data.isNotEmpty) {
-        await storage.saveString(StorageKeys.userAccessDetails, jsonEncode(data));
+        await storage.saveString(
+          StorageKeys.userAccessDetails,
+          jsonEncode(data),
+        );
       }
       await _applyAccessPayload(data, storage);
       notifyListeners();
@@ -131,7 +137,8 @@ class RoleProvider extends ChangeNotifier {
 
   Future<void> _fallbackFromRole(StorageService storage) async {
     // Fallback derives role from API-provided roles only.
-    final roleJson = (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final roleJson = (await storage.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
     if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
       _role = 'parent';
     } else if (roleJson.contains('STAFF') || roleJson.contains('TEACHER')) {
@@ -148,11 +155,17 @@ class RoleProvider extends ChangeNotifier {
     _modulesWithRead.clear();
     _modulesWithWrite.clear();
     _granularModuleAccess = false;
-    final org = (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
-    Map<String, dynamic>? matchedSchool;
+    final candidates = <Map<String, dynamic>>[];
     for (final user in users) {
+      if (org.isNotEmpty) {
+        final userOrg = (user['organizationCode'] ?? '').toString().trim();
+        if (userOrg != org) continue;
+      }
       final schools = user['schools'];
       if (schools is! List) continue;
       for (final s in schools) {
@@ -160,25 +173,53 @@ class RoleProvider extends ChangeNotifier {
         final schoolMap = Map<String, dynamic>.from(s);
         final schoolCode = (schoolMap['schoolCode'] ?? '').toString().trim();
         if (school.isNotEmpty && schoolCode != school) continue;
-        if (org.isNotEmpty) {
-          final userOrg = (user['organizationCode'] ?? '').toString().trim();
-          if (userOrg != org) continue;
-        }
-        matchedSchool = schoolMap;
-        break;
+        final status = (schoolMap['status'] ?? 'ACTIVE')
+            .toString()
+            .toUpperCase()
+            .trim();
+        if (status.isNotEmpty && status != 'ACTIVE') continue;
+        if ((schoolMap['role'] ?? '').toString().trim().isEmpty) continue;
+        candidates.add(schoolMap);
       }
-      if (matchedSchool != null) break;
     }
 
-    if (matchedSchool == null) {
+    if (candidates.isEmpty) {
       await _fallbackFromRole(storage);
       return;
     }
 
-    final backendRole = (matchedSchool['role'] ?? '').toString().toLowerCase();
+    final active = (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+        .trim();
+    final activeUpper = active.toUpperCase();
+
+    Map<String, dynamic>? matchedSchool;
+    if (activeUpper.isNotEmpty) {
+      for (final c in candidates) {
+        final r = (c['role'] ?? '').toString().trim().toUpperCase();
+        if (r == activeUpper) {
+          matchedSchool = c;
+          break;
+        }
+      }
+    }
+    matchedSchool ??= candidates.first;
+
+    final chosenRole = (matchedSchool['role'] ?? '').toString().trim();
+    if (chosenRole.isEmpty) {
+      await _fallbackFromRole(storage);
+      return;
+    }
+
+    if (activeUpper.isEmpty || activeUpper != chosenRole.toUpperCase()) {
+      await serviceLocator<AuthLocalDataSource>()
+          .persistActiveSchoolPersonaRole(chosenRole);
+    }
+
+    final backendRole = chosenRole.toLowerCase();
     if (backendRole.contains('guardian') || backendRole.contains('parent')) {
       _role = 'parent';
-    } else if (backendRole.contains('staff') || backendRole.contains('teacher')) {
+    } else if (backendRole.contains('staff') ||
+        backendRole.contains('teacher')) {
       _role = 'staff';
     } else {
       _role = 'admin';
@@ -190,7 +231,9 @@ class RoleProvider extends ChangeNotifier {
       for (final p in permissions) {
         if (p is! Map) continue;
         final permissionMap = Map<String, dynamic>.from(p);
-        final module = _normalizeModule((permissionMap['module'] ?? '').toString());
+        final module = _normalizeModule(
+          (permissionMap['module'] ?? '').toString(),
+        );
         if (module.isEmpty) continue;
         if (permissionMap['read'] == true) {
           _modulesWithRead.add(module);

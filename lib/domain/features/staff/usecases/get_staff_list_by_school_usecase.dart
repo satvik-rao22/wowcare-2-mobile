@@ -6,11 +6,7 @@ class GetStaffListBySchoolUseCase {
 
   final StaffRepository _repository;
 
-  Future<List<StaffMember>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getStaffListBySchool(
-      schoolCode: schoolCode,
-    );
+  Future<List<StaffMember>> call({required String schoolCode}) {
+    return _repository.getStaffListBySchool(schoolCode: schoolCode);
   }
 }

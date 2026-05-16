@@ -77,9 +77,11 @@ bool shouldSkipStaffCodeResolutionForContext({
   try {
     final decoded = jsonDecode(rolesJson);
     if (decoded is! List<dynamic>) return false;
-    final matching =
-        matchingRolesForOrgSchool(decoded, organizationCode, schoolCode)
-            .toList();
+    final matching = matchingRolesForOrgSchool(
+      decoded,
+      organizationCode,
+      schoolCode,
+    ).toList();
     if (matching.isEmpty) return false;
     final hasNonGuardian = matching.any(
       (m) => !roleStringIsGuardianPersona(m['role'] ?? ''),

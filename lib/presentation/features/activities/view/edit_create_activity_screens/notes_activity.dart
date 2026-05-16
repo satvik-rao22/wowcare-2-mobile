@@ -37,7 +37,6 @@ import '../../utils/activity_school_time.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class NotesActivityScreen extends StatefulWidget {
@@ -61,13 +60,13 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -114,8 +113,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   late final RejectActivityUseCase _rejectActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -125,9 +123,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     for (final p in rows) {
       final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (n != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -153,7 +152,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _activityDate =
+          resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -167,8 +167,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-      _remainingExistingPhotoUrls =
-          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+        _detailAttachmentRows,
+      );
       if (_remainingExistingPhotoUrls.isEmpty &&
           activity.photoUrl != null &&
           activity.photoUrl!.trim().isNotEmpty) {
@@ -210,7 +211,11 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       if (!_lastUpdateSucceeded) return;
       final msg = await _approveActivityUseCase(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -236,7 +241,11 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     try {
       final msg = await _rejectActivityUseCase(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -276,8 +285,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        _remainingExistingPhotoUrls =
-            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+          _detailAttachmentRows,
+        );
         if (_remainingExistingPhotoUrls.isEmpty &&
             item.photoUrl != null &&
             item.photoUrl!.trim().isNotEmpty) {
@@ -302,9 +312,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
-      _selectedStudentsData.removeWhere(
-        (m) => (m['name'] as String?) == name,
-      );
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -314,10 +322,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -330,10 +338,11 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -344,13 +353,15 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? notesSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -381,14 +392,14 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -425,10 +436,12 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -509,8 +522,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -569,9 +583,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (error) {
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
@@ -604,14 +616,14 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -648,10 +660,12 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -685,8 +699,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     if (staffCode == null || staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Missing staff information. Please re-login and try again.',
+        message: 'Missing staff information. Please re-login and try again.',
         isError: true,
       );
       return;
@@ -711,8 +724,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         organizationCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Missing school information. Please re-login and try again.',
+        message: 'Missing school information. Please re-login and try again.',
         isError: true,
       );
       return;
@@ -742,8 +754,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -791,8 +804,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
-      final patchAttachments =
-          attachmentsForActivityPatchRequest(mergedAttachmentRows);
+      final patchAttachments = attachmentsForActivityPatchRequest(
+        mergedAttachmentRows,
+      );
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: _selectedStudentsData,
@@ -800,8 +814,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -845,9 +859,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (error) {
       if (!mounted) return;
@@ -870,11 +882,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes = studentCodes
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    final normalizedStudentCodes =
+        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          ..sort();
     final uploadContextKey = [
       organizationCode.trim(),
       schoolCode.trim(),
@@ -887,9 +897,13 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       _lastUploadContextKey = uploadContextKey;
     }
 
-    final hasSharedAttachmentInEdit = widget.isEdit &&
+    final hasSharedAttachmentInEdit =
+        widget.isEdit &&
         _detailAttachmentRows.any((row) {
-          final binding = (row['bindingMode'] ?? '').toString().trim().toUpperCase();
+          final binding = (row['bindingMode'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
           final student = (row['studentCode'] ?? '').toString().trim();
           return binding == 'SHARED' || student.isEmpty;
         });
@@ -909,15 +923,15 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         _uploadTotalCount = missing.length;
       });
       try {
-        final uploadSession =
-            await _imageUploadService.createActivityUploadSession(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          classroomCode: classroomCode,
-          activityTypeCode: activityTypeCode,
-          bindingMode: bindingMode,
-          studentCodes: studentCodes,
-        );
+        final uploadSession = await _imageUploadService
+            .createActivityUploadSession(
+              organizationCode: organizationCode,
+              schoolCode: schoolCode,
+              classroomCode: classroomCode,
+              activityTypeCode: activityTypeCode,
+              bindingMode: bindingMode,
+              studentCodes: studentCodes,
+            );
 
         final sessionAssetCodes = <String>[];
         for (var i = 0; i < missing.length; i++) {
@@ -928,8 +942,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
-          final checksumSha256 =
-              await _imageUploadService.computeFileChecksumSha256(photo);
+          final checksumSha256 = await _imageUploadService
+              .computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
@@ -950,10 +964,12 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
               if (!mounted) return;
               final overallFraction =
                   ((fileIndex - 1) + (percent / 100)) / totalFiles;
-              final overallPercent =
-                  (overallFraction * 100).clamp(0, 100).round();
-              final displayPercent =
-                  overallPercent >= 100 ? 99 : overallPercent;
+              final overallPercent = (overallFraction * 100)
+                  .clamp(0, 100)
+                  .round();
+              final displayPercent = overallPercent >= 100
+                  ? 99
+                  : overallPercent;
               setState(() => _uploadProgressPercent = displayPercent);
             },
           );
@@ -1052,10 +1068,12 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
     final organizationCode = _organizationCode;
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     final studentCodes = _selectedStudentsData
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
@@ -1167,7 +1185,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+            if (widget.isEdit &&
+                !widget.readOnly &&
+                _selectedStudents.length > 1) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -1195,7 +1215,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
+                          initialDate: formatSelectedDateForDateWidget(
+                            _activityDate,
+                          ),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -1219,8 +1241,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
+                final isAdminPersona = _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
@@ -1233,9 +1254,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                               : _effectiveActivity.staffPresent)
                         : null,
                   ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
+                  isEditable: lockToLoggedInStaff ? false : _canInteract,
                   onStaffChanged: (_, selectedCode) {
                     _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
                         ? selectedCode!.trim()
@@ -1253,8 +1272,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
             if (_showRequireAdminApprovalToggle)
               CustomToggle(
                 label: 'Requires Admin Approval',
@@ -1280,9 +1298,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                     ? List<String>.from(_remainingExistingPhotoUrls)
                     : (_effectiveActivity.photoUrl != null &&
-                            _effectiveActivity.photoUrl!.trim().isNotEmpty
-                        ? [_effectiveActivity.photoUrl!.trim()]
-                        : const []),
+                              _effectiveActivity.photoUrl!.trim().isNotEmpty
+                          ? [_effectiveActivity.photoUrl!.trim()]
+                          : const []),
                 onMediaChanged: _onMediaChanged,
               )
             else
@@ -1314,7 +1332,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _isUploadingMedia ||
                           _loadingActivityDetail,
@@ -1323,15 +1342,16 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _isUploadingMedia ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -1416,6 +1436,3 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     );
   }
 }
-
-
-

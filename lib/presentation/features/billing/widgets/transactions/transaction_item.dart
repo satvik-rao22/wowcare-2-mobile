@@ -40,14 +40,14 @@ class TransactionItem {
   factory TransactionItem.fromMap(Map<String, dynamic> map) {
     final List<dynamic> students =
         (map['students'] as List<dynamic>? ?? <dynamic>[]);
-    final Map<String, dynamic>? firstStudent =
-        students.isNotEmpty ? students.first as Map<String, dynamic> : null;
+    final Map<String, dynamic>? firstStudent = students.isNotEmpty
+        ? students.first as Map<String, dynamic>
+        : null;
 
     return TransactionItem(
       id: map['id'] as int,
       transactionType: (map['transactionType'] ?? '').toString(),
-      date: DateTime.tryParse((map['date'] ?? '').toString()) ??
-          DateTime.now(),
+      date: DateTime.tryParse((map['date'] ?? '').toString()) ?? DateTime.now(),
       amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
       status: (map['processStatus'] ?? map['status'] ?? '').toString(),
       description: (map['description'] ?? '').toString(),
@@ -61,11 +61,9 @@ class TransactionItem {
       note: map['note'] as String?,
       endDate: map['endDate'] as String?,
       paymentMode: map['paymentMode'] as String?,
-      studentOpenBalance:
-          (firstStudent?['balance'] as num?)?.toDouble(),
+      studentOpenBalance: (firstStudent?['balance'] as num?)?.toDouble(),
     );
   }
 
   String get displayDescription => description.isEmpty ? '-' : description;
 }
-

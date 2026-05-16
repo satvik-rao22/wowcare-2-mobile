@@ -30,7 +30,8 @@ class StaffEditAttendanceForm extends StatefulWidget {
   final DateTime attendanceDate;
 
   @override
-  State<StaffEditAttendanceForm> createState() => _StaffEditAttendanceFormState();
+  State<StaffEditAttendanceForm> createState() =>
+      _StaffEditAttendanceFormState();
 }
 
 class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
@@ -82,7 +83,10 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     try {
       final iso = DateTime.tryParse(raw);
       if (iso != null) {
-        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(iso, _schoolIana);
+        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(
+          iso,
+          _schoolIana,
+        );
       }
     } catch (_) {}
 
@@ -105,11 +109,18 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       } catch (_) {}
     }
 
-    final hmsMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?').firstMatch(normalized);
+    final hmsMatch = RegExp(
+      r'(\d{1,2}):(\d{2})(?::\d{2})?',
+    ).firstMatch(normalized);
     if (hmsMatch != null) {
       final hour = int.tryParse(hmsMatch.group(1)!);
       final minute = int.tryParse(hmsMatch.group(2)!);
-      if (hour != null && minute != null && hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+      if (hour != null &&
+          minute != null &&
+          hour >= 0 &&
+          hour < 24 &&
+          minute >= 0 &&
+          minute < 60) {
         return TimeOfDay(hour: hour, minute: minute);
       }
     }
@@ -160,7 +171,8 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     final staffCode = widget.staffAttendance.id.trim();
     final normalizedCode = attendanceCode.trim().toUpperCase();
     final isTransferRecord =
-        normalizedCode.startsWith('STTR_') || normalizedCode.startsWith('SCTR_');
+        normalizedCode.startsWith('STTR_') ||
+        normalizedCode.startsWith('SCTR_');
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -206,7 +218,8 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
 
     final payload = <String, dynamic>{
       'staffCode': staffCode,
-      if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
+      if (signedInAt != null)
+        'signedInAt': signedInAt.toUtc().toIso8601String(),
       if (signedOutAt != null)
         'signedOutAt': signedOutAt.toUtc().toIso8601String(),
       if (!isTransferRecord && signedInAt != null) 'SignedInMethod': 'APP',
@@ -264,10 +277,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       ApiPaths.staffAttendanceDailyRecordByRowCode(attendanceCode),
       ApiConstants.attendanceBaseUrl,
     );
-    await apiClient.client.patch<Map<String, dynamic>>(
-      endpoint,
-      data: body,
-    );
+    await apiClient.client.patch<Map<String, dynamic>>(endpoint, data: body);
   }
 
   @override
@@ -350,9 +360,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
                   const SizedBox(height: 4),
                   AppText.small(
                     staff.designationName!,
-                    style: const TextStyle(
-                      color: AppColors.secondaryColor,
-                    ),
+                    style: const TextStyle(color: AppColors.secondaryColor),
                   ),
                 ],
               ],
@@ -383,4 +391,3 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     );
   }
 }
-

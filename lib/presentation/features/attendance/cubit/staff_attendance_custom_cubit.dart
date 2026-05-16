@@ -10,8 +10,8 @@ part 'staff_attendance_custom_state.dart';
 class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
   StaffAttendanceCustomCubit({
     required GetStaffAttendanceCustomUseCase getStaffAttendanceCustomUseCase,
-  })  : _getStaffAttendanceCustomUseCase = getStaffAttendanceCustomUseCase,
-        super(const StaffAttendanceCustomState.initial());
+  }) : _getStaffAttendanceCustomUseCase = getStaffAttendanceCustomUseCase,
+       super(const StaffAttendanceCustomState.initial());
 
   final GetStaffAttendanceCustomUseCase _getStaffAttendanceCustomUseCase;
 
@@ -45,16 +45,18 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
     final fromDateString = _formatDate(fromDate);
     final toDateString = _formatDate(toDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      fromDate: fromDate,
-      toDate: toDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
+      ),
+    );
 
     try {
       final firstPage = await _getStaffAttendanceCustomUseCase(
@@ -69,24 +71,28 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
 
       if (isClosed) return;
 
-      emit(StaffAttendanceCustomState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        isFromCache: false,
-        fromDate: fromDate,
-        toDate: toDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      emit(
+        StaffAttendanceCustomState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isFromCache: false,
+          fromDate: fromDate,
+          toDate: toDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -114,18 +120,22 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -133,4 +143,3 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

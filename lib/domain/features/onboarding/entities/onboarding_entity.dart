@@ -9,5 +9,3 @@ class OnboardingEntity {
     required this.description,
   });
 }
-
-

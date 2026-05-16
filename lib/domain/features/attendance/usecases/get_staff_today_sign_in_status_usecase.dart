@@ -13,4 +13,3 @@ class GetStaffTodaySignInStatusUseCase {
     return _repository.getStaffTodaySignInStatus(staffCode);
   }
 }
-

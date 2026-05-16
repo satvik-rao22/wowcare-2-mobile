@@ -68,14 +68,10 @@ abstract class ActivityRemoteDataSource {
   });
 
   /// Creates grouped activity cards via `POST /api/v2/activities`.
-  Future<String> createActivity({
-    required ActivityCreateRequestModel request,
-  });
+  Future<String> createActivity({required ActivityCreateRequestModel request});
 
   /// `GET /api/v1/activities/{classroomCode}/nap-start-students`
-  Future<List<String>> getNapStartStudents({
-    required String classroomCode,
-  });
+  Future<List<String>> getNapStartStudents({required String classroomCode});
 
   /// Creates shared activity cards via `POST /api/v2/activities`.
   ///
@@ -230,7 +226,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final normalizedAttachments = _normalizedPatchAttachments(attachments);
 
     final payload = <String, dynamic>{
-      if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
+      if (effectiveStudentCodes.isNotEmpty)
+        'studentCodes': effectiveStudentCodes,
       if (normalizedApplyToCodes.isNotEmpty)
         'applyToStudentCodes': normalizedApplyToCodes,
       'staffCode': staffCode,
@@ -252,7 +249,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         final message = responseData is Map<String, dynamic>
             ? (responseData['message'] ?? '').toString().trim()
             : '';
-        final isAssetNotReadyConflict = statusCode == 409 &&
+        final isAssetNotReadyConflict =
+            statusCode == 409 &&
             message.toLowerCase().contains('must reach ready before linking');
         if (!isAssetNotReadyConflict || attempt >= maxReadyRetries) {
           rethrow;
@@ -346,7 +344,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     String? signatureValue,
   }) async {
     final trimmedCode = guardianCode.trim();
-    final effective = (signatureValue != null && signatureValue.trim().isNotEmpty)
+    final effective =
+        (signatureValue != null && signatureValue.trim().isNotEmpty)
         ? signatureValue.trim()
         : trimmedCode;
     final endpoint = ApiPaths.url(
@@ -362,7 +361,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
-      throw Exception('Unexpected guardian-parent-signature API response format');
+      throw Exception(
+        'Unexpected guardian-parent-signature API response format',
+      );
     }
     final message = body['message'];
     if (message is String && message.trim().isNotEmpty) {
@@ -429,9 +430,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       ApiPaths.activityTypesRoot,
       ApiConstants.activityBaseUrl,
     );
-    final uri = Uri.parse(base).replace(
-      queryParameters: {'schoolCode': schoolCode.trim()},
-    );
+    final uri = Uri.parse(
+      base,
+    ).replace(queryParameters: {'schoolCode': schoolCode.trim()});
     final response = await _client.getUri<dynamic>(uri);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -510,10 +511,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     while (true) {
       attempt++;
       try {
-        response = await _client.post<dynamic>(
-          endpoint,
-          data: payload,
-        );
+        response = await _client.post<dynamic>(endpoint, data: payload);
         break;
       } catch (e) {
         if (!_isAssetNotReadyConflict(e) || attempt >= 4) rethrow;
@@ -522,7 +520,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
     final body = response.data;
     if (body is! Map<String, dynamic>) {
-      throw Exception('Unexpected create shared-activities API response format');
+      throw Exception(
+        'Unexpected create shared-activities API response format',
+      );
     }
     if (body['success'] == false) {
       final message = (body['message'] ?? '').toString().trim();
@@ -564,10 +564,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       'studentCodes': studentCodes,
     };
 
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: payload,
-    );
+    final response = await _client.post<dynamic>(endpoint, data: payload);
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -597,7 +594,10 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String ownerType,
     required String ownerCode,
   }) async {
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     var basePath = documentApiBasePath.trim();
     if (basePath.isEmpty) {
       basePath = ApiConstants.isUat ? '' : '/document-ms/api/v1';
@@ -626,10 +626,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       ],
     };
 
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: payload,
-    );
+    final response = await _client.post<dynamic>(endpoint, data: payload);
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -781,5 +778,3 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     return ActivityFeedPageModel.fromJson(body);
   }
 }
-
-

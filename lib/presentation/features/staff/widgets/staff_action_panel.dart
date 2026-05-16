@@ -36,6 +36,7 @@ class StaffActionPanel extends StatefulWidget {
   final VoidCallback? onAbsent;
   final bool isProfileEnabled;
   final bool activitiesEnabled;
+
   /// Enables/disables attendance sub-actions (Sign-In, Sign-Out, Transfer, Absent)
   /// from the current selection's attendance state.
   final StaffAttendanceActionAvailability attendanceAvailability;
@@ -107,7 +108,10 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
               borderRadius: BorderRadius.circular(10),
               elevation: 3,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(
                     begin: Alignment.topCenter,
@@ -141,7 +145,9 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                     _ActionButton(
                       svgPath: MediaRes.profile_panel_icon,
                       label: 'Profile',
-                      onTap: widget.isProfileEnabled ? widget.onProfileTap : null,
+                      onTap: widget.isProfileEnabled
+                          ? widget.onProfileTap
+                          : null,
                       isEnabled: widget.isProfileEnabled,
                       disabledTooltip: 'Select only one to view profile',
                     ),
@@ -168,17 +174,13 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
-                    setState(() => _current = StaffPanelType.none);
+                      setState(() => _current = StaffPanelType.none);
                       widget.onClearSelections?.call();
                     },
                     customBorder: const CircleBorder(),
                     child: const Padding(
                       padding: EdgeInsets.all(10.0),
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                      child: Icon(Icons.close, color: Colors.white, size: 20),
                     ),
                   ),
                 ),
@@ -307,7 +309,7 @@ class _ActivitiesOptionsPanel extends StatelessWidget {
                 onTap: onAnyActivityTap,
               ),
               if (i < items.length - 1) const SizedBox(height: 5),
-            ]
+            ],
           ],
         ),
       ),
@@ -356,11 +358,7 @@ class _AttendanceActionItem extends StatelessWidget {
                   color: Colors.blue.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(
-                  svgPath,
-                  height: 24,
-                  width: 24,
-                ),
+                child: SvgPicture.asset(svgPath, height: 24, width: 24),
               ),
               const SizedBox(height: 5),
               Text(
@@ -425,10 +423,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ],
           ),
@@ -473,5 +468,3 @@ class _ActivityPngItem extends StatelessWidget {
     );
   }
 }
-
-

@@ -73,7 +73,11 @@ class CurvedAppBarClipper extends CustomClipper<Path> {
     path.quadraticBezierTo(0, size.height, size.width * 0.2, size.height);
     path.lineTo(size.width * 0.8, size.height);
     path.quadraticBezierTo(
-        size.width, size.height, size.width, size.height * 0.8);
+      size.width,
+      size.height,
+      size.width,
+      size.height * 0.8,
+    );
     path.lineTo(size.width, 0);
     path.close();
 

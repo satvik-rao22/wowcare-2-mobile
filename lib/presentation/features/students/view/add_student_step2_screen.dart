@@ -67,7 +67,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _relationOtherController = TextEditingController();
+  final TextEditingController _relationOtherController =
+      TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
@@ -106,7 +107,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
 
   bool get _showRelationOther => _selectedRelation == 'Other';
   bool get _isEditMode =>
-      widget.editGuardianCode != null && widget.editGuardianCode!.trim().isNotEmpty;
+      widget.editGuardianCode != null &&
+      widget.editGuardianCode!.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -115,7 +117,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         serviceLocator<GetGuardianNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
     _selectFromExisting = widget.initialSelectFromExisting;
-    _selectedExistingParents = List<String>.from(widget.initialSelectedExistingParents);
+    _selectedExistingParents = List<String>.from(
+      widget.initialSelectedExistingParents,
+    );
     if (widget.initialFirstName != null) {
       _firstNameController.text = widget.initialFirstName!.trim();
     }
@@ -126,7 +130,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       _emailController.text = widget.initialEmail!.trim();
     }
     if (widget.initialPhoneNumber != null) {
-      _phoneController.text = _formatPhoneNumber(widget.initialPhoneNumber!.trim());
+      _phoneController.text = _formatPhoneNumber(
+        widget.initialPhoneNumber!.trim(),
+      );
     }
     _selectedRelation = widget.initialRelation;
     if (widget.initialRelationOther != null) {
@@ -215,11 +221,16 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     }
 
     final hasAt = trimmed.contains('@');
-    final hasDot = trimmed.contains('.') && trimmed.lastIndexOf('.') > trimmed.indexOf('@');
+    final hasDot =
+        trimmed.contains('.') &&
+        trimmed.lastIndexOf('.') > trimmed.indexOf('@');
     final strictMatch = _emailRegexStrict.hasMatch(trimmed);
     final permissiveMatch = _emailRegexPermissive.hasMatch(trimmed);
-    final matches = strictMatch || permissiveMatch || (hasAt && hasDot && trimmed.length >= 6);
-    
+    final matches =
+        strictMatch ||
+        permissiveMatch ||
+        (hasAt && hasDot && trimmed.length >= 6);
+
     if (!matches) {
       return 'Please enter a valid email address';
     }
@@ -248,13 +259,15 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   }) async {
     final repo = serviceLocator<StudentRepository>();
     // Map display names back to guardian codes.
-    final nameCodeMap =
-        await repo.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
+    final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
+      schoolCode: schoolCode,
+    );
 
     final relationLabel = (_selectedRelation ?? '').trim();
     final relationOther = _relationOtherController.text.trim();
     final relationEnum = relationLabel.toUpperCase().replaceAll(' ', '_');
-    final relationDescription = relationLabel == 'Other' && relationOther.isNotEmpty
+    final relationDescription =
+        relationLabel == 'Other' && relationOther.isNotEmpty
         ? relationOther
         : null;
 
@@ -285,8 +298,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
-      final names =
-          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      final names = await _getGuardianNamesForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
       if (!mounted) return;
 
       setState(() {
@@ -453,7 +467,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           } else {
             final orgCode =
                 await _storageService.getString(StorageKeys.organizationCode) ??
-                    '';
+                '';
             final loggedInUserCode =
                 await _storageService.getString(StorageKeys.userCode) ?? '';
             if (orgCode.trim().isEmpty) {
@@ -517,8 +531,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 relationToStudent: relationToStudent,
                 primaryContact: primaryContact,
                 legalCustody: legalCustody,
-                userCode:
-                    loggedInUserCode.trim().isEmpty ? null : loggedInUserCode.trim(),
+                userCode: loggedInUserCode.trim().isEmpty
+                    ? null
+                    : loggedInUserCode.trim(),
                 organizationCode: orgCode.trim(),
               );
             }
@@ -550,12 +565,18 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final step2Data = {
       'selectFromExisting': _selectFromExisting,
       'selectedExistingParents': _selectedExistingParents,
-      'firstName': _selectFromExisting ? null : _firstNameController.text.trim(),
+      'firstName': _selectFromExisting
+          ? null
+          : _firstNameController.text.trim(),
       'lastName': _selectFromExisting ? null : _lastNameController.text.trim(),
-      'email': _selectFromExisting ? null : _emailController.text.trim().toLowerCase(),
+      'email': _selectFromExisting
+          ? null
+          : _emailController.text.trim().toLowerCase(),
       'phoneNumber': _selectFromExisting ? null : _phoneController.text.trim(),
       'relation': _selectedRelation,
-      'relationOther': _showRelationOther ? _relationOtherController.text.trim() : null,
+      'relationOther': _showRelationOther
+          ? _relationOtherController.text.trim()
+          : null,
       'isEmergencyContact': _isEmergencyContact,
       'isChildCustody': _isChildCustody,
       'profilePhoto': _profilePhoto,
@@ -593,7 +614,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               children: [
                 const SizedBox(height: 16),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: responsive.horizontalSpacing,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -611,7 +634,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 Expanded(
                   child: Container(
                     width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                    margin: EdgeInsets.symmetric(
+                      horizontal: responsive.horizontalSpacing,
+                    ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -637,7 +662,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                               // the same prefilled form UI as Add Step 2.
                               if (!_isEditMode) ...[
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Select from existing',
@@ -687,7 +713,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         });
                                       },
                                     ),
-                                    SizedBox(height: responsive.verticalSpacing),
+                                    SizedBox(
+                                      height: responsive.verticalSpacing,
+                                    ),
                                     CustomDropdown(
                                       label: "Relation",
                                       hintText: 'Select',
@@ -700,8 +728,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         color: const Color(0xff573353),
                                       ),
                                       showAsterisk: true,
-                                      labelBottomSpacing:
-                                          responsive.isTablet ? 8.0 : 6.0,
+                                      labelBottomSpacing: responsive.isTablet
+                                          ? 8.0
+                                          : 6.0,
                                       onSelect: (val) {
                                         setState(() {
                                           _selectedRelation = val;
@@ -709,7 +738,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       },
                                     ),
                                     if (_showRelationOther) ...[
-                                      SizedBox(height: responsive.verticalSpacing),
+                                      SizedBox(
+                                        height: responsive.verticalSpacing,
+                                      ),
                                       _buildInputField(
                                         "Specify Relation",
                                         "E.g. Grandmother",
@@ -764,7 +795,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                     color: const Color(0xff573353),
                                   ),
                                   showAsterisk: true,
-                                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                                  labelBottomSpacing: responsive.isTablet
+                                      ? 8.0
+                                      : 6.0,
                                   onSelect: (val) {
                                     setState(() {
                                       _selectedRelation = val;
@@ -778,7 +811,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                     "E.g. Grandmother",
                                     _relationOtherController,
                                     inputFormatters: [
-                                      FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r"[A-Za-z\s\-']"),
+                                      ),
                                       LengthLimitingTextInputFormatter(50),
                                       NameCapitalizationFormatter(),
                                       TrimFormatter(),
@@ -788,7 +823,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                 SizedBox(height: responsive.verticalSpacing),
                                 // Emergency Contact toggle
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Emergency Contact',
@@ -813,7 +849,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                 SizedBox(height: responsive.verticalSpacing),
                                 // Child Custody toggle
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Child Custody',
@@ -943,7 +980,10 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -953,7 +993,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -1008,10 +1050,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             child: _profilePhoto != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _profilePhoto!,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1068,9 +1107,11 @@ class PhoneNumberFormatter extends TextInputFormatter {
     } else if (charCount <= 3) {
       formattedText = '($digitsOnly';
     } else if (charCount <= 6) {
-      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
+      formattedText =
+          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
     } else {
-      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+      formattedText =
+          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
     }
 
     return TextEditingValue(
@@ -1089,7 +1130,10 @@ class NameCapitalizationFormatter extends TextInputFormatter {
     String text = newValue.text;
 
     // Remove trailing spaces
-    text = text.replaceFirst(RegExp(r"\s+"), ' '); // collapse multiple spaces inside
+    text = text.replaceFirst(
+      RegExp(r"\s+"),
+      ' ',
+    ); // collapse multiple spaces inside
     text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
     text = text.replaceAll(RegExp(r"\s+\z"), '');
 
@@ -1125,4 +1169,3 @@ class TrimFormatter extends TextInputFormatter {
     );
   }
 }
-

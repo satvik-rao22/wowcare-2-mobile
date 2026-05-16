@@ -43,19 +43,21 @@ abstract class AvailabilityRemoteDataSource {
     String? comment,
   });
 
-  Future<String> deleteIndividualMovement({
-    required int id,
-  });
+  Future<String> deleteIndividualMovement({required int id});
 
-  Future<IndividualMovementModel> getIndividualMovementById({
-    required int id,
-  });
+  Future<IndividualMovementModel> getIndividualMovementById({required int id});
 
   Future<FutureAvailabilityGridModel> getFutureAvailability({
     required String schoolCode,
     required DateTime startDate,
     required DateTime endDate,
     required String shift,
+  });
+
+  Future<void> recomputeFutureAvailability({
+    required String schoolCode,
+    required DateTime startDate,
+    required DateTime endDate,
   });
 }
 
@@ -74,19 +76,20 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     DateTime? dateTo,
     List<String>? status,
   }) async {
-    final queryParameters = <String, dynamic>{
-      'schoolCode': schoolCode,
-    };
+    final queryParameters = <String, dynamic>{'schoolCode': schoolCode};
 
     final cleanedStudentCodes = _cleanList(studentCodes);
     final cleanedFromClassroomCodes = _cleanList(fromClassroomCodes);
     final cleanedToClassroomCodes = _cleanList(toClassroomCodes);
-    final cleanedStatus = _cleanList(status)?.map((e) => e.toUpperCase()).toList();
+    final cleanedStatus = _cleanList(
+      status,
+    )?.map((e) => e.toUpperCase()).toList();
 
     if (cleanedStudentCodes != null && cleanedStudentCodes.isNotEmpty) {
       queryParameters['studentCodes'] = cleanedStudentCodes;
     }
-    if (cleanedFromClassroomCodes != null && cleanedFromClassroomCodes.isNotEmpty) {
+    if (cleanedFromClassroomCodes != null &&
+        cleanedFromClassroomCodes.isNotEmpty) {
       queryParameters['fromClassroomCodes'] = cleanedFromClassroomCodes;
     }
     if (cleanedToClassroomCodes != null && cleanedToClassroomCodes.isNotEmpty) {
@@ -116,7 +119,9 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       throw Exception('Unexpected individual movements API response format');
     }
 
-    return IndividualMovementBoardModel.fromJson(response.data! as Map<String, dynamic>);
+    return IndividualMovementBoardModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 
   @override
@@ -134,16 +139,16 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     final requestBody = <String, dynamic>{
       'status': status.trim().toUpperCase(),
       if (comment != null) 'comment': comment,
-      if (newMovementDate != null) 'newMovementDate': _formatDateOnly(newMovementDate),
+      if (newMovementDate != null)
+        'newMovementDate': _formatDateOnly(newMovementDate),
     };
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: requestBody,
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: requestBody);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected movement status transition API response format');
+      throw Exception(
+        'Unexpected movement status transition API response format',
+      );
     }
 
     final payload = response.data! as Map<String, dynamic>;
@@ -179,13 +184,12 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       'comment': comment ?? '',
     };
 
-    final response = await _client.post<dynamic>(
-      endpoint,
-      data: requestBody,
-    );
+    final response = await _client.post<dynamic>(endpoint, data: requestBody);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected create individual movement API response format');
+      throw Exception(
+        'Unexpected create individual movement API response format',
+      );
     }
 
     final payload = response.data! as Map<String, dynamic>;
@@ -216,13 +220,12 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       'comment': comment ?? '',
     };
 
-    final response = await _client.put<dynamic>(
-      endpoint,
-      data: requestBody,
-    );
+    final response = await _client.put<dynamic>(endpoint, data: requestBody);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected update individual movement API response format');
+      throw Exception(
+        'Unexpected update individual movement API response format',
+      );
     }
 
     final payload = response.data! as Map<String, dynamic>;
@@ -256,9 +259,7 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
   }
 
   @override
-  Future<String> deleteIndividualMovement({
-    required int id,
-  }) async {
+  Future<String> deleteIndividualMovement({required int id}) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.individualMovementById(id),
       ApiConstants.classroomBaseUrl,
@@ -267,7 +268,9 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     final response = await _client.delete<dynamic>(endpoint);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected delete individual movement API response format');
+      throw Exception(
+        'Unexpected delete individual movement API response format',
+      );
     }
 
     final payload = response.data! as Map<String, dynamic>;
@@ -304,7 +307,47 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       throw Exception('Unexpected future availability API response format');
     }
 
-    return FutureAvailabilityGridModel.fromJson(response.data! as Map<String, dynamic>);
+    return FutureAvailabilityGridModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<void> recomputeFutureAvailability({
+    required String schoolCode,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.futureAvailabilityRecompute,
+      ApiConstants.classroomBaseUrl,
+    );
+
+    final queryParameters = <String, dynamic>{
+      'schoolCode': schoolCode,
+      'startDate': _formatDateOnly(startDate),
+      'endDate': _formatDateOnly(endDate),
+    };
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected future availability recompute API response format',
+      );
+    }
+
+    final payload = response.data! as Map<String, dynamic>;
+    final success = payload['success'];
+    if (success is bool && success == false) {
+      final msg = payload['message']?.toString().trim();
+      throw Exception(
+        msg?.isNotEmpty == true ? msg : 'Future availability recompute failed',
+      );
+    }
   }
 }
 

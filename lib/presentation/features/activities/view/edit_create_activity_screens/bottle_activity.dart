@@ -28,12 +28,12 @@ import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
 import '../utils/activity_attendance_window_validator.dart';
+
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class BottleActivityScreen extends StatefulWidget {
@@ -57,13 +57,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -71,7 +71,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
 
-  final GlobalKey<OunceInputWidgetState> _ounceFiledKey = GlobalKey<OunceInputWidgetState>();
+  final GlobalKey<OunceInputWidgetState> _ounceFiledKey =
+      GlobalKey<OunceInputWidgetState>();
   //double? _ounceAmount;
 
   DateTime? _activityDate;
@@ -92,6 +93,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
+
   /// Staff label from activity parameters (API may set [ActivityItem.createdBy] to "system").
   String? _staffPresentLabelForEdit;
 
@@ -103,8 +105,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   late final ApproveActivityUseCase _approveActivityUseCase;
   late final RejectActivityUseCase _rejectActivityUseCase;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -139,15 +140,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     return null;
   }
 
-  static String? _staffCodeFromParameterRows(
-    List<Map<String, dynamic>> rows,
-  ) {
+  static String? _staffCodeFromParameterRows(List<Map<String, dynamic>> rows) {
     for (final p in rows) {
       final pn = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (pn != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -168,9 +168,11 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
-      _selectedStudents =
-          _selectedStudentsData.map((student) => student['name'] as String).toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _selectedStudents = _selectedStudentsData
+          .map((student) => student['name'] as String)
+          .toList();
+      _activityDate =
+          resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -179,8 +181,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
-      _amountController.text =
-          _ounceFieldTextFromAmountRaw(activity.amountConsumed);
+      _amountController.text = _ounceFieldTextFromAmountRaw(
+        activity.amountConsumed,
+      );
       _activityTypeCode = activity.activityTypeCode;
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -289,10 +292,10 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text = item.description ?? '';
-        _amountController.text =
-            _ounceFieldTextFromAmountRaw(item.amountConsumed);
-        var staffLabel =
-            _staffDisplayFromParameterRows(detail.parameterValues);
+        _amountController.text = _ounceFieldTextFromAmountRaw(
+          item.amountConsumed,
+        );
+        var staffLabel = _staffDisplayFromParameterRows(detail.parameterValues);
         if (staffLabel == null || staffLabel.isEmpty) {
           final cb = detail.createdBy.trim();
           if (cb.isNotEmpty && cb.toLowerCase() != 'system') {
@@ -324,9 +327,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
-      _selectedStudentsData.removeWhere(
-        (m) => (m['name'] as String?) == name,
-      );
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -343,10 +344,10 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -359,10 +360,11 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -373,13 +375,15 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? bottleSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -410,14 +414,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final ounceState = _ounceFiledKey.currentState;
     final amountOz = ounceState?.validValue;
@@ -458,10 +462,12 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -536,8 +542,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     try {
       // Build parameterValues in backend-required shape:
       // [{ "parameterCode": "...", "value": ... }, ...]
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -552,7 +559,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       final timeParamCode = findParamCode('time');
       final staffParamCode = findParamCode('staff');
       final descParamCode = findParamCode('description');
-      final amountParamCode = findParamCode('amount') ??
+      final amountParamCode =
+          findParamCode('amount') ??
           findParamCode('ounce') ??
           findParamCode('oz') ??
           findParamCode('consumed');
@@ -604,9 +612,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -638,14 +644,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final ounceState = _ounceFiledKey.currentState;
     final amountOz = ounceState?.validValue;
@@ -686,10 +692,12 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -752,8 +760,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -768,7 +777,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       final timeParamCode = findParamCode('time');
       final staffParamCode = findParamCode('staff');
       final descParamCode = findParamCode('description');
-      final amountParamCode = findParamCode('amount') ??
+      final amountParamCode =
+          findParamCode('amount') ??
           findParamCode('ounce') ??
           findParamCode('oz') ??
           findParamCode('consumed');
@@ -799,10 +809,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
 
       final remainingNorm = imageDeliveryUrlsFromAttachmentRows(
         _detailAttachmentRows,
-      )
-          .map(normalizeActivityDeliveryUrl)
-          .where((e) => e.isNotEmpty)
-          .toSet();
+      ).map(normalizeActivityDeliveryUrl).where((e) => e.isNotEmpty).toSet();
       final legacyPhoto = _effectiveActivity.photoUrl?.trim();
       if (legacyPhoto != null && legacyPhoto.isNotEmpty) {
         final n = normalizeActivityDeliveryUrl(legacyPhoto);
@@ -816,8 +823,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
-      final patchAttachments =
-          attachmentsForActivityPatchRequest(mergedRows);
+      final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: _selectedStudentsData,
@@ -825,8 +831,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -867,9 +873,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (e) {
       if (!mounted) return;
@@ -905,7 +909,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10,),
+            const SizedBox(height: 10),
             if (_layoutAsEdit &&
                 !(widget.isEdit &&
                     !widget.readOnly &&
@@ -947,7 +951,9 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+            if (widget.isEdit &&
+                !widget.readOnly &&
+                _selectedStudents.length > 1) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -961,7 +967,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                 ),
               ),
             ],
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             Row(
               children: [
                 Flexible(
@@ -975,11 +981,13 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
+                          initialDate: formatSelectedDateForDateWidget(
+                            _activityDate,
+                          ),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
-                const SizedBox(width: 10,),
+                const SizedBox(width: 10),
                 Flexible(
                   child: _layoutAsEdit
                       ? TimeWidget(
@@ -996,7 +1004,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                 ),
               ],
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
               OunceInputWidget(
                 key: _ounceFiledKey,
@@ -1015,11 +1023,10 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                 min: 0.5,
                 max: 20.0,
               ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
+                final isAdminPersona = _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
@@ -1029,14 +1036,14 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                     staffLabelFromParameters: _layoutAsEdit
                         ? (((_staffPresentCode ?? '').trim().isNotEmpty)
                               ? _staffPresentCode
-                              : (((_staffPresentLabelForEdit ?? '').trim().isNotEmpty)
+                              : (((_staffPresentLabelForEdit ?? '')
+                                        .trim()
+                                        .isNotEmpty)
                                     ? _staffPresentLabelForEdit
                                     : _effectiveActivity.staffPresent))
                         : null,
                   ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
+                  isEditable: lockToLoggedInStaff ? false : _canInteract,
                   onStaffChanged: (_, selectedCode) {
                     _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
                         ? selectedCode!.trim()
@@ -1045,7 +1052,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                 );
               },
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               height: 100,
@@ -1054,8 +1061,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
             if (_showRequireAdminApprovalToggle)
               CustomToggle(
                 label: 'Requires Admin Approval',
@@ -1067,7 +1073,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                   });
                 },
               ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
           ],
         ),
       ),
@@ -1081,7 +1087,8 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _loadingActivityDetail,
                       onApprove: _approvePendingActivity,
@@ -1089,14 +1096,15 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -1104,6 +1112,3 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     );
   }
 }
-
-
-

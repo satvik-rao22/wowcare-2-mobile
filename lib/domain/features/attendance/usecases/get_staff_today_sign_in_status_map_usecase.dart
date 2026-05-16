@@ -10,4 +10,3 @@ class GetStaffTodaySignInStatusMapUseCase {
     return _repository.getStaffTodaySignInStatusMap(staffCodes);
   }
 }
-

@@ -87,8 +87,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
 
   Future<bool> _resolveIsStaffAdminPersona() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
 
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       return true;
@@ -132,8 +133,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     if (markerStaffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -147,8 +147,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     if (targetStaffCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -159,11 +158,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
     final isStaffAdmin =
         _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
     if (!isStaffAdmin &&
-        (targetStaffCodes.length != 1 || targetStaffCodes.first != markerStaffCode)) {
+        (targetStaffCodes.length != 1 ||
+            targetStaffCodes.first != markerStaffCode)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Teachers can only mark absent for themselves.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -211,8 +210,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(
             message.isNotEmpty ? message : 'Marked Absent successfully',
           ),
@@ -223,9 +221,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
           _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
       if (isAdmin) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const StaffAttendanceTabbedView(),
-          ),
+          MaterialPageRoute(builder: (_) => const StaffAttendanceTabbedView()),
           (route) => false,
         );
       } else {
@@ -235,8 +231,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(ApiErrorHandler.extractErrorMessage(e)),
           backgroundColor: AppColors.warningColor,
         ),
@@ -355,10 +350,19 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                           setState(() {
                             final iana = _schoolIana;
                             final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
-                            final picked = DateTime(date.year, date.month, date.day);
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final picked = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
                             startDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
@@ -387,10 +391,19 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                           setState(() {
                             final iana = _schoolIana;
                             final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
-                            final picked = DateTime(date.year, date.month, date.day);
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final picked = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
                             endDate = picked.isAfter(today) ? today : picked;
                             if (endDate.isBefore(startDate)) {
                               endDate = startDate;
@@ -452,17 +465,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 1,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 1),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 2,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
                   filled: true,
                   fillColor: AppColors.cardColor,
@@ -481,7 +488,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       ),
     );
   }
-
 }
 
 class RemoveStaffTile extends StatelessWidget {
@@ -499,14 +505,9 @@ class RemoveStaffTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -549,4 +550,3 @@ class RemoveStaffTile extends StatelessWidget {
     );
   }
 }
-

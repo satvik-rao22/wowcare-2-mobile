@@ -44,6 +44,14 @@ class DocumentImageWidget extends StatefulWidget {
   /// (E.g. sign-in selection screens want to highlight absences only.)
   final bool showOnlyAbsentAttendanceDot;
 
+  /// If true, widget does not call profile/asset-code endpoints as a fallback
+  /// when both [imageUrl] and [mediaAssetCode] are empty.
+  final bool disableProfileLookupFallback;
+
+  /// If true, widget will NOT call attendance APIs for status dot.
+  /// You can provide [statusColor] + [statusTooltip] instead (e.g. from a cached map).
+  final bool disableAttendanceStatusLookup;
+
   const DocumentImageWidget({
     Key? key,
     required this.fileUuid,
@@ -65,6 +73,8 @@ class DocumentImageWidget extends StatefulWidget {
     this.statusColor,
     this.statusTooltip,
     this.showOnlyAbsentAttendanceDot = false,
+    this.disableProfileLookupFallback = false,
+    this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
 
   static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
@@ -195,6 +205,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return;
     }
 
+    if (widget.disableProfileLookupFallback && mediaAssetCode.isEmpty) {
+      return;
+    }
+
     final cacheKey = mediaAssetCode.isNotEmpty
         ? 'asset:$mediaAssetCode'
         : (studentCode.isNotEmpty
@@ -245,8 +259,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }) async {
     final apiClient = serviceLocator<ApiClient>();
     if (mediaAssetCode.isNotEmpty) {
+      // Try document service first (when caller provides an asset code),
+      // but fall back to profile endpoints if the document lookup fails.
       final documentUrl = await _fetchDocumentAssetUrl(mediaAssetCode);
-      return documentUrl.isEmpty ? null : documentUrl;
+      if (documentUrl.isNotEmpty) return documentUrl;
     }
     if (studentCode.isNotEmpty) {
       final endpoint = ApiPaths.urlWithBase(
@@ -464,6 +480,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
+    // Employment / enrollment "upcoming" must apply even when attendance API
+    // lookups are disabled (e.g. classroom roster rows pass today's status via
+    // [statusColor] and set [disableAttendanceStatusLookup] to avoid N+1 calls).
     final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
     if (employment == 'UPCOMING') {
       if (!mounted) return;
@@ -481,6 +500,15 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       setState(() {
         _statusDotColor = AppColors.mustardProgressBar;
         _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
+    if (widget.disableAttendanceStatusLookup) {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = null;
+        _statusLabel = null;
       });
       return;
     }

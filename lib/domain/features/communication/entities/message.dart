@@ -52,20 +52,20 @@ class Message extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        text,
-        isSentByMe,
-        time,
-        deliveredAt,
-        readAt,
-        deliveredTo,
-        readBy,
-        reactions,
-        quotedMessageId,
-        attachments,
-        senderName,
-        receivers,
-      ];
+    id,
+    text,
+    isSentByMe,
+    time,
+    deliveredAt,
+    readAt,
+    deliveredTo,
+    readBy,
+    reactions,
+    quotedMessageId,
+    attachments,
+    senderName,
+    receivers,
+  ];
 }
 
 class RecipientStatus extends Equatable {
@@ -73,11 +73,7 @@ class RecipientStatus extends Equatable {
   final String? userId;
   final DateTime? timestamp;
 
-  const RecipientStatus({
-    required this.name,
-    this.userId,
-    this.timestamp,
-  });
+  const RecipientStatus({required this.name, this.userId, this.timestamp});
 
   @override
   List<Object?> get props => [name, userId, timestamp];
@@ -102,8 +98,16 @@ class ChatAttachment extends Equatable {
 
   bool get isImage => type == 'image' || mimeType.startsWith('image/');
 
-  String? get displaySource => localPath ?? (remoteUrl.isNotEmpty ? remoteUrl : null);
+  String? get displaySource =>
+      localPath ?? (remoteUrl.isNotEmpty ? remoteUrl : null);
 
   @override
-  List<Object?> get props => [name, type, sizeBytes, mimeType, remoteUrl, localPath];
+  List<Object?> get props => [
+    name,
+    type,
+    sizeBytes,
+    mimeType,
+    remoteUrl,
+    localPath,
+  ];
 }

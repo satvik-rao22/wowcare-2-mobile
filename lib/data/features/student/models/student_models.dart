@@ -7,6 +7,7 @@ class StudentListItemModel extends Equatable {
     required this.lastName,
     required this.status,
     this.profilePhotoUrl,
+    this.profilePhotoAssetCode,
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
@@ -20,13 +21,16 @@ class StudentListItemModel extends Equatable {
   final String lastName;
   final String status;
   final String? profilePhotoUrl;
+  final String? profilePhotoAssetCode;
   final String classroom;
   final String dob;
   final String movementDate;
   final List<String> tags;
+
   /// Convenience list of abbreviated weekdays derived from `regularSchedules`,
   /// e.g. ["Mon", "Tue"]. Used by UI schedule chips.
   final List<String> schedule;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
   final Map<String, String> scheduleByDay;
 
@@ -38,8 +42,11 @@ class StudentListItemModel extends Equatable {
     if (classroomRaw is String) {
       classroomCodeOrName = classroomRaw;
     } else if (classroomRaw is Map) {
+      final name = classroomRaw['name']?.toString().trim() ?? '';
       final code = classroomRaw['code'];
-      classroomCodeOrName = code?.toString().trim() ?? '';
+      classroomCodeOrName = name.isNotEmpty
+          ? name
+          : (code?.toString().trim() ?? '');
     }
 
     final rawTags = json['tags'];
@@ -138,6 +145,7 @@ class StudentListItemModel extends Equatable {
       lastName: json['lastName'] as String? ?? '',
       status: json['status'] as String? ?? '',
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
+      profilePhotoAssetCode: json['profilePhotoAssetCode'] as String?,
       classroom: classroomCodeOrName,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
@@ -154,6 +162,8 @@ class StudentListItemModel extends Equatable {
       'lastName': lastName,
       'status': status,
       if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
+      if (profilePhotoAssetCode != null)
+        'profilePhotoAssetCode': profilePhotoAssetCode,
       'classroom': classroom,
       'dob': dob,
       'movementDate': movementDate,
@@ -165,17 +175,18 @@ class StudentListItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        firstName,
-        lastName,
-        status,
-        profilePhotoUrl,
-        classroom,
-        dob,
-        movementDate,
-        tags,
-        schedule,
-      ];
+    code,
+    firstName,
+    lastName,
+    status,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+    classroom,
+    dob,
+    movementDate,
+    tags,
+    schedule,
+  ];
 }
 
 class StudentPageModel extends Equatable {
@@ -196,8 +207,14 @@ class StudentPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StudentPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
@@ -290,12 +307,12 @@ class StudentImportantDatesModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        enrollDate,
-        schoolStartDate,
-        currentClassroomStartDate,
-        upcomingMoveDate,
-        schoolLeavingDate,
-      ];
+    enrollDate,
+    schoolStartDate,
+    currentClassroomStartDate,
+    upcomingMoveDate,
+    schoolLeavingDate,
+  ];
 }
 
 class StudentHealthModel extends Equatable {
@@ -349,11 +366,11 @@ class StudentHealthModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        allergy,
-        medications,
-        dietRestrictions,
-        photoPermission,
-      ];
+    allergy,
+    medications,
+    dietRestrictions,
+    photoPermission,
+  ];
 }
 
 class StudentPhysicalExamModel extends Equatable {
@@ -365,8 +382,10 @@ class StudentPhysicalExamModel extends Equatable {
   });
 
   final String code;
+
   /// ISO date string `YYYY-MM-DD` (per backend contract).
   final String? examDate;
+
   /// e.g. `COMPLETED`, `DUE`.
   final String? status;
   final String? notes;
@@ -450,17 +469,17 @@ class StudentImmunizationModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        vaccineName,
-        vaccineDoseCode,
-        doseNumber,
-        dueDate,
-        administeredDate,
-        status,
-        exemptionReason,
-        notes,
-      ];
+    code,
+    studentCode,
+    vaccineName,
+    vaccineDoseCode,
+    doseNumber,
+    dueDate,
+    administeredDate,
+    status,
+    exemptionReason,
+    notes,
+  ];
 }
 
 class StudentGuardianModel extends Equatable {
@@ -522,17 +541,17 @@ class StudentGuardianModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        guardianCode,
-        userCode,
-        firstName,
-        lastName,
-        mobile,
-        email,
-        clockPin,
-        relationToStudent,
-        primaryContact,
-        legalCustody,
-      ];
+    guardianCode,
+    userCode,
+    firstName,
+    lastName,
+    mobile,
+    email,
+    clockPin,
+    relationToStudent,
+    primaryContact,
+    legalCustody,
+  ];
 }
 
 class StudentProfileModel extends Equatable {
@@ -571,6 +590,7 @@ class StudentProfileModel extends Equatable {
   final List<dynamic> legalCustodians;
   final bool subsidy;
   final Map<String, dynamic>? address;
+
   /// Raw tags array from profile API. Each item is typically a map with
   /// { code, name, defaultTag }.
   final List<dynamic> tags;
@@ -581,7 +601,10 @@ class StudentProfileModel extends Equatable {
   String get fullName => '$firstName $lastName'.trim();
 
   factory StudentProfileModel.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
+    // Accept both the wire envelope `{success, message, data: {...}}` and the
+    // flat shape produced by [toJson] (used when re-hydrating from cache).
+    final rawData = json['data'];
+    final data = rawData is Map<String, dynamic> ? rawData : json;
     final importantDatesJson = data['importantDates'] as Map<String, dynamic>?;
 
     // Classroom can come as a plain string or as an object { code, name }.
@@ -644,24 +667,23 @@ class StudentProfileModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        schoolCode,
-        firstName,
-        lastName,
-        status,
-        classroom,
-        dob,
-        notes,
-        profilePhotoUrl,
-        fte,
-        gender,
-        legalCustodians,
-        subsidy,
-        address,
-        tags,
-        siblings,
-        importantDates,
-        regularSchedules,
-      ];
+    code,
+    schoolCode,
+    firstName,
+    lastName,
+    status,
+    classroom,
+    dob,
+    notes,
+    profilePhotoUrl,
+    fte,
+    gender,
+    legalCustodians,
+    subsidy,
+    address,
+    tags,
+    siblings,
+    importantDates,
+    regularSchedules,
+  ];
 }
-

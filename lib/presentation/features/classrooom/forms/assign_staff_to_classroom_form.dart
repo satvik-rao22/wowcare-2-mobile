@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -12,9 +11,14 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/data/features/staff_classroom/models/staff_classroom_models.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -23,7 +27,9 @@ import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to
 // import 'package:wowcare/core/util/string_utils.dart'; // UI-only
 // import 'package:wowcare/core/util/typedefs.dart'; // UI-only
 // import 'package:wowcare/features/...'; // UI-only
-import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
 class RoomDTO {
   final String code;
@@ -36,14 +42,16 @@ class Staff {
   final String code;
   final String name;
   final String designation;
-  final String photoUuid;
+  final String? profileImageUrl;
+  final String? profilePhotoAssetCode;
   final List<RoomDTO> rooms;
   const Staff({
     required this.id,
     required this.code,
     required this.name,
     required this.designation,
-    this.photoUuid = '',
+    this.profileImageUrl,
+    this.profilePhotoAssetCode,
     this.rooms = const [],
   });
 }
@@ -67,8 +75,6 @@ class AssignStaffToClassroomForm extends StatefulWidget {
 
 class _AssignStaffToClassroomFormState
     extends State<AssignStaffToClassroomForm> {
-  static const int _pageSize = 100;
-
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
   List<String> _selectedDesignations = [];
@@ -80,6 +86,7 @@ class _AssignStaffToClassroomFormState
   String? _staffsError;
   Set<Staff> selectedStaffs = {};
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -90,9 +97,61 @@ class _AssignStaffToClassroomFormState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Staff roster for this screen only.
+  ///
+  /// This screen uses a dedicated endpoint instead of the shared
+  /// `GetStaffClassroomsUseCase`. The URL is resolved through [ApiPaths] so it
+  /// follows the active environment (LOCAL devtunnel or UAT host).
+  Future<List<StaffClassroomItem>> _fetchManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffClassroomsManageStaffList,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final dio = serviceLocator<ApiClient>().client;
+    final response = await dio.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'excludeClassroomCode': excludeClassroomCode,
+        'status': const ['ACTIVE'],
+      },
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected manage-staff-list API response format');
+    }
+
+    final data = body['data'] as List<dynamic>? ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StaffClassroomItemModel.fromJson)
+        .map(
+          (m) => StaffClassroomItem(
+            classroomCode: m.classroomCode,
+            staffCode: m.staffCode,
+            firstName: m.firstName,
+            lastName: m.lastName,
+            profilePictureUrl: m.profilePictureUrl,
+            status: m.status,
+            designation: m.designation,
+            expectedToday: m.expectedToday,
+            signedIn: m.signedIn,
+            absent: m.absent,
+            notMarked: m.notMarked,
+          ),
+        )
+        .toList();
   }
 
   Future<void> _loadStaffsFromApi() async {
@@ -104,10 +163,13 @@ class _AssignStaffToClassroomFormState
     try {
       final storage = serviceLocator<StorageService>();
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      final organizationCode =
-          await storage.getString(StorageKeys.organizationCode) ?? '';
-      if (schoolCode.trim().isEmpty || organizationCode.trim().isEmpty) {
-        throw 'Missing school/organization code. Please sign in again.';
+      if (schoolCode.trim().isEmpty) {
+        throw 'Missing school code. Please sign in again.';
+      }
+
+      final excludeClassroomCode = widget.classroomCode.trim();
+      if (excludeClassroomCode.isEmpty) {
+        throw 'Missing classroom code.';
       }
 
       final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
@@ -119,61 +181,54 @@ class _AssignStaffToClassroomFormState
         for (final c in classrooms) c.code: c.name,
       };
 
-      final getStaffPageUseCase = serviceLocator<GetStaffPageUseCase>();
+      final roster = await _fetchManageStaffList(
+        schoolCode: schoolCode,
+        excludeClassroomCode: excludeClassroomCode,
+      );
+
+      final byStaffCode = <String, StaffClassroomItem>{};
+      for (final item in roster) {
+        final code = item.staffCode.trim();
+        if (code.isEmpty) continue;
+        byStaffCode[code] = item;
+      }
+
+      final rows = byStaffCode.values.toList()
+        ..sort((a, b) => a.fullName.compareTo(b.fullName));
+
       final fetchedStaffs = <Staff>[];
       final uniqueRoomNames = <String>{};
       final uniqueDesignations = <String>{};
-
-      int page = 0;
-      bool hasMore = true;
-      while (hasMore) {
-        final staffPage = await getStaffPageUseCase(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          page: page,
-          size: _pageSize,
-          status: 'ACTIVE',
-        );
-
-        for (final s in staffPage.items) {
-          final roomCodes = <String>{
-            if (s.primaryClassroomCode.trim().isNotEmpty)
-              s.primaryClassroomCode.trim(),
-            ...s.allowedClassroomCodes
-                .where((code) => code.trim().isNotEmpty)
-                .map((code) => code.trim()),
-          };
-          final rooms = roomCodes
-              .map(
-                (code) => RoomDTO(
-                  code: code,
-                  name: classroomNameByCode[code] ?? code,
-                ),
-              )
-              .toList();
-
-          fetchedStaffs.add(
-            Staff(
-              id: fetchedStaffs.length + 1,
-              code: s.code,
-              name: s.name,
-              designation: s.designation,
-              photoUuid: '',
-              rooms: rooms,
-            ),
-          );
-          if (s.designation.trim().isNotEmpty) {
-            uniqueDesignations.add(s.designation.trim());
-          }
-          for (final r in rooms) {
-            if (r.name.trim().isNotEmpty) {
-              uniqueRoomNames.add(r.name.trim());
-            }
-          }
+      var id = 0;
+      for (final s in rows) {
+        final cc = s.classroomCode.trim();
+        final rooms = <RoomDTO>[];
+        if (cc.isNotEmpty) {
+          final name = classroomNameByCode[cc] ?? cc;
+          rooms.add(RoomDTO(code: cc, name: name));
+          if (name.trim().isNotEmpty) uniqueRoomNames.add(name.trim());
         }
 
-        hasMore = staffPage.hasMore;
-        page += 1;
+        final rawPhoto = (s.profilePictureUrl ?? '').trim();
+        final looksLikeUrl =
+            rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
+
+        fetchedStaffs.add(
+          Staff(
+            id: ++id,
+            code: s.staffCode,
+            name: s.fullName,
+            designation: s.designation,
+            profileImageUrl: looksLikeUrl ? rawPhoto : null,
+            profilePhotoAssetCode: (!looksLikeUrl && rawPhoto.isNotEmpty)
+                ? rawPhoto
+                : null,
+            rooms: rooms,
+          ),
+        );
+        if (s.designation.trim().isNotEmpty) {
+          uniqueDesignations.add(s.designation.trim());
+        }
       }
 
       if (!mounted) return;
@@ -204,20 +259,17 @@ class _AssignStaffToClassroomFormState
   }
 
   void _onSearchChanged() {
-    _filterStaffs();
+    // Debounce so the list filters once the user pauses typing.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _filterStaffs();
+    });
   }
 
   void _filterStaffs() {
     final allStaffs = _allStaffs;
     _filteredStaffs = allStaffs.where((staff) {
-      // Exclude staff who are already associated with the selected classroom
-      final excludeDueToSelectedClassroom = staff.rooms.any((room) {
-        final byCode = room.code.trim() == (widget.classroomCode.trim());
-        final byName = room.name.trim() == (widget.selectedRoomName.trim());
-        return byCode || byName;
-      });
-      if (excludeDueToSelectedClassroom) return false;
-
       bool matchesSearch = true;
       bool matchesRoom = true;
       bool matchesDesignation = true;
@@ -324,25 +376,20 @@ class _AssignStaffToClassroomFormState
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
+          SearchBar(
+            controller: _searchController,
+            constraints: const BoxConstraints(minHeight: 44),
+            hintText: 'Search Staffs',
+            hintStyle: WidgetStatePropertyAll(
+              TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Staffs',
-                hintStyle: TextStyle(
-                  fontFamily: 'Manrope',
-                  color: Colors.grey[700],
-                ),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
-              ),
+            backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
+            surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
+            elevation: const WidgetStatePropertyAll<double>(0),
+            side: const WidgetStatePropertyAll(
+              BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
             ),
+            leading: const Icon(Icons.search, color: Colors.grey),
           ),
           const SizedBox(height: 12),
           Row(
@@ -365,8 +412,9 @@ class _AssignStaffToClassroomFormState
               const SizedBox(width: 12),
               Expanded(
                 flex: 4,
-                child: CustomMultiSelectDropdownAssignStaff(
+                child: CustomMultiSelectDropdown(
                   hintText: 'Designations',
+                  showSelectAll: true,
                   items: _allDesignations,
                   selectedItems: _selectedDesignations,
                   onChanged: (selectedItems) {
@@ -396,7 +444,7 @@ class _AssignStaffToClassroomFormState
           const SizedBox(height: 12),
           Expanded(
             child: _isLoadingStaffs
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _staffsError != null
                 ? Center(
                     child: Column(
@@ -447,10 +495,10 @@ class _AssignStaffToClassroomFormState
             onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: () {
               if (selectedStaffs.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please select at least one staff member'),
-                  ),
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please select at least one staff member',
+                  isWarning: true,
                 );
                 return;
               } else {
@@ -578,10 +626,15 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                     ),
                     child: Row(
                       children: [
-                        StaffProfileImage(
-                          imageUrl: staff.photoUuid,
-                          staffId: staff.id,
+                        DocumentImageWidget(
+                          fileUuid: '',
+                          imageUrl: staff.profileImageUrl,
+                          mediaAssetCode: staff.profilePhotoAssetCode,
                           name: staff.name,
+                          staffCode: staff.code,
+                          size: 32,
+                          fontSize: 12,
+                          disableAttendanceStatusLookup: true,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -615,12 +668,10 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                 ? () {}
                 : () async {
                     if (currentSelectedStaffs.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please select at least one staff member',
-                          ),
-                        ),
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: 'Please select at least one staff member',
+                        isWarning: true,
                       );
                       return;
                     }
@@ -647,21 +698,23 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                           );
 
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            message.isEmpty ? 'Assigned successfully' : message,
-                          ),
-                        ),
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: message.isEmpty
+                            ? 'Assigned successfully'
+                            : message,
+                        isSuccess: true,
                       );
 
                       widget.onStaffsAssigned();
                       Navigator.pop(context);
                     } catch (e) {
                       if (!mounted) return;
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: e.toString(),
+                        isError: true,
+                      );
                     } finally {
                       if (mounted) setState(() => _isSubmitting = false);
                     }
@@ -711,10 +764,15 @@ class StaffListItem extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              StaffProfileImage(
-                imageUrl: staff.photoUuid,
-                staffId: staff.id,
+              DocumentImageWidget(
+                fileUuid: '',
+                imageUrl: staff.profileImageUrl,
+                mediaAssetCode: staff.profilePhotoAssetCode,
                 name: staff.name,
+                staffCode: staff.code,
+                size: 32,
+                fontSize: 12,
+                disableAttendanceStatusLookup: true,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -737,231 +795,5 @@ class StaffListItem extends StatelessWidget {
   }
 }
 
-class StaffProfileImage extends StatefulWidget {
-  final String imageUrl;
-  final int staffId;
-  final double radius;
-  final String? name;
-  final double? fontSize;
-
-  const StaffProfileImage({
-    Key? key,
-    required this.imageUrl,
-    required this.staffId,
-    this.fontSize,
-    this.name,
-    this.radius = 16,
-  }) : super(key: key);
-
-  @override
-  State<StaffProfileImage> createState() => _StaffProfileImageState();
-}
-
-class _StaffProfileImageState extends State<StaffProfileImage> {
-  // UI-only: remove backend image fetching; keep shimmer interface if needed
-  StreamSubscription? _subscription; // not used in UI-only
-  Uint8List? _currentImage;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImage();
-  }
-
-  @override
-  void didUpdateWidget(StaffProfileImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl ||
-        oldWidget.staffId != widget.staffId) {
-      _loadImage();
-    }
-  }
-
-  void _loadImage() {
-    // UI-only: skip downloading; always use placeholder/asset
-    setState(() {
-      _currentImage = null;
-      _isLoading = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
-        child: Container(
-          width: widget.radius * 2,
-          height: widget.radius * 2,
-          decoration: const BoxDecoration(
-            color: Colors.grey,
-            shape: BoxShape.circle,
-          ),
-        ),
-      );
-    }
-
-    if (_currentImage == null) {
-      return CircleAvatar(
-        radius: widget.radius,
-        backgroundImage: const AssetImage(MediaRes.userImageMale),
-      );
-    }
-    return CircleAvatar(
-      radius: widget.radius,
-      backgroundImage: MemoryImage(_currentImage!),
-    );
-  }
-}
-
-class CustomMultiSelectDropdownAssignStaff extends StatefulWidget {
-  final String hintText;
-  final List<String> items;
-  final List<String> selectedItems;
-  final ValueChanged<List<String>> onChanged;
-  final bool isField;
-  final double? width;
-
-  const CustomMultiSelectDropdownAssignStaff({
-    Key? key,
-    required this.hintText,
-    required this.items,
-    required this.selectedItems,
-    required this.onChanged,
-    this.isField = false,
-    this.width,
-  }) : super(key: key);
-
-  @override
-  State<CustomMultiSelectDropdownAssignStaff> createState() =>
-      _CustomMultiSelectDropdownAssignStaffState();
-}
-
-class _CustomMultiSelectDropdownAssignStaffState
-    extends State<CustomMultiSelectDropdownAssignStaff> {
-  bool isDropdownOpen = false;
-  String get displaySuffix {
-    if (widget.hintText.toLowerCase() == 'status') {
-      return 'status';
-    } else if (widget.hintText.toLowerCase() == 'tags') {
-      return 'tag${widget.selectedItems.length > 1 ? 's' : ''}';
-    }
-    return 'items';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String displayText = widget.selectedItems.isEmpty
-        ? widget.hintText
-        : '${widget.selectedItems.length} $displaySuffix';
-
-    return Container(
-      height: 40,
-      width: widget.width,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.grey[100],
-          hintText: widget.hintText,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-        ),
-        icon: const Icon(Icons.keyboard_arrow_down),
-        iconSize: 24,
-        elevation: 2,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          color: Color(0xff573353),
-          fontSize: 16,
-        ),
-        dropdownColor: Colors.white,
-        items: widget.items.map((String item) {
-          return DropdownMenuItem<String>(
-            value: item,
-            enabled: false,
-            child: InkWell(
-              onTap: () {
-                List<String> newSelectedItems = List.from(widget.selectedItems);
-                if (newSelectedItems.contains(item)) {
-                  newSelectedItems.remove(item);
-                } else {
-                  newSelectedItems.add(item);
-                }
-                widget.onChanged(newSelectedItems);
-              },
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: Checkbox(
-                      value: widget.selectedItems.contains(item),
-                      onChanged: (_) {
-                        List<String> newSelectedItems = List.from(
-                          widget.selectedItems,
-                        );
-                        if (newSelectedItems.contains(item)) {
-                          newSelectedItems.remove(item);
-                        } else {
-                          newSelectedItems.add(item);
-                        }
-                        widget.onChanged(newSelectedItems);
-                      },
-                      activeColor: Theme.of(context).primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        color: Color(0xff573353),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-        onChanged: (_) {},
-        isExpanded: true,
-        hint: Text(
-          displayText,
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            color: widget.selectedItems.isEmpty
-                ? Colors.grey[600]
-                : const Color(0xff573353),
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-}
+// NOTE: Designation multi-select uses the shared `CustomMultiSelectDropdown`
+// (`lib/shared/common/widgets/custom_multi_select_dropdown.dart`).

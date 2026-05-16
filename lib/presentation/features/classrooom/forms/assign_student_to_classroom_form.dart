@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 // UI-only: use wowcare widgets and theme; backend/bloc imports removed
@@ -12,9 +11,12 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
 // UI-only lightweight types
 class _TagEntity {
@@ -26,14 +28,16 @@ class StudentEntity {
   final int id;
   final String code;
   final String fullName;
-  final String photoUuid;
+  final String? profileImageUrl;
+  final String? profilePhotoAssetCode;
   final String? roomName;
   final List<_TagEntity> tags;
   const StudentEntity({
     required this.id,
     required this.code,
     required this.fullName,
-    this.photoUuid = '',
+    this.profileImageUrl,
+    this.profilePhotoAssetCode,
     this.roomName,
     this.tags = const [],
   });
@@ -71,6 +75,7 @@ class _AssignStudentToClassroomFormState
   String? _studentsError;
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -81,6 +86,7 @@ class _AssignStudentToClassroomFormState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -124,7 +130,13 @@ class _AssignStudentToClassroomFormState
               id: fetchedStudents.length + 1,
               code: s.code,
               fullName: s.fullName,
-              photoUuid: '',
+              profileImageUrl: (s.profileImage ?? '').trim().isEmpty
+                  ? null
+                  : s.profileImage!.trim(),
+              profilePhotoAssetCode:
+                  (s.profilePhotoAssetCode ?? '').trim().isEmpty
+                  ? null
+                  : s.profilePhotoAssetCode!.trim(),
               roomName: s.classroom,
               tags: tagEntities,
             ),
@@ -170,7 +182,12 @@ class _AssignStudentToClassroomFormState
   }
 
   void _onSearchChanged() {
-    _filterStudents();
+    // Debounce so the list filters once the user pauses typing.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _filterStudents();
+    });
   }
 
   void _filterStudents() {
@@ -288,25 +305,20 @@ class _AssignStudentToClassroomFormState
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
+          SearchBar(
+            controller: _searchController,
+            constraints: const BoxConstraints(minHeight: 44),
+            hintText: 'Search Students',
+            hintStyle: WidgetStatePropertyAll(
+              TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Students',
-                hintStyle: TextStyle(
-                  fontFamily: 'Manrope',
-                  color: Colors.grey[700],
-                ),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
-              ),
+            backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
+            surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
+            elevation: const WidgetStatePropertyAll<double>(0),
+            side: const WidgetStatePropertyAll(
+              BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
             ),
+            leading: const Icon(Icons.search, color: Colors.grey),
           ),
           const SizedBox(height: 12),
           Row(
@@ -331,8 +343,9 @@ class _AssignStudentToClassroomFormState
               const SizedBox(width: 12),
               Expanded(
                 flex: 4,
-                child: CustomMultiSelectDropdownAssignStudent(
+                child: CustomMultiSelectDropdown(
                   hintText: 'Tags',
+                  showSelectAll: true,
                   items: _allTags,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
@@ -362,7 +375,7 @@ class _AssignStudentToClassroomFormState
           const SizedBox(height: 12),
           Expanded(
             child: _isLoadingStudents
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _studentsError != null
                 ? Center(
                     child: Column(
@@ -413,11 +426,10 @@ class _AssignStudentToClassroomFormState
             onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: () {
               if (selectedStudents.isEmpty) {
-                // UI-only: no backend, show inline SnackBar
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please select at least one student'),
-                  ),
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Please select at least one student',
+                  isWarning: true,
                 );
                 return;
               } else {
@@ -546,9 +558,15 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                     ),
                     child: Row(
                       children: [
-                        StudentProfileImage(
-                          imageUrl: student.photoUuid,
-                          studentId: student.id,
+                        DocumentImageWidget(
+                          fileUuid: '',
+                          imageUrl: student.profileImageUrl,
+                          mediaAssetCode: student.profilePhotoAssetCode,
+                          name: student.fullName,
+                          studentCode: student.code,
+                          size: 32,
+                          fontSize: 12,
+                          disableAttendanceStatusLookup: true,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -582,10 +600,10 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                 ? () {}
                 : () async {
                     if (currentSelectedStudents.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select at least one student'),
-                        ),
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: 'Please select at least one student',
+                        isWarning: true,
                       );
                       return;
                     }
@@ -619,21 +637,23 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                           );
 
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            message.isEmpty ? 'Assigned successfully' : message,
-                          ),
-                        ),
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: message.isEmpty
+                            ? 'Assigned successfully'
+                            : message,
+                        isSuccess: true,
                       );
 
                       widget.onStudentsAssigned();
                       Navigator.pop(context);
                     } catch (e) {
                       if (!mounted) return;
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: e.toString(),
+                        isError: true,
+                      );
                     } finally {
                       if (mounted) setState(() => _isSubmitting = false);
                     }
@@ -683,9 +703,15 @@ class StudentListItem extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              StudentProfileImage(
-                imageUrl: student.photoUuid,
-                studentId: student.id,
+              DocumentImageWidget(
+                fileUuid: '',
+                imageUrl: student.profileImageUrl,
+                mediaAssetCode: student.profilePhotoAssetCode,
+                name: student.fullName,
+                studentCode: student.code,
+                size: 32,
+                fontSize: 12,
+                disableAttendanceStatusLookup: true,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -708,256 +734,5 @@ class StudentListItem extends StatelessWidget {
   }
 }
 
-class StudentProfileImage extends StatefulWidget {
-  final String imageUrl;
-  final int studentId;
-  final double radius;
-
-  const StudentProfileImage({
-    Key? key,
-    required this.imageUrl,
-    required this.studentId,
-    this.radius = 16,
-  }) : super(key: key);
-
-  @override
-  State<StudentProfileImage> createState() => _StudentProfileImageState();
-}
-
-class _StudentProfileImageState extends State<StudentProfileImage> {
-  // UI-only: remove backend image fetching; keep shimmer to preserve UI feel
-  StreamSubscription? _subscription; // not used in UI-only
-  Uint8List? _currentImage;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImage();
-  }
-
-  @override
-  void didUpdateWidget(StudentProfileImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl ||
-        oldWidget.studentId != widget.studentId) {
-      _loadImage();
-    }
-  }
-
-  void _loadImage() {
-    // UI-only: skip downloading; always use placeholder/asset
-    setState(() {
-      _currentImage = null;
-      _isLoading = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
-        child: Container(
-          width: widget.radius * 2,
-          height: widget.radius * 2,
-          decoration: const BoxDecoration(
-            color: Colors.grey,
-            shape: BoxShape.circle,
-          ),
-        ),
-      );
-    }
-
-    if (_currentImage == null) {
-      return CircleAvatar(
-        radius: widget.radius,
-        backgroundImage: const AssetImage(MediaRes.userImageMale),
-      );
-    }
-
-    return CircleAvatar(
-      radius: widget.radius,
-      backgroundImage: MemoryImage(_currentImage!),
-    );
-  }
-}
-
-class CustomMultiSelectDropdownAssignStudent extends StatefulWidget {
-  final String hintText;
-  final List<String> items;
-  final List<String> selectedItems;
-  final ValueChanged<List<String>> onChanged;
-  final bool isField;
-  final double? width;
-
-  const CustomMultiSelectDropdownAssignStudent({
-    Key? key,
-    required this.hintText,
-    required this.items,
-    required this.selectedItems,
-    required this.onChanged,
-    this.isField = false,
-    this.width,
-  }) : super(key: key);
-
-  @override
-  State<CustomMultiSelectDropdownAssignStudent> createState() =>
-      _CustomMultiSelectDropdownAssignStudentState();
-}
-
-class _CustomMultiSelectDropdownAssignStudentState
-    extends State<CustomMultiSelectDropdownAssignStudent> {
-  late List<String> _localSelectedItems;
-  bool isDropdownOpen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _localSelectedItems = List.from(widget.selectedItems);
-    _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
-  }
-
-  @override
-  void didUpdateWidget(CustomMultiSelectDropdownAssignStudent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!listEquals(oldWidget.items, widget.items) ||
-        !listEquals(oldWidget.selectedItems, widget.selectedItems)) {
-      setState(() {
-        _localSelectedItems = List.from(widget.selectedItems);
-        _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
-      });
-    }
-  }
-
-  String get displaySuffix {
-    if (widget.hintText.toLowerCase() == 'status') {
-      return 'status';
-    } else if (widget.hintText.toLowerCase() == 'tags') {
-      return 'tag${_localSelectedItems.length > 1 ? 's' : ''}';
-    }
-    return 'items';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String displayText = _localSelectedItems.isEmpty
-        ? widget.hintText
-        : '${_localSelectedItems.length} $displaySuffix';
-
-    return Container(
-      height: 40,
-      width: widget.width,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: const Color(0xFFF8F7FA),
-          hintText: widget.hintText,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-        ),
-        icon: const Icon(Icons.keyboard_arrow_down),
-        iconSize: 24,
-        elevation: 2,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          color: Color(0xff573353),
-          fontSize: 16,
-        ),
-        dropdownColor: Colors.white,
-        items: widget.items.map((String item) {
-          return DropdownMenuItem<String>(
-            value: item,
-            enabled: false,
-            child: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setMenuItemState) {
-                final isSelected = _localSelectedItems.contains(item);
-                return InkWell(
-                  onTap: () {
-                    setMenuItemState(() {
-                      if (isSelected) {
-                        _localSelectedItems.remove(item);
-                      } else {
-                        _localSelectedItems.add(item);
-                      }
-                    });
-                    setState(() {}); // Update the main widget state
-                    widget.onChanged(_localSelectedItems);
-                  },
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: (bool? checked) {
-                            setMenuItemState(() {
-                              if (checked == true) {
-                                _localSelectedItems.add(item);
-                              } else {
-                                _localSelectedItems.remove(item);
-                              }
-                            });
-                            setState(() {}); // Update the main widget state
-                            widget.onChanged(_localSelectedItems);
-                          },
-                          activeColor: Theme.of(context).primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            color: Color(0xff573353),
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          );
-        }).toList(),
-        onChanged: (_) {},
-        isExpanded: true,
-        hint: Text(
-          displayText,
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            color: _localSelectedItems.isEmpty
-                ? Colors.grey[600]
-                : const Color(0xff573353),
-            fontSize: 15,
-          ),
-        ),
-      ),
-    );
-  }
-}
+// NOTE: Tags multi-select uses the shared `CustomMultiSelectDropdown`
+// (`lib/shared/common/widgets/custom_multi_select_dropdown.dart`).

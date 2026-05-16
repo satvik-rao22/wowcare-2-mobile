@@ -7,13 +7,7 @@ class GetGuardianNameCodeMapForSchoolUseCase {
 
   final StudentRepository _repository;
 
-  Future<Map<String, String>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getGuardianNameCodeMapForSchool(
-      schoolCode: schoolCode,
-    );
+  Future<Map<String, String>> call({required String schoolCode}) {
+    return _repository.getGuardianNameCodeMapForSchool(schoolCode: schoolCode);
   }
 }
-
-

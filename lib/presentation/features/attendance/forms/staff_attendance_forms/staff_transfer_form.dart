@@ -158,7 +158,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     StaffEntity? staff,
     List<Classroom> classrooms,
   ) {
-    if (staff == null && (_currentClassroomCodeForSelection ?? '').trim().isEmpty) {
+    if (staff == null &&
+        (_currentClassroomCodeForSelection ?? '').trim().isEmpty) {
       return 'N/A';
     }
     final apiName = (staff?.classroomName ?? '').trim();

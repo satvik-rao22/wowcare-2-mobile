@@ -3,13 +3,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/date_utils.dart';
 
 class ViewInvoiceScreen extends StatefulWidget {
-  const ViewInvoiceScreen({
-    super.key,
-    required this.transaction,
-  });
+  const ViewInvoiceScreen({super.key, required this.transaction});
 
   final TransactionItem transaction;
 
@@ -20,10 +16,6 @@ class ViewInvoiceScreen extends StatefulWidget {
 class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   // Dummy data for UI
   Map<String, dynamic>? _addressEntity;
-  bool _isAddressLoading = false;
-  bool _isInvoiceLoading = false;
-  bool _isInvoiceItemsLoading = false;
-  Map<String, dynamic>? _invoiceDetails;
   List<Map<String, dynamic>>? _invoiceItems;
 
   @override
@@ -32,19 +24,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     _initializeDummyData();
   }
 
-  Future<void> _initializeDummyData() async {
-    // Simulate loading
-    setState(() {
-      _isAddressLoading = true;
-      _isInvoiceLoading = true;
-      _isInvoiceItemsLoading = true;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (!mounted) return;
-
+  void _initializeDummyData() {
     // Load dummy data
     setState(() {
       _addressEntity = {
@@ -53,19 +33,6 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
         'state': 'NY',
         'country': 'USA',
         'zipcode': '10001',
-      };
-
-      // Generate dummy invoice details
-      _invoiceDetails = {
-        'invoiceNumber': widget.transaction.refTableId != null
-            ? 'INV-2025-${widget.transaction.refTableId}'
-            : 'INV-2025-${widget.transaction.id}',
-        'date': widget.transaction.date.toIso8601String(),
-        'startDate': widget.transaction.date.subtract(const Duration(days: 30)).toIso8601String(),
-        'endDate': widget.transaction.date.toIso8601String(),
-        'dueDate': widget.transaction.endDate != null
-            ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
-            : widget.transaction.date.add(const Duration(days: 7)).toIso8601String(),
       };
 
       // Generate dummy invoice items
@@ -85,10 +52,6 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
           },
         ],
       ];
-
-      _isAddressLoading = false;
-      _isInvoiceLoading = false;
-      _isInvoiceItemsLoading = false;
     });
   }
 
@@ -114,7 +77,11 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     final type = item['type']?.toString().toLowerCase() ?? '';
 
     if (description.isEmpty) {
-      return type.contains('discount') ? 'Discount' : type.contains('subsidy') ? 'Subsidy' : 'Item';
+      return type.contains('discount')
+          ? 'Discount'
+          : type.contains('subsidy')
+          ? 'Subsidy'
+          : 'Item';
     }
     return description;
   }
@@ -203,30 +170,6 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Invoice loading indicator
-          if (_isInvoiceLoading || _isInvoiceItemsLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Loading invoice details...',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.billingGrey,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
           // Invoice items table (simple format like receipt screen)
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -254,18 +197,12 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
               ),
               Text(
                 'Amount',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade500,
-                ),
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
 
           // Show invoice items if available, otherwise show basic invoice info
           if (_invoiceItems != null && _invoiceItems!.isNotEmpty) ...[
@@ -273,7 +210,8 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
             ..._invoiceItems!
                 .where((item) {
                   final type = item['type']?.toString().toLowerCase() ?? '';
-                  return !type.contains('discount') && !type.contains('subsidy');
+                  return !type.contains('discount') &&
+                      !type.contains('subsidy');
                 })
                 .map((item) {
                   return Row(
@@ -354,10 +292,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
             ),
           ],
 
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
 
           // Total Amount
           Row(
@@ -370,9 +305,9 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
                 ),
-              )
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -416,10 +351,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(
-                          left: 8,
-                          top: 8,
-                        ),
+                        padding: const EdgeInsets.only(left: 8, top: 8),
                         child: _buildCurrentSchoolDetail(),
                       ),
                       const SizedBox(height: 15),
@@ -440,4 +372,3 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     );
   }
 }
-

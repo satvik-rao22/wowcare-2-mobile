@@ -256,9 +256,17 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
         extendBody: true,
         floatingActionButton: widget.floatingActionButton,
         bottomNavigationBar: widget.showCustomNavigationBar
-            ? _showBars
-                  ? const CustomNavigationBar()
-                  : const SizedBox.shrink()
+            // Let the bar size to its natural height (same as the attendance
+            // screens). AnimatedSize keeps the hide-on-scroll animation by
+            // collapsing to zero, without forcing a fixed height that
+            // overflows on devices with a large bottom system inset.
+            ? AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar()
+                    : const SizedBox.shrink(),
+              )
             : widget.customButtonLayout,
       ),
     );

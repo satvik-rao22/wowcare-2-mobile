@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
+import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 
 /// Parent Billing UI (ported layout from legacy `lib copy/.../billing_screen.dart`).
 ///
@@ -31,21 +32,13 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
   bool _isInitialLoadingTransactions = false;
   bool _isPaymentLoading = false;
+  bool _isAutoPayLoading = false;
 
   // Demo siblings data (UI only)
   final List<Map<String, String>> _demoSiblings = const [
-    {
-      'name': 'Emma Johnson',
-      'room': 'Ladybugs • Room 101',
-    },
-    {
-      'name': 'Liam Johnson',
-      'room': 'Caterpillars • Room 202',
-    },
-    {
-      'name': 'Olivia Johnson',
-      'room': 'Butterflies • Room 305',
-    },
+    {'name': 'Emma Johnson', 'room': 'Ladybugs • Room 101'},
+    {'name': 'Liam Johnson', 'room': 'Caterpillars • Room 202'},
+    {'name': 'Olivia Johnson', 'room': 'Butterflies • Room 305'},
   ];
 
   // Demo transactions data (UI only)
@@ -127,7 +120,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
     setState(() {
       _startDate = startDate;
-      _endDate = endDate ??
+      _endDate =
+          endDate ??
           DateTime(startDate.year, startDate.month, startDate.day, 23, 59, 59);
     });
   }
@@ -138,9 +132,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,26 +172,32 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       siblings: _demoSiblings,
       currentBalance: 0.0, // TODO: Calculate from actual data
       isPaymentLoading: _isPaymentLoading,
+      isAutoPayLoading: _isAutoPayLoading,
       onPayNow: () async {
         if (_isPaymentLoading) return;
         setState(() => _isPaymentLoading = true);
-        await Future<void>.delayed(
-          const Duration(milliseconds: 250),
-        );
+        await Future<void>.delayed(const Duration(milliseconds: 250));
         if (!mounted) return;
         setState(() => _isPaymentLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pay Now (parent)'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Pay Now (parent)')));
       },
-      onAutoPay: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Auto Pay (parent)'),
+      onAutoPay: () async {
+        if (_isAutoPayLoading) return;
+        setState(() => _isAutoPayLoading = true);
+        final result = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const AutoPayPaymentMethodsScreen(),
           ),
         );
+        if (!mounted) return;
+        setState(() => _isAutoPayLoading = false);
+        if (result == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Auto Pay settings updated')),
+          );
+        }
       },
     );
   }
@@ -207,12 +205,16 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   List<DemoTransaction> _getFilteredTransactions() {
     if (_startDate != null && _endDate != null) {
       return _demoTransactions.where((txn) {
-        final txnDate = DateTime(txn.date.year, txn.date.month, txn.date.day);
-        final start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-        final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
-        return (txnDate.isAtSameMomentAs(start) || txnDate.isAfter(start)) &&
-            (txnDate.isAtSameMomentAs(end) || txnDate.isBefore(end));
-      }).toList()
+          final txnDate = DateTime(txn.date.year, txn.date.month, txn.date.day);
+          final start = DateTime(
+            _startDate!.year,
+            _startDate!.month,
+            _startDate!.day,
+          );
+          final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
+          return (txnDate.isAtSameMomentAs(start) || txnDate.isAfter(start)) &&
+              (txnDate.isAtSameMomentAs(end) || txnDate.isBefore(end));
+        }).toList()
         ..sort((a, b) => b.date.compareTo(a.date)); // Sort by date descending
     }
     return List.from(_demoTransactions)
@@ -221,7 +223,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
   Widget _buildBillingTab() {
     final filteredTransactions = _getFilteredTransactions();
-    
+
     return CustomRefreshIndicator(
       onRefresh: _refresh,
       child: SingleChildScrollView(
@@ -232,11 +234,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
             const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  AppText.title('Billing'),
-                ],
-              ),
+              child: Row(children: [AppText.title('Billing')]),
             ),
             // Sibling cards and date range
             Column(
@@ -251,9 +249,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
             if (_isInitialLoadingTransactions)
               const Padding(
                 padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               )
             else if (filteredTransactions.isEmpty)
               Padding(
@@ -327,7 +323,9 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               children: [
                 TabBar(
                   labelColor: AppColors.themeColor,
-                  unselectedLabelColor: AppColors.primaryColor.withValues(alpha: 0.6),
+                  unselectedLabelColor: AppColors.primaryColor.withValues(
+                    alpha: 0.6,
+                  ),
                   controller: _tabController,
                   dividerColor: Colors.transparent,
                   indicatorColor: Colors.transparent,
@@ -341,43 +339,53 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 SizedBox(
                   height: 2.5,
                   child: AnimatedBuilder(
-                    animation: _tabController.animation ?? const AlwaysStoppedAnimation(0),
+                    animation:
+                        _tabController.animation ??
+                        const AlwaysStoppedAnimation(0),
                     builder: (context, child) {
                       final screenWidth = MediaQuery.of(context).size.width;
                       final tabWidth = screenWidth / 2;
-                      
+
                       // Get text width using default TabBar text style
-                      final defaultTextStyle = DefaultTextStyle.of(context).style;
+                      final defaultTextStyle = DefaultTextStyle.of(
+                        context,
+                      ).style;
                       final textStyle = defaultTextStyle.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       );
-                      
+
                       final billingText = TextPainter(
                         text: TextSpan(text: 'Billing', style: textStyle),
                         textDirection: TextDirection.ltr,
                       )..layout();
-                      
+
                       final statementsText = TextPainter(
                         text: TextSpan(text: 'Statements', style: textStyle),
                         textDirection: TextDirection.ltr,
                       )..layout();
-                      
+
                       // Smooth animation between tabs
-                      final animationValue = _tabController.animation?.value ?? 0.0;
-                      
+                      final animationValue =
+                          _tabController.animation?.value ?? 0.0;
+
                       // Interpolate between text widths
-                      final currentTextWidth = (statementsText.size.width - billingText.size.width) * animationValue + billingText.size.width;
-                      
+                      final currentTextWidth =
+                          (statementsText.size.width - billingText.size.width) *
+                              animationValue +
+                          billingText.size.width;
+
                       // Calculate center position for each tab
                       final billingCenter = tabWidth / 2;
                       final statementsCenter = tabWidth + tabWidth / 2;
-                      
+
                       // Interpolate between centers
-                      final currentCenter = (statementsCenter - billingCenter) * animationValue + billingCenter;
-                      
+                      final currentCenter =
+                          (statementsCenter - billingCenter) * animationValue +
+                          billingCenter;
+
                       final leftOffset = currentCenter - currentTextWidth / 2;
-                      
+
                       return Stack(
                         children: [
                           Positioned(
@@ -401,10 +409,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildBillingTab(),
-                _buildStatementsTab(),
-              ],
+              children: [_buildBillingTab(), _buildStatementsTab()],
             ),
           ),
         ],

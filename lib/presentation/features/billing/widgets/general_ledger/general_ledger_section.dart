@@ -13,10 +13,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 /// This widget mirrors the structure from the legacy AdminBillingScreen
 /// while remaining self-contained until data wiring is available.
 class GeneralLedgerSection extends StatefulWidget {
-  const GeneralLedgerSection({
-    this.ledgerCreationNotifier,
-    super.key,
-  });
+  const GeneralLedgerSection({this.ledgerCreationNotifier, super.key});
 
   final ValueNotifier<LedgerAccountModel?>? ledgerCreationNotifier;
 
@@ -26,13 +23,12 @@ class GeneralLedgerSection extends StatefulWidget {
 
 class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   _GeneralLedgerSectionState()
-      : _allLedgers = List<LedgerAccountModel>.from(_seedLedgers);
+    : _allLedgers = List<LedgerAccountModel>.from(_seedLedgers);
 
   final TextEditingController _searchController = TextEditingController();
   final List<LedgerAccountModel> _allLedgers;
 
-  static const List<LedgerAccountModel> _seedLedgers =
-      <LedgerAccountModel>[
+  static const List<LedgerAccountModel> _seedLedgers = <LedgerAccountModel>[
     LedgerAccountModel(
       id: 'ledger-1',
       name: 'Instructional Supplies',
@@ -123,10 +119,9 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     return _allLedgers.where((ledger) {
       final matchesQuery =
           query.isEmpty || ledger.name.toLowerCase().contains(query);
-      final matchesType =
-          _selectedType == null || _selectedType == 'All Types'
-              ? true
-              : ledger.type == _selectedType;
+      final matchesType = _selectedType == null || _selectedType == 'All Types'
+          ? true
+          : ledger.type == _selectedType;
       return matchesQuery && matchesType;
     }).toList();
   }
@@ -139,8 +134,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   }
 
   void _handleLedgerCreated() {
-    final LedgerAccountModel? newLedger =
-        widget.ledgerCreationNotifier?.value;
+    final LedgerAccountModel? newLedger = widget.ledgerCreationNotifier?.value;
     if (newLedger == null) {
       return;
     }
@@ -152,16 +146,15 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   }
 
   Future<void> _onEditLedger(LedgerAccountModel ledger) async {
-    final LedgerAccountModel? updatedLedger = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EditLedgerScreen(ledger: ledger),
-      ),
-    );
+    final LedgerAccountModel? updatedLedger = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => EditLedgerScreen(ledger: ledger)));
 
     if (updatedLedger == null) return;
 
-    final int index =
-        _allLedgers.indexWhere((element) => element.id == updatedLedger.id);
+    final int index = _allLedgers.indexWhere(
+      (element) => element.id == updatedLedger.id,
+    );
     if (index == -1) return;
 
     setState(() {
@@ -263,4 +256,3 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     );
   }
 }
-

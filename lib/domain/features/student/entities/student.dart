@@ -7,6 +7,7 @@ class Student extends Equatable {
     required this.lastName,
     required this.status,
     this.profileImage,
+    this.profilePhotoAssetCode,
     this.primaryClassroomName,
     this.classroom = '',
     this.dob = '',
@@ -21,13 +22,16 @@ class Student extends Equatable {
   final String lastName;
   final String status;
   final String? profileImage;
+  final String? profilePhotoAssetCode;
   final String? primaryClassroomName;
   final String classroom;
   final String dob;
   final String movementDate;
   final List<String> tags;
+
   /// Abbreviated weekdays for regular schedule, e.g. ["Mon", "Tue"].
   final List<String> schedule;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
   final Map<String, String> scheduleByDay;
 
@@ -35,17 +39,17 @@ class Student extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        firstName,
-        lastName,
-        status,
-        classroom,
-        dob,
-        movementDate,
-        tags,
-        schedule,
-        scheduleByDay,
-      ];
+    code,
+    firstName,
+    lastName,
+    status,
+    classroom,
+    dob,
+    movementDate,
+    tags,
+    schedule,
+    scheduleByDay,
+  ];
 }
 
 class StudentPage extends Equatable {
@@ -66,7 +70,12 @@ class StudentPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-

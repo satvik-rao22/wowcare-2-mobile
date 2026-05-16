@@ -73,10 +73,7 @@ class ActivityFeedPageCacheCodec {
     ActivityFeedPage page,
     int feedCacheRevision,
   ) {
-    return {
-      'page': encode(page),
-      'feedCacheRevision': feedCacheRevision,
-    };
+    return {'page': encode(page), 'feedCacheRevision': feedCacheRevision};
   }
 
   static Map<String, dynamic> _encodeRow(ActivityFeedRow r) {
@@ -91,15 +88,15 @@ class ActivityFeedPageCacheCodec {
       'studentFirstName': r.studentFirstName,
       'studentMiddleName': r.studentMiddleName,
       'studentLastName': r.studentLastName,
-      'students': r.students
-          .map((e) => Map<String, String>.from(e))
-          .toList(),
+      'students': r.students.map((e) => Map<String, String>.from(e)).toList(),
       'createdBy': r.createdBy,
       'staffCode': r.staffCode,
-      'parameterValues':
-          r.parameterValues.map((e) => Map<String, dynamic>.from(e)).toList(),
-      'attachments':
-          r.attachments.map((e) => Map<String, dynamic>.from(e)).toList(),
+      'parameterValues': r.parameterValues
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      'attachments': r.attachments
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
       'napStart': r.napStart,
       'napEnd': r.napEnd,
       'approvalStatus': r.approvalStatus,
@@ -147,32 +144,30 @@ class ActivityFeedPageCacheCodec {
         studentLastName: (j['studentLastName'] ?? '').toString(),
         students: rawStudents is List
             ? rawStudents
-                .whereType<Map>()
-                .map(
-                  (e) => Map<String, String>.from(
-                    e.map(
-                      (key, value) => MapEntry(
-                        key.toString(),
-                        value?.toString() ?? '',
+                  .whereType<Map>()
+                  .map(
+                    (e) => Map<String, String>.from(
+                      e.map(
+                        (key, value) =>
+                            MapEntry(key.toString(), value?.toString() ?? ''),
                       ),
                     ),
-                  ),
-                )
-                .toList()
+                  )
+                  .toList()
             : const [],
         createdBy: (j['createdBy'] ?? '').toString(),
         staffCode: _optionalNonEmptyString(j['staffCode']),
         parameterValues: pv is List
             ? pv
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
             : const [],
         attachments: at is List
             ? at
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
             : const [],
         napStart: _asNullableBool(j['napStart']),
         napEnd: _asNullableBool(j['napEnd']),

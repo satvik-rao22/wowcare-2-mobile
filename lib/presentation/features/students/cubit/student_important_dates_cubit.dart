@@ -7,9 +7,10 @@ import '../../../../domain/features/student/usecases/update_student_important_da
 
 class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {
   StudentImportantDatesCubit({
-    required UpdateStudentImportantDatesUseCase updateStudentImportantDatesUseCase,
-  })  : _updateStudentImportantDatesUseCase = updateStudentImportantDatesUseCase,
-        super(const StudentImportantDatesState.initial());
+    required UpdateStudentImportantDatesUseCase
+    updateStudentImportantDatesUseCase,
+  }) : _updateStudentImportantDatesUseCase = updateStudentImportantDatesUseCase,
+       super(const StudentImportantDatesState.initial());
 
   final UpdateStudentImportantDatesUseCase _updateStudentImportantDatesUseCase;
 
@@ -26,9 +27,11 @@ class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {
 
     result.fold(
       (Failure failure) {
-        emit(StudentImportantDatesState.error(
-          failure.message ?? 'Failed to update important dates',
-        ));
+        emit(
+          StudentImportantDatesState.error(
+            failure.message ?? 'Failed to update important dates',
+          ),
+        );
       },
       (String message) {
         emit(StudentImportantDatesState.success(message));
@@ -50,28 +53,28 @@ class StudentImportantDatesState extends Equatable {
   });
 
   const StudentImportantDatesState.initial()
-      : isLoading = false,
-        isSuccess = false,
-        isError = false,
-        message = null;
+    : isLoading = false,
+      isSuccess = false,
+      isError = false,
+      message = null;
 
   const StudentImportantDatesState.loading()
-      : isLoading = true,
-        isSuccess = false,
-        isError = false,
-        message = null;
+    : isLoading = true,
+      isSuccess = false,
+      isError = false,
+      message = null;
 
   const StudentImportantDatesState.success(String message)
-      : isLoading = false,
-        isSuccess = true,
-        isError = false,
-        message = message;
+    : isLoading = false,
+      isSuccess = true,
+      isError = false,
+      message = message;
 
   const StudentImportantDatesState.error(String message)
-      : isLoading = false,
-        isSuccess = false,
-        isError = true,
-        message = message;
+    : isLoading = false,
+      isSuccess = false,
+      isError = true,
+      message = message;
 
   final bool isLoading;
   final bool isSuccess;
@@ -81,4 +84,3 @@ class StudentImportantDatesState extends Equatable {
   @override
   List<Object?> get props => [isLoading, isSuccess, isError, message];
 }
-

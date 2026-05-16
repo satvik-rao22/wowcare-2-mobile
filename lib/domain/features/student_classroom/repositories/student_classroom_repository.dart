@@ -13,6 +13,7 @@ abstract class StudentClassroomRepository {
     String? firstName,
     String? lastName,
     String? search,
+    List<String>? studentCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? status,
@@ -30,5 +31,3 @@ abstract class StudentClassroomRepository {
     required List<String> studentCodes,
   });
 }
-
-

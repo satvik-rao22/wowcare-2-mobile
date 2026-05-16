@@ -58,7 +58,8 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
-  bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
+  bool get _checkboxValue =>
+      _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
   void initState() {
@@ -189,7 +190,8 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
         InfoRowItem(
           label: 'Last Invoice',
           valueText: '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}',
-          noteText: 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}',
+          noteText:
+              'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}',
         ),
         InfoRowItem(
           label: 'Open Balance',

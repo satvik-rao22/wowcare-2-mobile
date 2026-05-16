@@ -57,11 +57,13 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   Future<void> _loadSchoolRegularSchedules() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) {
       if (mounted) {
         setState(() {
-          _schoolHoursLoadError = 'No school selected; school-hour limits are disabled.';
+          _schoolHoursLoadError =
+              'No school selected; school-hour limits are disabled.';
         });
       }
       return;
@@ -134,8 +136,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     final hasBreak = bs != null && be != null;
 
     if (hasWork) {
-      final wsm = _timeOfDayToMinutes(ws!);
-      final wem = _timeOfDayToMinutes(we!);
+      final wsm = _timeOfDayToMinutes(ws);
+      final wem = _timeOfDayToMinutes(we);
       if (wsm >= wem) {
         return 'On $day, work start must be before work end.';
       }
@@ -152,10 +154,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       if (!hasWork) {
         return 'On $day, set work hours before adding a break.';
       }
-      final wsm = _timeOfDayToMinutes(ws!);
-      final wem = _timeOfDayToMinutes(we!);
-      final bsm = _timeOfDayToMinutes(bs!);
-      final bem = _timeOfDayToMinutes(be!);
+      final wsm = _timeOfDayToMinutes(ws);
+      final wem = _timeOfDayToMinutes(we);
+      final bsm = _timeOfDayToMinutes(bs);
+      final bem = _timeOfDayToMinutes(be);
       if (bsm >= bem) {
         return 'On $day, break start must be before break end.';
       }
@@ -166,17 +168,17 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
     // Partial break: validate break start/end individually when work hours are set
     if (hasWork && (bs != null || be != null)) {
-      final wsm = _timeOfDayToMinutes(ws!);
-      final wem = _timeOfDayToMinutes(we!);
+      final wsm = _timeOfDayToMinutes(ws);
+      final wem = _timeOfDayToMinutes(we);
       if (bs != null) {
-        final bsm = _timeOfDayToMinutes(bs!);
+        final bsm = _timeOfDayToMinutes(bs);
         if (bsm < wsm || bsm > wem) {
           return 'On $day, break start must fall within work hours '
               '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
         }
       }
       if (be != null) {
-        final bem = _timeOfDayToMinutes(be!);
+        final bem = _timeOfDayToMinutes(be);
         if (bem < wsm || bem > wem) {
           return 'On $day, break end must fall within work hours '
               '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
@@ -206,7 +208,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       if (_schedules.containsKey(day)) {
         final workStart = _parseTime(schedule.startTime);
         final workEnd = _parseTime(schedule.endTime);
-        
+
         if (!schedule.isBreakTime) {
           _schedules[day] = _schedules[day]!.copyWith(
             isEnabled: true,
@@ -270,12 +272,17 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     return TimeOfDay(hour: hour, minute: clampedMinute);
   }
 
-  String _capitalizeFirst(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
+  String _capitalizeFirst(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
 
-  Future<void> _selectTime(BuildContext context, String day, TimeType timeType) async {
+  Future<void> _selectTime(
+    BuildContext context,
+    String day,
+    TimeType timeType,
+  ) async {
     final currentSchedule = _schedules[day]!;
     TimeOfDay initialTime = const TimeOfDay(hour: 9, minute: 0);
-    
+
     switch (timeType) {
       case TimeType.workStart:
         initialTime = currentSchedule.workStartTime ?? initialTime;
@@ -377,11 +384,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
     final err = _validateDaySchedule(day, next);
     if (err != null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: err,
-        isError: true,
-      );
+      CoreUtils.showTopSnackBar(context: context, message: err, isError: true);
       return;
     }
 
@@ -406,7 +409,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
     for (final day in _allDays) {
       final schedule = _schedules[day]!;
-      if (!schedule.isEnabled) continue; // Crossed days: omit from payload so they are removed on backend
+      if (!schedule.isEnabled)
+        continue; // Crossed days: omit from payload so they are removed on backend
 
       final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
 
@@ -516,7 +520,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               ),
             ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive.horizontalSpacing,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -575,7 +581,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       ),
       bottomBar: Container(
         padding: EdgeInsets.only(
-          bottom: safeAreaBottom, left: 16, right: 16, top: 8,
+          bottom: safeAreaBottom,
+          left: 16,
+          right: 16,
+          top: 8,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -595,7 +604,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
           height: responsive.buttonHeight,
           decoration: BoxDecoration(
             gradient: AppColors.buildPrimaryGradient(),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 16.0 : 8.0,
+            ),
           ),
           child: TextButton(
             onPressed: _isSubmitting ? null : _saveSchedule,
@@ -648,8 +659,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff573353),
-                  decoration:
-                      isEnabled ? TextDecoration.none : TextDecoration.lineThrough,
+                  decoration: isEnabled
+                      ? TextDecoration.none
+                      : TextDecoration.lineThrough,
                 ),
               ),
               isEnabled
@@ -678,14 +690,14 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                       },
                       child: const Text(
                         'Enable',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
-                  ),
-                ),
-              ),
+                        ),
+                      ),
+                    ),
             ],
           ),
           if (!isEnabled)
@@ -743,46 +755,58 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     TimeOfDay? endTime,
     Function(TimeType) onTimeSelected,
     ResponsiveHelper responsive,
-    String day,
-    {bool enabled = true}
-  ) {
+    String day, {
+    bool enabled = true,
+  }) {
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,
       child: AbsorbPointer(
         absorbing: !enabled,
         child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: GradientTimePickerField(
-                label: 'Start',
-                time: startTime,
-                onTimeSelected: (t) => _onTimePicked(day, title == 'Work Time' ? TimeType.workStart : TimeType.breakStart, t),
+            Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff573353),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GradientTimePickerField(
-                label: 'End',
-                time: endTime,
-                onTimeSelected: (t) => _onTimePicked(day, title == 'Work Time' ? TimeType.workEnd : TimeType.breakEnd, t),
-              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: GradientTimePickerField(
+                    label: 'Start',
+                    time: startTime,
+                    onTimeSelected: (t) => _onTimePicked(
+                      day,
+                      title == 'Work Time'
+                          ? TimeType.workStart
+                          : TimeType.breakStart,
+                      t,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GradientTimePickerField(
+                    label: 'End',
+                    time: endTime,
+                    onTimeSelected: (t) => _onTimePicked(
+                      day,
+                      title == 'Work Time'
+                          ? TimeType.workEnd
+                          : TimeType.breakEnd,
+                      t,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
         ),
       ),
     );
@@ -821,9 +845,4 @@ class DaySchedule {
   }
 }
 
-enum TimeType {
-  workStart,
-  workEnd,
-  breakStart,
-  breakEnd,
-}
+enum TimeType { workStart, workEnd, breakStart, breakEnd }

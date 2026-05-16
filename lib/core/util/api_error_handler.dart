@@ -6,7 +6,7 @@ class ApiErrorHandler {
   ApiErrorHandler._();
 
   /// Extracts error message from DioException or any exception.
-  /// 
+  ///
   /// Priority:
   /// 1. API response body's 'message' field (if response.data is Map)
   /// 2. DioException's error message
@@ -47,12 +47,13 @@ class ApiErrorHandler {
           }
         }
       }
-      
+
       // If no message in response body, use DioException's message or error
-      final fallback = error.message ?? error.error?.toString() ?? 'An error occurred';
+      final fallback =
+          error.message ?? error.error?.toString() ?? 'An error occurred';
       return _sanitizeFallbackMessage(fallback);
     }
-    
+
     // For non-DioException errors, return toString()
     return _sanitizeFallbackMessage(error.toString());
   }
@@ -62,7 +63,8 @@ class ApiErrorHandler {
     if (lower.contains('timeout')) {
       return 'Request timed out. Please check your connection and try again.';
     }
-    if (lower.contains('socketexception') || lower.contains('network is unreachable')) {
+    if (lower.contains('socketexception') ||
+        lower.contains('network is unreachable')) {
       return 'Unable to connect to server. Please check your internet connection.';
     }
     if (lower.contains('dioexception')) {
@@ -72,10 +74,13 @@ class ApiErrorHandler {
   }
 
   /// Extracts success message from API response.
-  /// 
+  ///
   /// Returns the 'message' field from response data if it's a Map,
   /// otherwise returns a default success message.
-  static String extractSuccessMessage(dynamic responseData, {String defaultMessage = 'Operation completed successfully'}) {
+  static String extractSuccessMessage(
+    dynamic responseData, {
+    String defaultMessage = 'Operation completed successfully',
+  }) {
     if (responseData is Map<String, dynamic>) {
       if (responseData.containsKey('message')) {
         final message = responseData['message'];
@@ -87,4 +92,3 @@ class ApiErrorHandler {
     return defaultMessage;
   }
 }
-

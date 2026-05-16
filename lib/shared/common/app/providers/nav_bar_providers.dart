@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class NavBarHeightProvider with ChangeNotifier {
   double _height = 0.0;
@@ -12,4 +12,3 @@ class NavBarHeightProvider with ChangeNotifier {
     }
   }
 }
-

@@ -207,12 +207,13 @@ class ActivityTypeParameterOptionModel {
 
   factory ActivityTypeParameterOptionModel.fromJson(Map<String, dynamic> json) {
     final code = (json['code'] ?? json['optionCode'] ?? '').toString().trim();
-    final optCode = (json['optionCode'] ??
-            json['value'] ??
-            json['optionValue'] ??
-            json['code'])
-        ?.toString()
-        .trim();
+    final optCode =
+        (json['optionCode'] ??
+                json['value'] ??
+                json['optionValue'] ??
+                json['code'])
+            ?.toString()
+            .trim();
     return ActivityTypeParameterOptionModel(
       code: code.isNotEmpty ? code : (optCode ?? ''),
       optionCode: (optCode != null && optCode.isNotEmpty) ? optCode : null,
@@ -242,5 +243,3 @@ class ActivityTypeParameterOptionModel {
     );
   }
 }
-
-

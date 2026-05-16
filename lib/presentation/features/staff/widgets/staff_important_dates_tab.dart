@@ -8,10 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class StaffImportantDatesTab extends StatefulWidget {
-  const StaffImportantDatesTab({
-    super.key,
-    required this.staffCode,
-  });
+  const StaffImportantDatesTab({super.key, required this.staffCode});
 
   final String staffCode;
 
@@ -174,10 +171,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
         margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
         padding: const EdgeInsets.all(8),
         child: const Center(
-          child: PrimaryCircularLoader(
-            size: 24,
-            strokeWidth: 2,
-          ),
+          child: PrimaryCircularLoader(size: 24, strokeWidth: 2),
         ),
       );
     }
@@ -188,10 +182,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
         padding: const EdgeInsets.all(8),
         child: Text(
           _errorMessage!,
-          style: const TextStyle(
-            color: Colors.redAccent,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: Colors.redAccent, fontSize: 14),
         ),
       );
     }
@@ -249,7 +240,12 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 }
 
 class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.text, this.showInfo = false, this.infoText});
+  const _DateRow({
+    required this.label,
+    required this.text,
+    this.showInfo = false,
+    this.infoText,
+  });
   final String label;
   final String text;
   final bool showInfo;
@@ -257,7 +253,10 @@ class _DateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayText = (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda') ? '-' : text;
+    final displayText =
+        (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda')
+        ? '-'
+        : text;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,14 +308,21 @@ class _DateRow extends StatelessWidget {
                         child: Material(
                           color: Colors.transparent,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               infoText ?? 'CDA - Child Development Associate',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Manrope'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontFamily: 'Manrope',
+                              ),
                             ),
                           ),
                         ),
@@ -324,9 +330,15 @@ class _DateRow extends StatelessWidget {
                     );
 
                     overlay.insert(entry);
-                    Future.delayed(const Duration(seconds: 2)).then((_) => entry.remove());
+                    Future.delayed(
+                      const Duration(seconds: 2),
+                    ).then((_) => entry.remove());
                   },
-                  child: const Icon(Icons.info_outline, size: 24, color: AppColors.primaryColor),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 24,
+                    color: AppColors.primaryColor,
+                  ),
                 ),
               ],
             ],

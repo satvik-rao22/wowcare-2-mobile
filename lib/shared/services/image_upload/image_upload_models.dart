@@ -19,4 +19,3 @@ class AssetPresignResult {
   final String presignedPutUrl;
   final Map<String, String> requiredHeaders;
 }
-

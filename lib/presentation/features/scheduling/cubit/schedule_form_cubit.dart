@@ -7,7 +7,10 @@ class ScheduleFormCubit extends Cubit<ScheduleFormState> {
 
   ScheduleFormCubit(this._saveScheduleUseCase) : super(ScheduleFormInitial());
 
-  Future<void> saveSchedule({String? id, required Map<String, dynamic> data}) async {
+  Future<void> saveSchedule({
+    String? id,
+    required Map<String, dynamic> data,
+  }) async {
     emit(ScheduleFormSubmitting());
     try {
       await _saveScheduleUseCase(id: id, data: data);

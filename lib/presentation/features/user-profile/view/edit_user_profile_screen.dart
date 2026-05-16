@@ -14,7 +14,21 @@ import '../../../../shared/constants/location_constants.dart';
 import '../../staff/widgets/staff_form_layout.dart';
 
 class EditUserProfileScreen extends StatefulWidget {
-  const EditUserProfileScreen({super.key, this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
+  const EditUserProfileScreen({
+    super.key,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNo,
+    this.initialStreet,
+    this.initialCity,
+    this.initialState,
+    this.initialCountry,
+    this.initialZipCode,
+    this.role,
+    this.signInPin,
+    this.initialAddressLine2,
+  });
   static const String routeName = '/edit-user-profile-details-screen';
 
   final String? initialFirstName;
@@ -29,7 +43,6 @@ class EditUserProfileScreen extends StatefulWidget {
   final String? role;
   final String? signInPin;
   final String? initialAddressLine2;
-
 
   @override
   State<EditUserProfileScreen> createState() => _EditUserProfileScreenState();
@@ -51,8 +64,9 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   bool _hasShownProfileLoadError = false;
 
   // Full lists sourced from shared `location_constants.dart`
-  final List<String> _stateOptions =
-      US_STATES.map((state) => state.name).toList();
+  final List<String> _stateOptions = US_STATES
+      .map((state) => state.name)
+      .toList();
 
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
@@ -72,9 +86,10 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     _cityController.text = widget.initialCity ?? '';
     _selectedState =
         (widget.initialState != null && widget.initialState!.trim().isNotEmpty)
-            ? widget.initialState
-            : null;
-    _selectedCountry = (widget.initialCountry != null &&
+        ? widget.initialState
+        : null;
+    _selectedCountry =
+        (widget.initialCountry != null &&
             widget.initialCountry!.trim().isNotEmpty)
         ? widget.initialCountry
         : null;
@@ -137,10 +152,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
 
       // 1) Try cached profile first for instant UI.
       if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
+        final cached = await (repo as StaffRepositoryWithCache)
+            .loadCachedStaffProfile(staffCode);
         if (!mounted) return;
         if (cached != null) {
           hadCached = true;
@@ -233,35 +246,51 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final address2 = _toTitleCase(_addressLine2Controller.text.trim());
 
     if (first.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'First Name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name is required',
+        isError: true,
+      );
       return;
     }
     if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:'First Name must be letters only and max 50 characters',
+        message: 'First Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
     if (last.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Last Name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
       return;
     }
     if (last.length > 50 || !_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:'Last Name must be letters only and max 50 characters',
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      CoreUtils.showTopSnackBar(context: context, message:'Email is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Email is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Phone Number is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Phone Number is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.length != 10) {
@@ -281,23 +310,43 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       return;
     }
     if (_streetController.text.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Street is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street is required',
+        isError: true,
+      );
       return;
     }
     if (street.length > 150) {
-      CoreUtils.showTopSnackBar(context: context, message:'Street address cannot exceed 150 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
       return;
     }
     if (_cityController.text.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'City is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City is required',
+        isError: true,
+      );
       return;
     }
     if (city.length > 50) {
-      CoreUtils.showTopSnackBar(context: context, message:'City name cannot exceed 50 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
       return;
     }
     if (_zipCodeController.text.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Zip Code is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code is required',
+        isError: true,
+      );
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
@@ -310,18 +359,28 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       return;
     }
     if ((_selectedState ?? '').trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'State is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
       return;
     }
     if ((_selectedCountry ?? '').trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Country is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Country is required',
+        isError: true,
+      );
       return;
     }
 
-
-
     if (address2.length > 150) {
-      CoreUtils.showTopSnackBar(context: context, message:'Address Line 2 cannot exceed 150 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Address Line 2 cannot exceed 150 characters',
+        isError: true,
+      );
       return;
     }
 
@@ -361,10 +420,10 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       // If email changed, call email-change API before updating profile.
       try {
         final storage = serviceLocator<StorageService>();
-        final userCode =
-            (await storage.getString(StorageKeys.userCode) ?? '').trim();
-        final oldEmail =
-            (await storage.getString(StorageKeys.email) ?? '').trim();
+        final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+            .trim();
+        final oldEmail = (await storage.getString(StorageKeys.email) ?? '')
+            .trim();
         final organizationCode =
             (await storage.getString(StorageKeys.organizationCode) ?? '')
                 .trim();
@@ -390,10 +449,7 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
         // Non-blocking: email-change failure should not block profile save.
       }
 
-      await repo.updateMyProfile(
-        staffCode: staffCode,
-        fields: body,
-      );
+      await repo.updateMyProfile(staffCode: staffCode, fields: body);
 
       if (!mounted) return;
       setState(() {
@@ -421,8 +477,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     return input
         .toLowerCase()
         .split(RegExp(r'\s+'))
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -575,8 +634,9 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
           decoration: BoxDecoration(
             gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
             color: _isSubmitting ? Colors.grey[300] : null,
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 16.0 : 8.0,
+            ),
           ),
           child: TextButton(
             onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
@@ -596,11 +656,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   }
 
   Widget _buildInputField(
-      String label,
-      String hint,
-      TextEditingController controller, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize + 1,
@@ -617,7 +677,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -627,15 +691,17 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
             keyboardType: label == 'Zip Code'
                 ? TextInputType.number
                 : (label == 'Phone Number'
-                    ? TextInputType.phone
-                    : TextInputType.text),
+                      ? TextInputType.phone
+                      : TextInputType.text),
             inputFormatters: label == 'Zip Code'
                 ? <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
@@ -643,12 +709,12 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
                     _ZipCodeFormatter(),
                   ]
                 : (label == 'Phone Number'
-                    ? <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                        _UserPhoneNumberFormatter(),
-                      ]
-                    : const <TextInputFormatter>[]),
+                      ? <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                          _UserPhoneNumberFormatter(),
+                        ]
+                      : const <TextInputFormatter>[]),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
@@ -672,13 +738,13 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   }
 
   Widget _buildCustomDropdown(
-      String label,
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: label,

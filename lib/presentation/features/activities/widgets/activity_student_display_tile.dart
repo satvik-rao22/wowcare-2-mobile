@@ -14,6 +14,7 @@ class ActivityStudentDisplayTile extends StatelessWidget {
   });
 
   final String name;
+
   /// Defaults to white; use selected tint when mirroring a selected row elsewhere.
   final Color? backgroundColor;
 

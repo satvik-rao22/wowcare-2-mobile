@@ -33,7 +33,7 @@ class StaffAttendanceSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    
+
     if (isLoading) {
       return Column(
         children: [
@@ -123,7 +123,10 @@ class StaffAttendanceSummary extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCardShimmer(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildSummaryCardShimmer(
+    BuildContext context,
+    ResponsiveHelper responsive,
+  ) {
     return CustomSectionCard(
       padding: EdgeInsets.symmetric(
         horizontal: responsive.horizontalSpacing,

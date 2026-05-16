@@ -17,15 +17,14 @@ class StudentAttendanceGate {
 
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day
+  /// - SIGNED_OUT -> enable Sign-In only (student can be re-signed-in)
   /// - ABSENT     -> enable Sign-In only
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
-    if (hasSignedOutToday) return false; // once signed out, no actions allowed
     if (isSignedInToday) return false;
-    // Absent can be "recovered" by signing in.
+    // SIGNED_OUT / ABSENT / NOT_MARKED can all be "recovered" by signing in.
     return true;
   }
 
@@ -55,19 +54,19 @@ class StudentAttendanceActionAvailability {
 
   static const StudentAttendanceActionAvailability allDisabled =
       StudentAttendanceActionAvailability(
-    signInEnabled: false,
-    signOutEnabled: false,
-    transferEnabled: false,
-    absentEnabled: false,
-  );
+        signInEnabled: false,
+        signOutEnabled: false,
+        transferEnabled: false,
+        absentEnabled: false,
+      );
 
   static const StudentAttendanceActionAvailability allEnabled =
       StudentAttendanceActionAvailability(
-    signInEnabled: true,
-    signOutEnabled: true,
-    transferEnabled: true,
-    absentEnabled: true,
-  );
+        signInEnabled: true,
+        signOutEnabled: true,
+        transferEnabled: true,
+        absentEnabled: true,
+      );
 
   final bool signInEnabled;
   final bool signOutEnabled;
@@ -98,7 +97,8 @@ StudentAttendanceGate studentAttendanceGateFromTodayStatus({
   final su = (todayStatusRaw ?? '').trim().toUpperCase();
   final isSignedIn = su == 'SIGNED_IN';
   final isAbsent = su == 'ABSENT';
-  final hasSignedOut = su == 'SIGNED_OUT' ||
+  final hasSignedOut =
+      su == 'SIGNED_OUT' ||
       su == 'SIGN_OUT' ||
       su == 'COMPLETED' ||
       su == 'SIGNED_OUT_TODAY' ||

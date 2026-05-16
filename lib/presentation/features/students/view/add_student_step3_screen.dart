@@ -22,10 +22,13 @@ class AddStudentStep3Screen extends StatefulWidget {
   static const String routeName = '/add-student-step3-screen';
 
   final Map<String, Map<String, TimeOfDay>>? initialSchedule;
+
   /// Optional heading; defaults to "Add Student - Step 3 of 3 (Optional)".
   final String? title;
+
   /// Optional primary CTA label; defaults to "Next".
   final String? primaryButtonLabel;
+
   /// Whether to show the "Skip" button in the bottom bar. Defaults to true.
   final bool showSkip;
 
@@ -39,7 +42,13 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   bool _copyToAllDays = false;
 
   // School working days and hours
-  final List<String> _workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  final List<String> _workingDays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+  ];
   final TimeOfDay _schoolStartTime = const TimeOfDay(hour: 7, minute: 0);
   final TimeOfDay _schoolEndTime = const TimeOfDay(hour: 18, minute: 0);
   Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};
@@ -56,7 +65,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             key,
             Map<String, TimeOfDay>.from(
               value.map(
-                (k, v) => MapEntry(k, TimeOfDay(hour: v.hour, minute: v.minute)),
+                (k, v) =>
+                    MapEntry(k, TimeOfDay(hour: v.hour, minute: v.minute)),
               ),
             ),
           ),
@@ -71,8 +81,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   Future<void> _loadSchoolRegularSchedules() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (schoolCode.isEmpty) return;
       final repo = serviceLocator<StaffRepository>();
       final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
@@ -214,7 +224,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     return (h * 60 + m).clamp(0, 24 * 60);
   }
 
-  (int, int)? _schoolBoundsForDay(String day) => _schoolMinutesByDay[day.toUpperCase()];
+  (int, int)? _schoolBoundsForDay(String day) =>
+      _schoolMinutesByDay[day.toUpperCase()];
 
   TimeOfDay _minutesToTimeOfDay(int totalMinutes) {
     final clamped = totalMinutes.clamp(0, 24 * 60);
@@ -416,7 +427,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               children: [
                 const SizedBox(height: 16),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: responsive.horizontalSpacing,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -434,7 +447,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 Expanded(
                   child: Container(
                     width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                    margin: EdgeInsets.symmetric(
+                      horizontal: responsive.horizontalSpacing,
+                    ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -476,7 +491,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               ),
                               const SizedBox(height: 12),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   CustomToggle(
                                     label: 'Copy to all days',
@@ -498,7 +514,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                               // Day selection and time pickers
-                              ..._workingDays.map((day) => _buildDayScheduleCard(day, responsive)),
+                              ..._workingDays.map(
+                                (day) => _buildDayScheduleCard(day, responsive),
+                              ),
                               const SizedBox(height: 12),
                             ],
                           ),
@@ -536,35 +554,39 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           child: Row(
             children: [
               if (widget.showSkip) ...[
-              Expanded(
-                child: Container(
-                  height: responsive.buttonHeight,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.primaryColor),
-                    borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-                  ),
-                  child: TextButton(
-                    onPressed: _onSkip,
-                    child: Text(
-                      'Skip',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryColor,
+                Expanded(
+                  child: Container(
+                    height: responsive.buttonHeight,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.primaryColor),
+                      borderRadius: BorderRadius.circular(
+                        responsive.isTablet ? 16.0 : 8.0,
+                      ),
+                    ),
+                    child: TextButton(
+                      onPressed: _onSkip,
+                      child: Text(
+                        'Skip',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: responsive.buttonFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
               ],
               Expanded(
                 child: Container(
                   height: responsive.buttonHeight,
                   decoration: BoxDecoration(
                     gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+                    borderRadius: BorderRadius.circular(
+                      responsive.isTablet ? 16.0 : 8.0,
+                    ),
                   ),
                   child: TextButton(
                     onPressed: _onNext,
@@ -595,10 +617,14 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: hasSchedule ? AppColors.primaryColor.withOpacity(0.05) : Colors.grey.shade50,
+        color: hasSchedule
+            ? AppColors.primaryColor.withOpacity(0.05)
+            : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasSchedule ? AppColors.primaryColor.withOpacity(0.3) : Colors.grey.shade300,
+          color: hasSchedule
+              ? AppColors.primaryColor.withOpacity(0.3)
+              : Colors.grey.shade300,
         ),
       ),
       child: Column(
@@ -727,11 +753,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     color: const Color(0xff573353),
                   ),
                 ),
-                Icon(
-                  Icons.access_time,
-                  size: 18,
-                  color: Colors.grey.shade600,
-                ),
+                Icon(Icons.access_time, size: 18, color: Colors.grey.shade600),
               ],
             ),
           ),
@@ -740,4 +762,3 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     );
   }
 }
-

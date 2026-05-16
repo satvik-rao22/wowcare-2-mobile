@@ -77,7 +77,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
     final staff = widget.staff;
 
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
+    final cardPadding = responsive.isTablet
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
     final spacing = responsive.isTablet ? 16.0 : 14.0;
@@ -164,7 +164,12 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
               ),
               if (staff.absentBy.isNotEmpty && staff.absentBy != 'Unknown') ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
-                _buildDetailRow(context, responsive, 'Marked by', staff.absentBy),
+                _buildDetailRow(
+                  context,
+                  responsive,
+                  'Marked by',
+                  staff.absentBy,
+                ),
               ],
               if (staff.note != null && staff.note!.isNotEmpty) ...[
                 SizedBox(height: responsive.isTablet ? 8 : 6),
@@ -211,9 +216,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                 context,
                 responsive,
                 'End Date',
-                staff.endDate.isNotEmpty
-                    ? staff.endDate.split('T')[0]
-                    : 'N/A',
+                staff.endDate.isNotEmpty ? staff.endDate.split('T')[0] : 'N/A',
               ),
               SizedBox(height: responsive.verticalSpacing / 2),
               if (widget.onView != null)
@@ -279,9 +282,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
               Flexible(
                 child: AppText.value(
                   value,
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 14,
-                  ),
+                  style: TextStyle(fontSize: responsive.isTablet ? 16 : 14),
                   textAlign: TextAlign.end,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -301,24 +302,42 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
     final size = responsive.isTablet ? 20.0 : 18.0;
     switch (method) {
       case StaffAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.pinMethodIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.app:
         return SvgPicture.asset(
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case StaffAbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }

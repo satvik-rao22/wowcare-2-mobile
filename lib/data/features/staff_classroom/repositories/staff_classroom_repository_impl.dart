@@ -27,16 +27,18 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     final parts = <String>[schoolCode.trim()];
 
     List<String> norm(List<String>? v, {bool upper = false}) {
-      final list = (v ?? [])
-          .map((e) => upper ? e.trim().toUpperCase() : e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList()
-        ..sort();
+      final list =
+          (v ?? [])
+              .map((e) => upper ? e.trim().toUpperCase() : e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+            ..sort();
       return list;
     }
 
     final normClassCodes = norm(classCodes);
-    if (normClassCodes.isNotEmpty) parts.add('class=${normClassCodes.join(',')}');
+    if (normClassCodes.isNotEmpty)
+      parts.add('class=${normClassCodes.join(',')}');
 
     final normPrimary = norm(primaryClassroomCodes);
     if (normPrimary.isNotEmpty) parts.add('primary=${normPrimary.join(',')}');
@@ -54,8 +56,8 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     if (q.isNotEmpty) parts.add('search=$q');
 
     return CacheManager.buildCacheKey(
-      feature: 'staff',
-      resource: 'classrooms',
+      feature: 'classroom',
+      resource: 'staff_roster',
       identifier: parts.join('|'),
     );
   }
@@ -124,12 +126,20 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
       staffCodes: staffCodes,
     );
 
-    // Invalidate the most common cache variant for this classroom listing.
-    final key = _cacheKey(
-      schoolCode: schoolCode,
-      classCodes: [classroomCode],
+    // Invalidate roster caches for this classroom (listing variants used by the app).
+    await _cacheManager.invalidateCache(
+      _cacheKey(schoolCode: schoolCode, classCodes: [classroomCode]),
     );
-    await _cacheManager.invalidateCache(key);
+    await _cacheManager.invalidateCache(
+      _cacheKey(schoolCode: schoolCode, primaryClassroomCodes: [classroomCode]),
+    );
+    await _cacheManager.invalidateCache(
+      _cacheKey(
+        schoolCode: schoolCode,
+        excludeClassroomCode: classroomCode,
+        status: const ['ACTIVE'],
+      ),
+    );
 
     return response.message;
   }
@@ -150,4 +160,3 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     );
   }
 }
-

@@ -60,8 +60,10 @@ class StudentClassroomItemModel {
     final displayName = pick(json, student, 'displayName');
 
     if (firstName.isEmpty && lastName.isEmpty && displayName.isNotEmpty) {
-      final parts =
-          displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+      final parts = displayName
+          .split(RegExp(r'\s+'))
+          .where((s) => s.isNotEmpty)
+          .toList();
       if (parts.isNotEmpty) {
         firstName = parts.first;
         lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -84,6 +86,19 @@ class StudentClassroomItemModel {
       return false;
     }
 
+    /// True when a presence-indicator field carries content.
+    ///
+    /// The student-classroom API returns the health fields (`medication`,
+    /// `allergies`, `dietaryRestriction`) as free text — e.g. `"Headache"` —
+    /// or `null`, never as booleans. Any non-empty value (other than the
+    /// literal `null`/`false`/`0`) therefore means "something is on file".
+    bool hasValue(dynamic v) {
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      final s = v?.toString().trim().toLowerCase() ?? '';
+      return s.isNotEmpty && s != 'null' && s != 'false' && s != '0';
+    }
+
     final profileRaw = pick(json, student, 'profilePictureUrl');
 
     return StudentClassroomItemModel(
@@ -98,13 +113,15 @@ class StudentClassroomItemModel {
       absent: asBool(json['absent'] ?? student?['absent']),
       notMarked: asBool(json['notMarked'] ?? student?['notMarked']),
       nap: asBool(json['nap'] ?? student?['nap']),
-      photoPermission:
-          asBool(json['photoPermission'] ?? student?['photoPermission']),
+      photoPermission: asBool(
+        json['photoPermission'] ?? student?['photoPermission'],
+      ),
       notes: asBool(json['notes'] ?? student?['notes']),
-      medication: asBool(json['medication'] ?? student?['medication']),
-      allergies: asBool(json['allergies'] ?? student?['allergies']),
-      dietaryRestriction: asBool(
-          json['dietaryRestriction'] ?? student?['dietaryRestriction']),
+      medication: hasValue(json['medication'] ?? student?['medication']),
+      allergies: hasValue(json['allergies'] ?? student?['allergies']),
+      dietaryRestriction: hasValue(
+        json['dietaryRestriction'] ?? student?['dietaryRestriction'],
+      ),
     );
   }
 
@@ -135,9 +152,7 @@ class StudentClassroomItemModel {
 }
 
 class StudentClassroomListModel {
-  StudentClassroomListModel({
-    required this.items,
-  });
+  StudentClassroomListModel({required this.items});
 
   final List<StudentClassroomItemModel> items;
 
@@ -145,17 +160,17 @@ class StudentClassroomListModel {
     final list = json['items'] as List<dynamic>? ?? const [];
     return StudentClassroomListModel(
       items: list
-          .map((e) => StudentClassroomItemModel.fromCacheJson(
-                (e as Map<String, dynamic>),
-              ))
+          .map(
+            (e) => StudentClassroomItemModel.fromCacheJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'items': items.map((e) => e.toJson()).toList(),
-    };
+    return {'items': items.map((e) => e.toJson()).toList()};
   }
 }
 
@@ -180,5 +195,3 @@ class StudentClassroomAssignResponseModel {
     );
   }
 }
-
-

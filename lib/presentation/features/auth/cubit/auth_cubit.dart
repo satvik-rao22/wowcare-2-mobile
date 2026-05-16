@@ -26,10 +26,10 @@ class AuthCubit extends Cubit<AuthState> {
     required LoginUseCase loginUseCase,
     required AuthLocalDataSource localDataSource,
     required AuthRemoteDataSource remoteDataSource,
-  })  : _loginUseCase = loginUseCase,
-        _localDataSource = localDataSource,
-        _remoteDataSource = remoteDataSource,
-        super(const AuthInitial());
+  }) : _loginUseCase = loginUseCase,
+       _localDataSource = localDataSource,
+       _remoteDataSource = remoteDataSource,
+       super(const AuthInitial());
 
   final LoginUseCase _loginUseCase;
   final AuthLocalDataSource _localDataSource;
@@ -182,14 +182,13 @@ class AuthCubit extends Cubit<AuthState> {
             accessToken: response.accessToken,
           );
           await _localDataSource.saveLoginContext(contextData);
-          hasLastSchoolFromContext =
-              await _localDataSource.saveOrgAndSchoolFromContext(contextData);
+          hasLastSchoolFromContext = await _localDataSource
+              .saveOrgAndSchoolFromContext(contextData);
 
           // Raw values from login-context (may be null/empty, especially LastLoginSchoolCode).
           final String contextOrgCode =
-              (contextData['LastLoginOrganizationCode'] as String?)
-                      ?.trim() ??
-                  '';
+              (contextData['LastLoginOrganizationCode'] as String?)?.trim() ??
+              '';
           final String contextSchoolCode =
               (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
 
@@ -202,7 +201,8 @@ class AuthCubit extends Cubit<AuthState> {
             if (contextOrgCode.isNotEmpty) {
               final storage = serviceLocator<StorageService>();
               final existingSchool =
-                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+                  (await storage.getString(StorageKeys.schoolCode) ?? '')
+                      .trim();
               if (existingSchool.isNotEmpty) {
                 await _localDataSource.setSelectedOrgAndSchool(
                   organizationCode: contextOrgCode,
@@ -240,7 +240,8 @@ class AuthCubit extends Cubit<AuthState> {
             var schoolCode = contextSchoolCode;
             if (schoolCode.isEmpty) {
               schoolCode =
-                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+                  (await storage.getString(StorageKeys.schoolCode) ?? '')
+                      .trim();
             }
 
             const orgAdminRole = 'ORGANIZATION_ADMIN';
@@ -249,11 +250,13 @@ class AuthCubit extends Cubit<AuthState> {
                   r.organizationCode.trim() == orgCode &&
                   r.role.toUpperCase() == orgAdminRole,
             );
-            final effectiveSchoolCode =
-                isOrgAdminForSelectedOrg ? '-' : schoolCode;
+            final effectiveSchoolCode = isOrgAdminForSelectedOrg
+                ? '-'
+                : schoolCode;
 
-            final rolesJson =
-                jsonEncode(response.roles.map((e) => e.toJson()).toList());
+            final rolesJson = jsonEncode(
+              response.roles.map((e) => e.toJson()).toList(),
+            );
             final skipStaffLookup = shouldSkipStaffCodeResolutionForContext(
               rolesJson: rolesJson,
               organizationCode: orgCode,
@@ -327,6 +330,25 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: redirectUrl,
           ),
         );
+
+        // Prefetch parent/guardian children upfront so UI doesn't trigger the
+        // guardian/children APIs on first open of dropdown/profile screens.
+        try {
+          final hasGuardian = response.roles.any(
+            (r) => roleStringIsGuardianPersona(r.role),
+          );
+          if (hasGuardian) {
+            final navCtx = CoreUtils.rootNavigatorKey.currentContext;
+            if (navCtx != null && navCtx.mounted) {
+              navCtx.read<ParentChildProvider>().invalidate();
+              await navCtx.read<ParentChildProvider>().ensureLoaded(
+                force: true,
+              );
+            }
+          }
+        } catch (_) {
+          // Non-blocking
+        }
       },
     );
   }
@@ -358,8 +380,9 @@ class AuthCubit extends Cubit<AuthState> {
         .where((r) => r.organizationCode == organizationCode)
         .toList();
     const orgAdminRole = 'ORGANIZATION_ADMIN';
-    final isOrgAdmin = rolesForOrg
-        .any((r) => r.role.toUpperCase() == orgAdminRole.toUpperCase());
+    final isOrgAdmin = rolesForOrg.any(
+      (r) => r.role.toUpperCase() == orgAdminRole.toUpperCase(),
+    );
     final schoolCodes = rolesForOrg
         .map((r) => r.schoolCode)
         .where((c) => c.isNotEmpty)
@@ -382,15 +405,18 @@ class AuthCubit extends Cubit<AuthState> {
     );
 
     final prev = state is AuthLoaded ? state as AuthLoaded : null;
-    emit(AuthLoaded(
-      loginResponse: login,
-      schoolsByOrg: prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
-      isPrefetchingSchools: true,
-      lastErrorMessage: null,
-      orgNames: prev?.orgNames ?? const [],
-      hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-      redirectUrl: prev?.redirectUrl,
-    ));
+    emit(
+      AuthLoaded(
+        loginResponse: login,
+        schoolsByOrg:
+            prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
+        isPrefetchingSchools: true,
+        lastErrorMessage: null,
+        orgNames: prev?.orgNames ?? const [],
+        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+        redirectUrl: prev?.redirectUrl,
+      ),
+    );
 
     try {
       final result = await _remoteDataSource.getSchoolNamesByOrg(
@@ -401,16 +427,15 @@ class AuthCubit extends Cubit<AuthState> {
       );
       var schoolList = result.dataWithCodes.isNotEmpty
           ? result.dataWithCodes
-          : result.data
-              .map((n) => {'schoolCode': n, 'schoolName': n})
-              .toList();
+          : result.data.map((n) => {'schoolCode': n, 'schoolName': n}).toList();
 
       // If API returns empty (or unexpected payload), fallback to static catalog.
       if (schoolList.isEmpty && staticFallback.isNotEmpty) {
         schoolList = staticFallback;
       }
-      final updated =
-          Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
+      final updated = Map<String, List<Map<String, String>>>.from(
+        prev?.schoolsByOrg ?? {},
+      );
       updated[organizationCode] = schoolList;
 
       // Also update organization display name (orgNames) when API
@@ -444,41 +469,49 @@ class AuthCubit extends Cubit<AuthState> {
         }
       }
 
-      emit(AuthLoaded(
-        loginResponse: login,
-        schoolsByOrg: updated,
-        isPrefetchingSchools: false,
-        lastErrorMessage: null,
-        orgNames: nextOrgNames,
-        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-        redirectUrl: prev?.redirectUrl,
-      ));
-    } catch (e) {
-      // Fallback to static catalog when API fails so user can still continue.
-      if (staticFallback.isNotEmpty) {
-        final updated =
-            Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
-        updated[organizationCode] = staticFallback;
-        emit(AuthLoaded(
+      emit(
+        AuthLoaded(
           loginResponse: login,
           schoolsByOrg: updated,
           isPrefetchingSchools: false,
           lastErrorMessage: null,
-          orgNames: prev?.orgNames ?? const [],
+          orgNames: nextOrgNames,
           hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
           redirectUrl: prev?.redirectUrl,
-        ));
+        ),
+      );
+    } catch (e) {
+      // Fallback to static catalog when API fails so user can still continue.
+      if (staticFallback.isNotEmpty) {
+        final updated = Map<String, List<Map<String, String>>>.from(
+          prev?.schoolsByOrg ?? {},
+        );
+        updated[organizationCode] = staticFallback;
+        emit(
+          AuthLoaded(
+            loginResponse: login,
+            schoolsByOrg: updated,
+            isPrefetchingSchools: false,
+            lastErrorMessage: null,
+            orgNames: prev?.orgNames ?? const [],
+            hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+            redirectUrl: prev?.redirectUrl,
+          ),
+        );
       } else {
-        emit(AuthLoaded(
-          loginResponse: login,
-          schoolsByOrg:
-              prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
-          isPrefetchingSchools: false,
-          lastErrorMessage: e.toString(),
-          orgNames: prev?.orgNames ?? const [],
-          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-          redirectUrl: prev?.redirectUrl,
-        ));
+        emit(
+          AuthLoaded(
+            loginResponse: login,
+            schoolsByOrg:
+                prev?.schoolsByOrg ??
+                const <String, List<Map<String, String>>>{},
+            isPrefetchingSchools: false,
+            lastErrorMessage: e.toString(),
+            orgNames: prev?.orgNames ?? const [],
+            hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+            redirectUrl: prev?.redirectUrl,
+          ),
+        );
       }
     }
   }
@@ -569,7 +602,8 @@ class AuthCubit extends Cubit<AuthState> {
 
       // Only run for staff personas in the current org/school context.
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (shouldSkipStaffCodeResolutionForContext(
         rolesJson: rolesJson,
         organizationCode: org,
@@ -582,7 +616,9 @@ class AuthCubit extends Cubit<AuthState> {
           (await storage.getString(StorageKeys.staffCode) ?? '').trim();
       final cachedStaffUser =
           (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-      String trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
+      String trimmed = (cachedStaffUser == login.userCode)
+          ? cachedStaffCode
+          : '';
 
       final staffRepository = serviceLocator<StaffRepository>();
       if (trimmed.isEmpty) {
@@ -606,9 +642,10 @@ class AuthCubit extends Cubit<AuthState> {
           staffCode: trimmed,
           forEditStaff: true,
         );
+        await storage.saveString(StorageKeys.staffType, profile.staffType);
         await storage.saveString(
-          StorageKeys.staffType,
-          profile.staffType,
+          StorageKeys.staffDesignation,
+          profile.designation,
         );
         await storage.saveString(
           StorageKeys.staffAllowedClassroomCodes,
@@ -616,8 +653,9 @@ class AuthCubit extends Cubit<AuthState> {
         );
         // Also prefetch PIN whenever we prefetch profile for a new org/school.
         try {
-          final pin =
-              await staffRepository.getStaffSignInPin(staffCode: trimmed);
+          final pin = await staffRepository.getStaffSignInPin(
+            staffCode: trimmed,
+          );
           if (pin.trim().isNotEmpty) {
             await storage.saveString(StorageKeys.staffPin, pin.trim());
           }
@@ -648,15 +686,17 @@ class AuthCubit extends Cubit<AuthState> {
         organizationCodes: organizationCodes,
         accessToken: login.accessToken,
       );
-      emit(AuthLoaded(
-        loginResponse: login,
-        schoolsByOrg: prev?.schoolsByOrg ?? const {},
-        isPrefetchingSchools: prev?.isPrefetchingSchools ?? false,
-        lastErrorMessage: prev?.lastErrorMessage,
-        orgNames: names,
-        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-        redirectUrl: prev?.redirectUrl,
-      ));
+      emit(
+        AuthLoaded(
+          loginResponse: login,
+          schoolsByOrg: prev?.schoolsByOrg ?? const {},
+          isPrefetchingSchools: prev?.isPrefetchingSchools ?? false,
+          lastErrorMessage: prev?.lastErrorMessage,
+          orgNames: names,
+          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+          redirectUrl: prev?.redirectUrl,
+        ),
+      );
     } catch (_) {
       // Non-fatal: keep previous state, org names will fall back to codes
     }

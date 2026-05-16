@@ -19,7 +19,8 @@ import 'package:provider/provider.dart';
 /// session, reset [AuthCubit], and navigate to sign-in.
 class SessionExpiredCoordinator {
   SessionExpiredCoordinator._();
-  static final SessionExpiredCoordinator instance = SessionExpiredCoordinator._();
+  static final SessionExpiredCoordinator instance =
+      SessionExpiredCoordinator._();
 
   bool _busy = false;
 

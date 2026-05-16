@@ -51,12 +51,48 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
 
     // Dummy students
     students = [
-      Student(id: 1, fullName: 'Alex Johnson', roomName: 'Room 101', roomId: 101, tags: [reading, sports]),
-      Student(id: 2, fullName: 'Maria Gomez', roomName: 'Room 102', roomId: 102, tags: [arts]),
-      Student(id: 3, fullName: 'Liam Chen', roomName: 'Room 101', roomId: 101, tags: [sports]),
-      Student(id: 4, fullName: 'Sophia Patel', roomName: 'Room 103', roomId: 103, tags: [reading, arts]),
-      Student(id: 5, fullName: 'Noah Smith', roomName: 'Room 102', roomId: 102, tags: [reading]),
-      Student(id: 6, fullName: 'Emma Brown', roomName: 'Room 104', roomId: 104, tags: [sports, arts]),
+      Student(
+        id: 1,
+        fullName: 'Alex Johnson',
+        roomName: 'Room 101',
+        roomId: 101,
+        tags: [reading, sports],
+      ),
+      Student(
+        id: 2,
+        fullName: 'Maria Gomez',
+        roomName: 'Room 102',
+        roomId: 102,
+        tags: [arts],
+      ),
+      Student(
+        id: 3,
+        fullName: 'Liam Chen',
+        roomName: 'Room 101',
+        roomId: 101,
+        tags: [sports],
+      ),
+      Student(
+        id: 4,
+        fullName: 'Sophia Patel',
+        roomName: 'Room 103',
+        roomId: 103,
+        tags: [reading, arts],
+      ),
+      Student(
+        id: 5,
+        fullName: 'Noah Smith',
+        roomName: 'Room 102',
+        roomId: 102,
+        tags: [reading],
+      ),
+      Student(
+        id: 6,
+        fullName: 'Emma Brown',
+        roomName: 'Room 104',
+        roomId: 104,
+        tags: [sports, arts],
+      ),
     ];
 
     // Classrooms list from dummy data
@@ -81,9 +117,15 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
 
   List<Student> get filteredStudents {
     return students.where((student) {
-      final matchesSearch = student.fullName.toLowerCase().contains(searchQuery.toLowerCase());
-      final matchesClassroom = selectedClassroom == 'Select Classroom' || student.roomName == selectedClassroom;
-      final matchesTag = selectedTag == 'Select Tags' || student.tags.any((tag) => tag.name == selectedTag);
+      final matchesSearch = student.fullName.toLowerCase().contains(
+        searchQuery.toLowerCase(),
+      );
+      final matchesClassroom =
+          selectedClassroom == 'Select Classroom' ||
+          student.roomName == selectedClassroom;
+      final matchesTag =
+          selectedTag == 'Select Tags' ||
+          student.tags.any((tag) => tag.name == selectedTag);
       return matchesSearch && matchesClassroom && matchesTag;
     }).toList();
   }
@@ -98,25 +140,26 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
   Widget build(BuildContext context) {
     final filtered = filteredStudents;
     final bool areAllSelected =
-        filtered.isNotEmpty && filtered.every((student) => _selectedStudentIds.contains(student.id));
+        filtered.isNotEmpty &&
+        filtered.every((student) => _selectedStudentIds.contains(student.id));
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final isLargeTablet = screenWidth > 900;
     final containerWidth = isLargeTablet
         ? (screenWidth * 0.8).clamp(800.0, 1200.0)
         : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
+        ? screenWidth * 0.9
+        : screenWidth - 32.0;
     final horizontalSpacing = isLargeTablet
         ? (screenWidth * 0.1).clamp(32.0, 64.0)
         : isTablet
-            ? 32.0
-            : 16.0;
+        ? 32.0
+        : 16.0;
     final verticalSpacing = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
 
     return Scaffold(
       backgroundColor: AppColors.billingCardColor,
@@ -126,7 +169,10 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
         body: Center(
           child: Container(
             width: containerWidth,
-            margin: EdgeInsets.symmetric(horizontal: horizontalSpacing, vertical: verticalSpacing),
+            margin: EdgeInsets.symmetric(
+              horizontal: horizontalSpacing,
+              vertical: verticalSpacing,
+            ),
             padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
             decoration: BoxDecoration(
               color: AppColors.billingCardColor,
@@ -218,18 +264,23 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                       onChanged: (val) {
                         setState(() {
                           if (val ?? false) {
-                            _selectedStudentIds.addAll(filtered.map((student) => student.id));
+                            _selectedStudentIds.addAll(
+                              filtered.map((student) => student.id),
+                            );
                           } else {
                             _selectedStudentIds.removeWhere(
-                              (id) => filtered.any((student) => student.id == id),
+                              (id) =>
+                                  filtered.any((student) => student.id == id),
                             );
                           }
                         });
                       },
                       activeColor: AppColors.themeColor,
                       checkColor: AppColors.billingButtonTextColor,
-                      fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                        if (states.contains(MaterialState.selected)) {
+                      fillColor: WidgetStateProperty.resolveWith<Color>((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.selected)) {
                           return AppColors.themeColor;
                         }
                         return AppColors.billingTransparentColor;
@@ -255,7 +306,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                           itemCount: filtered.length,
                           itemBuilder: (context, index) {
                             final student = filtered[index];
-                            final isChecked = _selectedStudentIds.contains(student.id);
+                            final isChecked = _selectedStudentIds.contains(
+                              student.id,
+                            );
                             return GestureDetector(
                               onTap: () {
                                 setState(() {
@@ -268,15 +321,23 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                               },
                               child: Container(
                                 margin: const EdgeInsets.symmetric(vertical: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFF6657F8), width: 1),
+                                  border: Border.all(
+                                    color: const Color(0xFF6657F8),
+                                    width: 1,
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
                                   children: [
                                     DocumentImageWidget(
-                                      fileUuid: (student.photoUuid ?? student.fullName),
+                                      fileUuid:
+                                          (student.photoUuid ??
+                                          student.fullName),
                                       name: student.fullName,
                                       size: 40,
                                       shape: BoxShape.circle,
@@ -284,7 +345,8 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             student.fullName,
@@ -317,18 +379,27 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                           if (val ?? false) {
                                             _selectedStudentIds.add(student.id);
                                           } else {
-                                            _selectedStudentIds.remove(student.id);
+                                            _selectedStudentIds.remove(
+                                              student.id,
+                                            );
                                           }
                                         });
                                       },
                                       activeColor: AppColors.themeColor,
-                                      checkColor: AppColors.billingButtonTextColor,
-                                      fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                                        if (states.contains(MaterialState.selected)) {
-                                          return AppColors.themeColor;
-                                        }
-                                        return AppColors.billingTransparentColor;
-                                      }),
+                                      checkColor:
+                                          AppColors.billingButtonTextColor,
+                                      fillColor:
+                                          WidgetStateProperty.resolveWith<
+                                            Color
+                                          >((states) {
+                                            if (states.contains(
+                                              WidgetState.selected,
+                                            )) {
+                                              return AppColors.themeColor;
+                                            }
+                                            return AppColors
+                                                .billingTransparentColor;
+                                          }),
                                     ),
                                   ],
                                 ),
@@ -346,7 +417,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
         builder: (context) {
           return Container(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 16.0,
+              bottom: MediaQuery.of(context).padding.bottom > 0
+                  ? MediaQuery.of(context).padding.bottom
+                  : 16.0,
               left: 16,
               right: 16,
               top: 8,
@@ -375,11 +448,15 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                 onPressed: () {
                   // UI-only: handle "Next" with a placeholder
                   final selectedStudents = students
-                      .where((student) => _selectedStudentIds.contains(student.id))
+                      .where(
+                        (student) => _selectedStudentIds.contains(student.id),
+                      )
                       .toList();
                   if (selectedStudents.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please select at least one student')),
+                      const SnackBar(
+                        content: Text('Please select at least one student'),
+                      ),
                     );
                     return;
                   }

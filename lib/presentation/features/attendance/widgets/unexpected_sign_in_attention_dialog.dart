@@ -16,10 +16,7 @@ class UnexpectedSignInAttentionResult {
 }
 
 /// Joins display names for the unexpected sign-in banner; truncates after [maxShown].
-String formatUnexpectedSignInNames(
-  List<String> names, {
-  int maxShown = 3,
-}) {
+String formatUnexpectedSignInNames(List<String> names, {int maxShown = 3}) {
   final trimmed = names
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
@@ -77,8 +74,7 @@ class _UnexpectedSignInAttentionDialogBodyState
   @override
   Widget build(BuildContext context) {
     final namesText = formatUnexpectedSignInNames(widget.unexpectedFullNames);
-    final target =
-        widget.forStaff ? 'staff' : 'students';
+    final target = widget.forStaff ? 'staff' : 'students';
     const headerBg = Color.fromRGBO(243, 238, 250, 1);
 
     return Dialog(
@@ -105,8 +101,10 @@ class _UnexpectedSignInAttentionDialogBodyState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: const BoxDecoration(
                   color: headerBg,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -131,10 +129,8 @@ class _UnexpectedSignInAttentionDialogBodyState
                         minHeight: 36,
                       ),
                       onPressed: () => Navigator.of(context).pop(
-                            const UnexpectedSignInAttentionResult(
-                              confirmed: false,
-                            ),
-                          ),
+                        const UnexpectedSignInAttentionResult(confirmed: false),
+                      ),
                       icon: Icon(
                         Icons.close,
                         color: AppColors.primaryColor.withValues(alpha: 0.85),
@@ -206,12 +202,11 @@ class _UnexpectedSignInAttentionDialogBodyState
                     Expanded(
                       child: CustomCancelButton(
                         cancelButtonLabel: 'Back',
-                        onPressedCancel: () =>
-                            Navigator.of(context).pop(
-                              const UnexpectedSignInAttentionResult(
-                                confirmed: false,
-                              ),
-                            ),
+                        onPressedCancel: () => Navigator.of(context).pop(
+                          const UnexpectedSignInAttentionResult(
+                            confirmed: false,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -219,11 +214,11 @@ class _UnexpectedSignInAttentionDialogBodyState
                       child: CustomConfirmButton(
                         label: 'Confirm',
                         onPressed: () => Navigator.of(context).pop(
-                              UnexpectedSignInAttentionResult(
-                                confirmed: true,
-                                comment: _commentController.text.trim(),
-                              ),
-                            ),
+                          UnexpectedSignInAttentionResult(
+                            confirmed: true,
+                            comment: _commentController.text.trim(),
+                          ),
+                        ),
                       ),
                     ),
                   ],

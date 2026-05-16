@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
 // import 'package:wowcare/core/common/widgets/custom_button_layout.dart';
@@ -14,9 +15,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 
 class LogOutModelBottomSheet extends StatefulWidget {
-  const LogOutModelBottomSheet({
-    Key? key,
-  }) : super(key: key);
+  const LogOutModelBottomSheet({Key? key}) : super(key: key);
 
   @override
   State<LogOutModelBottomSheet> createState() => _LogOutModelBottomSheetState();
@@ -39,11 +38,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
         context.read<ParentChildProvider>().invalidate();
       }
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        SignInScreen.routeName,
-        (route) => false,
-      );
+      context.go(SignInScreen.routeName);
 
       CoreUtils.showTopSnackBar(
         context: context,
@@ -73,18 +68,14 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     return Container(
       width: screenWidth,
-      constraints: BoxConstraints(
-        maxHeight: screenHeight * 0.45,
-      ),
+      constraints: BoxConstraints(maxHeight: screenHeight * 0.45),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -94,10 +85,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
           Flexible(
             child: SizedBox(
               height: 150,
-              child: Image.asset(
-                MediaRes.logout_image,
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset(MediaRes.logout_image, fit: BoxFit.contain),
             ),
           ),
           const SizedBox(height: 16),

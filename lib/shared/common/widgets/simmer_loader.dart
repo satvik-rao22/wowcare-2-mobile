@@ -18,16 +18,10 @@ class ShimmerLoaderBox extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
-      child: SizedBox(
-        height: height,
-        width: width,
-        child: child,
-      ),
+      child: SizedBox(height: height, width: width, child: child),
     );
   }
 }
-
-
 
 class ShimmerLoaderCard extends StatelessWidget {
   final Widget child;
@@ -58,13 +52,8 @@ class ShimmerLoaderCard extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: borderRadius ?? BorderRadius.circular(8.0),
         ),
-        child: SizedBox(
-          height: height,
-          width: width,
-          child: child,
-        ),
+        child: SizedBox(height: height, width: width, child: child),
       ),
     );
   }
 }
-

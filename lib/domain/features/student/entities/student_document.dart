@@ -29,15 +29,15 @@ class StudentDocument extends Equatable {
 
   @override
   List<Object?> get props => [
-        documentUuid,
-        documentType,
-        documentName,
-        documentUrl,
-        documentSizeKb,
-        mimeType,
-        expiryDate,
-        expired,
-        createdAt,
-        uploadedBy,
-      ];
+    documentUuid,
+    documentType,
+    documentName,
+    documentUrl,
+    documentSizeKb,
+    mimeType,
+    expiryDate,
+    expired,
+    createdAt,
+    uploadedBy,
+  ];
 }

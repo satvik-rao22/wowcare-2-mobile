@@ -10,7 +10,10 @@ import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 
 abstract class CommunicationRemoteDataSource {
-  Future<List<MessageModel>> getMessages(String threadId, {String? currentUserId});
+  Future<List<MessageModel>> getMessages(
+    String threadId, {
+    String? currentUserId,
+  });
   Future<MessageModel> sendMessage(String threadId, MessageModel message);
   Future<void> markAsRead(String threadId, String messageId);
   Future<String> uploadAttachment(ChatAttachmentModel attachment);

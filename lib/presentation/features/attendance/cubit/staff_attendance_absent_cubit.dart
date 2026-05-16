@@ -10,8 +10,8 @@ part 'staff_attendance_absent_state.dart';
 class StaffAttendanceAbsentCubit extends Cubit<StaffAttendanceAbsentState> {
   StaffAttendanceAbsentCubit({
     required GetStaffAttendanceAbsentUseCase getStaffAttendanceAbsentUseCase,
-  })  : _getStaffAttendanceAbsentUseCase = getStaffAttendanceAbsentUseCase,
-        super(const StaffAttendanceAbsentState.initial());
+  }) : _getStaffAttendanceAbsentUseCase = getStaffAttendanceAbsentUseCase,
+       super(const StaffAttendanceAbsentState.initial());
 
   final GetStaffAttendanceAbsentUseCase _getStaffAttendanceAbsentUseCase;
 
@@ -45,16 +45,18 @@ class StaffAttendanceAbsentCubit extends Cubit<StaffAttendanceAbsentState> {
     final fromStr = _formatDate(fromDate);
     final toStr = _formatDate(toDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      fromDate: fromDate,
-      toDate: toDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
+      ),
+    );
 
     try {
       final firstPage = await _getStaffAttendanceAbsentUseCase(
@@ -69,23 +71,27 @@ class StaffAttendanceAbsentCubit extends Cubit<StaffAttendanceAbsentState> {
 
       if (isClosed) return;
 
-      emit(StaffAttendanceAbsentState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        fromDate: fromDate,
-        toDate: toDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      emit(
+        StaffAttendanceAbsentState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          fromDate: fromDate,
+          toDate: toDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -113,18 +119,22 @@ class StaffAttendanceAbsentCubit extends Cubit<StaffAttendanceAbsentState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -132,4 +142,3 @@ class StaffAttendanceAbsentCubit extends Cubit<StaffAttendanceAbsentState> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

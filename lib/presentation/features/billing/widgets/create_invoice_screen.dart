@@ -42,16 +42,26 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   bool _isFormLocked = false;
 
   final List<String> _firstItemTypeOptions = ['New Item', 'Preset Item'];
-  final List<String> _itemTypeOptions = ['New Item', 'Preset Item', 'Discount', 'Subsidy'];
-  final List<String> _presetItemOptions = ['Tuition Fee', 'Activity Fee', 'Late Pick-up'];
-  final List<String> _discountOptions = ['Sibling Discount', 'Loyalty Discount'];
+  final List<String> _itemTypeOptions = [
+    'New Item',
+    'Preset Item',
+    'Discount',
+    'Subsidy',
+  ];
+  final List<String> _presetItemOptions = [
+    'Tuition Fee',
+    'Activity Fee',
+    'Late Pick-up',
+  ];
+  final List<String> _discountOptions = [
+    'Sibling Discount',
+    'Loyalty Discount',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _invoiceItems = [
-      _InvoiceItemFormData.initial(isPrimary: true),
-    ];
+    _invoiceItems = [_InvoiceItemFormData.initial(isPrimary: true)];
     _hydrateFromInitialData();
   }
 
@@ -77,7 +87,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         _invoiceItems = items.mapIndexed((index, raw) {
           final map = raw as Map<String, dynamic>;
           return _InvoiceItemFormData(
-            type: map['type']?.toString() ?? (index == 0 ? 'New Item' : 'Preset Item'),
+            type:
+                map['type']?.toString() ??
+                (index == 0 ? 'New Item' : 'Preset Item'),
             description: map['description']?.toString() ?? '',
             amount: map['amount']?.toString() ?? '',
             deductionAmount: map['deductionAmt']?.toString() ?? '',
@@ -112,7 +124,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   double get _totalAmount {
     double total = 0;
     for (final item in _invoiceItems) {
-      final amount = double.tryParse(item.amountController.text.isEmpty ? item.amount : item.amountController.text) ?? 0;
+      final amount =
+          double.tryParse(
+            item.amountController.text.isEmpty
+                ? item.amount
+                : item.amountController.text,
+          ) ??
+          0;
       if (item.type == 'Discount' || item.type == 'Subsidy') {
         total -= amount;
       } else {
@@ -171,7 +189,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         item.type = type;
         if (type == 'Discount' || type == 'Subsidy') {
           item.currencySign = currencySign ?? item.currencySign;
-          item.amountController.text = item.amountController.text.isEmpty ? '0' : item.amountController.text;
+          item.amountController.text = item.amountController.text.isEmpty
+              ? '0'
+              : item.amountController.text;
         }
       }
       if (description != null) {
@@ -211,22 +231,34 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     if (item.type != 'Discount' && item.type != 'Subsidy') return;
 
     final deductionValue =
-        double.tryParse(item.deductionController.text.isEmpty ? item.deductionAmount : item.deductionController.text) ?? 0;
+        double.tryParse(
+          item.deductionController.text.isEmpty
+              ? item.deductionAmount
+              : item.deductionController.text,
+        ) ??
+        0;
     if (item.currencySign == '%') {
-      final baseAmount = double.tryParse(
-            item.percentageController.text.isEmpty ? item.percentageAmount : item.percentageController.text,
+      final baseAmount =
+          double.tryParse(
+            item.percentageController.text.isEmpty
+                ? item.percentageAmount
+                : item.percentageController.text,
           ) ??
           0;
       final calculated = (baseAmount * deductionValue) / 100;
       item.amount = calculated.toStringAsFixed(2);
       item.amountController
         ..text = calculated.toStringAsFixed(2)
-        ..selection = TextSelection.fromPosition(TextPosition(offset: item.amountController.text.length));
+        ..selection = TextSelection.fromPosition(
+          TextPosition(offset: item.amountController.text.length),
+        );
     } else {
       item.amount = deductionValue.toStringAsFixed(2);
       item.amountController
         ..text = deductionValue.toStringAsFixed(2)
-        ..selection = TextSelection.fromPosition(TextPosition(offset: item.amountController.text.length));
+        ..selection = TextSelection.fromPosition(
+          TextPosition(offset: item.amountController.text.length),
+        );
     }
   }
 
@@ -248,7 +280,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     if (!_validateRequiredFields()) {
       return;
     }
-    if (_invoiceItems.every((item) => item.amountController.text.trim().isEmpty)) {
+    if (_invoiceItems.every(
+      (item) => item.amountController.text.trim().isEmpty,
+    )) {
       _showValidationMessage('Please enter at least one invoice item amount');
       return;
     }
@@ -256,14 +290,24 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     // Build invoice data payload to show on the receipt screen (UI-only)
     final invoiceData = <String, dynamic>{
       'invoiceItems': _invoiceItems
-          .map((it) => {
-                'type': it.type,
-                'description': it.descriptionController.text.trim().isEmpty ? it.description : it.descriptionController.text,
-                'currencySign': it.currencySign,
-                'amount': it.amountController.text.trim().isEmpty ? it.amount : it.amountController.text,
-                'deductionAmt': it.deductionController.text.trim().isEmpty ? it.deductionAmount : it.deductionController.text,
-                'percentageAmt': it.percentageController.text.trim().isEmpty ? it.percentageAmount : it.percentageController.text,
-              })
+          .map(
+            (it) => {
+              'type': it.type,
+              'description': it.descriptionController.text.trim().isEmpty
+                  ? it.description
+                  : it.descriptionController.text,
+              'currencySign': it.currencySign,
+              'amount': it.amountController.text.trim().isEmpty
+                  ? it.amount
+                  : it.amountController.text,
+              'deductionAmt': it.deductionController.text.trim().isEmpty
+                  ? it.deductionAmount
+                  : it.deductionController.text,
+              'percentageAmt': it.percentageController.text.trim().isEmpty
+                  ? it.percentageAmount
+                  : it.percentageController.text,
+            },
+          )
           .toList(),
       'internalNote': _internalNoteController.text.trim(),
       'invoiceDate': _dueDate,
@@ -296,14 +340,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final containerWidth = isLargeTablet
         ? (screenWidth * 0.8).clamp(800.0, 1200.0)
         : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
+        ? screenWidth * 0.9
+        : screenWidth - 32.0;
     final horizontalSpacing = isLargeTablet
         ? (screenWidth * 0.1).clamp(32.0, 64.0)
         : isTablet
-            ? 32.0
-            : 16.0;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 16.0;
+        ? 32.0
+        : 16.0;
+    final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0
+        ? MediaQuery.of(context).padding.bottom
+        : 16.0;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -365,7 +411,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           child: ListView(
                             padding: EdgeInsets.zero,
                             children: [
-                              _SelectedStudentsBanner(students: widget.selectedStudents),
+                              _SelectedStudentsBanner(
+                                students: widget.selectedStudents,
+                              ),
                               SizedBox(height: responsive.verticalSpacing),
                               _buildDueDatePicker(responsive, isTablet),
                               SizedBox(height: responsive.verticalSpacing),
@@ -388,7 +436,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           ],
         ),
         bottomNavigationBar: Container(
-          padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+          padding: EdgeInsets.only(
+            bottom: safeAreaBottom,
+            left: 16,
+            right: 16,
+            top: 8,
+          ),
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             boxShadow: [
@@ -408,15 +461,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             decoration: BoxDecoration(
               gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
               color: _isSubmitting ? AppColors.billingButtonDisabled : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 16.0 : 8.0,
+              ),
             ),
             child: TextButton(
               onPressed: _isSubmitting ? null : _handleSubmit,
               child: Text(
                 'Save Invoice (UI Only)',
-                style: AppTextStyles.button(color: AppColors.billingCardColor).copyWith(
-                  fontSize: responsive.buttonFontSize,
-                ),
+                style: AppTextStyles.button(
+                  color: AppColors.billingCardColor,
+                ).copyWith(fontSize: responsive.buttonFontSize),
               ),
             ),
           ),
@@ -458,7 +513,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      _dueDate == null ? 'Select date' : _dateFormat.format(_dueDate!),
+                      _dueDate == null
+                          ? 'Select date'
+                          : _dateFormat.format(_dueDate!),
                       style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16.0 : 14.0,
                         color: AppColors.billingTextColor,
@@ -467,7 +524,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Icon(Icons.calendar_today_outlined, color: AppColors.billingTextColor),
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    color: AppColors.billingTextColor,
+                  ),
                 ],
               ),
             ),
@@ -499,7 +559,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   onSelected: (value) => _serviceStartDate = value,
                 ),
                 child: _DateField(
-                  label: _serviceStartDate == null ? 'Select date' : _dateFormat.format(_serviceStartDate!),
+                  label: _serviceStartDate == null
+                      ? 'Select date'
+                      : _dateFormat.format(_serviceStartDate!),
                   isTablet: isTablet,
                 ),
               ),
@@ -519,7 +581,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   onSelected: (value) => _serviceEndDate = value,
                 ),
                 child: _DateField(
-                  label: _serviceEndDate == null ? 'Select date' : _dateFormat.format(_serviceEndDate!),
+                  label: _serviceEndDate == null
+                      ? 'Select date'
+                      : _dateFormat.format(_serviceEndDate!),
                   isTablet: isTablet,
                 ),
               ),
@@ -556,27 +620,45 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         ..._invoiceItems.asMap().entries.map((entry) {
           final index = entry.key;
           final item = entry.value;
-          final isDiscountType = item.type == 'Discount' || item.type == 'Subsidy';
+          final isDiscountType =
+              item.type == 'Discount' || item.type == 'Subsidy';
           final descriptionOptions = _descriptionOptionsForType(item.type);
-          final String? safeTypeValue =
-              _safeDropdownValue(item.type, index == 0 ? _firstItemTypeOptions : _itemTypeOptions);
-          final String? safeDescriptionValue =
-              _safeDropdownValue(item.description.isEmpty ? null : item.description, descriptionOptions);
-          final String? safeUnitValue = _safeDropdownValue(item.currencySign, const ['%', r'$']) ?? '%';
+          final String? safeTypeValue = _safeDropdownValue(
+            item.type,
+            index == 0 ? _firstItemTypeOptions : _itemTypeOptions,
+          );
+          final String? safeDescriptionValue = _safeDropdownValue(
+            item.description.isEmpty ? null : item.description,
+            descriptionOptions,
+          );
+          final String? safeUnitValue =
+              _safeDropdownValue(item.currencySign, const ['%', r'$']) ?? '%';
           return Padding(
-            padding: EdgeInsets.only(bottom: index == _invoiceItems.length - 1 ? 0 : responsive.verticalSpacing),
+            padding: EdgeInsets.only(
+              bottom: index == _invoiceItems.length - 1
+                  ? 0
+                  : responsive.verticalSpacing,
+            ),
             child: Container(
               decoration: BoxDecoration(
-                color: index == 0 ? AppColors.billingCardColor : AppColors.billingGreyLight,
+                color: index == 0
+                    ? AppColors.billingCardColor
+                    : AppColors.billingGreyLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: index == 0 ? AppColors.billingInputBorderFocused : AppColors.billingInputBorderDefault),
+                border: Border.all(
+                  color: index == 0
+                      ? AppColors.billingInputBorderFocused
+                      : AppColors.billingInputBorderDefault,
+                ),
               ),
               padding: EdgeInsets.all(isTablet ? 20.0 : 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    index == 0 ? 'Primary Item' : 'Additional Item ${index + 1}',
+                    index == 0
+                        ? 'Primary Item'
+                        : 'Additional Item ${index + 1}',
                     style: AppTextStyles.label.copyWith(
                       fontWeight: FontWeight.w600,
                       color: AppColors.billingTextColor,
@@ -586,7 +668,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   _ItemDropdown(
                     label: 'Type',
                     value: safeTypeValue,
-                    options: index == 0 ? _firstItemTypeOptions : _itemTypeOptions,
+                    options: index == 0
+                        ? _firstItemTypeOptions
+                        : _itemTypeOptions,
                     isEnabled: !_isFormLocked,
                     onChanged: (value) {
                       if (value != null) {
@@ -600,8 +684,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       label: 'Item Description',
                       value: safeDescriptionValue,
                       options: descriptionOptions,
-                      isEnabled: !_isFormLocked && descriptionOptions.isNotEmpty,
-                      hint: descriptionOptions.isEmpty ? 'No items available' : 'Select ${item.type.toLowerCase()}',
+                      isEnabled:
+                          !_isFormLocked && descriptionOptions.isNotEmpty,
+                      hint: descriptionOptions.isEmpty
+                          ? 'No items available'
+                          : 'Select ${item.type.toLowerCase()}',
                       onChanged: (value) {
                         if (value != null) {
                           _updateInvoiceItem(index, description: value);
@@ -614,7 +701,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       controller: item.descriptionController,
                       enabled: !_isFormLocked,
                       hintText: 'Enter item description',
-                      onChanged: (value) => _updateInvoiceItem(index, description: value),
+                      onChanged: (value) =>
+                          _updateInvoiceItem(index, description: value),
                     ),
                   const SizedBox(height: 12),
                   _ItemTextField(
@@ -623,7 +711,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     enabled: !_isFormLocked && !isDiscountType,
                     hintText: isDiscountType ? 'Calculated' : 'Enter amount',
                     keyboardType: TextInputType.number,
-                    onChanged: (value) => _updateInvoiceItem(index, amount: value),
+                    onChanged: (value) =>
+                        _updateInvoiceItem(index, amount: value),
                   ),
                   if (isDiscountType) ...[
                     const SizedBox(height: 12),
@@ -632,12 +721,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         Expanded(
                           flex: item.currencySign == '%' ? 3 : 1,
                           child: _ItemTextField(
-                            label: item.currencySign == '%' ? 'Discount (%)' : 'Discount Amount',
+                            label: item.currencySign == '%'
+                                ? 'Discount (%)'
+                                : 'Discount Amount',
                             controller: item.deductionController,
                             enabled: !_isFormLocked,
                             keyboardType: TextInputType.number,
                             prefixText: item.currencySign == '%' ? null : '\$',
-                            onChanged: (value) => _updateInvoiceItem(index, deduction: value),
+                            onChanged: (value) =>
+                                _updateInvoiceItem(index, deduction: value),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -664,7 +756,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                               controller: item.percentageController,
                               enabled: !_isFormLocked,
                               keyboardType: TextInputType.number,
-                              onChanged: (value) => _updateInvoiceItem(index, percentage: value),
+                              onChanged: (value) =>
+                                  _updateInvoiceItem(index, percentage: value),
                             ),
                           ),
                         ],
@@ -709,7 +802,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             horizontal: responsive.isTablet ? 20.0 : 14.0,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
             color: const Color(0x1AB1AFE9),
             border: Border.all(color: AppColors.billingBorderMedium),
           ),
@@ -730,14 +825,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Widget _buildAddItemButton(bool isTablet) {
     final borderRadius = BorderRadius.circular(isTablet ? 14.0 : 10.0);
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: isTablet ? 48.0 : 42.0,
-      ),
+      constraints: BoxConstraints(minHeight: isTablet ? 48.0 : 42.0),
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: borderRadius,
           gradient: _isFormLocked ? null : AppColors.buildPrimaryGradient(),
-          color: _isFormLocked ? AppColors.billingInputBackgroundDisabled : null,
+          color: _isFormLocked
+              ? AppColors.billingInputBackgroundDisabled
+              : null,
           boxShadow: _isFormLocked
               ? null
               : [
@@ -750,7 +845,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         ),
         child: TextButton.icon(
           onPressed: _isFormLocked ? null : _addInvoiceItem,
-          icon: Icon(Icons.add, color: AppColors.billingButtonTextColor, size: 18),
+          icon: Icon(
+            Icons.add,
+            color: AppColors.billingButtonTextColor,
+            size: 18,
+          ),
           label: Text(
             'Add Item',
             style: AppTextStyles.label.copyWith(
@@ -789,7 +888,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: _internalNoteController,
@@ -799,7 +900,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             decoration: const InputDecoration(
               border: InputBorder.none,
               hintText: 'Add internal note',
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
           ),
         ),
@@ -832,17 +936,27 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     for (var index = 0; index < _invoiceItems.length; index++) {
       final item = _invoiceItems[index];
-      final description = _effectiveControllerValue(item.descriptionController, fallback: item.description);
+      final description = _effectiveControllerValue(
+        item.descriptionController,
+        fallback: item.description,
+      );
       if (description.trim().isEmpty) {
-        _showValidationMessage('Please provide a description for invoice item ${index + 1}.');
+        _showValidationMessage(
+          'Please provide a description for invoice item ${index + 1}.',
+        );
         return false;
       }
 
-      final amountText = _effectiveControllerValue(item.amountController, fallback: item.amount);
+      final amountText = _effectiveControllerValue(
+        item.amountController,
+        fallback: item.amount,
+      );
       final isDiscountType = item.type == 'Discount' || item.type == 'Subsidy';
       if (amountText.trim().isEmpty) {
         final label = isDiscountType ? 'deduction' : 'amount';
-        _showValidationMessage('Please enter the $label for invoice item ${index + 1}.');
+        _showValidationMessage(
+          'Please enter the $label for invoice item ${index + 1}.',
+        );
         return false;
       }
     }
@@ -850,15 +964,18 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return true;
   }
 
-  String _effectiveControllerValue(TextEditingController controller, {required String fallback}) {
+  String _effectiveControllerValue(
+    TextEditingController controller, {
+    required String fallback,
+  }) {
     final text = controller.text.trim();
     return text.isEmpty ? fallback : text;
   }
 
   void _showValidationMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -899,7 +1016,10 @@ class _SelectedStudentsBanner extends StatelessWidget {
             children: students
                 .map(
                   (student) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.circular(20),
@@ -907,10 +1027,10 @@ class _SelectedStudentsBanner extends StatelessWidget {
                     ),
                     child: Text(
                       student.fullName,
-                    style: AppTextStyles.small.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor,
-                    ),
+                      style: AppTextStyles.small.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.billingTextColor,
+                      ),
                     ),
                   ),
                 )
@@ -923,10 +1043,7 @@ class _SelectedStudentsBanner extends StatelessWidget {
 }
 
 class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.isTablet,
-  });
+  const _DateField({required this.label, required this.isTablet});
 
   final String label;
   final bool isTablet;
@@ -952,7 +1069,10 @@ class _DateField extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Icon(Icons.calendar_today_outlined, color: AppColors.billingTextColor),
+          Icon(
+            Icons.calendar_today_outlined,
+            color: AppColors.billingTextColor,
+          ),
         ],
       ),
     );
@@ -991,12 +1111,14 @@ class _ItemDropdown extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: isEnabled ? AppColors.billingBorderLight : AppColors.billingInputBackgroundDisabled,
+            color: isEnabled
+                ? AppColors.billingBorderLight
+                : AppColors.billingInputBackgroundDisabled,
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: DropdownButtonFormField<String>(
-            value: value,
+            initialValue: value,
             isExpanded: true,
             onChanged: isEnabled ? onChanged : null,
             decoration: const InputDecoration(
@@ -1007,9 +1129,9 @@ class _ItemDropdown extends StatelessWidget {
                 ? null
                 : Text(
                     hint!,
-                      style: AppTextStyles.value.copyWith(
-                        color: AppColors.billingGreyMedium,
-                      ),
+                    style: AppTextStyles.value.copyWith(
+                      color: AppColors.billingGreyMedium,
+                    ),
                   ),
             items: options
                 .map(
@@ -1077,7 +1199,10 @@ class _ItemTextField extends StatelessWidget {
               border: InputBorder.none,
               hintText: hintText,
               prefixText: prefixText,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
             ),
           ),
         ),
@@ -1095,10 +1220,10 @@ class _InvoiceItemFormData {
     required this.percentageAmount,
     required this.currencySign,
     this.isPrimary = false,
-  })  : descriptionController = TextEditingController(text: description),
-        amountController = TextEditingController(text: amount),
-        deductionController = TextEditingController(text: deductionAmount),
-        percentageController = TextEditingController(text: percentageAmount);
+  }) : descriptionController = TextEditingController(text: description),
+       amountController = TextEditingController(text: amount),
+       deductionController = TextEditingController(text: deductionAmount),
+       percentageController = TextEditingController(text: percentageAmount);
 
   factory _InvoiceItemFormData.initial({bool isPrimary = false}) {
     return _InvoiceItemFormData(

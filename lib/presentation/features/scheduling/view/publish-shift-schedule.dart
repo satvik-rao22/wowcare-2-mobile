@@ -64,7 +64,9 @@ class _PublishShiftScheduleScreenState
 
     if (_selectedValue == PublishType.untilDate && _publishUntilDate != null) {
       payload['repeat'] = true;
-      payload['repeatUntil'] = DateFormat('yyyy-MM-dd').format(_publishUntilDate!);
+      payload['repeatUntil'] = DateFormat(
+        'yyyy-MM-dd',
+      ).format(_publishUntilDate!);
     }
 
     if (!mounted) return;
@@ -158,9 +160,9 @@ class _PublishShiftScheduleScreenState
             child: CustomButtonLayout(
               confirmButtonLabel: 'Publish',
               cancelButtonLabel: 'Cancel',
-                onPressedConfirm: isSubmitting
-                    ? null
-                    : () => _handlePublish(context),
+              onPressedConfirm: isSubmitting
+                  ? null
+                  : () => _handlePublish(context),
               onPressedCancel: () => Navigator.pop(context),
               showCancelButton: true,
               isForm: false,
@@ -168,6 +170,7 @@ class _PublishShiftScheduleScreenState
             ),
           ),
         ),
-      ),);
+      ),
+    );
   }
-    }
+}

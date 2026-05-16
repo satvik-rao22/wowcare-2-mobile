@@ -47,9 +47,9 @@ class _ReceivePaymentIssueRefundScreenState
       text: widget.isRefund
           ? widget.transaction.amount.toStringAsFixed(2)
           : (widget.transaction.balance != null &&
-                  widget.transaction.balance! < 0)
-              ? widget.transaction.balance!.abs().toStringAsFixed(2)
-              : widget.transaction.amount.toStringAsFixed(2),
+                widget.transaction.balance! < 0)
+          ? widget.transaction.balance!.abs().toStringAsFixed(2)
+          : widget.transaction.amount.toStringAsFixed(2),
     );
     _internalNoteController = TextEditingController();
     _staffNoteController = TextEditingController();
@@ -108,19 +108,15 @@ class _ReceivePaymentIssueRefundScreenState
     });
 
     _showSnackBar(
-      widget.isRefund
-          ? 'Refund saved (UI only).'
-          : 'Payment saved (UI only).',
+      widget.isRefund ? 'Refund saved (UI only).' : 'Payment saved (UI only).',
     );
     Navigator.of(context).maybePop(true);
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -132,18 +128,18 @@ class _ReceivePaymentIssueRefundScreenState
     final double containerWidth = isLargeTablet
         ? (screenSize.width * 0.8).clamp(800.0, 1200.0)
         : isTablet
-            ? screenSize.width * 0.9
-            : screenSize.width - 32.0;
+        ? screenSize.width * 0.9
+        : screenSize.width - 32.0;
     final double horizontalSpacing = isLargeTablet
         ? (screenSize.width * 0.1).clamp(32.0, 64.0)
         : isTablet
-            ? 32.0
-            : 16.0;
+        ? 32.0
+        : 16.0;
     final double verticalSpacing = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
@@ -168,44 +164,45 @@ class _ReceivePaymentIssueRefundScreenState
             NestedScrollView(
               headerSliverBuilder:
                   (BuildContext context, bool innerBoxIsScrolled) {
-                return <Widget>[
-                  SliverAppBar(
-                    pinned: true,
-                    floating: true,
-                    snap: true,
-                    stretch: true,
-                    scrolledUnderElevation: 0,
-                    backgroundColor: AppColors.billingCardColor,
-                    leading: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: AppColors.billingTextColor,
-                      ),
-                    ),
-                    bottom: PreferredSize(
-                      preferredSize: const Size.fromHeight(1.5),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: const Border(
-                            bottom: BorderSide(
-                              width: 1.5,
-                              color: AppColors.billingTransparentColor,
+                    return <Widget>[
+                      SliverAppBar(
+                        pinned: true,
+                        floating: true,
+                        snap: true,
+                        stretch: true,
+                        scrolledUnderElevation: 0,
+                        backgroundColor: AppColors.billingCardColor,
+                        leading: IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: AppColors.billingTextColor,
+                          ),
+                        ),
+                        bottom: PreferredSize(
+                          preferredSize: const Size.fromHeight(1.5),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: const Border(
+                                bottom: BorderSide(
+                                  width: 1.5,
+                                  color: AppColors.billingTransparentColor,
+                                ),
+                              ),
+                              gradient: AppColors.buildSecondaryGradient(),
                             ),
                           ),
-                          gradient: AppColors.buildSecondaryGradient(),
                         ),
                       ),
-                    ),
-                  ),
-                ];
-              },
+                    ];
+                  },
               body: Column(
                 children: <Widget>[
                   const SizedBox(height: 16),
                   Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalSpacing),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalSpacing,
+                    ),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -223,9 +220,12 @@ class _ReceivePaymentIssueRefundScreenState
                   Expanded(
                     child: Container(
                       width: containerWidth,
-                      margin:
-                          EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                      padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
+                      margin: EdgeInsets.symmetric(
+                        horizontal: horizontalSpacing,
+                      ),
+                      padding: EdgeInsets.all(
+                        responsive.isTablet ? 32.0 : 16.0,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.billingCardColor,
                         borderRadius: BorderRadius.all(
@@ -288,24 +288,23 @@ class _ReceivePaymentIssueRefundScreenState
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(
-                                                responsive.isTablet
-                                                    ? 12.0
-                                                    : 8.0,
-                                              ),
+                                                    responsive.isTablet
+                                                        ? 12.0
+                                                        : 8.0,
+                                                  ),
                                             ),
                                             child: Row(
                                               children: <Widget>[
                                                 Container(
-                                                  padding:
-                                                      EdgeInsets.symmetric(
+                                                  padding: EdgeInsets.symmetric(
                                                     horizontal:
                                                         responsive.isTablet
-                                                            ? 16.0
-                                                            : 12.0,
+                                                        ? 16.0
+                                                        : 12.0,
                                                     vertical:
                                                         responsive.isTablet
-                                                            ? 16.0
-                                                            : 12.0,
+                                                        ? 16.0
+                                                        : 12.0,
                                                   ),
                                                   decoration: BoxDecoration(
                                                     color: const Color(
@@ -313,19 +312,21 @@ class _ReceivePaymentIssueRefundScreenState
                                                     ),
                                                     borderRadius:
                                                         BorderRadius.only(
-                                                      topLeft:
-                                                          Radius.circular(
-                                                        responsive.isTablet
-                                                            ? 12.0
-                                                            : 8.0,
-                                                      ),
-                                                      bottomLeft:
-                                                          Radius.circular(
-                                                        responsive.isTablet
-                                                            ? 12.0
-                                                            : 8.0,
-                                                      ),
-                                                    ),
+                                                          topLeft:
+                                                              Radius.circular(
+                                                                responsive
+                                                                        .isTablet
+                                                                    ? 12.0
+                                                                    : 8.0,
+                                                              ),
+                                                          bottomLeft:
+                                                              Radius.circular(
+                                                                responsive
+                                                                        .isTablet
+                                                                    ? 12.0
+                                                                    : 8.0,
+                                                              ),
+                                                        ),
                                                   ),
                                                   child: Text(
                                                     '\$',
@@ -346,10 +347,9 @@ class _ReceivePaymentIssueRefundScreenState
                                                     controller:
                                                         _amountController,
                                                     keyboardType:
-                                                        const TextInputType
-                                                            .numberWithOptions(
-                                                      decimal: true,
-                                                    ),
+                                                        const TextInputType.numberWithOptions(
+                                                          decimal: true,
+                                                        ),
                                                     onChanged: (_) {
                                                       if (_amountError) {
                                                         setState(() {
@@ -357,30 +357,31 @@ class _ReceivePaymentIssueRefundScreenState
                                                         });
                                                       }
                                                     },
-                                                    decoration:
-                                                        InputDecoration(
-                                                      hintText:
-                                                          'Enter Amount',
+                                                    decoration: InputDecoration(
+                                                      hintText: 'Enter Amount',
                                                       hintStyle: TextStyle(
                                                         fontSize: responsive
                                                             .labelFontSize,
                                                         fontFamily: 'Manrope',
                                                         fontWeight:
                                                             FontWeight.w400,
-                                                        color: AppColors.billingGrey,
+                                                        color: AppColors
+                                                            .billingGrey,
                                                       ),
                                                       border: InputBorder.none,
                                                       contentPadding:
                                                           EdgeInsets.symmetric(
-                                                        horizontal:
-                                                            responsive.isTablet
+                                                            horizontal:
+                                                                responsive
+                                                                    .isTablet
                                                                 ? 16.0
                                                                 : 12.0,
-                                                        vertical:
-                                                            responsive.isTablet
+                                                            vertical:
+                                                                responsive
+                                                                    .isTablet
                                                                 ? 16.0
                                                                 : 12.0,
-                                                      ),
+                                                          ),
                                                     ),
                                                   ),
                                                 ),
@@ -421,8 +422,7 @@ class _ReceivePaymentIssueRefundScreenState
                                                     AppColors.billingTextColor,
                                               ),
                                               children: const <InlineSpan>[
-                                                TextSpan(
-                                                    text: 'Payment Type'),
+                                                TextSpan(text: 'Payment Type'),
                                                 TextSpan(
                                                   text: ' *',
                                                   style: TextStyle(
@@ -445,61 +445,60 @@ class _ReceivePaymentIssueRefundScreenState
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(
-                                                responsive.isTablet
-                                                    ? 12.0
-                                                    : 8.0,
-                                              ),
+                                                    responsive.isTablet
+                                                        ? 12.0
+                                                        : 8.0,
+                                                  ),
                                             ),
-                                            child: DropdownButtonFormField<
-                                                String>(
-                                              value: _getFilteredPaymentOptions()
+                                            child: DropdownButtonFormField<String>(
+                                              initialValue:
+                                                  _getFilteredPaymentOptions()
                                                       .contains(
-                                                          _selectedPaymentType)
+                                                        _selectedPaymentType,
+                                                      )
                                                   ? _selectedPaymentType
                                                   : null,
                                               isExpanded: true,
-                                              decoration:
-                                                  const InputDecoration(
+                                              decoration: const InputDecoration(
                                                 border: InputBorder.none,
                                                 contentPadding:
                                                     EdgeInsets.symmetric(
-                                                  horizontal: 16.0,
-                                                  vertical: 12.0,
-                                                ),
+                                                      horizontal: 16.0,
+                                                      vertical: 12.0,
+                                                    ),
                                               ),
                                               hint: Text(
                                                 'Select payment type',
                                                 style: TextStyle(
-                                                  fontSize: responsive
-                                                      .labelFontSize,
+                                                  fontSize:
+                                                      responsive.labelFontSize,
                                                   fontFamily: 'Manrope',
                                                   fontWeight: FontWeight.w400,
                                                   color: Colors.grey,
                                                 ),
                                               ),
-                                              items:
-                                                  _getFilteredPaymentOptions()
-                                                      .map(
-                                                (String type) {
-                                                  return DropdownMenuItem<
-                                                      String>(
-                                                    value: type,
-                                                    child: Text(
-                                                      type,
-                                                      style: TextStyle(
-                                                        fontSize: responsive
-                                                            .labelFontSize,
-                                                        fontFamily: 'Manrope',
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: const Color(
-                                                          0xff573353,
+                                              items: _getFilteredPaymentOptions()
+                                                  .map((String type) {
+                                                    return DropdownMenuItem<
+                                                      String
+                                                    >(
+                                                      value: type,
+                                                      child: Text(
+                                                        type,
+                                                        style: TextStyle(
+                                                          fontSize: responsive
+                                                              .labelFontSize,
+                                                          fontFamily: 'Manrope',
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          color: const Color(
+                                                            0xff573353,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  );
-                                                },
-                                              ).toList(),
+                                                    );
+                                                  })
+                                                  .toList(),
                                               onChanged: (String? value) {
                                                 setState(() {
                                                   _selectedPaymentType = value;
@@ -512,8 +511,8 @@ class _ReceivePaymentIssueRefundScreenState
                                     ),
                                   ],
                                 ),
-                                if (_selectedPaymentType == 'Cheque') ...<
-                                    Widget>[
+                                if (_selectedPaymentType ==
+                                    'Cheque') ...<Widget>[
                                   SizedBox(height: verticalSpacing),
                                   Column(
                                     crossAxisAlignment:
@@ -522,8 +521,7 @@ class _ReceivePaymentIssueRefundScreenState
                                       RichText(
                                         text: TextSpan(
                                           style: TextStyle(
-                                            fontSize:
-                                                responsive.labelFontSize,
+                                            fontSize: responsive.labelFontSize,
                                             fontFamily: 'Manrope',
                                             fontWeight: FontWeight.w400,
                                             color: AppColors.billingTextColor,
@@ -532,15 +530,15 @@ class _ReceivePaymentIssueRefundScreenState
                                             TextSpan(text: 'Cheque Number'),
                                             TextSpan(
                                               text: ' *',
-                                              style:
-                                                  TextStyle(color: AppColors.errorColor),
+                                              style: TextStyle(
+                                                color: AppColors.errorColor,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       SizedBox(
-                                        height:
-                                            responsive.isTablet ? 8.0 : 6.0,
+                                        height: responsive.isTablet ? 8.0 : 6.0,
                                       ),
                                       Container(
                                         decoration: BoxDecoration(
@@ -549,14 +547,11 @@ class _ReceivePaymentIssueRefundScreenState
                                             color: const Color(0x66573353),
                                           ),
                                           borderRadius: BorderRadius.circular(
-                                            responsive.isTablet
-                                                ? 12.0
-                                                : 8.0,
+                                            responsive.isTablet ? 12.0 : 8.0,
                                           ),
                                         ),
                                         child: TextField(
-                                          controller:
-                                              _chequeNumberController,
+                                          controller: _chequeNumberController,
                                           decoration: InputDecoration(
                                             hintText: 'Enter cheque number',
                                             hintStyle: TextStyle(
@@ -569,14 +564,14 @@ class _ReceivePaymentIssueRefundScreenState
                                             border: InputBorder.none,
                                             contentPadding:
                                                 EdgeInsets.symmetric(
-                                              horizontal:
-                                                  responsive.isTablet
+                                                  horizontal:
+                                                      responsive.isTablet
                                                       ? 16.0
                                                       : 12.0,
-                                              vertical: responsive.isTablet
-                                                  ? 16.0
-                                                  : 12.0,
-                                            ),
+                                                  vertical: responsive.isTablet
+                                                      ? 16.0
+                                                      : 12.0,
+                                                ),
                                           ),
                                         ),
                                       ),
@@ -597,8 +592,7 @@ class _ReceivePaymentIssueRefundScreenState
                                       ),
                                     ),
                                     SizedBox(
-                                      height:
-                                          responsive.isTablet ? 8.0 : 6.0,
+                                      height: responsive.isTablet ? 8.0 : 6.0,
                                     ),
                                     Container(
                                       decoration: BoxDecoration(
@@ -607,9 +601,7 @@ class _ReceivePaymentIssueRefundScreenState
                                           color: const Color(0x66573353),
                                         ),
                                         borderRadius: BorderRadius.circular(
-                                          responsive.isTablet
-                                              ? 12.0
-                                              : 8.0,
+                                          responsive.isTablet ? 12.0 : 8.0,
                                         ),
                                       ),
                                       child: TextField(
@@ -620,15 +612,13 @@ class _ReceivePaymentIssueRefundScreenState
                                           hintText:
                                               'Add Optional Internal Note',
                                           hintStyle: TextStyle(
-                                            fontSize:
-                                                responsive.labelFontSize,
+                                            fontSize: responsive.labelFontSize,
                                             fontFamily: 'Manrope',
                                             fontWeight: FontWeight.w400,
                                             color: Colors.grey,
                                           ),
                                           border: InputBorder.none,
-                                          contentPadding:
-                                              EdgeInsets.symmetric(
+                                          contentPadding: EdgeInsets.symmetric(
                                             horizontal: responsive.isTablet
                                                 ? 16.0
                                                 : 12.0,
@@ -653,7 +643,8 @@ class _ReceivePaymentIssueRefundScreenState
                                         });
                                       },
                                       activeColor: const Color(0xFF6B73FF),
-                                      checkColor: AppColors.billingButtonTextColor,
+                                      checkColor:
+                                          AppColors.billingButtonTextColor,
                                     ),
                                     Expanded(
                                       child: Text(
@@ -682,8 +673,7 @@ class _ReceivePaymentIssueRefundScreenState
                                       ),
                                     ),
                                     SizedBox(
-                                      height:
-                                          responsive.isTablet ? 8.0 : 6.0,
+                                      height: responsive.isTablet ? 8.0 : 6.0,
                                     ),
                                     Container(
                                       decoration: BoxDecoration(
@@ -692,9 +682,7 @@ class _ReceivePaymentIssueRefundScreenState
                                           color: const Color(0x66573353),
                                         ),
                                         borderRadius: BorderRadius.circular(
-                                          responsive.isTablet
-                                              ? 12.0
-                                              : 8.0,
+                                          responsive.isTablet ? 12.0 : 8.0,
                                         ),
                                       ),
                                       child: TextField(
@@ -704,15 +692,13 @@ class _ReceivePaymentIssueRefundScreenState
                                         decoration: InputDecoration(
                                           hintText: 'Staff Only Note',
                                           hintStyle: TextStyle(
-                                            fontSize:
-                                                responsive.labelFontSize,
+                                            fontSize: responsive.labelFontSize,
                                             fontFamily: 'Manrope',
                                             fontWeight: FontWeight.w400,
                                             color: Colors.grey,
                                           ),
                                           border: InputBorder.none,
-                                          contentPadding:
-                                              EdgeInsets.symmetric(
+                                          contentPadding: EdgeInsets.symmetric(
                                             horizontal: responsive.isTablet
                                                 ? 16.0
                                                 : 12.0,
@@ -762,11 +748,11 @@ class _ReceivePaymentIssueRefundScreenState
           child: Container(
             height: responsive.buttonHeight,
             decoration: BoxDecoration(
-              gradient:
-                  _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
               color: _isSubmitting ? AppColors.billingGreyLight : null,
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 16.0 : 8.0,
+              ),
             ),
             child: TextButton(
               onPressed: _isSubmitting ? null : _onSave,
@@ -779,8 +765,9 @@ class _ReceivePaymentIssueRefundScreenState
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(AppColors.billingButtonTextColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.billingButtonTextColor,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -812,8 +799,9 @@ class _ReceivePaymentIssueRefundScreenState
   }
 
   Widget _buildUserInfoSection() {
-    final double effectiveBalance =
-        _amountUnpaid != null ? _amountUnpaid!.toDouble() : 0.0;
+    final double effectiveBalance = _amountUnpaid != null
+        ? _amountUnpaid!.toDouble()
+        : 0.0;
     return Column(
       children: <Widget>[
         Row(
@@ -882,8 +870,9 @@ class _ReceivePaymentIssueRefundScreenState
     final List<String> parts = name.split(' ');
     if (parts.length >= 2) {
       final String first = parts[0].isNotEmpty ? parts[0][0] : '';
-      final String second =
-          parts.length > 1 && parts[1].isNotEmpty ? parts[1][0] : '';
+      final String second = parts.length > 1 && parts[1].isNotEmpty
+          ? parts[1][0]
+          : '';
       return (first + second).toUpperCase();
     } else if (parts.length == 1 && parts[0].isNotEmpty) {
       return parts[0][0].toUpperCase();
@@ -891,4 +880,3 @@ class _ReceivePaymentIssueRefundScreenState
     return 'NA';
   }
 }
-

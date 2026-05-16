@@ -5,7 +5,9 @@ class SchoolRegularScheduleListModel {
 
   final List<SchoolRegularScheduleDay> days;
 
-  factory SchoolRegularScheduleListModel.fromResponse(Map<String, dynamic> json) {
+  factory SchoolRegularScheduleListModel.fromResponse(
+    Map<String, dynamic> json,
+  ) {
     final data = json['data'];
     if (data is! Map<String, dynamic>) {
       return SchoolRegularScheduleListModel([]);

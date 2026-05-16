@@ -98,7 +98,8 @@ class _SubsidyCardState extends State<SubsidyCard> {
                                 showModalBottomSheet(
                                   context: context,
                                   isScrollControlled: true,
-                                  backgroundColor: AppColors.billingTransparentColor,
+                                  backgroundColor:
+                                      AppColors.billingTransparentColor,
                                   builder: (ctx) {
                                     return DeleteConfirmationBottomSheet(
                                       name: widget.subsidy.subsidyName,
@@ -116,7 +117,9 @@ class _SubsidyCardState extends State<SubsidyCard> {
                                 );
                               },
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                side: const BorderSide(
+                                  color: Color(0xFF6C7FD8),
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -263,6 +266,3 @@ class _SubsidyCardState extends State<SubsidyCard> {
     );
   }
 }
-
-
-

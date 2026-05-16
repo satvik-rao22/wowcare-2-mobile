@@ -77,10 +77,12 @@ class ProfileInfoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            ...children.map((child) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: child,
-                )),
+            ...children.map(
+              (child) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: child,
+              ),
+            ),
           ],
         ),
       ),
@@ -130,11 +132,7 @@ class ProfileField extends StatelessWidget {
       children: [
         Text(label, style: _labelStaff),
         const SizedBox(height: 6),
-        valueWidget ??
-            Text(
-              resolved,
-              style: _valueStaff,
-            ),
+        valueWidget ?? Text(resolved, style: _valueStaff),
       ],
     );
   }

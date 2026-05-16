@@ -328,9 +328,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     );
 
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
-    final selectedClassroom = classrooms.where((c) => c.name == _selectedClassroom);
-    final selectedClassroomCode =
-        selectedClassroom.isNotEmpty ? selectedClassroom.first.code : '';
+    final selectedClassroom = classrooms.where(
+      (c) => c.name == _selectedClassroom,
+    );
+    final selectedClassroomCode = selectedClassroom.isNotEmpty
+        ? selectedClassroom.first.code
+        : '';
     if (selectedClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -619,7 +622,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
       final rawStatus = (step1Data['status'] as String?) ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroomCode = (step1Data['classroomCode'] as String?)?.trim() ?? '';
+      final classroomCode =
+          (step1Data['classroomCode'] as String?)?.trim() ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate =
           step1Data['schoolStartDate'] as DateTime?;

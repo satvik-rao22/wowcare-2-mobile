@@ -13,9 +13,7 @@ class GetImportantDatesUseCase {
     required String staffCode,
   }) async {
     try {
-      final dates = await _repository.getImportantDates(
-        staffCode: staffCode,
-      );
+      final dates = await _repository.getImportantDates(staffCode: staffCode);
       return Right(dates);
     } catch (e) {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
@@ -23,5 +21,3 @@ class GetImportantDatesUseCase {
     }
   }
 }
-
-

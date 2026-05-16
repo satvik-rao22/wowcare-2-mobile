@@ -7,6 +7,7 @@ class StaffEntity {
   final String? classroomName;
   final String? photoUuid;
   final String designation;
+
   /// Optional staffCode for integration with attendance APIs.
   final String? staffCode;
 

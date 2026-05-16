@@ -14,8 +14,6 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
 
-
-
 class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
     required this.scrollController,
@@ -28,10 +26,8 @@ class StudentHealthTabCard extends StatefulWidget {
   final String? studentCode;
   final VoidCallback? onHealthChanged;
 
-
   @override
-  State<StudentHealthTabCard> createState() =>
-      _StudentHealthTabCardState();
+  State<StudentHealthTabCard> createState() => _StudentHealthTabCardState();
 }
 
 class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
@@ -63,10 +59,10 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
-    final canStudentWrite =
-        !isGuardianPersona &&
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return CustomRefreshIndicator(
@@ -115,40 +111,36 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
             final health = snapshot.data;
 
             return Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (canStudentWrite)
                     GestureDetector(
                       onTap: () async {
-                      final code = widget.studentCode;
-                      if (code == null || code.isEmpty) return;
-                      final currentHealth = health;
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => EditStudentHealthScreen(
-                            studentCode: code,
-                            initialHealth: currentHealth,
+                        final code = widget.studentCode;
+                        if (code == null || code.isEmpty) return;
+                        final currentHealth = health;
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => EditStudentHealthScreen(
+                              studentCode: code,
+                              initialHealth: currentHealth,
+                            ),
                           ),
-                        ),
-                      );
-                      if (result == true && mounted) {
-                        setState(() {
-                          _healthFuture = _buildHealthFuture();
-                          _hasShownErrorSnackBar = false;
-                        });
-                        widget.onHealthChanged?.call();
-                      }
-                    },
+                        );
+                        if (result == true && mounted) {
+                          setState(() {
+                            _healthFuture = _buildHealthFuture();
+                            _hasShownErrorSnackBar = false;
+                          });
+                          widget.onHealthChanged?.call();
+                        }
+                      },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Health',
-                            style: AppTextStyles.title,
-                          ),
+                          Text('Health', style: AppTextStyles.title),
                           Container(
                             width: 38,
                             height: 38,
@@ -180,8 +172,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         _photoPermission = v;
                       });
                       try {
-                        final repo = serviceLocator<StudentRepository>()
-                            as StudentRepositoryImpl;
+                        final repo =
+                            serviceLocator<StudentRepository>()
+                                as StudentRepositoryImpl;
                         final body = {
                           'allergy': health?.allergy ?? '',
                           'medications': health?.medications ?? '',
@@ -218,10 +211,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
       ),
     );
   }
-
 }
 
-class _HealthCard extends StatelessWidget{
+class _HealthCard extends StatelessWidget {
   const _HealthCard({
     required this.allergies,
     required this.medication,
@@ -401,23 +393,5 @@ class _HealthCard extends StatelessWidget{
         ),
       ),
     );
-
   }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -11,10 +11,10 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
     required GetStudentDocumentsUseCase getStudentDocumentsUseCase,
     required DeleteStudentDocumentUseCase deleteStudentDocumentUseCase,
     required StudentRepository repository,
-  })  : _getStudentDocumentsUseCase = getStudentDocumentsUseCase,
-        _deleteStudentDocumentUseCase = deleteStudentDocumentUseCase,
-        _repository = repository,
-        super(const StudentDocumentsListState.initial());
+  }) : _getStudentDocumentsUseCase = getStudentDocumentsUseCase,
+       _deleteStudentDocumentUseCase = deleteStudentDocumentUseCase,
+       _repository = repository,
+       super(const StudentDocumentsListState.initial());
 
   final GetStudentDocumentsUseCase _getStudentDocumentsUseCase;
   final DeleteStudentDocumentUseCase _deleteStudentDocumentUseCase;
@@ -25,7 +25,7 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
   Future<void> loadInitial(String studentCode, {bool? expiredOnly}) async {
     final cached = await (_repository is StudentRepositoryWithCache
         ? (_repository as StudentRepositoryWithCache)
-            .loadCachedStudentDocuments(studentCode)
+              .loadCachedStudentDocuments(studentCode)
         : Future.value(null));
 
     if (cached != null && !isClosed) {
@@ -111,16 +111,14 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoadingMore: false,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
     }
   }
 
-  Future<String?> deleteDocument(String studentCode, String documentUuid) async {
+  Future<String?> deleteDocument(
+    String studentCode,
+    String documentUuid,
+  ) async {
     try {
       final result = await _deleteStudentDocumentUseCase.call(
         documentUuid: documentUuid,
@@ -155,26 +153,26 @@ class StudentDocumentsListState extends Equatable {
   });
 
   const StudentDocumentsListState.initial()
-      : documents = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null;
+    : documents = const [],
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null;
 
   const StudentDocumentsListState.loaded({
     required List<StudentDocument> documents,
     required bool isFromCache,
     this.currentPage = 0,
     this.hasMore = false,
-  })  : documents = documents,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        isLoadingMore = false,
-        errorMessage = null;
+  }) : documents = documents,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       isLoadingMore = false,
+       errorMessage = null;
 
   final List<StudentDocument> documents;
   final bool isLoading;
@@ -209,13 +207,13 @@ class StudentDocumentsListState extends Equatable {
 
   @override
   List<Object?> get props => [
-        documents,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-      ];
+    documents,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+  ];
 }

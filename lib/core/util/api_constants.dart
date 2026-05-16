@@ -150,15 +150,8 @@ class ApiConstants {
   /// Tunnel sets (prefix before `-PORT.inc1.devtunnels.ms`)
   static const String preshtiaTunnelId = 'qs176zl8';
   static const String sairamTunnelId = 'wnmrl4rn';
-  static const String serverTunnelId = 'db7ln7d6';
-  //   user: 'https://-8086.inc1.devtunnels.ms',         // User Microservice - Port 8086
-  // school: 'https://db7ln7d6-8081.inc1.devtunnels.ms',       // School Microservice - Port 8081
-  // classroom: 'https://db7ln7d6-8082.inc1.devtunnels.ms',    // Classroom Microservice - Port 8082
-  // staff: 'https://db7ln7d6-8083.inc1.devtunnels.ms',        // Staff Microservice - Port 8083
-  // student: 'https://db7ln7d6-8085.inc1.devtunnels.ms',   //Student
-  // activities: 'https://db7ln7d6-8084.inc1.devtunnels.ms/wowcare-activity-ms',     // Activities Microservice - Port 8089
-  // attendance: 'https://db7ln7d6-8090.inc1.devtunnels.ms/attendance' //attendance
-  // newsletter :'https://db7ln7d6-8087.inc1.devtunnels.ms/attendance' //newsletter
+
+  static const String officeTunnelId = 'db7ln7d6';
 
   /// Active LOCAL tunnel set.
   static const String _localTunnelId = preshtiaTunnelId;
@@ -209,7 +202,7 @@ class ApiConstants {
 
   static String get communicationBaseUrl => isUat
       ? ApiConstantsUat.communicationBaseUrl
-      : 'https://qs176zl8-8089.inc1.devtunnels.ms';
+      : 'https://$_localTunnelId-8087.inc1.devtunnels.ms/attendance';
 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {

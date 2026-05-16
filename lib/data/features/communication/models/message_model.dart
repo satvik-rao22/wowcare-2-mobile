@@ -24,7 +24,10 @@ class MessageModel extends Message {
     super.receivers,
   });
 
-  factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
+  factory MessageModel.fromJson(
+    Map<String, dynamic> json, {
+    String? currentUserId,
+  }) {
     final senderCode = json['senderUserCode'] as String? ?? '';
     return MessageModel(
       id: (json['id'] ?? '').toString(),
@@ -46,8 +49,11 @@ class MessageModel extends Message {
       quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
           ? null
           : json['replyToMessageId'].toString(),
-      attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>))
+      attachments:
+          (json['attachments'] as List<dynamic>?)
+              ?.map(
+                (e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           const [],
       senderName: json['senderName'] as String?,
@@ -65,7 +71,9 @@ class MessageModel extends Message {
       'content': text,
       'time': time.toIso8601String(),
       'replyToMessageId': quotedMessageId,
-      'attachments': attachments.map((e) => (e as ChatAttachmentModel).toJson()).toList(),
+      'attachments': attachments
+          .map((e) => (e as ChatAttachmentModel).toJson())
+          .toList(),
       'senderName': senderName,
     };
   }
@@ -82,7 +90,9 @@ class RecipientStatusModel extends RecipientStatus {
     return RecipientStatusModel(
       name: json['name'] as String,
       userId: json['user_id'] as String?,
-      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : null,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : null,
     );
   }
 

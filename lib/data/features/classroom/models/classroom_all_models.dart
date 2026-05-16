@@ -1,17 +1,16 @@
 class ClassroomAllItemModel {
-  const ClassroomAllItemModel({
-    required this.code,
-    required this.name,
-  });
+  const ClassroomAllItemModel({required this.code, required this.name});
 
   final String code;
   final String name;
 
   factory ClassroomAllItemModel.fromJson(Map<String, dynamic> json) {
     // Support both 'code' and 'classroomCode' (backend may use either)
-    final code = (json['code'] as String? ?? json['classroomCode'] as String?) ??
+    final code =
+        (json['code'] as String? ?? json['classroomCode'] as String?) ??
         (json['id']?.toString() ?? '');
-    final name = (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
+    final name =
+        (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
     return ClassroomAllItemModel(code: code, name: name);
   }
 }
@@ -42,5 +41,3 @@ class ClassroomAllResponseModel {
     );
   }
 }
-
-

@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -25,6 +30,27 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+
+/// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
+/// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
+/// invalidates its cubit + attendance cache so the newly assigned staff is
+/// visible immediately, without the user having to switch tabs to force a
+/// rebuild.
+final ValueNotifier<int> classroomStaffRefreshTick = ValueNotifier<int>(0);
+
+void notifyClassroomStaffChanged() {
+  classroomStaffRefreshTick.value++;
+}
+
+class _StaffAttendanceCacheEntry {
+  const _StaffAttendanceCacheEntry({
+    required this.fetchedAt,
+    required this.statusByCode,
+  });
+
+  final DateTime fetchedAt;
+  final Map<String, String> statusByCode;
+}
 
 class Staff {
   const Staff({
@@ -47,6 +73,7 @@ class Staff {
   final bool isExpectedToday;
   final bool isSignedIn;
   final bool isAbsent;
+
   /// UI uses legacy values: 'A' | 'Upcoming'
   final String profileStatus;
 }
@@ -69,19 +96,26 @@ class ClassroomStaffTabCard extends StatefulWidget {
 
 class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   late final ClassroomStaffCubit _cubit;
   bool isSelectAllChecked = false;
   Map<String, bool> staffSelections = {};
   List<String> _selectedDesignation = [];
   List<Staff> _filteredStaff = [];
   List<Staff> _allStaff = [];
-  FilterData? _currentFilterData;
-  List<String> _selectedStatusList = [];
+  // ACTIVE is the default status — always sent unless the user picks others.
+  List<String> _selectedStatusList = ['ACTIVE'];
   List<String> _selectedAttendanceStatusList = [];
   StaffPanelType _currentPanel = StaffPanelType.none;
   final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+  int _visibleAttendanceFetchToken = 0;
+  Set<String> _lastVisibleAttendanceCodes = <String>{};
+
+  static const Duration _attendanceCacheTtl = Duration(minutes: 10);
+  static final Map<String, _StaffAttendanceCacheEntry> _attendanceCacheByKey =
+      <String, _StaffAttendanceCacheEntry>{};
 
   final List<String> designations = const [
     'Director',
@@ -95,25 +129,32 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   ];
 
   void _loadForSelectedRoom({required bool refresh}) {
-    final classroomCode = widget.selectedRoom?.code ?? '';
-    if (classroomCode.trim().isEmpty) return;
+    final primaryClassroomCode = widget.selectedRoom?.code ?? '';
+    if (primaryClassroomCode.trim().isEmpty) return;
 
-    final search =
-        _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
+    final search = _searchController.text.trim().isEmpty
+        ? null
+        : _searchController.text.trim();
 
-    final designation =
-        _selectedDesignation.isEmpty ? null : List<String>.from(_selectedDesignation);
+    final designation = _selectedDesignation.isEmpty
+        ? null
+        : List<String>.from(_selectedDesignation);
+    final status = _selectedStatusList.isEmpty
+        ? null
+        : List<String>.from(_selectedStatusList);
 
     if (refresh) {
       _cubit.refresh(
-        classroomCode: classroomCode,
+        classroomCode: primaryClassroomCode,
         search: search,
+        status: status,
         designation: designation,
       );
     } else {
       _cubit.loadInitial(
-        classroomCode: classroomCode,
+        classroomCode: primaryClassroomCode,
         search: search,
+        status: status,
         designation: designation,
       );
     }
@@ -125,6 +166,18 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _cubit = serviceLocator<ClassroomStaffCubit>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
+    classroomStaffRefreshTick.addListener(_handleExternalRefresh);
+  }
+
+  void _handleExternalRefresh() {
+    if (!mounted) return;
+    // Staff roster changed elsewhere (assign sheet, etc.) — drop today's
+    // attendance status cache for this room so the new staff shows up with
+    // fresh status, then refetch the staff list bypassing the repo cache.
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStaffCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _loadForSelectedRoom(refresh: true);
   }
 
   @override
@@ -138,8 +191,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _selectedDesignation = [];
         _filteredStaff = [];
         _allStaff = [];
-        _currentFilterData = null;
-        _selectedStatusList = [];
+        _selectedStatusList = ['ACTIVE'];
         _selectedAttendanceStatusList = [];
       });
       _loadForSelectedRoom(refresh: false);
@@ -147,13 +199,25 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   }
 
   void dispose() {
+    _searchDebounce?.cancel();
+    classroomStaffRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
     super.dispose();
   }
 
-  void _onSearchChanged() => _filterStaff();
+  void _onSearchChanged() {
+    // Debounce so the list filters once the user pauses typing, instead of
+    // rebuilding on every keystroke.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _filterStaff();
+      });
+    });
+  }
 
   Staff _mapApiToUi(StaffClassroomItem item) {
     final statusUpper = item.status.trim().toUpperCase();
@@ -173,41 +237,56 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   List<Staff> _filterStaff() {
     final allStaff = _allStaff;
-      _filteredStaff = allStaff.where((staff) {
-        bool matchesSearch = true;
-        bool matchesDesignation = true;
-        bool matchesStatus = true;
-        bool matchesAttendanceStatus = true;
-        bool isNotKiosk = staff.designation != 'Kiosk';
+    final filtered = allStaff.where((staff) {
+      bool matchesSearch = true;
+      bool matchesDesignation = true;
+      bool matchesStatus = true;
+      bool matchesAttendanceStatus = true;
+      final designationRaw = staff.designation.trim();
+      final isNotKiosk = designationRaw.toUpperCase() != 'KIOSK';
 
-        if (_searchController.text.isNotEmpty) {
-          matchesSearch = staff.name
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase());
-        }
+      if (_searchController.text.isNotEmpty) {
+        matchesSearch = staff.name.toLowerCase().contains(
+          _searchController.text.toLowerCase(),
+        );
+      }
 
-        if (_selectedDesignation.isNotEmpty) {
-          matchesDesignation = _selectedDesignation.contains(staff.designation);
-        }
+      if (_selectedDesignation.isNotEmpty) {
+        final des = staff.designation.trim().toUpperCase();
+        matchesDesignation = _selectedDesignation.any(
+          (d) => d.trim().toUpperCase() == des,
+        );
+      }
 
-        // Apply status filter (Active/Upcoming)
-        if (_selectedStatusList.isNotEmpty) {
-          matchesStatus = (_selectedStatusList.contains('Active') && staff.profileStatus == 'A') ||
-              (_selectedStatusList.contains('Upcoming') && staff.profileStatus == 'Upcoming');
-        }
+      // Apply status filter (API: ACTIVE / UPCOMING)
+      if (_selectedStatusList.isNotEmpty) {
+        matchesStatus = _selectedStatusList.any((sel) {
+          final u = sel.trim().toUpperCase();
+          if (u == 'ACTIVE') return staff.profileStatus == 'A';
+          if (u == 'UPCOMING') return staff.profileStatus == 'Upcoming';
+          return false;
+        });
+      }
 
-        // Apply attendance status filter (Expected/Present/Absent)
-        if (_selectedAttendanceStatusList.isNotEmpty) {
-          matchesAttendanceStatus = 
-              (_selectedAttendanceStatusList.contains('Expected') && staff.isExpectedToday) ||
-              (_selectedAttendanceStatusList.contains('Present') && staff.isSignedIn) ||
-              (_selectedAttendanceStatusList.contains('Absent') && staff.isAbsent);
-        }
+      // Apply attendance status filter (Expected/Present/Absent)
+      if (_selectedAttendanceStatusList.isNotEmpty) {
+        matchesAttendanceStatus =
+            (_selectedAttendanceStatusList.contains('Expected') &&
+                staff.isExpectedToday) ||
+            (_selectedAttendanceStatusList.contains('Present') &&
+                staff.isSignedIn) ||
+            (_selectedAttendanceStatusList.contains('Absent') &&
+                staff.isAbsent);
+      }
 
-        return matchesSearch && matchesDesignation && matchesStatus && matchesAttendanceStatus && isNotKiosk;
-      }).toList();
-      setState(() {});
-      return _filteredStaff;
+      return matchesSearch &&
+          matchesDesignation &&
+          matchesStatus &&
+          matchesAttendanceStatus &&
+          isNotKiosk;
+    }).toList();
+    _filteredStaff = filtered;
+    return filtered;
   }
 
   void _initializeStaffSelections(List<Staff> staff) {
@@ -232,13 +311,13 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   }
 
   List<Staff> _getVisibleStaff() {
-      if (_filteredStaff.isEmpty &&
-          _searchController.text.isEmpty &&
-          _selectedDesignation.isEmpty) {
+    if (_filteredStaff.isEmpty &&
+        _searchController.text.isEmpty &&
+        _selectedDesignation.isEmpty) {
       return _allStaff.where((staff) => staff.designation != 'Kiosk').toList();
-      } else {
-        return _filteredStaff;
-      }
+    } else {
+      return _filteredStaff;
+    }
   }
 
   Set<String> _getSelectedStaffCodes() {
@@ -250,6 +329,12 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  String _attendanceCacheKeyForRoomToday() {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    final date = _formatDate(DateTime.now());
+    return 'staff:$classroomCode:$date';
   }
 
   Future<void> _refreshAttendanceStatusForSelection() async {
@@ -289,6 +374,87 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _attendanceStatusError = true;
       });
     }
+  }
+
+  Future<void> _refreshAttendanceStatusForVisibleStaff() async {
+    final visible = _getVisibleStaff();
+    final codes = visible
+        .map((s) => s.staffCode.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet();
+
+    final cacheKey = _attendanceCacheKeyForRoomToday();
+    final cached = _attendanceCacheByKey[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode
+          ..clear()
+          ..addAll(cached.statusByCode);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    }
+
+    if (codes.isEmpty) {
+      _lastVisibleAttendanceCodes = <String>{};
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (setEquals(codes, _lastVisibleAttendanceCodes)) return;
+    _lastVisibleAttendanceCodes = codes;
+
+    final token = ++_visibleAttendanceFetchToken;
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: codes.toList());
+      if (!mounted || token != _visibleAttendanceFetchToken) return;
+      setState(() {
+        _attendanceStatusByStaffCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      _attendanceCacheByKey[cacheKey] = _StaffAttendanceCacheEntry(
+        fetchedAt: DateTime.now(),
+        statusByCode: Map<String, String>.from(map),
+      );
+    } catch (_) {
+      if (!mounted || token != _visibleAttendanceFetchToken) return;
+      setState(() {
+        _attendanceStatusByStaffCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  /// Pull-to-refresh: re-run every API this tab uses (staff roster + today's
+  /// attendance status), bypassing the repository and attendance caches.
+  Future<void> _refreshAll() async {
+    if (!mounted) return;
+    // Drop attendance caches/guards so the status is fetched fresh.
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _lastVisibleAttendanceCodes = <String>{};
+    _attendanceStatusByStaffCode.clear();
+    // Reload the staff roster (bypasses the repository cache).
+    _loadForSelectedRoom(refresh: true);
+    // Re-fetch today's attendance status.
+    await _refreshAttendanceStatusForVisibleStaff();
   }
 
   StaffAttendanceActionAvailability _attendanceAvailabilityForSelection() {
@@ -350,8 +516,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           page: 0,
           size: 500,
         );
-        final eligible =
-            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
         if (eligible.isNotEmpty) {
           final item = eligible.first;
           target = StaffEntity(
@@ -359,8 +526,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
             name: item.staffName,
             primaryRoomId: 0,
             classroomCode: item.classroomCode,
-            designation:
-                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            designation: item.designation.isNotEmpty
+                ? item.designation.first
+                : 'Staff',
             staffCode: item.staffCode,
             isExpectedToday: item.isExpectedToday,
           );
@@ -374,16 +542,18 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           page: 0,
           size: 500,
         );
-        final eligible =
-            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
         if (eligible.isNotEmpty) {
           final item = eligible.first;
           target = StaffEntity(
             id: 1,
             name: item.staffName,
             primaryRoomId: 0,
-            designation:
-                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            designation: item.designation.isNotEmpty
+                ? item.designation.first
+                : 'Staff',
             staffCode: item.staffCode,
           );
         }
@@ -396,16 +566,18 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           page: 0,
           size: 500,
         );
-        final eligible =
-            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
         if (eligible.isNotEmpty) {
           final item = eligible.first;
           target = StaffEntity(
             id: 1,
             name: item.staffName,
             primaryRoomId: 0,
-            designation:
-                item.designation.isNotEmpty ? item.designation.first : 'Staff',
+            designation: item.designation.isNotEmpty
+                ? item.designation.first
+                : 'Staff',
             staffCode: item.staffCode,
           );
         }
@@ -418,8 +590,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           page: 0,
           size: 500,
         );
-        final eligible =
-            page.items.where((item) => selectedCodes.contains(item.staffCode)).toList();
+        final eligible = page.items
+            .where((item) => selectedCodes.contains(item.staffCode))
+            .toList();
         if (eligible.isNotEmpty) {
           final item = eligible.first;
           target = StaffEntity(
@@ -468,43 +641,87 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     }
   }
 
+  /// Display label for an API status value (e.g. `ACTIVE` -> `Active`).
+  String _statusChipLabel(String apiStatus) {
+    switch (apiStatus.trim().toUpperCase()) {
+      case 'ACTIVE':
+        return 'Active';
+      case 'UPCOMING':
+        return 'Upcoming';
+      default:
+        return apiStatus;
+    }
+  }
+
+  /// One chip per selected status (so both show when ACTIVE + UPCOMING are
+  /// picked). Tapping a chip opens the filter screen to change the selection.
+  Widget _buildStatusChip(String apiStatus) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        color: const Color.fromRGBO(177, 175, 233, 0.3),
+      ),
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: _openFilterScreen,
+        child: Text(
+          _statusChipLabel(apiStatus),
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            color: Color.fromRGBO(27, 35, 126, 1),
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _clearAllSelections() {
     setState(() {
       isSelectAllChecked = false;
       staffSelections.updateAll((key, val) => false);
       _searchController.clear();
       _selectedDesignation = [];
-      _currentFilterData = null;
-      _selectedStatusList = [];
+      _selectedStatusList = ['ACTIVE'];
       _selectedAttendanceStatusList = [];
       _attendanceStatusByStaffCode.clear();
       _attendanceStatusLoading = false;
       _attendanceStatusError = false;
-      _filterStaff();
     });
+    _loadForSelectedRoom(refresh: false);
   }
 
   Future<void> _openFilterScreen() async {
-    final result = await Navigator.push(
+    final result = await Navigator.push<ClassroomStaffFilterResult>(
       context,
       MaterialPageRoute(
-        builder: (_) => StaffFilterScreen(
-          initialFilters: _currentFilterData,
+        builder: (_) => ClassroomStaffFilterScreen(
+          initialStatus: _selectedStatusList,
+          initialDesignation: _selectedDesignation,
         ),
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted || result == null) return;
 
-    if (result is FilterData) {
-      setState(() {
-        _currentFilterData = result;
-        _selectedDesignation = List.from(result.tags);
-        _selectedStatusList = List.from(result.statuses);
-        _selectedAttendanceStatusList = List.from(result.attendanceStatuses);
-        _filterStaff();
-      });
-    }
+    setState(() {
+      // Respect the explicit filter-screen choice exactly. Only fall back to
+      // the ACTIVE default when nothing is selected.
+      final picked = result.status
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      _selectedStatusList = picked.isEmpty ? ['ACTIVE'] : picked;
+      _selectedDesignation = List<String>.from(result.designation);
+    });
+    _loadForSelectedRoom(refresh: false);
   }
 
   @override
@@ -513,11 +730,23 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       value: _cubit,
       child: BlocListener<ClassroomStaffCubit, ClassroomStaffState>(
         listener: (context, state) {
-          final apiItems = state.staff.map(_mapApiToUi).toList();
+          final raw = state.staff.map(_mapApiToUi).toList();
+          // De-duplicate by staffCode to avoid repeated cards.
+          final byCode = <String, Staff>{};
+          for (final s in raw) {
+            final code = s.staffCode.trim();
+            if (code.isEmpty) continue;
+            byCode[code] = s;
+          }
+          final apiItems = byCode.values.toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
           setState(() {
             _allStaff = apiItems;
+            _filterStaff();
           });
-          _filterStaff();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _refreshAttendanceStatusForVisibleStaff();
+          });
         },
         child: Stack(
           children: [
@@ -525,182 +754,244 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
               children: [
                 Expanded(
                   child: Card(
-                elevation: 0,
-                margin: const EdgeInsets.all(0),
-                shape: const Border(
-                  left: BorderSide(color: AppColors.themeColor),
-                  top: BorderSide(color: AppColors.themeColor),
-                  right: BorderSide(color: AppColors.themeColor),
-                ),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SearchBar(
-                                  controller: _searchController,
-                                  constraints:
-                                      const BoxConstraints(minHeight: 36),
-                                  hintText: 'Search',
-                                  hintStyle: const WidgetStatePropertyAll(
-                                    TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: Color.fromRGBO(87, 51, 83, 0.7),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  leading: const Icon(
-                                    Icons.search,
-                                    color: AppColors.primaryColor,
-                                    size: 18,
-                                  ),
-                                  elevation: const WidgetStatePropertyAll(0),
-                                  side: const WidgetStatePropertyAll(
-                                    BorderSide(
-                                      width: 1,
-                                      color: Color.fromARGB(255, 188, 173, 186),
-                                    ),
-                                  ),
-                                  shape: WidgetStatePropertyAll(
-                                    RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: _openFilterScreen,
-                                icon: SvgPicture.asset(
-                                  MediaRes.filterIcon,
-                                  height: 22,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 2),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  color:
-                                      const Color.fromRGBO(177, 175, 233, 0.3),
-                                ),
-                                child: TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 3,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  onPressed: () {},
-                                  child: const Text(
-                                    'Active',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: Color.fromRGBO(27, 35, 126, 1),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 2),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  gradient: AppColors.buildPrimaryGradient(),
-                                ),
-                                child: TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 3,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  onPressed: _clearAllSelections,
-                                  child: const Text(
-                                    'Clear All',
-                                    style: TextStyle(fontFamily: 'Manrope', fontSize: 12),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () {},
-                                icon: const Icon(
-                                  Icons.info_outline_rounded,
-                                  color: AppColors.primaryColor,
-                                  size: 20,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
+                    elevation: 0,
+                    margin: const EdgeInsets.all(0),
+                    shape: const Border(
+                      left: BorderSide(color: AppColors.themeColor),
+                      top: BorderSide(color: AppColors.themeColor),
+                      right: BorderSide(color: AppColors.themeColor),
                     ),
-                    Expanded(
-                      child: ScrollbarTheme(
-                        data: ScrollbarThemeData(
-                          thumbColor: WidgetStateProperty.all(
-                            const Color.fromRGBO(222, 228, 253, 1),
-                          ),
-                          radius: const Radius.circular(20),
-                        ),
-                        child: Scrollbar(
-                          controller: widget.scrollController,
-                          child: CustomRefreshIndicator(
-                            onRefresh: () async => _loadForSelectedRoom(refresh: true),
-                                child: ListView.builder(
-                              padding:
-                                  const EdgeInsets.only(left: 16, right: 16),
-                              itemCount: _getVisibleStaff().length,
-                                  itemBuilder: (context, index) {
-                                final staff = _getVisibleStaff()[index];
-                                _initializeStaffSelections(_getVisibleStaff());
-                                return Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 8.0),
-                                  child: _StaffListItem(
-                                          staff: staff,
-                                          isSelected:
-                                        staffSelections[staff.staffCode] ?? false,
-                                          onSelectionChanged: (bool? value) {
-                                      _toggleStaffSelection(staff.staffCode, value);
-                                          },
+                    color: Colors.white,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SearchBar(
+                                      controller: _searchController,
+                                      constraints: const BoxConstraints(
+                                        minHeight: 36,
                                       ),
-                                    );
-                                  },
-                                ),
+                                      backgroundColor:
+                                          const WidgetStatePropertyAll<Color>(
+                                            Colors.white,
+                                          ),
+                                      surfaceTintColor:
+                                          const WidgetStatePropertyAll<Color>(
+                                            Colors.white,
+                                          ),
+                                      hintText: 'Search',
+                                      hintStyle: const WidgetStatePropertyAll(
+                                        TextStyle(
+                                          fontFamily: 'Manrope',
+                                          color: Color.fromRGBO(
+                                            87,
+                                            51,
+                                            83,
+                                            0.7,
+                                          ),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      leading: const Icon(
+                                        Icons.search,
+                                        color: AppColors.primaryColor,
+                                        size: 18,
+                                      ),
+                                      elevation: const WidgetStatePropertyAll(
+                                        0,
+                                      ),
+                                      side: const WidgetStatePropertyAll(
+                                        BorderSide(
+                                          width: 1,
+                                          color: Color.fromARGB(
+                                            255,
+                                            188,
+                                            173,
+                                            186,
+                                          ),
+                                        ),
+                                      ),
+                                      shape: WidgetStatePropertyAll(
+                                        RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: _openFilterScreen,
+                                    icon: SvgPicture.asset(
+                                      MediaRes.filterIcon,
+                                      height: 22,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  for (final status in _selectedStatusList) ...[
+                                    _buildStatusChip(status),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(6),
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
+                                    ),
+                                    child: TextButton(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 3,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: _clearAllSelections,
+                                      child: const Text(
+                                        'Clear All',
+                                        style: TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () {},
+                                    icon: const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: AppColors.primaryColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                            ],
                           ),
                         ),
-                      ),
+                        Expanded(
+                          child: ScrollbarTheme(
+                            data: ScrollbarThemeData(
+                              thumbColor: WidgetStateProperty.all(
+                                const Color.fromRGBO(222, 228, 253, 1),
+                              ),
+                              radius: const Radius.circular(20),
+                            ),
+                            child: Scrollbar(
+                              controller: widget.scrollController,
+                              child: BlocBuilder<ClassroomStaffCubit, ClassroomStaffState>(
+                                builder: (context, state) {
+                                  final visible = _getVisibleStaff();
+                                  if (state.isLoading && visible.isEmpty) {
+                                    return const Center(
+                                      child: PrimaryCircularLoader(),
+                                    );
+                                  }
+                                  return CustomRefreshIndicator(
+                                    onRefresh: _refreshAll,
+                                    child: visible.isEmpty
+                                        ? LayoutBuilder(
+                                            builder: (context, constraints) {
+                                              return ListView(
+                                                physics:
+                                                    const AlwaysScrollableScrollPhysics(),
+                                                children: [
+                                                  SizedBox(
+                                                    height:
+                                                        constraints.maxHeight,
+                                                    child: Center(
+                                                      child: Text(
+                                                        'No staff assigned.',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 16,
+                                                          color: AppColors
+                                                              .primaryColor
+                                                              .withValues(
+                                                                alpha: 0.6,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          )
+                                        : ListView.builder(
+                                            padding: const EdgeInsets.only(
+                                              left: 16,
+                                              right: 16,
+                                            ),
+                                            itemCount: visible.length,
+                                            itemBuilder: (context, index) {
+                                              final staff = visible[index];
+                                              _initializeStaffSelections(
+                                                visible,
+                                              );
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    _refreshAttendanceStatusForVisibleStaff();
+                                                  });
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  bottom: 8.0,
+                                                ),
+                                                child: _StaffListItem(
+                                                  staff: staff,
+                                                  isSelected:
+                                                      staffSelections[staff
+                                                          .staffCode] ??
+                                                      false,
+                                                  todayAttendanceStatusRaw:
+                                                      _attendanceStatusByStaffCode[staff
+                                                          .staffCode],
+                                                  designationLabel:
+                                                      formatDesignationForDisplay(
+                                                        staff.designation,
+                                                      ),
+                                                  onSelectionChanged:
+                                                      (bool? value) {
+                                                        _toggleStaffSelection(
+                                                          staff.staffCode,
+                                                          value,
+                                                        );
+                                                      },
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
                   ),
                 ),
               ],
@@ -755,107 +1046,112 @@ class _StaffListItem extends StatelessWidget {
     required this.staff,
     required this.isSelected,
     required this.onSelectionChanged,
+    this.todayAttendanceStatusRaw,
+    required this.designationLabel,
   });
 
   final Staff staff;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
+  final String? todayAttendanceStatusRaw;
+  final String designationLabel;
 
   @override
   Widget build(BuildContext context) {
+    final normalizedAttendance = (todayAttendanceStatusRaw ?? '')
+        .trim()
+        .toUpperCase();
+    final hasAttendanceStatus =
+        normalizedAttendance == 'SIGNED_IN' || normalizedAttendance == 'ABSENT';
+    final shouldGreyOut =
+        !staff.isExpectedToday &&
+        !staff.isSignedIn &&
+        !staff.isAbsent &&
+        !hasAttendanceStatus;
+    final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
+        ? Colors.green
+        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
+    final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
+        ? 'Staff is signed in'
+        : (normalizedAttendance == 'ABSENT' ? 'Staff is absent' : null);
+
     return Container(
-      padding: const EdgeInsets.only(
-        top: 10,
-        bottom: 10,
-        left: 10,
-      ),
+      padding: const EdgeInsets.only(top: 10, bottom: 10, left: 10),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(12),
-        color: staff.isExpectedToday ? null : Colors.grey[100],
+        color: shouldGreyOut ? Colors.grey[100] : null,
       ),
       child: Row(
         children: [
           Opacity(
-            opacity: staff.isExpectedToday ? 1 : 0.5,
+            opacity: shouldGreyOut ? 0.5 : 1,
             child: AbsorbPointer(
-              absorbing: !staff.isExpectedToday,
-              child: GestureDetector(
-                onTap: () => onSelectionChanged(!isSelected),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    DocumentImageWidget(
-                      fileUuid: staff.photoUuid,
-                      name: staff.name,
-                        size: 50,
-                      ),
-                    if (staff.isSignedIn ||
-                        staff.isAbsent ||
-                        staff.profileStatus == 'Upcoming')
-                      Positioned(
-                        left: 35,
-                        bottom: 35,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: staff.profileStatus == 'Upcoming'
-                                ? const Color.fromARGB(255, 253, 205, 22)
-                                : staff.isSignedIn
-                                    ? const Color.fromRGBO(0, 177, 21, 1)
-                                    : staff.isAbsent
-                                        ? const Color.fromRGBO(200, 32, 32, 1)
-                                        : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
-                            ),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 15,
-                            minHeight: 15,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+              absorbing: shouldGreyOut,
+              // Staff row is intentionally not tappable — the profile photo
+              // must not select the staff or open the action panel.
+              child: DocumentImageWidget(
+                fileUuid: staff.staffCode.trim().isNotEmpty
+                    ? staff.staffCode
+                    : staff.name,
+                imageUrl: (() {
+                  final raw = staff.photoUuid.trim();
+                  final looksLikeUrl =
+                      raw.startsWith('http://') || raw.startsWith('https://');
+                  return looksLikeUrl ? raw : null;
+                })(),
+                mediaAssetCode: (() {
+                  final raw = staff.photoUuid.trim();
+                  final looksLikeUrl =
+                      raw.startsWith('http://') || raw.startsWith('https://');
+                  return (!looksLikeUrl && raw.isNotEmpty) ? raw : null;
+                })(),
+                name: staff.name,
+                staffCode: staff.staffCode.trim().isNotEmpty
+                    ? staff.staffCode.trim()
+                    : null,
+                staffEmploymentStatus: staff.profileStatus,
+                statusColor: attendanceDotColor,
+                statusTooltip: attendanceTooltip,
+                disableAttendanceStatusLookup: true,
+                size: 50,
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-              child: Container(
-                color: Colors.transparent,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
+            child: Container(
+              color: Colors.transparent,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
                     staff.name,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color.fromRGBO(87, 51, 83, 1),
-                      ),
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Color.fromRGBO(87, 51, 83, 1),
                     ),
-                    Text(
-                    staff.designation,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: Color(0xff573353),
-                      ),
+                  ),
+                  Text(
+                    designationLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: Color(0xff573353),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            IconButton(
-              color: const Color.fromRGBO(44, 99, 226, 1),
-              iconSize: 20,
-              icon: const Icon(Icons.mail),
+          ),
+          IconButton(
+            color: const Color.fromRGBO(44, 99, 226, 1),
+            iconSize: 20,
+            icon: const Icon(Icons.mail),
             onPressed: () {},
-            ),
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -878,10 +1174,12 @@ class _DesignationMultiSelectDropdown extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<_DesignationMultiSelectDropdown> createState() => _DesignationMultiSelectDropdownState();
+  State<_DesignationMultiSelectDropdown> createState() =>
+      _DesignationMultiSelectDropdownState();
 }
 
-class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelectDropdown> {
+class _DesignationMultiSelectDropdownState
+    extends State<_DesignationMultiSelectDropdown> {
   late List<String> _localSelectedItems;
 
   @override
@@ -907,25 +1205,25 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.primaryColor.withValues(alpha: 0.1),
+          fillColor: Colors.white,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
         ),
@@ -997,7 +1295,9 @@ class _DesignationMultiSelectDropdownState extends State<_DesignationMultiSelect
           displayText,
           style: TextStyle(
             fontFamily: 'Manrope',
-            color: _localSelectedItems.isEmpty ? Colors.grey[600] : const Color(0xff573353),
+            color: _localSelectedItems.isEmpty
+                ? Colors.grey[600]
+                : const Color(0xff573353),
             fontSize: 14,
           ),
           overflow: TextOverflow.ellipsis,

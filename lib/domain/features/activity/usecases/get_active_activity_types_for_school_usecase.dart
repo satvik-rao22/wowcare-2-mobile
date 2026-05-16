@@ -6,10 +6,7 @@ class GetActiveActivityTypesForSchoolUseCase {
 
   final ActivityRepository _repo;
 
-  Future<List<ActivityTypeSummary>> call({
-    required String schoolCode,
-  }) {
+  Future<List<ActivityTypeSummary>> call({required String schoolCode}) {
     return _repo.getActiveActivityTypesForSchool(schoolCode: schoolCode);
   }
 }
-

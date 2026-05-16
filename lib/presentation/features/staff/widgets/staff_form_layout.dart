@@ -67,15 +67,11 @@ class StaffFormLayout extends StatelessWidget {
                     margin: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
                     ),
-                    padding: EdgeInsets.all(
-                      responsive.isTablet ? 32.0 : 16.0,
-                    ),
+                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.all(
-                        Radius.circular(
-                          responsive.isTablet ? 40.0 : 24.0,
-                        ),
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -98,5 +94,3 @@ class StaffFormLayout extends StatelessWidget {
     );
   }
 }
-
-

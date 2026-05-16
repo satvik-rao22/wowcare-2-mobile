@@ -15,6 +15,7 @@ class StaffCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.avatarUrl,
+    this.profilePhotoAssetCode,
     required this.allowedClassrooms,
     required this.schedule,
     required this.designation,
@@ -36,6 +37,7 @@ class StaffCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? avatarUrl;
+  final String? profilePhotoAssetCode;
   final List<String> allowedClassrooms;
   final List<String> schedule;
   final String designation;
@@ -49,8 +51,10 @@ class StaffCard extends StatefulWidget {
   final ValueChanged<bool?>? onSelected;
   final List<String> availableClassrooms;
   final Map<String, String> classroomCodeByName;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" work time.
   final Map<String, String> workScheduleByDay;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
   final Map<String, String> breakScheduleByDay;
 
@@ -76,11 +80,13 @@ class _StaffCardState extends State<StaffCard> {
 
     // Generic: split on underscores/spaces and title‑case each part.
     final parts = upper.split(RegExp(r'[_\s]+'));
-    final words = parts.map((part) {
-      if (part.isEmpty) return '';
-      final lower = part.toLowerCase();
-      return lower[0].toUpperCase() + lower.substring(1);
-    }).where((w) => w.isNotEmpty);
+    final words = parts
+        .map((part) {
+          if (part.isEmpty) return '';
+          final lower = part.toLowerCase();
+          return lower[0].toUpperCase() + lower.substring(1);
+        })
+        .where((w) => w.isNotEmpty);
     return words.join(' ');
   }
 
@@ -88,6 +94,17 @@ class _StaffCardState extends State<StaffCard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final primaryClassroomName = widget.classroom.trim();
+    final orderedAllowedClassrooms = <String>[
+      if (primaryClassroomName.isNotEmpty) primaryClassroomName,
+      ...widget.allowedClassrooms
+          .map((name) => name.trim())
+          .where(
+            (name) =>
+                name.isNotEmpty &&
+                name.toLowerCase() != primaryClassroomName.toLowerCase(),
+          ),
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -98,10 +115,7 @@ class _StaffCardState extends State<StaffCard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -116,7 +130,9 @@ class _StaffCardState extends State<StaffCard> {
                   children: [
                     Container(
                       height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 24 : 16,
+                      ),
                       alignment: Alignment.center,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -162,9 +178,12 @@ class _StaffCardState extends State<StaffCard> {
                           */
                           DocumentImageWidget(
                             fileUuid: widget.staffCode,
+                            imageUrl: widget.avatarUrl,
+                            mediaAssetCode: widget.profilePhotoAssetCode,
                             name: widget.name,
                             staffCode: widget.staffCode,
                             staffEmploymentStatus: widget.status,
+                            disableProfileLookupFallback: true,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -239,15 +258,19 @@ class _StaffCardState extends State<StaffCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        if (widget.allowedClassrooms.isNotEmpty)
+                                        if (orderedAllowedClassrooms.isNotEmpty)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0x4DB1AFE9),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.allowedClassrooms[0],
+                                              orderedAllowedClassrooms[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -256,17 +279,24 @@ class _StaffCardState extends State<StaffCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.allowedClassrooms.length > 1)
+                                        if (orderedAllowedClassrooms.length > 1)
                                           Tooltip(
-                                            message: widget.allowedClassrooms.skip(1).join(', '),
+                                            message: orderedAllowedClassrooms
+                                                .skip(1)
+                                                .join(', '),
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: const Color(0x66D9FFCB),
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${widget.allowedClassrooms.length - 1}',
+                                                '+${orderedAllowedClassrooms.length - 1}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,
@@ -289,24 +319,29 @@ class _StaffCardState extends State<StaffCard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                const Text(
-                                  'Schedule',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
+                                  const Text(
+                                    'Schedule',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xff573353),
+                                      height: 16 / 13,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  alignment: WrapAlignment.start,
-                                  children: [
-                                    ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(
-                                      (shortDay) {
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      ...[
+                                        'Mon',
+                                        'Tue',
+                                        'Wed',
+                                        'Thu',
+                                        'Fri',
+                                      ].map((shortDay) {
                                         String enumDay;
                                         switch (shortDay) {
                                           case 'Mon':
@@ -331,9 +366,11 @@ class _StaffCardState extends State<StaffCard> {
                                             widget.workScheduleByDay[enumDay];
                                         final brk =
                                             widget.breakScheduleByDay[enumDay];
-                                        final hasWork = work != null &&
+                                        final hasWork =
+                                            work != null &&
                                             work.trim().isNotEmpty;
-                                        final hasBreak = brk != null &&
+                                        final hasBreak =
+                                            brk != null &&
                                             brk.trim().isNotEmpty;
                                         final isActive = hasWork || hasBreak;
 
@@ -344,11 +381,13 @@ class _StaffCardState extends State<StaffCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0xFF6C7FD8)
-                                                    .withOpacity(0.12)
+                                                ? const Color(
+                                                    0xFF6C7FD8,
+                                                  ).withOpacity(0.12)
                                                 : const Color(0xFFF3F4FB),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Text(
                                             shortDay,
@@ -386,12 +425,12 @@ class _StaffCardState extends State<StaffCard> {
                                           message: tooltipText,
                                           child: chip,
                                         );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )),
+                                      }),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -436,7 +475,9 @@ class _StaffCardState extends State<StaffCard> {
                                 ),
                                 Flexible(
                                   child: Text(
-                                    widget.email.isNotEmpty ? widget.email : '-',
+                                    widget.email.isNotEmpty
+                                        ? widget.email
+                                        : '-',
                                     style: const TextStyle(
                                       fontFamily: 'Manrope',
                                       fontSize: 14,
@@ -467,24 +508,32 @@ class _StaffCardState extends State<StaffCard> {
                                 ),
                                 SelectableText(
                                   _formatUsPhone(widget.phoneNumber),
-                                  contextMenuBuilder: (BuildContext context, dynamic editableState) {
-                                    final List<ContextMenuButtonItem> items = List<ContextMenuButtonItem>.from(
-                                      editableState.contextMenuButtonItems,
-                                    );
-                                    items.add(
-                                      ContextMenuButtonItem(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                          _callPhone(widget.phoneNumber);
-                                        },
-                                        label: 'Call',
-                                      ),
-                                    );
-                                    return AdaptiveTextSelectionToolbar.buttonItems(
-                                      anchors: editableState.contextMenuAnchors,
-                                      buttonItems: items,
-                                    );
-                                  },
+                                  contextMenuBuilder:
+                                      (
+                                        BuildContext context,
+                                        dynamic editableState,
+                                      ) {
+                                        final List<ContextMenuButtonItem>
+                                        items =
+                                            List<ContextMenuButtonItem>.from(
+                                              editableState
+                                                  .contextMenuButtonItems,
+                                            );
+                                        items.add(
+                                          ContextMenuButtonItem(
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                              _callPhone(widget.phoneNumber);
+                                            },
+                                            label: 'Call',
+                                          ),
+                                        );
+                                        return AdaptiveTextSelectionToolbar.buttonItems(
+                                          anchors:
+                                              editableState.contextMenuAnchors,
+                                          buttonItems: items,
+                                        );
+                                      },
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -525,14 +574,20 @@ class _StaffCardState extends State<StaffCard> {
                                         );
                                       },
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                        side: const BorderSide(
+                                          color: Color(0xFF6C7FD8),
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: Text(
-                                        widget.isActive ? 'Deactivate' : 'Reactivate',
+                                        widget.isActive
+                                            ? 'Deactivate'
+                                            : 'Reactivate',
                                         style: const TextStyle(
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
@@ -550,7 +605,8 @@ class _StaffCardState extends State<StaffCard> {
                                     height: 40,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
-                                      gradient: AppColors.buildPrimaryGradient(),
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
                                       onPressed: () {
@@ -558,49 +614,71 @@ class _StaffCardState extends State<StaffCard> {
                                         widget.onEdit?.call();
 
                                         // Derive first/last name from full name
-                                        final parts = widget.name.trim().split(' ');
-                                        final initialFirstName = parts.isNotEmpty ? parts.first : '';
-                                        final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                                        final parts = widget.name.trim().split(
+                                          ' ',
+                                        );
+                                        final initialFirstName =
+                                            parts.isNotEmpty ? parts.first : '';
+                                        final initialLastName = parts.length > 1
+                                            ? parts.sublist(1).join(' ')
+                                            : '';
 
                                         // Map status from API format to UI format
                                         String? mappedStatus;
                                         if (widget.status != null) {
-                                          final statusUpper = widget.status!.toUpperCase();
+                                          final statusUpper = widget.status!
+                                              .toUpperCase();
                                           if (statusUpper == 'ACTIVE') {
                                             mappedStatus = 'Active';
-                                          } else if (statusUpper == 'INACTIVE') {
+                                          } else if (statusUpper ==
+                                              'INACTIVE') {
                                             mappedStatus = 'Inactive';
-                                          } else if (statusUpper == 'UPCOMING') {
+                                          } else if (statusUpper ==
+                                              'UPCOMING') {
                                             mappedStatus = 'Upcoming';
                                           } else {
                                             mappedStatus = widget.status;
                                           }
                                         }
 
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => EditProfileDetailsScreen(
-                                              staffCode: widget.staffCode,
-                                              initialFirstName: initialFirstName,
-                                              initialLastName: initialLastName,
-                                              initialStatus: mappedStatus,
-                                              initialDesignation: widget.designation,
-                                              initialAllowedClassrooms: widget.allowedClassrooms,
-                                              initialPrimaryClassroom: widget.classroom,
-                                              initialEmail: widget.email,
-                                              initialPhoneNumber: widget.phoneNumber,
-                                              initialClassroomNames: widget.availableClassrooms,
-                                              initialClassroomCodeByName: {
-                                                for (final entry in widget.classroomCodeByName.entries)
-                                                  entry.value: entry.key,
-                                              },
-                                            ),
-                                          ),
-                                        ).then((_) {
-                                          if (context.mounted) {
-                                            context.read<StaffCubit>().refresh();
-                                          }
-                                        });
+                                        Navigator.of(context)
+                                            .push(
+                                              MaterialPageRoute(
+                                                builder: (_) => EditProfileDetailsScreen(
+                                                  staffCode: widget.staffCode,
+                                                  initialFirstName:
+                                                      initialFirstName,
+                                                  initialLastName:
+                                                      initialLastName,
+                                                  initialStatus: mappedStatus,
+                                                  initialDesignation:
+                                                      widget.designation,
+                                                  initialAllowedClassrooms:
+                                                      widget.allowedClassrooms,
+                                                  initialPrimaryClassroom:
+                                                      widget.classroom,
+                                                  initialEmail: widget.email,
+                                                  initialPhoneNumber:
+                                                      widget.phoneNumber,
+                                                  initialClassroomNames: widget
+                                                      .availableClassrooms,
+                                                  initialClassroomCodeByName: {
+                                                    for (final entry
+                                                        in widget
+                                                            .classroomCodeByName
+                                                            .entries)
+                                                      entry.value: entry.key,
+                                                  },
+                                                ),
+                                              ),
+                                            )
+                                            .then((_) {
+                                              if (context.mounted) {
+                                                context
+                                                    .read<StaffCubit>()
+                                                    .refresh();
+                                              }
+                                            });
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
@@ -652,5 +730,3 @@ class _StaffCardState extends State<StaffCard> {
     }
   }
 }
-
-

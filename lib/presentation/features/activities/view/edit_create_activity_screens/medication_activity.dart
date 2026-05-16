@@ -32,7 +32,6 @@ import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
-import '../activity_feed_screen.dart';
 
 class MedicationActivityScreen extends StatefulWidget {
   const MedicationActivityScreen({
@@ -48,20 +47,21 @@ class MedicationActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<MedicationActivityScreen> createState() => _MedicationActivityScreenState();
+  State<MedicationActivityScreen> createState() =>
+      _MedicationActivityScreenState();
 }
 
 class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -93,8 +93,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
   late final ApproveActivityUseCase _approveActivityUseCase;
   late final RejectActivityUseCase _rejectActivityUseCase;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -104,9 +103,10 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     for (final p in rows) {
       final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (n != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -126,10 +126,13 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
     _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
 
-    if(widget.selectedStudents != null){
+    if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
-      _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _selectedStudents = _selectedStudentsData
+          .map((student) => student['name'] as String)
+          .toList();
+      _activityDate =
+          resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -271,6 +274,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       }
     });
   }
+
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -279,10 +283,10 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -295,10 +299,11 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -309,13 +314,15 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+        classroomCode: classroomCode,
+      );
       ActivitySetting? medicationSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -330,7 +337,9 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
         });
       }
     } catch (e) {
-      CoreUtils.logApiError('Failed to load activity settings for Medication: $e');
+      CoreUtils.logApiError(
+        'Failed to load activity settings for Medication: $e',
+      );
     }
   }
 
@@ -346,14 +355,14 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -390,10 +399,12 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -431,7 +442,8 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
         organizationCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Missing staff or school information. Please re-login and try again.',
+        message:
+            'Missing staff or school information. Please re-login and try again.',
         isError: true,
       );
       return;
@@ -467,8 +479,9 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     try {
       // Build parameterValues in backend-required shape:
       // [{ "parameterCode": "...", "value": ... }, ...]
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -527,9 +540,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -559,12 +570,13 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
 
     final description = _descriptionController.text.trim();
@@ -605,8 +617,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     if (staffCode == null || staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Missing staff information. Please re-login and try again.',
+        message: 'Missing staff information. Please re-login and try again.',
         isError: true,
       );
       return;
@@ -630,8 +641,9 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _getActivityTypeDetailsUseCase(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -673,8 +685,8 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -715,9 +727,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
           message: lastMessage ?? 'Updated',
           isSuccess: true,
         );
-        Navigator.of(context).popUntil((route) {
-          return route.settings.name == ActivityFeedScreen.routeName;
-        });
+        CoreUtils.exitActivityFlow(context);
       }
     } catch (e) {
       if (!mounted) return;
@@ -753,7 +763,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 10,),
+            const SizedBox(height: 10),
             if (_layoutAsEdit &&
                 !(widget.isEdit &&
                     !widget.readOnly &&
@@ -795,7 +805,9 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                   );
                 },
               ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
+            if (widget.isEdit &&
+                !widget.readOnly &&
+                _selectedStudents.length > 1) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: ActivityEditStudentScopeCheckboxes(
@@ -809,7 +821,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                 ),
               ),
             ],
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -824,7 +836,9 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                       : DateWidget(
                           isEditable: false,
                           isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
+                          initialDate: formatSelectedDateForDateWidget(
+                            _activityDate,
+                          ),
                           onDateChanged: (d) => _activityDate = d,
                         ),
                 ),
@@ -845,11 +859,10 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                 ),
               ],
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
+                final isAdminPersona = _isAdminDesignation;
                 final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
                   staffName: staffPresentLabelForActivity(
@@ -862,9 +875,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                               : _effectiveActivity.staffPresent)
                         : null,
                   ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
+                  isEditable: lockToLoggedInStaff ? false : _canInteract,
                   onStaffChanged: (_, selectedCode) {
                     _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
                         ? selectedCode!.trim()
@@ -873,7 +884,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                 );
               },
             ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
             InputWidget(
               controller: _descriptionController,
               height: 100,
@@ -882,8 +893,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
               readOnly: !_canInteract,
               maxLength: ActivityDescriptionLimits.maxLength,
             ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
+            if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
             if (_showRequireAdminApprovalToggle)
               CustomToggle(
                 label: 'Requires Admin Approval',
@@ -895,7 +905,7 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                   });
                 },
               ),
-            SizedBox(height: responsive.verticalSpacing,),
+            SizedBox(height: responsive.verticalSpacing),
           ],
         ),
       ),
@@ -909,7 +919,8 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _loadingActivityDetail,
                       onApprove: _approvePendingActivity,
@@ -917,14 +928,15 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -932,6 +944,3 @@ class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
     );
   }
 }
-
-
-

@@ -108,11 +108,7 @@ class StudentAttendanceFilters extends StatelessWidget {
             _buildFilterButton(context, responsive),
             SizedBox(width: spacing),
             if (hasActiveFilters && onClearAll != null)
-              Flexible(
-                child: CustomClearAllChip(
-                  onTap: onClearAll,
-                ),
-              ),
+              Flexible(child: CustomClearAllChip(onTap: onClearAll)),
             const Spacer(),
             Flexible(
               child: Align(

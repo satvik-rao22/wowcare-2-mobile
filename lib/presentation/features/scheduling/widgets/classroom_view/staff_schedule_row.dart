@@ -53,8 +53,13 @@ class StaffScheduleRow extends StatelessWidget {
                 radius: 18,
                 backgroundColor: AppColors.primaryColor.withOpacity(0.1),
                 child: Text(
-                  shift.staffFirstName.isNotEmpty ? shift.staffFirstName[0] : '?',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  shift.staffFirstName.isNotEmpty
+                      ? shift.staffFirstName[0]
+                      : '?',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -74,13 +79,24 @@ class StaffScheduleRow extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              SvgPicture.asset(MediaRes.availableHoursIcon, width: 14, height: 14),
+              SvgPicture.asset(
+                MediaRes.availableHoursIcon,
+                width: 14,
+                height: 14,
+              ),
               const SizedBox(width: 3),
-              Text('${shift.scheduledHours}h', style: const TextStyle(fontSize: 11)),
+              Text(
+                '${shift.scheduledHours}h',
+                style: const TextStyle(fontSize: 11),
+              ),
               const SizedBox(width: 5),
               Container(width: 1, height: 12, color: AppColors.billingGrey),
               const SizedBox(width: 5),
-              SvgPicture.asset(MediaRes.scheduledHoursIcon, width: 14, height: 14),
+              SvgPicture.asset(
+                MediaRes.scheduledHoursIcon,
+                width: 14,
+                height: 14,
+              ),
               const SizedBox(width: 3),
               Text(
                 '${shift.availableHours}h',
@@ -178,7 +194,7 @@ class StaffScheduleRow extends StatelessWidget {
       final slotTime = DateFormat('hh:mm a').parse(label);
       final shiftStart = _parseTime(shift.startTime);
       final shiftEnd = _parseTime(shift.endTime);
-      
+
       if (!_isTimeInRange(slotTime, shiftStart, shiftEnd)) {
         return Colors.transparent;
       }

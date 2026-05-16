@@ -55,7 +55,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
-  bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
+  bool get _checkboxValue =>
+      _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
   void initState() {
@@ -108,21 +109,45 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                         child: BillingMoreOptionsPopup(
                           popupType: popupType,
                           transaction: widget.transaction,
-                          onMessageTap: _dialogCallback(dialogContext, widget.onMessage),
-                          onBillingProfileTap: _dialogCallback(dialogContext, widget.onBillingProfile),
+                          onMessageTap: _dialogCallback(
+                            dialogContext,
+                            widget.onMessage,
+                          ),
+                          onBillingProfileTap: _dialogCallback(
+                            dialogContext,
+                            widget.onBillingProfile,
+                          ),
                           onCancelTap: popupType == BillingPopupType.invoice
-                              ? _dialogCallback(dialogContext, widget.onDelete ?? widget.onLongPress)
+                              ? _dialogCallback(
+                                  dialogContext,
+                                  widget.onDelete ?? widget.onLongPress,
+                                )
                               : null,
                         ),
                       ),
                     BillingStudentVerticalPopUp(
                       popupType: popupType,
                       transaction: widget.transaction,
-                      onViewTap: _dialogCallback(dialogContext, _viewActionFor(popupType)),
-                      onEditTap: _dialogCallback(dialogContext, widget.onEditInvoice),
-                      onResendTap: _dialogCallback(dialogContext, widget.onSendInvoice),
-                      onReceivePaymentTap: _dialogCallback(dialogContext, widget.onReceivePayment),
-                      onIssueRefundTap: _dialogCallback(dialogContext, widget.onIssueRefund),
+                      onViewTap: _dialogCallback(
+                        dialogContext,
+                        _viewActionFor(popupType),
+                      ),
+                      onEditTap: _dialogCallback(
+                        dialogContext,
+                        widget.onEditInvoice,
+                      ),
+                      onResendTap: _dialogCallback(
+                        dialogContext,
+                        widget.onSendInvoice,
+                      ),
+                      onReceivePaymentTap: _dialogCallback(
+                        dialogContext,
+                        widget.onReceivePayment,
+                      ),
+                      onIssueRefundTap: _dialogCallback(
+                        dialogContext,
+                        widget.onIssueRefund,
+                      ),
                       onMoreTap: () {
                         widget.onMore?.call();
                         setDialogState(() {
@@ -141,7 +166,10 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     ).then((_) => _clearSelection());
   }
 
-  VoidCallback? _dialogCallback(BuildContext dialogContext, VoidCallback? callback) {
+  VoidCallback? _dialogCallback(
+    BuildContext dialogContext,
+    VoidCallback? callback,
+  ) {
     if (callback == null) {
       return null;
     }
@@ -157,7 +185,6 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     }
     return widget.onView;
   }
-
 
   void _handleSelectionChanged(BuildContext context, bool? value, String type) {
     if (!_isSelectionControlled) {
@@ -214,10 +241,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                SizedBox(
-                  height: 50,
-                  child: _buildHeader(type),
-                ),
+                SizedBox(height: 50, child: _buildHeader(type)),
                 const SizedBox(height: 4),
                 if (_isExpanded) ..._buildExpandedContent(type),
               ],
@@ -227,6 +251,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       ),
     );
   }
+
   Widget _buildHeader(String type) {
     final String dateLabel = _dateLabel(widget.transaction, type);
     return Row(
@@ -271,22 +296,25 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               const SizedBox(height: 3),
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
                     color: _badgeColor(type, widget.transaction.status),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Text(
-                      _badgeLabel(type),
-                      style: AppTextStyles.label.copyWith(
-                        fontSize: 13,
-                        color: AppColors.billingTextColor,
-                        fontWeight: FontWeight.w600,
+                        _badgeLabel(type),
+                        style: AppTextStyles.label.copyWith(
+                          fontSize: 13,
+                          color: AppColors.billingTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
                       const SizedBox(width: 3),
                       Flexible(
                         child: Text(
@@ -301,35 +329,35 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                       ),
                     ],
                   ),
-                    ),
-                  ),
-                ],
+                ),
               ),
+            ],
+          ),
         ),
         const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
+          children: <Widget>[
+            Text(
               _formatCurrency(widget.transaction.amount),
-                    style: AppTextStyles.title.copyWith(
+              style: AppTextStyles.title.copyWith(
                 fontSize: 14,
                 color: AppColors.billingTextColor,
-                    ),
-                  ),
+              ),
+            ),
             const SizedBox(height: 3),
-                  Text(
-                    dateLabel,
+            Text(
+              dateLabel,
               style: AppTextStyles.small.copyWith(
                 fontSize: 13,
                 color: AppColors.billingTextColor.withOpacity(0.7),
-                    ),
-                    textAlign: TextAlign.right,
+              ),
+              textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
-                  ),
-                ],
+            ),
+          ],
         ),
       ],
     );
@@ -349,7 +377,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         ..add(const SizedBox(height: 10))
         ..add(_primaryButton('View Invoice', widget.onView));
     } else if (type == 'payment') {
-      if (widget.transaction.paymentMode != null && widget.transaction.paymentMode!.isNotEmpty) {
+      if (widget.transaction.paymentMode != null &&
+          widget.transaction.paymentMode!.isNotEmpty) {
         content
           ..add(_infoRow('Payment Method', widget.transaction.paymentMode!))
           ..add(const SizedBox(height: 10));
@@ -359,7 +388,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         ..add(const SizedBox(height: 10))
         ..add(_primaryButton('View Receipt', widget.onViewReceipt));
     } else if (type == 'refund') {
-      if (widget.transaction.paymentMode != null && widget.transaction.paymentMode!.isNotEmpty) {
+      if (widget.transaction.paymentMode != null &&
+          widget.transaction.paymentMode!.isNotEmpty) {
         content
           ..add(_infoRow('Payment Method', widget.transaction.paymentMode!))
           ..add(const SizedBox(height: 10));
@@ -432,13 +462,14 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   Color _badgeColor(String type, String status) {
     // Check status first for special colors
     final String statusLower = status.toLowerCase();
-    if (statusLower.contains('in progress') || statusLower.contains('pending')) {
+    if (statusLower.contains('in progress') ||
+        statusLower.contains('pending')) {
       return AppColors.billingStatusInProgressColor;
     }
     if (statusLower.contains('cancelled') || statusLower.contains('canceled')) {
       return AppColors.billingStatusCancelledColor;
     }
-    
+
     // Fall back to type-based colors
     switch (type) {
       case 'invoice':
@@ -517,7 +548,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
               ),
               child: Text(
                 label,
-                style: AppTextStyles.button(color: AppColors.billingButtonTextColor),
+                style: AppTextStyles.button(
+                  color: AppColors.billingButtonTextColor,
+                ),
               ),
             ),
           ),
@@ -529,8 +562,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   String _dateLabel(TransactionItem tx, String type) {
     final DateFormat formatter = DateFormat('MMM dd, yyyy');
     if (type == 'invoice') {
-      final DateTime? dueDate =
-          tx.endDate != null ? DateTime.tryParse(tx.endDate!) : null;
+      final DateTime? dueDate = tx.endDate != null
+          ? DateTime.tryParse(tx.endDate!)
+          : null;
       return 'Due Date: ${formatter.format(dueDate ?? tx.date)}';
     }
 
@@ -549,7 +583,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   String _formatStatus(String status) {
     // Format status for display in badge
     if (status.isEmpty) return 'Pending';
-    
+
     // Common status mappings
     switch (status.toLowerCase()) {
       case 'sent':
@@ -566,10 +600,13 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         return 'Cancelled';
       default:
         // Capitalize first letter of each word
-        return status.split(' ').map((word) {
-          if (word.isEmpty) return word;
-          return word[0].toUpperCase() + word.substring(1).toLowerCase();
-        }).join(' ');
+        return status
+            .split(' ')
+            .map((word) {
+              if (word.isEmpty) return word;
+              return word[0].toUpperCase() + word.substring(1).toLowerCase();
+            })
+            .join(' ');
     }
   }
 }

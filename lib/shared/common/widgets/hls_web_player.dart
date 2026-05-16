@@ -2,10 +2,7 @@ import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 
 class HlsWebPlayer extends StatefulWidget {
-  const HlsWebPlayer({
-    super.key,
-    required this.videoUrl,
-  });
+  const HlsWebPlayer({super.key, required this.videoUrl});
 
   final String videoUrl;
 
@@ -126,7 +123,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     if (!mounted) return;
     if (!supported) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PiP is not supported on this device right now.')),
+        const SnackBar(
+          content: Text('PiP is not supported on this device right now.'),
+        ),
       );
       return;
     }
@@ -143,7 +142,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   @override
   Widget build(BuildContext context) {
     if (_controller == null) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
     }
     return SizedBox.expand(
       child: Stack(
@@ -166,9 +167,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
                   iconTheme: const IconThemeData(color: Colors.white),
                   primaryIconTheme: const IconThemeData(color: Colors.white),
                   textTheme: Theme.of(context).textTheme.apply(
-                        bodyColor: Colors.white,
-                        displayColor: Colors.white,
-                      ),
+                    bodyColor: Colors.white,
+                    displayColor: Colors.white,
+                  ),
                 ),
                 child: BetterPlayer(controller: _controller!),
               ),
@@ -198,4 +199,3 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     );
   }
 }
-

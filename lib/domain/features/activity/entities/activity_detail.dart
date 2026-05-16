@@ -91,7 +91,8 @@ class ActivityDetail extends Equatable {
       attachments: atts,
       createdBy: (json['createdBy'] ?? '').toString(),
       staffCode: (json['staffCode'] ?? '').toString(),
-      studentCode: studentCode ??
+      studentCode:
+          studentCode ??
           ((json['studentCode'] as String?)?.trim().isEmpty == true
               ? null
               : json['studentCode']?.toString()),
@@ -103,7 +104,8 @@ class ActivityDetail extends Equatable {
       studentFirstName: studentFirstName.isNotEmpty
           ? studentFirstName
           : (json['studentFirstName'] ?? '').toString(),
-      studentMiddleName: studentMiddleName ?? json['studentMiddleName']?.toString(),
+      studentMiddleName:
+          studentMiddleName ?? json['studentMiddleName']?.toString(),
       studentLastName: studentLastName.isNotEmpty
           ? studentLastName
           : (json['studentLastName'] ?? '').toString(),
@@ -115,17 +117,17 @@ class ActivityDetail extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        activityTypeCode,
-        activityTypeName,
-        activityDateIso,
-        description,
-        parameterValues,
-        attachments,
-        createdBy,
-        staffCode,
-        studentCode,
-        classroomCode,
-        approvalStatus,
-      ];
+    code,
+    activityTypeCode,
+    activityTypeName,
+    activityDateIso,
+    description,
+    parameterValues,
+    attachments,
+    createdBy,
+    staffCode,
+    studentCode,
+    classroomCode,
+    approvalStatus,
+  ];
 }

@@ -15,12 +15,13 @@ class ShowFullScreenMediaView extends StatefulWidget {
     this.videoUrl,
     this.title,
   }) : assert(
-  (imageUrl != null || imageFile != null || videoUrl != null),
-  'Provide at least one media source',
-  );
+         (imageUrl != null || imageFile != null || videoUrl != null),
+         'Provide at least one media source',
+       );
 
   @override
-  State<ShowFullScreenMediaView> createState() => _ShowFullScreenMediaViewState();
+  State<ShowFullScreenMediaView> createState() =>
+      _ShowFullScreenMediaViewState();
 }
 
 class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView> {
@@ -58,21 +59,36 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView> {
                           ? Image.network(
                               widget.imageUrl!,
                               fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const CircularProgressIndicator(color: Colors.white);
-                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    );
+                                  },
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.broken_image, color: Colors.white, size: 100),
+                                  const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white,
+                                    size: 100,
+                                  ),
                             )
                           : Image.file(
                               widget.imageFile!,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.broken_image, color: Colors.white, size: 100),
+                                  const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white,
+                                    size: 100,
+                                  ),
                             ),
                     )
-                  : const Icon(Icons.broken_image, color: Colors.white, size: 100),
+                  : const Icon(
+                      Icons.broken_image,
+                      color: Colors.white,
+                      size: 100,
+                    ),
             ),
     );
   }
