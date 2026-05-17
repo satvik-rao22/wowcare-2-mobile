@@ -480,6 +480,44 @@ class ImageUploadService {
     return sessionCode;
   }
 
+  Future<UploadSessionResult> createStudentDocumentUploadSession({
+    required String studentCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/student-documents/${studentCode.trim()}/upload-session',
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'organizationCode': organizationCode.trim(),
+      },
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  Future<UploadSessionResult> createStaffDocumentUploadSession({
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/staff-documents/${staffCode.trim()}/upload-session',
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'organizationCode': organizationCode.trim(),
+      },
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
   Future<String> createGuardianProfilePhotoUploadSession({
     required String guardianCode,
     required String schoolCode,
@@ -653,6 +691,40 @@ class ImageUploadService {
       if (DateTime.now().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
+  }
+
+  Future<String> getMediaAssetUrlByCode({
+    required String assetCode,
+  }) async {
+    return _waitForDocumentAssetUrlByCode(assetCode: assetCode);
+  }
+
+  UploadSessionResult _parseUploadSessionResponse(dynamic body) {
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create upload session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    final documentApiBasePath = (data['documentApiBasePath'] ?? '/api/v1')
+        .toString()
+        .trim();
+    return UploadSessionResult(
+      sessionCode: sessionCode,
+      documentApiBasePath:
+          documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+    );
   }
 
   String _extractDocumentAssetUrl(dynamic body) {

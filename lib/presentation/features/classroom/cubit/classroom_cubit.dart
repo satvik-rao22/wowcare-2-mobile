@@ -13,9 +13,9 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   ClassroomCubit({
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StorageService storageService,
-  })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _storageService = storageService,
-        super(const ClassroomState.initial());
+  }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _storageService = storageService,
+       super(const ClassroomState.initial());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StorageService _storageService;
@@ -82,17 +82,16 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoading: false,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
     }
   }
 
   void clearError() {
     emit(state.copyWith(errorMessage: null));
   }
-}
 
+  /// Returns a map of classroom code to classroom name for quick lookup.
+  Map<String, String> get codeNameMap => {
+    for (final c in state.classrooms) c.code: c.name,
+  };
+}

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/cubit/Add-Shift/cubit/add_shift_cubit.dart';
+import 'custom_checkbox.dart';
 import 'custom_date_time_field.dart';
+import 'custom_toggle.dart';
 
 class CustomRepeatOnDaysSelector extends StatefulWidget {
   final List<String> selectedDays;
@@ -28,14 +30,48 @@ class _CustomRepeatOnDaysSelectorState
     "Wednesday",
     "Thursday",
     "Friday",
+    "Saturday",
   ];
 
   late List<String> _selectedDays;
 
+  String _getCurrentDayName() {
+    final weekday = DateTime.now().weekday;
+
+    switch (weekday) {
+      case DateTime.monday:
+        return "Monday";
+      case DateTime.tuesday:
+        return "Tuesday";
+      case DateTime.wednesday:
+        return "Wednesday";
+      case DateTime.thursday:
+        return "Thursday";
+      case DateTime.friday:
+        return "Friday";
+      case DateTime.saturday:
+        return "Saturday";
+      default:
+        return "";
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
     _selectedDays = List.from(widget.selectedDays);
+
+    final currentDay = _getCurrentDayName();
+
+    if (_selectedDays.isEmpty && _allDays.contains(currentDay)) {
+      _selectedDays.add(currentDay);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onSelectionChanged(_selectedDays);
+        context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
+      });
+    }
   }
 
   void _toggleDay(String day) {
@@ -83,44 +119,36 @@ class _CustomRepeatOnDaysSelectorState
           child: Row(
             children: [
               const Text(
-                "Repeat On",
+                "Repeat Off",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF4B2E4C),
+                  color: AppColors.primaryColor,
                 ),
               ),
               SizedBox(width: 16),
-              Row(
-                children: [
-                  const Text("Off"),
-                  Switch(
-                    value: _isRepeatEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _isRepeatEnabled = value;
+              CustomToggle(
+                label: 'ON',
+                isToggled: _isRepeatEnabled,
+                labelStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primaryColor,
+                ),
+                onToggle: (value) {
+                  setState(() {
+                    _isRepeatEnabled = value;
 
-                        if (!value) {
-                          _selectedDays.clear();
-                          widget.onSelectionChanged([]);
-                        }
-                      });
-                    },
-
-                    /// Track (background)
-                    trackColor: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return AppColors.themeColor; // ON
-                      }
-                      return Colors.grey.shade300; // OFF
-                    }),
-
-                    /// Thumb (bubble) → always white
-                    thumbColor: WidgetStateProperty.all(Colors.white),
-                  ),
-                  const Text("On"),
-                ],
+                    if (!value) {
+                      _selectedDays.clear();
+                      widget.onSelectionChanged([]);
+                      context.read<AddShiftCubit>().updateRepeatDays([]);
+                    }
+                  });
+                },
+                labelOnLeftSide: false,
               ),
+
               const Spacer(),
               if (_isRepeatEnabled)
                 GestureDetector(
@@ -153,19 +181,28 @@ class _CustomRepeatOnDaysSelectorState
               crossAxisCount: 3,
               crossAxisSpacing: 12,
               mainAxisSpacing: 16,
-              childAspectRatio: 3.2, // Increased for better text space
+              childAspectRatio: 2.4, // Increased for better text space
             ),
             itemCount: _allDays.length,
             itemBuilder: (context, index) {
               final day = _allDays[index];
-              return _buildDayCheckbox(day);
+              return CustomCheckbox(
+                value: _selectedDays.contains(day),
+                onChanged: (_) => _toggleDay(day),
+                label: day,
+                labelStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                usingInkwell: false,
+              );
             },
           ),
         const SizedBox(height: 16),
         if (_isRepeatEnabled)
           CustomDateTimeField(
             label: 'Until Date',
-            isRangePicker: true,
+            isRangePicker: false,
             isRequired: true,
             hasLabel: true,
 
@@ -174,64 +211,6 @@ class _CustomRepeatOnDaysSelectorState
             },
           ),
       ],
-    );
-  }
-
-  Widget _buildDayCheckbox(String day) {
-    final bool isSelected = _selectedDays.contains(day);
-
-    return GestureDetector(
-      onTap: () => _toggleDay(day),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Checkbox
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.themeColor
-                    : const Color(0xFFDDD6DD),
-                width: 2,
-              ),
-              color: isSelected ? AppColors.themeColor : Colors.transparent,
-            ),
-            child: isSelected
-                ? const Icon(Icons.check, size: 18, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(width: 10),
-          // Day Name - Now with proper wrapping
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFFE9E6EC) // selected background
-                    : const Color(0xFFF8F7FA), // unselected background
-                borderRadius: BorderRadius.circular(
-                  8,
-                ), // rectangular with slight curve
-              ),
-              child: Text(
-                day,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.primaryColor
-                      : const Color(0xFF7C94C1),
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

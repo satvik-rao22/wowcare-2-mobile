@@ -81,6 +81,7 @@ abstract class StudentRepository {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   });
@@ -95,6 +96,7 @@ abstract class StudentRepository {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   });

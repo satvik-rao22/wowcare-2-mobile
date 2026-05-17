@@ -3,7 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:dotted_border/dotted_border.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
-import '../../../../shared/common/widgets/custom_profile_avatar.dart';
+import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../model/classroom-schudle-model.dart';
 import '../view/edit-schedule.dart';
 
@@ -11,15 +11,16 @@ class ExpandableScheduleCard extends StatefulWidget {
   final String title; // e.g., "Thu Dec 30" or "Thu 30"
   final List<ClassroomSchedule>
   classrooms; // Changed to support multiple classrooms
+  final Map<String, String> classroomNameMap;
   final bool isInitiallyExpanded;
 
   const ExpandableScheduleCard({
     super.key,
     required this.title,
     required this.classrooms,
+    required this.classroomNameMap,
     this.isInitiallyExpanded = false,
   });
-
   @override
   State<ExpandableScheduleCard> createState() => _ExpandableScheduleCardState();
 }
@@ -28,6 +29,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
   late bool isExpanded;
   int? activePopupIndex; // Which row's popup is open
   bool? activeIsWarning;
+  late final Map<String, String> classroomNameMap;
 
   bool _areAllExpanded() {
     if (widget.classrooms.isEmpty) return false;
@@ -43,6 +45,10 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
       }
     }
     isExpanded = _areAllExpanded();
+  }
+
+  String _classroomName(String code) {
+    return widget.classroomNameMap[code] ?? code;
   }
 
   @override
@@ -173,7 +179,9 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    widget.title,
+                    widget.title.contains('-')
+                        ? widget.title.split('-').last.trim()
+                        : widget.title,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -214,7 +222,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                 child: Row(
                   children: [
                     Text(
-                      classroom.title,
+                      _classroomName(classroom.title),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -275,21 +283,11 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            CustomProfileAvatar(
-                              radius: 24,
-                              hasStatus: true,
-                              statusSize: 10,
-                              statusPositionTop: 2,
-                              statusPositionRight: 0,
-                              statusBorder: 2,
-                              fontSize: 16,
-                              initials: staff.name.isNotEmpty
-                                  ? staff.name
-                                        .trim()
-                                        .split(' ')
-                                        .first[0]
-                                        .toUpperCase()
-                                  : '',
+                            DocumentImageWidget(
+                              fileUuid: '',
+                              name: staff.name,
+                              size: 32,
+                              fontSize: 14,
                             ),
 
                             const SizedBox(width: 12),

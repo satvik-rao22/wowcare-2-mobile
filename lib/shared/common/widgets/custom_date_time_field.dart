@@ -18,6 +18,7 @@ class CustomDateTimeField extends StatefulWidget {
     this.isTime = false,
     this.isRangePicker = false,
     this.onDateSelected,
+    this.labelStyle,
     this.onTimeSelected,
     this.initialDate,
     this.initialTime,
@@ -35,6 +36,7 @@ class CustomDateTimeField extends StatefulWidget {
   final bool hasLabel;
   final bool isRequired;
   final bool isTime;
+  final TextStyle? labelStyle;
   final bool isRangePicker;
   final ValueChanged<DateTime>? onDateSelected;
   final ValueChanged<TimeOfDay>? onTimeSelected;
@@ -121,11 +123,14 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   Future<void> setCurrentDateTime() async {
     DateTime dateTime = DateTime.now();
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        schoolTimeZone,
       );
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
       dateTime = DateTime(
         dt.$1.year,
         dt.$1.month,

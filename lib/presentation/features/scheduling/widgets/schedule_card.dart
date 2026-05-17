@@ -59,17 +59,6 @@ class _ScheduleCardState extends State<ScheduleCard> {
           Row(
             children: [
               Expanded(
-                // child: CustomDropdown(
-                //   // label: "Select Classroom",
-                //   hintText: "Select Classroom",
-                //   items: const ["Class A", "Class B", "Class C"],
-                //   selectedItem: selectedClassroom,
-                //   onSelect: (value) {
-                //     setState(() {
-                //       selectedClassroom = value;
-                //     });
-                //   },
-                // ),
                 child: CustomDropdown(
                   hintText: 'Select Classroom',
 
@@ -110,7 +99,7 @@ class _ScheduleCardState extends State<ScheduleCard> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: 6,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, // ✅ 3 items per row
+              crossAxisCount: 2, // ✅ 3 items per row
               mainAxisSpacing: gridSpacing,
               crossAxisSpacing: gridSpacing,
               childAspectRatio: isNarrowScreen ? 2.6 : 3.0,
@@ -154,11 +143,11 @@ class StatusItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final iconSize = isNarrowScreen ? 12.0 : 18.0;
+        final iconSize = isNarrowScreen ? 20.0 : 32.0;
         final gap = isNarrowScreen ? 4.0 : 6.0;
         final baseFontSize = constraints.maxWidth < 95
             ? 10.5
-            : (constraints.maxWidth < 115 ? 11.5 : 13.0);
+            : (constraints.maxWidth < 115 ? 15.5 : 18.0);
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,

@@ -13,6 +13,7 @@ abstract final class ApiMicroservicesUat {
   static const String activity = 'activity';
   static const String document = 'document';
   static const String communication = 'communication';
+  static const String staffShifts = 'staff-shifts'; // ADD THIS
 }
 
 class ApiConstantsUat {
@@ -34,6 +35,7 @@ class ApiConstantsUat {
 
   /// Activity APIs are on the shared UAT host.
   static const String activityBaseUrl = _host;
+
   /// Document APIs in UAT are rooted under `/api/v1/document`.
   static const String documentMsBaseUrl = '$_host/api/v1/document';
   static const String communicationBaseUrl = _host;
@@ -52,6 +54,8 @@ class ApiConstantsUat {
         return schoolMs;
       case ApiMicroservicesUat.attendance:
         return attendanceBaseUrl;
+      case ApiMicroservicesUat.staffShifts:
+        return staffBaseUrl; // Or define a separate base URL for staff shifts if needed
       case ApiMicroservicesUat.activity:
         return activityBaseUrl;
       case ApiMicroservicesUat.document:

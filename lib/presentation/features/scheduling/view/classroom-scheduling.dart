@@ -4,6 +4,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
+import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../cubit/staff_scheduling_cubit.dart';
@@ -110,7 +111,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
         ),
       ],
       child: GlobalScaffold(
-        hasBackButton: true,
+        // hasBackButton: true,
         body: BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
           builder: (context, state) {
             if (state is StaffSchedulingLoaded) {
@@ -132,6 +133,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.chevron_left),
+                                  color: AppColors.colorBox3,
                                   onPressed: () {
                                     final current =
                                         state.selectedDate ?? DateTime.now();
@@ -180,6 +182,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.chevron_right),
+                                  color: AppColors.colorBox3,
                                   onPressed: () {
                                     final current =
                                         state.selectedDate ?? DateTime.now();
@@ -201,61 +204,57 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
 
                         // View mode toggle
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardColor,
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(
-                              color: AppColors.cardBorderColor,
+                          // padding: const EdgeInsets.symmetric(horizontal: 8),
+                          width: MediaQuery.sizeOf(context).width * 0.24,
+                          child: CustomDropdown(
+                            hintText: 'Select View',
+                            prependHintAsSelectableItem: false,
+                            selectedItem: state.isDailyView
+                                ? 'Daily'
+                                : 'Weekly',
+                            items: const ['Daily', 'Weekly'],
+                            fieldHeight: 36,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
                             ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<bool>(
-                              value: state.isDailyView,
-                              icon: const Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 18,
-                              ),
-                              onChanged: (bool? isDaily) {
-                                if (isDaily != null) {
-                                  context
-                                      .read<StaffSchedulingCubit>()
-                                      .changeDateAndMode(
-                                        date:
-                                            state.selectedDate ??
-                                            DateTime.now(),
-                                        isDaily: isDaily,
-                                      );
-
-                                  final classroomState = context
-                                      .read<ClassroomCubit>()
-                                      .state;
-
-                                  if (isDaily && !state.isDailyView) {
-                                    _openFirstClassroomForDailyView(
-                                      context,
-                                      state,
-                                      classroomState,
-                                    );
-                                  }
-                                }
-                              },
-                              items: const [
-                                DropdownMenuItem(
-                                  value: true,
-                                  child: Text('Daily View'),
-                                ),
-                                DropdownMenuItem(
-                                  value: false,
-                                  child: Text('Weekly View'),
-                                ),
-                              ],
+                            selectedTextStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primaryColor,
                             ),
+                            popupItemTextStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            onSelect: (value) {
+                              if (value == null) return;
+
+                              final bool isDaily = value == 'Daily View';
+
+                              context
+                                  .read<StaffSchedulingCubit>()
+                                  .changeDateAndMode(
+                                    date: state.selectedDate ?? DateTime.now(),
+                                    isDaily: isDaily,
+                                  );
+
+                              final classroomState = context
+                                  .read<ClassroomCubit>()
+                                  .state;
+
+                              if (isDaily && !state.isDailyView) {
+                                _openFirstClassroomForDailyView(
+                                  context,
+                                  state,
+                                  classroomState,
+                                );
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 12),
 
-                        const SizedBox(width: 12),
                         GradientAddButton(
                           onTap: () async {
                             Navigator.pushNamed(
@@ -449,6 +448,9 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                           isInitiallyExpanded:
                               state.isDailyView || state.expandAll,
                           classrooms: classroomsWithShifts,
+                          classroomNameMap: context
+                              .read<ClassroomCubit>()
+                              .codeNameMap,
                         );
                       },
                     ),

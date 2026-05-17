@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
@@ -33,9 +34,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
   final StaffSchedulingRepository _staffSchedulingRepository =
       serviceLocator<StaffSchedulingRepository>();
   final StorageService _storage = serviceLocator<StorageService>();
-
-  final DateTime _today = DateTime.now();
-
+  DateTime _selectedDate = DateTime.now();
   List<StaffMember> _staffList = const [];
   Map<String, String> _classroomNamesByCode = const {};
   StaffMember? _selectedStaff;
@@ -46,25 +45,33 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
   bool _isLoadingProfileAndSchedule = false;
 
   DateTime get _weekStart {
-    final daysToSubtract = _today.weekday - DateTime.monday;
+    final daysToSubtract = _selectedDate.weekday - DateTime.monday;
+
     return DateTime(
-      _today.year,
-      _today.month,
-      _today.day,
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
     ).subtract(Duration(days: daysToSubtract));
   }
 
-  DateTime get _weekEnd => _weekStart.add(const Duration(days: 4));
+  DateTime get _weekEnd => _weekStart.add(const Duration(days: 5));
+
+  // in this only add current date now
+  // String get _weekTitle {
+  //   final start = DateFormat('EEE MMM d').format(_weekStart);
+  //   final end = DateFormat('EEE MMM d').format(_weekEnd);
+  //   return '$start - $end';
+  // }
 
   String get _weekTitle {
-    final start = DateFormat('EEE MMM d').format(_weekStart);
-    final end = DateFormat('EEE MMM d').format(_weekEnd);
-    return '$start - $end';
+    return DateFormat('EEE, MMM d yyyy').format(_selectedDate);
   }
 
   @override
   void initState() {
     super.initState();
+
+    _selectedDate = DateTime.now();
     _loadStaffList();
   }
 
@@ -225,15 +232,50 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
     return GlobalScaffold(
       hasBackButton: true,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  color: AppColors.colorBox3,
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = _selectedDate.subtract(
+                        const Duration(days: 1),
+                      );
+                    });
+
+                    final selected = _selectedStaff;
+
+                    if (selected != null) {
+                      _loadStaffProfileAndSchedule(selected);
+                    }
+                  },
+                ),
                 Text(
                   _weekTitle,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  color: AppColors.colorBox3,
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = _selectedDate.add(
+                        const Duration(days: 1),
+                      );
+                    });
+
+                    final selected = _selectedStaff;
+
+                    if (selected != null) {
+                      _loadStaffProfileAndSchedule(selected);
+                    }
+                  },
                 ),
                 const Spacer(),
                 GradientAddButton(
@@ -290,12 +332,6 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
 
             const SizedBox(height: 20),
 
-            if (_isLoadingProfileAndSchedule)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 20),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
             /// Staff Info Card
             _staffCard(),
 
@@ -340,15 +376,11 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
             children: [
               Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundImage:
-                        (profileImage != null && profileImage.isNotEmpty)
-                        ? NetworkImage(profileImage)
-                        : null,
-                    child: (profileImage == null || profileImage.isEmpty)
-                        ? const Icon(Icons.person, size: 28)
-                        : null,
+                  DocumentImageWidget(
+                    fileUuid: profileImage ?? '',
+                    name: name,
+                    size: 48,
+                    fontSize: 16,
                   ),
 
                   Positioned(
@@ -429,39 +461,32 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
   }
 
   Widget _scheduleCard() {
-    final times = [
-      '06:00 AM',
-      '07:00 AM',
-      '08:00 AM',
-      '09:00 AM',
-      '10:00 AM',
-      '11:00 AM',
-      '12:00 PM',
-      '01:00 PM',
-      '02:00 PM',
-      '03:00 PM',
-      '04:00 PM',
-      '05:00 PM',
-      '06:00 PM',
-    ];
+    final times = List.generate(13, (index) {
+      final hour = index + 6;
+
+      final dt = DateTime(2000, 1, 1, hour);
+
+      return DateFormat('hh:00 a').format(dt);
+    });
 
     final shift = _selectedStaffShifts.isNotEmpty
         ? _selectedStaffShifts.first
         : null;
-    final scheduleDate = shift != null
-        ? DateFormat('EEE, MMM d').format(DateTime.parse(shift.shiftDate))
-        : DateFormat('EEE, MMM d').format(_weekStart);
+
+    final scheduleDate = DateFormat('EEE, MMM d yyyy').format(_selectedDate);
+
     final shiftRange = shift != null
         ? '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'
-        : '--:-- -- - --:-- --';
+        : '';
+
     final breakRange =
         (shift?.breakStartTime ?? '').isNotEmpty &&
             (shift?.breakEndTime ?? '').isNotEmpty
-        ? '${_formatTime(shift!.breakStartTime!)}-${_formatTime(shift.breakEndTime!)}'
+        ? '${_formatTime(shift!.breakStartTime!)} - ${_formatTime(shift.breakEndTime!)}'
         : null;
 
     const slotHeight = 38.0;
-    final timelineHeight = slotHeight * 13;
+    final timelineHeight = slotHeight * times.length;
 
     final startRefMin = 6 * 60;
     final endRefMin = 18 * 60;
@@ -474,12 +499,14 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
     if (shift != null) {
       final start = _toMinutes(shift.startTime);
       final end = _toMinutes(shift.endTime);
+
       final duration = (end - start).clamp(60, totalRefMin);
 
       shiftTop = (((start - startRefMin) / totalRefMin) * timelineHeight).clamp(
         8,
         timelineHeight - 80,
       );
+
       shiftHeight = ((duration / totalRefMin) * timelineHeight).clamp(
         90,
         timelineHeight - shiftTop,
@@ -487,6 +514,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
 
       if ((shift.breakStartTime ?? '').isNotEmpty) {
         final bStart = _toMinutes(shift.breakStartTime!);
+
         breakTop = (((bStart - startRefMin) / totalRefMin) * timelineHeight)
             .clamp(8, timelineHeight - 30);
       }
@@ -511,6 +539,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
           ),
           child: Column(
             children: [
+              /// Header
               Container(
                 height: 44,
                 decoration: const BoxDecoration(
@@ -533,6 +562,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(
                       height: 32,
                       child: VerticalDivider(
@@ -541,6 +571,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                         color: Color(0xFFDADFEA),
                       ),
                     ),
+
                     Expanded(
                       child: Center(
                         child: Text(
@@ -555,37 +586,39 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                   ],
                 ),
               ),
+
+              /// Timeline
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  /// Time Column
                   SizedBox(
                     width: timeColumnWidth,
                     child: Column(
-                      children: times
-                          .map(
-                            (t) => Container(
-                              height: slotHeight,
-                              alignment: Alignment.center,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Color(0xFFDADFEA),
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Text(
-                                t,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                      children: times.map((t) {
+                        return Container(
+                          height: slotHeight,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Color(0xFFDADFEA),
+                                width: 1,
                               ),
                             ),
-                          )
-                          .toList(),
+                          ),
+                          child: Text(
+                            t,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
+
                   const SizedBox(
                     height: 494,
                     child: VerticalDivider(
@@ -594,90 +627,90 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                       color: Color(0xFFDADFEA),
                     ),
                   ),
+
+                  /// Schedule Area
                   Expanded(
                     child: SizedBox(
                       height: timelineHeight,
-                      child: Stack(
-                        children: [
-                          Container(
-                            margin: const EdgeInsets.only(left: 10, right: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD6E2FA),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          if (shift != null)
-                            Positioned(
-                              left: 10,
-                              right: 6,
-                              top: shiftTop,
-                              child: Container(
-                                height: shiftHeight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFC4D4F0),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _classroomNameForCode(
-                                        shift.classroomCode,
-                                      ),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 18,
-                                        color: Color(0xFF3B5BA9),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      shiftRange,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          if (breakRange != null && breakTop != null)
-                            Positioned(
-                              left: 10,
-                              right: 6,
-                              top: breakTop,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF3CD),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'Lunch Break $breakRange',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (shift == null)
-                            const Center(
+                      child: shift == null
+                          ? const Center(
                               child: Text(
-                                'No schedule available for selected staff',
+                                'No schedule available',
                                 style: TextStyle(fontWeight: FontWeight.w500),
                               ),
+                            )
+                          : Stack(
+                              children: [
+                                /// Shift Block
+                                Positioned(
+                                  left: 10,
+                                  right: 6,
+                                  top: shiftTop,
+                                  child: Container(
+                                    height: shiftHeight,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFC4D4F0),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _classroomNameForCode(
+                                            shift.classroomCode,
+                                          ),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 18,
+                                            color: Color(0xFF3B5BA9),
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 6),
+
+                                        Text(
+                                          shiftRange,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                /// Break Block
+                                if (breakRange != null && breakTop != null)
+                                  Positioned(
+                                    left: 10,
+                                    right: 6,
+                                    top: breakTop,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF3CD),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'Lunch Break $breakRange',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
-                      ),
                     ),
                   ),
                 ],

@@ -327,6 +327,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       documentUrl: document.documentUrl,
       documentSizeKb: document.documentSizeKb,
       mimeType: document.mimeType,
+      assetCode: document.assetCode,
       expiryDate: document.expiryDate ?? '',
       documentNotes: document.documentNotes,
       // Backend expects "updatedBy" in body; use staffCode as a stable identifier.
@@ -357,6 +358,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       documentUrl: document.documentUrl,
       documentSizeKb: document.documentSizeKb,
       mimeType: document.mimeType,
+      assetCode: document.assetCode,
       expiryDate: document.expiryDate ?? '',
       documentNotes: document.documentNotes,
       updatedBy: staffCode,

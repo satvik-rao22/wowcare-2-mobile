@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -13,10 +14,13 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'dart:io';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -57,6 +61,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
   PlatformFile? _selectedFile;
+  bool _isUploadingFile = false;
+  int _uploadProgressPercent = 0;
+  String? _uploadedAssetCode;
+  String? _uploadedStoragePath;
   static const int _documentNameMaxLength = 100;
   static const int _notesMaxLength = 500;
 
@@ -142,10 +150,13 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     String mimeType;
 
     if (_selectedFile != null) {
-      storagePath = _selectedFile!.path ?? _selectedFile!.name;
+      storagePath = _uploadedStoragePath ?? _selectedFile!.name;
       sizeBytes = _selectedFile!.size;
-      final extension = _selectedFile!.extension?.toLowerCase() ?? '';
-      mimeType = _getMimeType(extension);
+      mimeType = FilePickerUtils.getMimeType(_selectedFile!.extension);
+      if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
+        _showWarningMessage('Please wait for file upload to complete');
+        return;
+      }
     } else if (widget.isEdit && widget.initialFilePath != null) {
       storagePath = widget.initialFilePath!;
       sizeBytes = (widget.initialFileSizeKb ?? 0) * 1024;
@@ -201,6 +212,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         storagePath: payload.storagePath,
         mimeType: payload.mimeType,
         size: payload.size,
+        assetCode: _uploadedAssetCode,
         uploadedBy: uploadedBy,
         notes: payload.notes,
       );
@@ -213,6 +225,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         storagePath: payload.storagePath,
         mimeType: payload.mimeType,
         size: payload.size,
+        assetCode: _uploadedAssetCode,
         uploadedBy: uploadedBy,
         notes: payload.notes,
       );
@@ -263,6 +276,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         allowedExtensions: [
           ...FilePickerUtils.allowedDocumentExtensions,
           ...FilePickerUtils.allowedImageExtensions,
+          ...FilePickerUtils.allowedVideoExtensions,
         ],
         allowMultiple: false,
       );
@@ -272,11 +286,103 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         setState(() {
           _selectedFile = file;
           _selectedFilePath = file.name;
+          _uploadedAssetCode = null;
+          _uploadedStoragePath = null;
         });
+        await _uploadSelectedFile(file);
       }
     } catch (e) {
       CoreUtils.logApiError('Error picking file: $e');
       _showWarningMessage('Error selecting file. Please try again.');
+    }
+  }
+
+  Future<void> _uploadSelectedFile(PlatformFile selectedFile) async {
+    try {
+      setState(() {
+        _isUploadingFile = true;
+        _uploadProgressPercent = 0;
+      });
+      final storage = serviceLocator<StorageService>();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      final organizationCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        _showWarningMessage('Missing school or organization context');
+        return;
+      }
+      final selectedPath = selectedFile.path;
+      if (selectedPath == null || selectedPath.trim().isEmpty) {
+        _showWarningMessage('Selected file path is not available');
+        return;
+      }
+      final file = File(selectedPath);
+      if (!await file.exists()) {
+        _showWarningMessage('Selected file is not accessible');
+        return;
+      }
+      final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
+      final uploadService = serviceLocator<ImageUploadService>();
+      final uploadSession = await uploadService
+          .createStudentDocumentUploadSession(
+            studentCode: widget.studentCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
+      final mediaType = mimeType.startsWith('image/')
+          ? 'IMAGE'
+          : mimeType.startsWith('video/')
+          ? 'VIDEO'
+          : 'DOCUMENT';
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: uploadSession.sessionCode,
+        documentApiBasePath: uploadSession.documentApiBasePath,
+        fileName: selectedFile.name,
+        contentType: mimeType,
+        contentLengthBytes: selectedFile.size,
+        mediaType: mediaType,
+        ownerType: 'STUDENT',
+        ownerCode: widget.studentCode,
+      );
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: mimeType,
+        onProgress: (_, __, percent) {
+          if (!mounted) return;
+          setState(() => _uploadProgressPercent = percent.clamp(0, 100));
+        },
+      );
+      await uploadService.completeAssetUpload(
+        sessionCode: uploadSession.sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: uploadSession.documentApiBasePath,
+      );
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: uploadSession.sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      final resolvedUrl = await uploadService.getMediaAssetUrlByCode(
+        assetCode: presign.assetCode,
+      );
+      if (!mounted) return;
+      setState(() {
+        _uploadedAssetCode = presign.assetCode;
+        _uploadedStoragePath = resolvedUrl.trim().isNotEmpty
+            ? resolvedUrl.trim()
+            : selectedFile.name;
+      });
+    } catch (e) {
+      _showWarningMessage('Failed to upload file: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingFile = false;
+          _uploadProgressPercent = 0;
+        });
+      }
     }
   }
 
@@ -368,7 +474,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               onPressedCancel: () => Navigator.pop(context, false),
               showCancelButton: true,
               isForm: false,
-              isLoading: state.isLoading,
+              isLoading: state.isLoading || _isUploadingFile,
             );
           },
         ),
@@ -541,7 +647,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    _selectedFilePath ?? 'Choose a File',
+                    _isUploadingFile
+                        ? 'Uploading... $_uploadProgressPercent%'
+                        : (_selectedFilePath ?? 'Choose a File'),
                     style: TextStyle(
                       color: _selectedFilePath == null
                           ? Colors.grey
