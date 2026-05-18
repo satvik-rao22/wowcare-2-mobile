@@ -1,20 +1,22 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../app/di/di.dart';
 import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
-import '../../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
+import '../../../../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
+import '../../../../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
 import 'classroom_staff_scheduling_state.dart';
 import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/storage_keys.dart';
 import 'package:intl/intl.dart';
 
 class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
-  final StaffSchedulingRepository _repository;
+  final GetStaffShiftsUseCase _getStaffShifts;
+  final GetAllClassroomsUseCase _getAllClassrooms;
   final StorageService _storageService;
   final StorageService _storage = serviceLocator<StorageService>();
-  StaffSchedulingCubit(this._repository, this._storageService)
+  StaffSchedulingCubit(this._getStaffShifts, this._getAllClassrooms, this._storageService)
     : super(StaffSchedulingInitial()) {
-    // Default to weekly view and current date
-    loadInitialData(date: DateTime.now(), isDaily: false);
+    // Default to daily view and current date
+    loadInitialData(date: DateTime.now(), isDaily: true);
   }
 
   void loadInitialData({DateTime? date, bool isDaily = false}) async {
@@ -46,18 +48,14 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         dateFrom = DateFormat('yyyy-MM-dd').format(targetDate);
         dateTo = dateFrom;
       } else {
-        // Find Monday of the week
-        final int daysToSubtract = targetDate.weekday - DateTime.monday;
-        final DateTime monday = targetDate.subtract(
-          Duration(days: daysToSubtract),
-        );
-        final DateTime sunday = monday.add(const Duration(days: 6));
-        dateFrom = DateFormat('yyyy-MM-dd').format(monday);
-        dateTo = DateFormat('yyyy-MM-dd').format(sunday);
+        final selectedDate = DateFormat('yyyy-MM-dd').format(targetDate);
+
+        dateFrom = selectedDate;
+        dateTo = selectedDate;
       }
 
       try {
-        shifts = await _repository.getStaffShifts(
+        shifts = await _getStaffShifts(
           dateFrom: dateFrom,
           dateTo: dateTo,
           schoolCode: schoolCode,
@@ -68,7 +66,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       }
 
       try {
-        classroomsRaw = await _repository.getAllClassrooms(schoolCode);
+        classroomsRaw = await _getAllClassrooms(schoolCode);
       } catch (e) {
         print("Error fetching classrooms: $e");
       }
@@ -92,7 +90,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
           staffShifts: const [],
           isDailyView: isDaily,
           selectedDate: targetDate,
-          isLoadingShifts: true,
+          isLoadingShifts: false,
           allClassrooms: const [],
         ),
       );

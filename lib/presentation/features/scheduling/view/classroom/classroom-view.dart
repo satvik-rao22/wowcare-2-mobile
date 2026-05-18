@@ -1,26 +1,19 @@
-/// =============================
-/// SCREEN UPDATE
-/// =============================
-
-/// classroom_view.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart' show DateFormat;
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
-import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../../../shared/common/widgets/app_text_styles.dart';
-import '../../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../cubit/classroom-day-view/classroom_day_schedule_cubit.dart';
 import '../../cubit/classroom-day-view/classroom_day_schedule_state.dart';
-import '../../../../../domain/features/staff_classroom/entities/classroom-schudle-model.dart';
-import '../../../../../domain/features/staff_classroom/entities/staff_model.dart';
-import '../../cubit/classroom-day-view/classroom_cubit.dart';
-import '../../widgets/expandable_schedule_card.dart';
+import '../../widgets/classroom_view/classroom_schedule_widget.dart';
+import '../../widgets/classroom_view/all_classrooms_schedule_card.dart';
+import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../../../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
+import '../../../../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
+import '../../../../../core/storage/storage_service.dart';
 
 class ClassroomViewArgs {
   final String classroomCode;
@@ -45,32 +38,22 @@ class ClassroomViewScreen extends StatelessWidget {
         ModalRoute.of(context)!.settings.arguments as ClassroomViewArgs?;
 
     final classroomCode = args?.classroomCode ?? 'CLS_C82D4F6F-E';
-
     final classroomName = args?.classroomName ?? 'Classroom';
+    final date = args?.date ?? '2026-04-24';
 
-    final date = args?.date ?? '2026-05-11';
-
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<ClassroomScheduleCubit>(
-          create: (context) =>
-              serviceLocator<ClassroomScheduleCubit>()..fetchSchedules(
-                classroomCode: classroomCode,
-                date: date,
-                schoolCode: StorageKeys.schoolCode,
-              ),
-        ),
-
-        BlocProvider<ClassroomCubit>(
-          create: (context) =>
-              serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
-        ),
-      ],
-
+    return BlocProvider(
+      create: (context) => ClassroomScheduleCubit(
+        serviceLocator<GetStaffShiftsUseCase>(),
+        serviceLocator<GetAllClassroomsUseCase>(),
+        serviceLocator<StorageService>(),
+      )..fetchAllSchedules(date: date),
       child: GlobalScaffold(
         hasBackButton: true,
-
-        body: ClassroomViewBody(classroomName: classroomName, date: date),
+        body: ClassroomViewBody(
+          classroomName: classroomName,
+          classroomCode: classroomCode,
+          date: date,
+        ),
       ),
     );
   }
@@ -78,12 +61,13 @@ class ClassroomViewScreen extends StatelessWidget {
 
 class ClassroomViewBody extends StatelessWidget {
   final String classroomName;
-
+  final String classroomCode;
   final String date;
 
   const ClassroomViewBody({
     super.key,
     required this.classroomName,
+    required this.classroomCode,
     required this.date,
   });
 
@@ -93,149 +77,78 @@ class ClassroomViewBody extends StatelessWidget {
       builder: (context, state) {
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-
           child: Column(
             children: [
-              /// HEADER
               Row(
                 children: [
                   Expanded(
-                    child: Text(
+                    child: AppText.body(
                       '< $date >',
-
                       style: AppTextStyles.body.copyWith(
                         color: AppColors.primaryColor,
-
                         fontWeight: FontWeight.w600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-
-                  GradientAddButton(onTap: () {}),
+                  GradientAddButton(onTap: () async {}),
                 ],
               ),
-
               const SizedBox(height: 16),
-
-              /// LOADING
               if (state is ClassroomScheduleLoading)
-                const Center(child: CircularProgressIndicator()),
-
-              /// LOADED
-              if (state is ClassroomScheduleLoaded)
-                Builder(
-                  builder: (_) {
-                    /// GROUP SHIFTS BY CLASSROOM
-                    final Map<String, List<StaffShiftEntity>>
-                    shiftsByClassroom = {};
-
-                    for (var shift in state.shifts) {
-                      shiftsByClassroom
-                          .putIfAbsent(shift.classroomCode, () => [])
-                          .add(shift);
-                    }
-
-                    /// MAP CLASSROOMS
-                    final classrooms = state.classrooms.map((classroom) {
-                      final classroomShifts =
-                          shiftsByClassroom[classroom.classroomCode] ?? [];
-
-                      /// SORT
-                      classroomShifts.sort((a, b) {
-                        final dateCompare = a.shiftDate.compareTo(b.shiftDate);
-
-                        if (dateCompare != 0) {
-                          return dateCompare;
-                        }
-
-                        return a.startTime.compareTo(b.startTime);
-                      });
-
-                      /// FORMAT STAFF
-                      final staffList = classroomShifts.map((shift) {
-                        String formatTime(String timeStr) {
-                          try {
-                            final parts = timeStr.split(':');
-
-                            if (parts.length >= 2) {
-                              final dt = DateTime(
-                                2026,
-                                1,
-                                1,
-                                int.parse(parts[0]),
-                                int.parse(parts[1]),
-                              );
-
-                              return DateFormat('hh:mm a').format(dt);
-                            }
-                          } catch (_) {}
-
-                          return timeStr;
-                        }
-
-                        return StaffModel(
-                          name: '${shift.staffFirstName} ${shift.staffLastName}'
-                              .trim(),
-
-                          image: DocumentImageWidget(fileUuid: shift.image),
-
-                          workedHours: shift.scheduledHours.toInt(),
-
-                          totalHours:
-                              (shift.scheduledHours + shift.unscheduledHours)
-                                  .toInt(),
-
-                          shift:
-                              '${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}',
-
-                          shiftDate: shift.shiftDate,
-
-                          statusColor: shift.shiftStatus == 'PUBLISHED'
-                              ? Colors.green
-                              : Colors.orange,
-                        );
-                      }).toList();
-
-                      return ClassroomSchedule(
-                        title: classroom.name,
-
-                        classroomName: classroom.name,
-
-                        classroomCode: classroom.classroomCode,
-
-                        showWarning: false,
-
-                        isExpanded: true,
-
-                        staffList: staffList,
-                      );
-                    }).toList();
-
-                    return ExpandableScheduleCard(
-                      title: state.date,
-
-                      classrooms: classrooms,
-
-                      isInitiallyExpanded: true,
-                      classroomNameMap: context
-                          .read<ClassroomCubit>()
-                          .codeNameMap,
-                      isLoading: state.isLoadingShifts,
-                    );
-                  },
-                ),
-
-              /// ERROR
-              if (state is ClassroomScheduleError)
-                Padding(
-                  padding: const EdgeInsets.all(20),
-
-                  child: Text(state.message),
+                ClassroomScheduleWidget(shifts: const [], isLoading: true)
+              else if (state is ClassroomScheduleLoaded)
+                _AllClassroomsSchedule(
+                  classrooms: state.classrooms,
+                  shifts: state.shifts,
+                  highlightClassroomCode: classroomCode,
+                )
+              else if (state is ClassroomScheduleError)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Text(state.message),
+                  ),
                 ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _AllClassroomsSchedule extends StatelessWidget {
+  final List<ClassroomEntity> classrooms;
+  final List<StaffShiftEntity> shifts;
+  final String? highlightClassroomCode;
+
+  const _AllClassroomsSchedule({
+    required this.classrooms,
+    required this.shifts,
+    this.highlightClassroomCode,
+  });
+
+  bool _isPublishOrUnpublish(String status) {
+    final s = status.trim().toUpperCase();
+    // For now: show only Published / Unpublished (Draft) records.
+    return s == 'PUBLISHED' || s == 'DRAFT' || s == 'UNPUBLISHED';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Map<String, List<StaffShiftEntity>> shiftsByClassroom = {};
+    for (final s in shifts) {
+      if (!_isPublishOrUnpublish(s.shiftStatus)) continue;
+      final code = s.classroomCode.trim();
+      if (code.isEmpty) continue;
+      shiftsByClassroom.putIfAbsent(code, () => []).add(s);
+    }
+    return AllClassroomsScheduleCard(
+      classrooms: classrooms,
+      shiftsByClassroom: shiftsByClassroom,
+      highlightClassroomCode: highlightClassroomCode,
     );
   }
 }

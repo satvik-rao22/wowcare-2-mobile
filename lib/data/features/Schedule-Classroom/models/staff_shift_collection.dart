@@ -1,12 +1,6 @@
-import 'package:isar/isar.dart';
-import '../../../../core/util/isar_utils.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 
-@collection
 class StaffShiftCollection {
-  Id get isarId =>
-      fastHash(shiftCode ?? '${staffCode}_${shiftDate}_${startTime}');
-
   String? shiftCode;
   String staffCode = '';
   String staffFirstName = '';

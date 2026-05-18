@@ -25,7 +25,9 @@ class StaffItemTile extends StatelessWidget {
               children: [
                 Text(staff.name),
                 const SizedBox(height: 4),
-                Text("${staff.workedHours}h | ${staff.totalHours}h"),
+                Text(
+                  "${_formatHours(staff.availableHours)}h | ${_formatHours(staff.scheduledHours)}h",
+                ),
               ],
             ),
           ),
@@ -41,5 +43,10 @@ class StaffItemTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatHours(double value) {
+    final fixed = value.toStringAsFixed(2);
+    return fixed.replaceAll(RegExp(r'\.?0+$'), '');
   }
 }

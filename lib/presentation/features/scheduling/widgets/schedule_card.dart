@@ -16,8 +16,6 @@ class ScheduleCard extends StatefulWidget {
 }
 
 class _ScheduleCardState extends State<ScheduleCard> {
-  String? selectedClassroom;
-  String? selectedPublishStatus;
   String? _selectedClassroomCode;
 
   List<Map<String, dynamic>> get classroomList {
@@ -34,11 +32,38 @@ class _ScheduleCardState extends State<ScheduleCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [_staffScheduleCard()]);
+    return BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
+      builder: (context, state) {
+        final loaded = state is StaffSchedulingLoaded ? state : null;
+        final selectedClassroomCode = loaded?.selectedClassroom;
+        final selectedPublishStatus = loaded?.selectedPublish;
+
+        final selectedClassroomName = selectedClassroomCode == null
+            ? null
+            : classroomList
+                  .firstWhere(
+                    (e) => e['code'] == selectedClassroomCode,
+                    orElse: () => {},
+                  )['name']
+                  ?.toString();
+
+        return Column(
+          children: [
+            _staffScheduleCard(
+              selectedClassroomName: selectedClassroomName,
+              selectedPublishStatus: selectedPublishStatus,
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// 🔹 Schedule Card
-  Widget _staffScheduleCard() {
+  Widget _staffScheduleCard({
+    required String? selectedClassroomName,
+    required String? selectedPublishStatus,
+  }) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isNarrowScreen = screenWidth < 390;
     final horizontalGap = isNarrowScreen ? 8.0 : 12.0;
@@ -61,8 +86,8 @@ class _ScheduleCardState extends State<ScheduleCard> {
               Expanded(
                 child: CustomDropdown(
                   hintText: 'Select Classroom',
-
                   items: classroomList.map((e) => e['name'] as String).toList(),
+                  selectedItem: selectedClassroomName,
                   onSelect: (val) {
                     final found = classroomList.firstWhere(
                       (e) => e['name'] == val,
@@ -71,6 +96,12 @@ class _ScheduleCardState extends State<ScheduleCard> {
                     setState(() {
                       _selectedClassroomCode = found['code'];
                     });
+                    final code = found['code']?.toString();
+                    if (code != null && code.isNotEmpty) {
+                      context.read<StaffSchedulingCubit>().updateClassroom(
+                        code,
+                      );
+                    }
                   },
                 ),
               ),
@@ -82,9 +113,8 @@ class _ScheduleCardState extends State<ScheduleCard> {
                   items: const ["Published", "Not Published"],
                   selectedItem: selectedPublishStatus,
                   onSelect: (value) {
-                    setState(() {
-                      selectedPublishStatus = value;
-                    });
+                    if (value == null) return;
+                    context.read<StaffSchedulingCubit>().updatePublish(value);
                   },
                 ),
               ),
@@ -99,9 +129,10 @@ class _ScheduleCardState extends State<ScheduleCard> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: 6,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, // ✅ 3 items per row
+              crossAxisCount: 3,
               mainAxisSpacing: gridSpacing,
               crossAxisSpacing: gridSpacing,
+              // childAspectRatio: isNarrowScreen ? 3.4 : 3.4,
               childAspectRatio: isNarrowScreen ? 2.6 : 3.0,
             ),
             itemBuilder: (context, index) {
@@ -143,11 +174,8 @@ class StatusItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final iconSize = isNarrowScreen ? 20.0 : 32.0;
-        final gap = isNarrowScreen ? 4.0 : 6.0;
-        final baseFontSize = constraints.maxWidth < 95
-            ? 10.5
-            : (constraints.maxWidth < 115 ? 15.5 : 18.0);
+        final iconSize = isNarrowScreen ? 18.0 : 20.0;
+        final gap = isNarrowScreen ? 6.0 : 8.0;
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -164,15 +192,16 @@ class StatusItem extends StatelessWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: AppText.body(
+                  child: Text(
                     label,
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: baseFontSize,
-                    ),
                     maxLines: 1,
                     overflow: TextOverflow.visible,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w500,
+                      fontSize: isNarrowScreen ? 11 : 13,
+                      color: AppColors.primaryColor,
+                    ),
                   ),
                 ),
               ),

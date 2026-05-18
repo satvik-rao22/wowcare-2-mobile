@@ -5,6 +5,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../cubit/classroom-day-view/classroom_staff_scheduling_cubit.dart';
@@ -15,12 +16,13 @@ import '../widgets/expandable_schedule_card_shimmer/expandable_schedule_card_shi
 import '../widgets/schedule_card.dart';
 import '../widgets/expandable_schedule_card.dart';
 import 'add-schedule.dart';
-// import 'classroom/classroom-view.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../app/di/di.dart';
 import '../../classroom/cubit/classroom_cubit.dart';
-import '../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import 'package:intl/intl.dart';
+import 'classroom/classroom-view.dart';
+import '../../../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
+import '../../../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
 
 class SchedulingScreen extends StatefulWidget {
   const SchedulingScreen({super.key});
@@ -32,6 +34,8 @@ class SchedulingScreen extends StatefulWidget {
 }
 
 class _SchedulingScreenState extends State<SchedulingScreen> {
+  String _selectedView = 'Daily View';
+
   String _classroomNameForCode(
     String code,
     StaffSchedulingLoaded state,
@@ -62,49 +66,34 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
     return code;
   }
 
-  // Future<void> _openFirstClassroomForDailyView(
-  //   BuildContext context,
-  //   StaffSchedulingLoaded state,
-  //   ClassroomState classroomState,
-  // ) async {
-  //   if (state.staffShifts.isEmpty) return;
-
-  //   final selectedDate = DateFormat(
-  //     'yyyy-MM-dd',
-  //   ).format(state.selectedDate ?? DateTime.now());
-
-  //   final targetShift =
-  //       state.staffShifts
-  //           .where((s) => s.shiftDate == selectedDate)
-  //           .firstOrNull ??
-  //       state.staffShifts.first;
-
-  //   final classroomName = _classroomNameForCode(
-  //     targetShift.classroomCode,
-  //     state,
-  //     classroomState,
-  //   );
-
-  //   Navigator.pushNamed(
-  //     context,
-  //     ClassroomViewScreen.routeName,
-  //     arguments: ClassroomViewArgs(
-  //       classroomCode: targetShift.classroomCode,
-  //       classroomName: classroomName,
-  //       date: targetShift.shiftDate,
-  //     ),
-  //   );
-  // }
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => StaffSchedulingCubit(
-            serviceLocator<StaffSchedulingRepository>(),
-            serviceLocator<StorageService>(),
-          ),
+          create: (_) {
+            // Defensive: avoid runtime crash if app hot-reloaded without
+            // re-running DI registration.
+            if (!serviceLocator.isRegistered<GetStaffShiftsUseCase>()) {
+              serviceLocator.registerFactory<GetStaffShiftsUseCase>(
+                () => GetStaffShiftsUseCase(
+                  serviceLocator(),
+                ),
+              );
+            }
+            if (!serviceLocator.isRegistered<GetAllClassroomsUseCase>()) {
+              serviceLocator.registerFactory<GetAllClassroomsUseCase>(
+                () => GetAllClassroomsUseCase(
+                  serviceLocator(),
+                ),
+              );
+            }
+            return StaffSchedulingCubit(
+              serviceLocator<GetStaffShiftsUseCase>(),
+              serviceLocator<GetAllClassroomsUseCase>(),
+              serviceLocator<StorageService>(),
+            );
+          },
         ),
         BlocProvider(
           create: (context) =>
@@ -115,78 +104,83 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
         // hasBackButton: true,
         body: BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
           builder: (context, state) {
-            /// ==============================
-            /// SHIMMER LOADING
-            /// ==============================
-
             if (state is StaffSchedulingInitial ||
-                (state is StaffSchedulingLoaded &&
-                    (state.isLoadingShifts || state.staffShifts.isEmpty))) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    /// HEADER SHIMMER
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
+                (state is StaffSchedulingLoaded && state.isLoadingShifts)) {
+              final loaded = state is StaffSchedulingLoaded ? state : null;
+              return CustomRefreshIndicator(
+                onRefresh: () async {
+                  context.read<StaffSchedulingCubit>().loadInitialData(
+                    date: loaded?.selectedDate ?? DateTime.now(),
+                    isDaily: true,
+                  );
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      /// HEADER SHIMMER
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          Container(
                             height: 40,
+                            width: 100,
                             decoration: BoxDecoration(
                               color: Colors.grey.shade300,
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                        ),
 
-                        const SizedBox(width: 12),
+                          const SizedBox(width: 12),
 
-                        Container(
-                          height: 40,
-                          width: 100,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(8),
+                          Container(
+                            height: 40,
+                            width: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Container(
-                          height: 40,
-                          width: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    /// FILTER SHIMMER
-                    Container(
-                      height: 80,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(12),
+                        ],
                       ),
-                    ),
 
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    /// SCHEDULE SHIMMER
-                    ListView.builder(
-                      itemCount: 3,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemBuilder: (_, __) {
-                        return const ExpandableScheduleCardShimmer();
-                      },
-                    ),
-                  ],
+                      /// FILTER SHIMMER
+                      Container(
+                        height: 80,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// SCHEDULE SHIMMER
+                      ListView.builder(
+                        itemCount: 3,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemBuilder: (_, __) {
+                          return const ExpandableScheduleCardShimmer();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -196,335 +190,445 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
             /// ==============================
 
             if (state is StaffSchedulingLoaded) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /// 🔹 Header Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 48,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.chevron_left),
-                                  color: AppColors.colorBox3,
-                                  onPressed: () {
-                                    final current =
-                                        state.selectedDate ?? DateTime.now();
+              return CustomRefreshIndicator(
+                onRefresh: () async {
+                  context.read<StaffSchedulingCubit>().loadInitialData(
+                    date: state.selectedDate ?? DateTime.now(),
+                    isDaily: true,
+                  );
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// 🔹 Header Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    color: AppColors.colorBox3,
+                                    onPressed: () {
+                                      final current =
+                                          state.selectedDate ?? DateTime.now();
 
-                                    final newDate = state.isDailyView
-                                        ? current.subtract(
-                                            const Duration(days: 1),
-                                          )
-                                        : current.subtract(
-                                            const Duration(days: 7),
+                                      final newDate = current.subtract(
+                                        const Duration(days: 1),
+                                      );
+
+                                      context
+                                          .read<StaffSchedulingCubit>()
+                                          .changeDateAndMode(
+                                            date: newDate,
+                                            isDaily: true,
                                           );
+                                    },
+                                  ),
 
-                                    context
-                                        .read<StaffSchedulingCubit>()
-                                        .changeDateAndMode(
-                                          date: newDate,
-                                          isDaily: state.isDailyView,
-                                        );
-                                  },
-                                ),
+                                  Expanded(
+                                    child: Text(
+                                      DateFormat('EEE, MMM dd').format(
+                                        state.selectedDate ?? DateTime.now(),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyles.body.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
 
-                                Expanded(
-                                  child: state.isDailyView
-                                      ? Text(
-                                          DateFormat('EEE, MMM dd').format(
-                                            state.selectedDate ??
-                                                DateTime.now(),
-                                          ),
-                                          textAlign: TextAlign.center,
-                                          style: AppTextStyles.body.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                        )
-                                      : FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).subtract(Duration(days: (state.selectedDate ?? DateTime.now()).weekday - 1)))}"
-                                            " - "
-                                            "${DateFormat('MMM dd').format((state.selectedDate ?? DateTime.now()).add(Duration(days: 7 - (state.selectedDate ?? DateTime.now()).weekday)))}",
-                                            maxLines: 1,
-                                            textAlign: TextAlign.center,
-                                            style: AppTextStyles.body.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 20,
-                                            ),
-                                          ),
-                                        ),
-                                ),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    color: AppColors.colorBox3,
+                                    onPressed: () {
+                                      final current =
+                                          state.selectedDate ?? DateTime.now();
 
-                                IconButton(
-                                  icon: const Icon(Icons.chevron_right),
-                                  color: AppColors.colorBox3,
-                                  onPressed: () {
-                                    final current =
-                                        state.selectedDate ?? DateTime.now();
+                                      final newDate = current.add(
+                                        const Duration(days: 1),
+                                      );
 
-                                    final newDate = state.isDailyView
-                                        ? current.add(const Duration(days: 1))
-                                        : current.add(const Duration(days: 7));
-
-                                    context
-                                        .read<StaffSchedulingCubit>()
-                                        .changeDateAndMode(
-                                          date: newDate,
-                                          isDaily: state.isDailyView,
-                                        );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        Container(
-                          width: MediaQuery.sizeOf(context).width * 0.24,
-                          child: CustomDropdown(
-                            hintText: 'Select View',
-                            prependHintAsSelectableItem: false,
-                            selectedItem: state.isDailyView
-                                ? 'Daily'
-                                : 'Weekly',
-                            items: const ['Daily', 'Weekly'],
-                            fieldHeight: 36,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            selectedTextStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primaryColor,
-                            ),
-                            popupItemTextStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            onSelect: (value) {},
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        GradientAddButton(
-                          onTap: () async {
-                            Navigator.pushNamed(
-                              context,
-                              AddShiftScreen.routeName,
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    /// 🔹 Filters
-                    const ScheduleCard(),
-
-                    const SizedBox(height: 16),
-
-                    BlocBuilder<ClassroomCubit, ClassroomState>(
-                      builder: (context, classroomState) {
-                        if (state.staffShifts.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
-                            child: Center(
-                              child: Text(
-                                "No shifts found for this date range.",
+                                      context
+                                          .read<StaffSchedulingCubit>()
+                                          .changeDateAndMode(
+                                            date: newDate,
+                                            isDaily: true,
+                                          );
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
-                          );
-                        }
+                          ),
 
-                        // Determine Date Range for Card Title
-                        String dateRangeTitle = "Weekly Schedule";
-                        if (state.isDailyView) {
-                          dateRangeTitle = DateFormat(
-                            'EE, MMM dd',
-                          ).format(state.selectedDate ?? DateTime.now());
-                        } else if (state.staffShifts.isNotEmpty) {
-                          final sortedDates =
-                              state.staffShifts
-                                  .map((s) => s.shiftDate)
-                                  .toSet()
-                                  .toList()
-                                ..sort();
-                          try {
-                            final firstDt = DateTime.parse(sortedDates.first);
-                            final lastDt = DateTime.parse(sortedDates.last);
-                            final format = DateFormat('MMM dd');
-                            dateRangeTitle =
-                                '${format.format(firstDt)} - ${format.format(lastDt)}';
-                          } catch (_) {}
-                        }
+                          SizedBox(
+                            width: MediaQuery.sizeOf(context).width * 0.32,
+                            child: CustomDropdown(
+                              hintText: 'Select View',
+                              prependHintAsSelectableItem: false,
+                              selectedItem: _selectedView,
+                              items: const ['Daily View', 'Classroom View'],
+                              fieldHeight: 36,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              selectedTextStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primaryColor,
+                              ),
+                              popupItemTextStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              onSelect: (value) {
+                                if (value == null) return;
+                                setState(() => _selectedView = value);
+                                if (value != 'Classroom View') return;
 
-                        // Map to handle missing class
-                        final Map<String, List<StaffShiftEntity>>
-                        shiftsByClassroom = {};
-                        for (var shift in state.staffShifts) {
-                          shiftsByClassroom
-                              .putIfAbsent(shift.classroomCode, () => [])
-                              .add(shift);
-                        }
+                                final selectedDate =
+                                    state.selectedDate ?? DateTime.now();
+                                final dateStr = DateFormat('yyyy-MM-dd').format(
+                                  selectedDate,
+                                );
 
-                        final classroomsWithShifts = shiftsByClassroom.keys.map((
-                          code,
-                        ) {
-                          final classroomName = _classroomNameForCode(
-                            code,
-                            state,
-                            classroomState,
-                          );
+                                final selectedCode = state.selectedClassroom;
+                                final classroomState =
+                                    context.read<ClassroomCubit>().state;
 
-                          final classroomShifts = shiftsByClassroom[code]!;
+                                final code = (selectedCode != null &&
+                                        selectedCode.trim().isNotEmpty)
+                                    ? selectedCode
+                                    : (classroomState.classrooms.isNotEmpty
+                                        ? classroomState.classrooms.first.code
+                                        : (state.allClassrooms.isNotEmpty
+                                            ? (state.allClassrooms.first['classroomCode'] ??
+                                                    state.allClassrooms.first['code'])
+                                                ?.toString()
+                                            : null));
 
-                          // Sort shifts by date and time
-                          classroomShifts.sort((a, b) {
-                            int cmp = a.shiftDate.compareTo(b.shiftDate);
-                            if (cmp == 0)
-                              return a.startTime.compareTo(b.startTime);
-                            return cmp;
-                          });
-
-                          final mappedStaff = classroomShifts.map((shift) {
-                            String formatTime(String timeStr) {
-                              try {
-                                final parts = timeStr.split(':');
-                                if (parts.length >= 2) {
-                                  final dt = DateTime(
-                                    2026,
-                                    1,
-                                    1,
-                                    int.parse(parts[0]),
-                                    int.parse(parts[1]),
+                                if (code == null || code.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('No classroom selected'),
+                                    ),
                                   );
-                                  return DateFormat('hh:mm a').format(dt);
+                                  return;
                                 }
-                              } catch (_) {}
-                              return timeStr;
-                            }
 
-                            // --- STATUS COLOR LOGIC ---
-                            Color? statusColor;
-                            if (state.isDailyView) {
-                              try {
-                                final now = DateTime.now();
-                                final shiftDt = DateTime.parse(shift.shiftDate);
+                                final name = _classroomNameForCode(
+                                  code,
+                                  state,
+                                  classroomState,
+                                );
 
-                                if (shiftDt.year == now.year &&
-                                    shiftDt.month == now.month &&
-                                    shiftDt.day == now.day) {
-                                  DateTime? parseTime(String t) {
-                                    final p = t.split(':');
-                                    if (p.length >= 2) {
-                                      return DateTime(
-                                        now.year,
-                                        now.month,
-                                        now.day,
-                                        int.parse(p[0]),
-                                        int.parse(p[1]),
-                                      );
-                                    }
-                                    return null;
+                                Navigator.pushNamed(
+                                  context,
+                                  ClassroomViewScreen.routeName,
+                                  arguments: ClassroomViewArgs(
+                                    classroomCode: code,
+                                    classroomName: name,
+                                    date: dateStr,
+                                  ),
+                                ).then((_) {
+                                  if (mounted) {
+                                    setState(
+                                      () => _selectedView = 'Daily View',
+                                    );
                                   }
+                                });
+                              },
+                            ),
+                          ),
 
-                                  final st = parseTime(shift.startTime);
-                                  final et = parseTime(shift.endTime);
-                                  final bst = shift.breakStartTime!.isNotEmpty
-                                      ? parseTime(shift.breakStartTime!)
-                                      : null;
-                                  final bet = shift.breakEndTime!.isNotEmpty
-                                      ? parseTime(shift.breakEndTime!)
-                                      : null;
+                          const SizedBox(width: 12),
 
-                                  if (st != null &&
-                                      et != null &&
-                                      now.isAfter(st) &&
-                                      now.isBefore(et)) {
-                                    if (bst != null &&
-                                        bet != null &&
-                                        now.isAfter(bst) &&
-                                        now.isBefore(bet)) {
-                                      statusColor = Colors.red; // Break
-                                    } else {
-                                      statusColor = Colors.green; // Working
-                                    }
-                                  } else {
-                                    statusColor = Colors.blue; // Scheduled
-                                  }
-                                } else {
-                                  statusColor = Colors.blue;
-                                }
-                              } catch (_) {
-                                statusColor = Colors.blue;
+                          GradientAddButton(
+                            onTap: () async {
+                              Navigator.pushNamed(
+                                context,
+                                AddShiftScreen.routeName,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// 🔹 Filters
+                      const ScheduleCard(),
+
+                      const SizedBox(height: 16),
+
+                      BlocBuilder<ClassroomCubit, ClassroomState>(
+                        builder: (context, classroomState) {
+                          final selectedDate =
+                              state.selectedDate ?? DateTime.now();
+                          final selectedDateStr =
+                              DateFormat('yyyy-MM-dd').format(selectedDate);
+
+                          // Map to handle missing class
+                          final Map<String, List<StaffShiftEntity>>
+                          shiftsByClassroom = {};
+                          for (var shift in state.staffShifts) {
+                            // Ensure we only show the selected day's data
+                            if (shift.shiftDate != selectedDateStr) continue;
+
+                            // Publish filter (for now: only Published / Not Published)
+                            final publishFilter =
+                                (state.selectedPublish ?? '').trim();
+                            if (publishFilter.isNotEmpty) {
+                              final isPublished = shift.shiftStatus
+                                      .trim()
+                                      .toUpperCase() ==
+                                  'PUBLISHED';
+                              if (publishFilter == 'Published' &&
+                                  !isPublished) {
+                                continue;
+                              }
+                              if (publishFilter == 'Not Published' &&
+                                  isPublished) {
+                                continue;
                               }
                             }
-                            // --------------------------
+                            shiftsByClassroom
+                                .putIfAbsent(shift.classroomCode, () => [])
+                                .add(shift);
+                          }
 
-                            return StaffModel(
-                              name:
-                                  '${shift.staffFirstName} ${shift.staffLastName}'
-                                      .trim(),
+                          // Build the full classroom list (even if no shifts)
+                          final Map<String, String> classroomNameByCode = {};
 
-                              image: DocumentImageWidget(fileUuid: shift.image),
+                          for (final c in classroomState.classrooms) {
+                            if (c.code.trim().isEmpty) continue;
+                            if (c.name.trim().isEmpty) continue;
+                            classroomNameByCode[c.code] = c.name;
+                          }
 
-                              workedHours: shift.scheduledHours.toInt(),
+                          for (final c in state.allClassrooms) {
+                            final code = (c['classroomCode'] ?? c['code'])
+                                ?.toString();
+                            final name = (c['classroomName'] ?? c['name'])
+                                ?.toString();
+                            if (code == null || code.trim().isEmpty) continue;
+                            if (name == null || name.trim().isEmpty) continue;
+                            classroomNameByCode.putIfAbsent(code, () => name);
+                          }
 
-                              totalHours:
-                                  (shift.scheduledHours +
-                                          shift.unscheduledHours)
-                                      .toInt(),
+                          final allClassroomCodes =
+                              classroomNameByCode.keys.toList(growable: false)
+                                ..sort((a, b) {
+                                  final an = classroomNameByCode[a] ?? a;
+                                  final bn = classroomNameByCode[b] ?? b;
+                                  return an.toLowerCase().compareTo(
+                                    bn.toLowerCase(),
+                                  );
+                                });
 
-                              shift:
-                                  '${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}',
+                          final classrooms = allClassroomCodes.map((code) {
+                            final classroomName =
+                                classroomNameByCode[code] ??
+                                _classroomNameForCode(
+                                  code,
+                                  state,
+                                  classroomState,
+                                );
 
-                              statusColor: statusColor,
+                            final classroomShifts =
+                                shiftsByClassroom[code] ??
+                                const <StaffShiftEntity>[];
 
-                              shiftDate: shift.shiftDate,
+                            int statusRank(String status) {
+                              final s = status.toUpperCase().trim();
+                              if (s == 'PUBLISHED') return 3;
+                              if (s == 'DRAFT') return 2;
+                              if (s == 'CANCELLED') return 1;
+                              return 0;
+                            }
 
-                              shiftStatus: shift.shiftStatus,
+                            // API can return multiple shift rows per staff for the same day
+                            // (e.g. cancelled history). Show only one "best" row per staff.
+                            final Map<String, StaffShiftEntity> bestByStaff = {};
+                            for (final shift in classroomShifts) {
+                              final key = shift.staffCode.trim();
+                              if (key.isEmpty) continue;
+
+                              final prev = bestByStaff[key];
+                              if (prev == null) {
+                                bestByStaff[key] = shift;
+                                continue;
+                              }
+
+                              final r1 = statusRank(shift.shiftStatus);
+                              final r0 = statusRank(prev.shiftStatus);
+                              if (r1 != r0) {
+                                if (r1 > r0) bestByStaff[key] = shift;
+                                continue;
+                              }
+
+                              // Same status: pick the earlier start time
+                              if (shift.startTime.compareTo(prev.startTime) <
+                                  0) {
+                                bestByStaff[key] = shift;
+                              }
+                            }
+
+                            final sortedShifts = bestByStaff.values.toList()
+                              ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+                            final mappedStaff = sortedShifts
+                                .map((shift) {
+                                  String formatTime(String timeStr) {
+                                    try {
+                                      final parts = timeStr.split(':');
+                                      if (parts.length >= 2) {
+                                        final dt = DateTime(
+                                          2026,
+                                          1,
+                                          1,
+                                          int.parse(parts[0]),
+                                          int.parse(parts[1]),
+                                        );
+                                        return DateFormat('hh:mm a').format(dt);
+                                      }
+                                    } catch (_) {}
+                                    return timeStr;
+                                  }
+
+                                  // --- STATUS COLOR LOGIC ---
+                                  Color? statusColor;
+                                  try {
+                                    final now = DateTime.now();
+                                    final shiftDt = DateTime.parse(
+                                      shift.shiftDate,
+                                    );
+
+                                    if (shiftDt.year == now.year &&
+                                        shiftDt.month == now.month &&
+                                        shiftDt.day == now.day) {
+                                      DateTime? parseTime(String t) {
+                                        final p = t.split(':');
+                                        if (p.length >= 2) {
+                                          return DateTime(
+                                            now.year,
+                                            now.month,
+                                            now.day,
+                                            int.parse(p[0]),
+                                            int.parse(p[1]),
+                                          );
+                                        }
+                                        return null;
+                                      }
+
+                                      final st = parseTime(shift.startTime);
+                                      final et = parseTime(shift.endTime);
+                                      final bst =
+                                          shift.breakStartTime!.isNotEmpty
+                                          ? parseTime(shift.breakStartTime!)
+                                          : null;
+                                      final bet =
+                                          shift.breakEndTime!.isNotEmpty
+                                          ? parseTime(shift.breakEndTime!)
+                                          : null;
+
+                                      if (st != null &&
+                                          et != null &&
+                                          now.isAfter(st) &&
+                                          now.isBefore(et)) {
+                                        if (bst != null &&
+                                            bet != null &&
+                                            now.isAfter(bst) &&
+                                            now.isBefore(bet)) {
+                                          statusColor = Colors.red; // Break
+                                        } else {
+                                          statusColor = Colors.green; // Working
+                                        }
+                                      } else {
+                                        statusColor = Colors.blue; // Scheduled
+                                      }
+                                    } else {
+                                      statusColor = Colors.blue;
+                                    }
+                                  } catch (_) {
+                                    statusColor = Colors.blue;
+                                  }
+                                  // --------------------------
+
+                                  return StaffModel(
+                                    name:
+                                        '${shift.staffFirstName} ${shift.staffLastName}'
+                                            .trim(),
+
+                                    image: DocumentImageWidget(
+                                      fileUuid: shift.image,
+                                    ),
+
+                                    availableHours: shift.availableHours,
+
+                                    scheduledHours: shift.scheduledHours,
+
+                                    shift:
+                                        '${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}',
+
+                                    statusColor: statusColor,
+
+                                    shiftDate: shift.shiftDate,
+
+                                    shiftCode: shift.shiftCode,
+
+                                    shiftStatus: shift.shiftStatus,
+                                  );
+                                })
+                                .toList(growable: false);
+
+                            return ClassroomSchedule(
+                              title: code,
+                              classroomCode: code,
+                              staffList: mappedStaff,
+                              showWarning: mappedStaff.isEmpty,
+                              isExpanded: state.expandAll,
+                              classroomName: classroomName,
                             );
                           }).toList();
 
-                          return ClassroomSchedule(
-                            title: classroomName,
-                            classroomCode: code,
-                            staffList: mappedStaff,
-                            showWarning: false,
-                            isExpanded: state.isDailyView || state.expandAll,
-                            classroomName: classroomName,
+                          if (classrooms.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(
+                                child: Text("No classrooms found."),
+                              ),
+                            );
+                          }
+
+                          // Single Card for the whole week
+                          return ExpandableScheduleCard(
+                            title: DateFormat(
+                              'EEE, MMM dd',
+                            ).format(state.selectedDate ?? DateTime.now()),
+                            isInitiallyExpanded:
+                                state.expandAll,
+                            classrooms: classrooms,
+                            classroomNameMap: {
+                              ...context.read<ClassroomCubit>().codeNameMap,
+                              ...classroomNameByCode,
+                            },
+                            isLoading: state.isLoadingShifts,
                           );
-                        }).toList();
-
-                        if (classroomsWithShifts.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-
-                        // Single Card for the whole week
-                        return ExpandableScheduleCard(
-                          title: dateRangeTitle,
-                          isInitiallyExpanded:
-                              state.isDailyView || state.expandAll,
-                          classrooms: classroomsWithShifts,
-                          classroomNameMap: context
-                              .read<ClassroomCubit>()
-                              .codeNameMap,
-                          isLoading: state.isLoadingShifts,
-                        );
-                      },
-                    ),
-                  ],
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -536,3 +640,5 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
     );
   }
 }
+
+// (intentionally removed the old tab widget; view switching is now via dropdown)

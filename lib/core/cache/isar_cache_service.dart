@@ -1,79 +1,133 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:wowcare/core/cache/cache_service.dart';
-import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
-import 'package:wowcare/data/features/communication/models/message_collection.dart';
+
+import '../../data/features/communication/models/conversation_collection.dart';
+import '../../data/features/communication/models/message_collection.dart';
+import 'cache_service.dart';
 
 class IsarCacheService implements CacheService {
-  late Isar _isar;
+  final Isar _isar;
 
-  Future<void> init() async {
+  IsarCacheService(this._isar);
+
+  static Future<IsarCacheService> open() async {
     final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open([
-      MessageCollectionSchema,
-      ConversationCollectionSchema,
-      // StaffShiftCollectionSchema,
-    ], directory: dir.path);
+    final isar = await Isar.open(
+      [MessageCollectionSchema, ConversationCollectionSchema],
+      directory: dir.path,
+      name: 'wowcare_cache',
+    );
+    return IsarCacheService(isar);
   }
 
   @override
   Future<void> put<T>(T item) async {
-    await _isar.writeTxn(() async {
-      await _isar.collection<T>().put(item);
-    });
+    if (item is MessageCollection) {
+      await _isar.writeTxn(() => _isar.messageCollections.put(item));
+      return;
+    }
+    if (item is ConversationCollection) {
+      await _isar.writeTxn(() => _isar.conversationCollections.put(item));
+      return;
+    }
+    throw UnsupportedError(
+      'IsarCacheService: unsupported type: ${item.runtimeType}',
+    );
   }
 
   @override
   Future<void> putAll<T>(List<T> items) async {
-    await _isar.writeTxn(() async {
-      await _isar.collection<T>().putAll(items);
-    });
+    if (items.isEmpty) return;
+
+    final first = items.first;
+    if (first is MessageCollection) {
+      final list = items.cast<MessageCollection>();
+      await _isar.writeTxn(() => _isar.messageCollections.putAll(list));
+      return;
+    }
+    if (first is ConversationCollection) {
+      final list = items.cast<ConversationCollection>();
+      await _isar.writeTxn(() => _isar.conversationCollections.putAll(list));
+      return;
+    }
+    throw UnsupportedError(
+      'IsarCacheService: unsupported type: ${first.runtimeType}',
+    );
   }
 
   @override
   Future<T?> get<T>(dynamic id) async {
-    return await _isar.collection<T>().get(id as Id);
+    if (T == MessageCollection) {
+      if (id is int) return await _isar.messageCollections.get(id) as T?;
+      return null;
+    }
+    if (T == ConversationCollection) {
+      if (id is int) return await _isar.conversationCollections.get(id) as T?;
+      return null;
+    }
+    throw UnsupportedError('IsarCacheService: unsupported type: $T');
   }
 
   @override
   Future<List<T>> getAll<T>() async {
-    return await _isar.collection<T>().where().findAll();
+    if (T == MessageCollection) {
+      return (await _isar.messageCollections.where().findAll()).cast<T>();
+    }
+    if (T == ConversationCollection) {
+      return (await _isar.conversationCollections.where().findAll()).cast<T>();
+    }
+    throw UnsupportedError('IsarCacheService: unsupported type: $T');
   }
 
   @override
   Future<List<T>> getByField<T>(String fieldName, dynamic value) async {
-    // Isar requires specific generated filters for each field.
-    // For a centralized system, we map the fields for each collection here.
     if (T == MessageCollection) {
-      if (fieldName == 'threadId') {
-        return await _isar.messageCollections
-                .filter()
-                .threadIdEqualTo(value as String)
-                .findAll()
-            as List<T>;
+      if (fieldName == 'threadId' && value is String) {
+        return (await _isar.messageCollections
+                .where()
+                .threadIdEqualTo(value)
+                .findAll())
+            .cast<T>();
       }
-      if (fieldName == 'id') {
-        return await _isar.messageCollections
+      if (fieldName == 'id' && value is String) {
+        return (await _isar.messageCollections
                 .filter()
-                .idEqualTo(value as String)
-                .findAll()
-            as List<T>;
+                .idEqualTo(value)
+                .findAll())
+            .cast<T>();
       }
+      return <T>[];
     }
-    return [];
+    return <T>[];
   }
 
   @override
   Future<void> delete<T>(dynamic id) async {
-    await _isar.writeTxn(() async {
-      await _isar.collection<T>().delete(id as Id);
-    });
+    if (T == MessageCollection) {
+      if (id is int) {
+        await _isar.writeTxn(() => _isar.messageCollections.delete(id));
+      }
+      return;
+    }
+    if (T == ConversationCollection) {
+      if (id is int) {
+        await _isar.writeTxn(() => _isar.conversationCollections.delete(id));
+      }
+      return;
+    }
+    throw UnsupportedError('IsarCacheService: unsupported type: $T');
   }
 
   @override
   Future<void> clear<T>() async {
-    await _isar.writeTxn(() async {
-      await _isar.collection<T>().clear();
-    });
+    if (T == MessageCollection) {
+      await _isar.writeTxn(() => _isar.messageCollections.clear());
+      return;
+    }
+    if (T == ConversationCollection) {
+      await _isar.writeTxn(() => _isar.conversationCollections.clear());
+      return;
+    }
+    throw UnsupportedError('IsarCacheService: unsupported type: $T');
   }
 }

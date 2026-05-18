@@ -4,12 +4,16 @@ class TimelineHeader extends StatelessWidget {
   final ScrollController controller;
   final List<String> timeLabels;
   final List<Color> topSummaryColors;
+  final String title;
+  final String subtitle;
 
   const TimelineHeader({
     super.key,
     required this.controller,
     required this.timeLabels,
     required this.topSummaryColors,
+    required this.title,
+    this.subtitle = 'Class Schedule',
   });
 
   @override
@@ -17,13 +21,51 @@ class TimelineHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(
+        SizedBox(
           width: 160,
           child: Padding(
             padding: EdgeInsets.all(12),
-            child: Text(
-              'Class Schedule',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFF4B2E4C).withOpacity(0.12),
+                  child: Text(
+                    title.isNotEmpty ? title[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF4B2E4C),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

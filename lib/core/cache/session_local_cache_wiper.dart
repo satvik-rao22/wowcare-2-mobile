@@ -12,8 +12,8 @@ class SessionLocalCacheWiper {
   SessionLocalCacheWiper({
     required CacheService cacheService,
     required StaffRepository staffRepository,
-  })  : _cacheService = cacheService,
-        _staffRepository = staffRepository;
+  }) : _cacheService = cacheService,
+       _staffRepository = staffRepository;
 
   final CacheService _cacheService;
   final StaffRepository _staffRepository;

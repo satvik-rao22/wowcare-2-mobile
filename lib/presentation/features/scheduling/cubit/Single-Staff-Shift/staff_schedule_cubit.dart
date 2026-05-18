@@ -212,7 +212,7 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
     } catch (e) {
       emit(
         state.copyWith(
-          isLoadingStaff: true,
+          isLoadingStaff: false,
           staffError: 'Failed to load staff list.\nPlease try again.',
           staffList: const [],
         ),
@@ -320,7 +320,7 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
     } catch (e) {
       emit(
         state.copyWith(
-          isLoadingSchedule: true,
+          isLoadingSchedule: false,
           scheduleError: 'Failed to load schedule.\nPlease try again.',
           shifts: const [],
         ),

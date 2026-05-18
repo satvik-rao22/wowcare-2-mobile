@@ -1,4 +1,3 @@
-import '../../../core/cache/cache_service.dart';
 import '../../../domain/features/staff_scheduling/entities/schedule_entry.dart';
 import '../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
@@ -7,31 +6,25 @@ import 'staff_scheduling_remote_datasource.dart';
 
 class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
   final StaffSchedulingRemoteDataSource _remoteDataSource;
-  final CacheService _cacheService;
 
-  StaffSchedulingRepositoryImpl(this._remoteDataSource, this._cacheService);
+  StaffSchedulingRepositoryImpl(this._remoteDataSource);
 
   @override
   Future<void> addSchedule(Map<String, dynamic> data) async {
-    final responseData = await _remoteDataSource.addSchedule(data);
-
-    if (responseData != null) {
-      final createdShiftCodes =
-          responseData['createdShiftCodes'] as List<dynamic>?;
-
-      if (createdShiftCodes != null && createdShiftCodes.isNotEmpty) {
-        final shifts = createdShiftCodes.map((code) {
-          return StaffShiftCollection.fromMap(data, code: code as String);
-        }).toList();
-
-        await _cacheService.putAll(shifts);
-      }
-    }
+    // Scheduling no longer uses local Isar/Cache storage.
+    await _remoteDataSource.addSchedule(data);
   }
 
   @override
   Future<void> editSchedule(String id, Map<String, dynamic> data) async {
     await _remoteDataSource.editSchedule(id, data);
+  }
+
+  @override
+  Future<StaffShiftEntity?> getShiftByCode(String shiftCode) async {
+    final map = await _remoteDataSource.getShiftByCode(shiftCode);
+    if (map == null) return null;
+    return StaffShiftCollection.fromMap(map).toEntity();
   }
 
   @override
@@ -45,38 +38,20 @@ class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
     int page = 0,
     int size = 50,
   }) async {
-    try {
-      final remoteShifts = await _remoteDataSource.getStaffShifts(
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        classroomCode: classroomCode,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        // shiftStatus: shiftStatus ?? 'PUBLISHED',
-        page: page,
-        size: size,
-      );
+    final remoteShifts = await _remoteDataSource.getStaffShifts(
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      classroomCode: classroomCode,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      // shiftStatus: shiftStatus ?? 'PUBLISHED',
+      page: page,
+      size: size,
+    );
 
-      final shifts = remoteShifts.map((map) {
-        return StaffShiftCollection.fromMap(map);
-      }).toList();
-
-      await _cacheService.putAll(shifts);
-
-      return shifts.map((s) => s.toEntity()).toList();
-    } catch (e) {
-      final cachedShifts = await _cacheService.getAll<StaffShiftCollection>();
-
-      return cachedShifts
-          .where(
-            (s) =>
-                (classroomCode == null || s.classroomCode == classroomCode) &&
-                s.shiftDate.compareTo(dateFrom) >= 0 &&
-                s.shiftDate.compareTo(dateTo) <= 0,
-          )
-          .map((s) => s.toEntity())
-          .toList();
-    }
+    return remoteShifts
+        .map((map) => StaffShiftCollection.fromMap(map).toEntity())
+        .toList(growable: false);
   }
 
   @override

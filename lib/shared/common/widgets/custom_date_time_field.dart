@@ -217,9 +217,9 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
             text: TextSpan(
               text: widget.label!,
               style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: calHelper.headerFontSize * 0.7,
-                fontWeight: FontWeight.w400,
+                color: AppColors.primaryColor.withValues(alpha: 5),
+                fontSize: calHelper.headerFontSize * 0.8,
+                fontWeight: FontWeight.w500,
               ),
               children: [
                 if (widget.isRequired)

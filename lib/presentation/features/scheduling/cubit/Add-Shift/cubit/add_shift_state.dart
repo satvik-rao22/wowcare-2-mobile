@@ -18,6 +18,8 @@ class AddShiftState extends Equatable {
 
   final String notes;
 
+  final bool publish;
+
   final bool isLoading;
   final bool isProfileLoading;
   final bool isSubmitting;
@@ -38,6 +40,7 @@ class AddShiftState extends Equatable {
     this.selectedDays = const [],
     this.repeatUntilDate,
     this.notes = '',
+    this.publish = false,
     this.isLoading = false,
     this.isProfileLoading = false,
     this.isSubmitting = false,
@@ -58,7 +61,9 @@ class AddShiftState extends Equatable {
     TimeOfDay? breakEndTime,
     List<String>? selectedDays,
     DateTime? repeatUntilDate,
+    bool clearRepeatUntilDate = false,
     String? notes,
+    bool? publish,
     bool? isLoading,
     bool? isProfileLoading,
     bool? isSubmitting,
@@ -76,8 +81,11 @@ class AddShiftState extends Equatable {
       breakStartTime: breakStartTime ?? this.breakStartTime,
       breakEndTime: breakEndTime ?? this.breakEndTime,
       selectedDays: selectedDays ?? this.selectedDays,
-      repeatUntilDate: repeatUntilDate ?? this.repeatUntilDate,
+      repeatUntilDate: clearRepeatUntilDate
+          ? null
+          : (repeatUntilDate ?? this.repeatUntilDate),
       notes: notes ?? this.notes,
+      publish: publish ?? this.publish,
       isLoading: isLoading ?? this.isLoading,
       isProfileLoading: isProfileLoading ?? this.isProfileLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
@@ -100,6 +108,7 @@ class AddShiftState extends Equatable {
     selectedDays,
     repeatUntilDate,
     notes,
+    publish,
     isLoading,
     isProfileLoading,
     isSubmitting,

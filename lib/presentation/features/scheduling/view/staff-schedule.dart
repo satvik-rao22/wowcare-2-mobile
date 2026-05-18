@@ -1,35 +1,49 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/presentation/features/scheduling/view/publish-shift-schedule.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/entities/classroom.dart';
+import '../../../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
+import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
-import '../cubit/Single-Staff-Shift/staff_schedule_cubit.dart';
-import '../cubit/Single-Staff-Shift/staff_schedule_state.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../widgets/add-shiftform/copy-shift.dart';
-import '../widgets/expandable_schedule_card_shimmer/staff-card-shimmer.dart';
+import 'publish-shift-schedule.dart';
 import 'add-schedule.dart';
 
 class StaffSchedulingScreen extends StatefulWidget {
   const StaffSchedulingScreen({super.key});
 
-  static const String routeName = '/single-staff-schudle';
+  static const String routeName = '/staff-shift';
 
   @override
   State<StaffSchedulingScreen> createState() => _StaffSchedulingScreenState();
 }
 
 class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
+  final ClassroomRepository _classroomRepository =
+      serviceLocator<ClassroomRepository>();
+  final StaffRepository _staffRepository = serviceLocator<StaffRepository>();
+  final StaffSchedulingRepository _staffSchedulingRepository =
+      serviceLocator<StaffSchedulingRepository>();
+  final StorageService _storage = serviceLocator<StorageService>();
   DateTime _selectedDate = DateTime.now();
+  String _schoolTimeZone = SchoolTimezoneResolver.fallbackTimeZone;
   List<StaffMember> _staffList = const [];
   Map<String, String> _classroomNamesByCode = const {};
   StaffMember? _selectedStaff;
@@ -59,7 +73,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
   // }
 
   String get _weekTitle {
-    return DateFormat('EEE, MMM d yyyy').format(_selectedDate);
+    return DateFormat('MMM d yyyy').format(_selectedDate);
   }
 
   @override
@@ -67,11 +81,145 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
     super.initState();
 
     _selectedDate = DateTime.now();
+    _loadSchoolTimeZone();
+    _loadStaffList();
+  }
+
+  Future<void> _loadSchoolTimeZone() async {
+    try {
+      final tz = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storage,
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      if (!mounted) return;
+      setState(() => _schoolTimeZone = tz);
+    } catch (_) {}
+  }
+
+  Future<void> _onRefresh() async {
+    final selected = _selectedStaff;
+    if (selected != null) {
+      await _loadStaffProfileAndSchedule(selected);
+    } else {
+      await _loadStaffList();
+    }
+  }
+
+  Future<void> _loadStaffList() async {
+    setState(() => _isLoadingStaff = true);
+    try {
+      final schoolCode = await _storage.getString(StorageKeys.schoolCode) ?? '';
+      final results = await Future.wait([
+        _staffRepository.getStaffListBySchool(schoolCode: schoolCode),
+        _classroomRepository.getActiveClassrooms(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: true,
+        ),
+      ]);
+
+      final staff = results[0] as List<StaffMember>;
+      final classrooms = results[1] as List<Classroom>;
+
+      if (!mounted) return;
+      setState(() {
+        _staffList = staff;
+        _classroomNamesByCode = {
+          for (final c in classrooms)
+            if (c.code.isNotEmpty) c.code: c.name,
+        };
+        _isLoadingStaff = false;
+      });
+      if (staff.isNotEmpty) {
+        final first = staff.first;
+        setState(() {
+          _selectedStaff = first;
+        });
+        _loadStaffProfileAndSchedule(first);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingStaff = false);
+      CoreUtils.logApiError(e.toString());
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to load staff list',
+        isWarning: true,
+      );
+    }
   }
 
   String _classroomNameForCode(String code) {
     if (code.trim().isEmpty || code == '-') return '-';
     return _classroomNamesByCode[code] ?? code;
+  }
+
+  Future<void> _loadStaffProfileAndSchedule(StaffMember staff) async {
+    setState(() {
+      _isLoadingProfileAndSchedule = true;
+      _selectedProfile = null;
+      _selectedStaffShifts = const [];
+    });
+
+    try {
+      final dateFrom = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final dateTo = dateFrom;
+
+      final shiftStatus = _selectedPublishStatus == null
+          ? null
+          : (_selectedPublishStatus == 'Published'
+                ? 'PUBLISHED'
+                : 'UNPUBLISHED');
+
+      final schoolCode = await _storage.getString(StorageKeys.schoolCode) ?? '';
+      final organizationCode =
+          await _storage.getString(StorageKeys.organizationCode) ?? '';
+
+      final profile = await _staffRepository.getStaffProfile(
+        staffCode: staff.code,
+        forEditStaff: true,
+      );
+
+      final classroomCode = profile.primaryClassroomCode.isNotEmpty
+          ? profile.primaryClassroomCode
+          : (staff.primaryClassroomOrFirstAllowed.isNotEmpty
+                ? staff.primaryClassroomOrFirstAllowed
+                : null);
+
+      final allShifts = await _staffSchedulingRepository.getStaffShifts(
+        classroomCode: classroomCode,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        shiftStatus: shiftStatus,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+      );
+
+      final staffShifts =
+          allShifts
+              .where((s) => s.staffCode == staff.code)
+              .toList(growable: false)
+            ..sort((a, b) {
+              final dateCompare = a.shiftDate.compareTo(b.shiftDate);
+              if (dateCompare != 0) return dateCompare;
+              return a.startTime.compareTo(b.startTime);
+            });
+
+      if (!mounted) return;
+      setState(() {
+        _selectedProfile = profile;
+        _selectedStaffShifts = staffShifts;
+        _isLoadingProfileAndSchedule = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingProfileAndSchedule = false);
+      CoreUtils.logApiError(e.toString());
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to load staff profile/schedule',
+        isWarning: true,
+      );
+    }
   }
 
   double _sumScheduledHours() => _selectedStaffShifts.fold(
@@ -91,6 +239,19 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
 
   String _formatHours(double value) =>
       value.toStringAsFixed(value % 1 == 0 ? 0 : 1);
+
+  String _formatDesignation(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '-';
+    // Normalize API formats like "ASSISTANT_TEACHER" / "assistant_teacher"
+    final normalized = trimmed.replaceAll(RegExp(r'[_\\-]+'), ' ');
+    final collapsed = normalized.replaceAll(RegExp(r'\\s+'), ' ').trim();
+    return collapsed
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
+  }
 
   String _formatTime(String hhmmss) {
     try {
@@ -113,372 +274,257 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
     }
   }
 
-  Future<void> _onRefresh() async {
-    final selected = _selectedStaff;
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<StaffScheduleCubit, StaffScheduleState>(
-      builder: (context, state) {
-        final staffList = state.staffList;
+    return GlobalScaffold(
+      hasBackButton: true,
+      body: CustomRefreshIndicator(
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    color: AppColors.colorBox3,
+                    onPressed: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.subtract(
+                          const Duration(days: 1),
+                        );
+                      });
 
-        final selectedStaff = state.selectedStaff;
+                      final selected = _selectedStaff;
 
-        final selectedProfile = state.selectedProfile;
-
-        final selectedStaffShifts = state.shifts;
-
-        final classroomMap = state.classroomMap;
-
-        return GlobalScaffold(
-          body: CustomRefreshIndicator(
-            onRefresh: () async {
-              await context.read<StaffScheduleCubit>().refresh(
-                selectedDate: _selectedDate,
-                publishStatus: _selectedPublishStatus,
-              );
-            },
-
-            child: SingleChildScrollView(
-              child: Container(
-                padding: const EdgeInsets.all(10),
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    /// =======================================================
-                    /// HEADER
-                    /// =======================================================
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-
-                          color: AppColors.colorBox3,
-
-                          onPressed: () {
-                            setState(() {
-                              _selectedDate = _selectedDate.subtract(
-                                const Duration(days: 1),
-                              );
-                            });
-
-                            if (selectedStaff != null) {
-                              context
-                                  .read<StaffScheduleCubit>()
-                                  .loadStaffSchedule(
-                                    selectedStaff,
-                                    selectedDate: _selectedDate,
-                                    publishStatus: _selectedPublishStatus,
-                                  );
-                            }
-                          },
-                        ),
-
-                        Text(
-                          _weekTitle,
-
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-
-                          color: AppColors.colorBox3,
-
-                          onPressed: () {
-                            setState(() {
-                              _selectedDate = _selectedDate.add(
-                                const Duration(days: 1),
-                              );
-                            });
-
-                            if (selectedStaff != null) {
-                              context
-                                  .read<StaffScheduleCubit>()
-                                  .loadStaffSchedule(
-                                    selectedStaff,
-                                    selectedDate: _selectedDate,
-                                    publishStatus: _selectedPublishStatus,
-                                  );
-                            }
-                          },
-                        ),
-
-                        const Spacer(),
-
-                        GradientAddButton(
-                          onTap: () async {
-                            Navigator.pushNamed(
-                              context,
-                              AddShiftScreen.routeName,
-                            );
-                          },
-                        ),
-                      ],
+                      if (selected != null) {
+                        _loadStaffProfileAndSchedule(selected);
+                      }
+                    },
+                  ),
+                  Text(
+                    _weekTitle,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    color: AppColors.colorBox3,
+                    onPressed: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.add(
+                          const Duration(days: 1),
+                        );
+                      });
 
-                    const SizedBox(height: 16),
+                      final selected = _selectedStaff;
 
-                    /// =======================================================
-                    /// ACTION BUTTONS
-                    /// =======================================================
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      if (selected != null) {
+                        _loadStaffProfileAndSchedule(selected);
+                      }
+                    },
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () async {
+                      if (_selectedStaffShifts.isEmpty) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message:
+                              'No shift found for this date to publish. Add a shift first.',
+                          isWarning: true,
+                        );
+                        return;
+                      }
 
-                      children: [
-                        /// COPY SHIFT
-                        InkWell(
-                          borderRadius: BorderRadius.circular(14),
+                      final schoolCode = await _storage.getString(
+                        StorageKeys.schoolCode,
+                      );
+                      final organizationCode = await _storage.getString(
+                        StorageKeys.organizationCode,
+                      );
 
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              CopyShiftForm.routeName,
-                            );
-                          },
+                      if (schoolCode == null ||
+                          schoolCode.isEmpty ||
+                          organizationCode == null ||
+                          organizationCode.isEmpty) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: 'Missing school/organization info.',
+                          isWarning: true,
+                        );
+                        return;
+                      }
 
-                          child: Container(
-                            height: 46,
+                      final shift = _selectedStaffShifts.first;
+                      final payload = <String, dynamic>{
+                        'staffCode': shift.staffCode,
+                        'classroomCode': shift.classroomCode,
+                        'schoolCode': schoolCode,
+                        'organizationCode': organizationCode,
+                        'shiftDate': shift.shiftDate,
+                        'startTime': shift.startTime,
+                        'endTime': shift.endTime,
+                        if ((shift.breakStartTime ?? '').isNotEmpty)
+                          'breakStartTime': shift.breakStartTime,
+                        if ((shift.breakEndTime ?? '').isNotEmpty)
+                          'breakEndTime': shift.breakEndTime,
+                        'publish': true,
+                        'repeat': false,
+                        'overrideConflicts': true,
+                        'forceAdd': true,
+                        if ((shift.notes ?? '').isNotEmpty)
+                          'notes': shift.notes,
+                      };
 
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-
-                              borderRadius: BorderRadius.circular(14),
-
-                              border: Border.all(
-                                color: AppColors.themeColor,
-
-                                width: 1.5,
-                              ),
-                            ),
-
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-
-                              children: [
-                                Icon(
-                                  Icons.copy_rounded,
-
-                                  color: AppColors.themeColor,
-
-                                  size: 20,
-                                ),
-
-                                const SizedBox(width: 10),
-
-                                Text(
-                                  'Copy Shift',
-
-                                  style: TextStyle(
-                                    color: AppColors.themeColor,
-
-                                    fontSize: 16,
-
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        /// PUBLISH SHIFT
-                        InkWell(
-                          borderRadius: BorderRadius.circular(14),
-
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              PublishShiftScheduleScreen.routeName,
-
-                              arguments: {
-                                'staffCode': selectedStaff?.code,
-
-                                'staffName': selectedStaff?.name,
-                              },
-                            );
-                          },
-
-                          child: Container(
-                            height: 46,
-
-                            padding: const EdgeInsets.symmetric(horizontal: 25),
-
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-
-                              gradient: AppColors.buildPrimaryGradient(),
-                            ),
-
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-
-                              children: [
-                                Icon(
-                                  Icons.telegram_rounded,
-
-                                  color: Colors.white,
-
-                                  size: 20,
-                                ),
-
-                                SizedBox(width: 10),
-
-                                Text(
-                                  'Publish Shift',
-
-                                  style: TextStyle(
-                                    color: Colors.white,
-
-                                    fontSize: 16,
-
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    /// =======================================================
-                    /// FILTERS
-                    /// =======================================================
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomDropdown(
-                            items: staffList.map((s) => s.name).toList(),
-
-                            selectedItem: selectedStaff?.name,
-
-                            hintText: 'Select Staff',
-
-                            onSelect: state.isLoadingStaff
-                                ? null
-                                : (value) {
-                                    if (value == null || staffList.isEmpty) {
-                                      return;
-                                    }
-
-                                    final staff = staffList.firstWhere(
-                                      (s) => s.name == value,
-
-                                      orElse: () =>
-                                          selectedStaff ?? staffList[0],
-                                    );
-
-                                    context
-                                        .read<StaffScheduleCubit>()
-                                        .loadStaffSchedule(
-                                          staff,
-
-                                          selectedDate: _selectedDate,
-
-                                          publishStatus: _selectedPublishStatus,
-                                        );
-                                  },
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: CustomDropdown(
-                            items: const ['Published', 'Unpublished'],
-
-                            selectedItem: _selectedPublishStatus,
-
-                            hintText: 'Publish',
-
-                            onSelect: (value) {
-                              setState(() {
-                                _selectedPublishStatus = value;
-                              });
-
-                              if (selectedStaff != null) {
-                                context
-                                    .read<StaffScheduleCubit>()
-                                    .loadStaffSchedule(
-                                      selectedStaff,
-
-                                      selectedDate: _selectedDate,
-
-                                      publishStatus: _selectedPublishStatus,
-                                    );
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    /// =======================================================
-                    /// STAFF CARD
-                    /// =======================================================
-                    if (state.isLoadingSchedule ||
-                        state.scheduleError != null ||
-                        state.shifts.isEmpty)
-                      const StaffCardShimmer()
-                    else
-                      _staffCard(
-                        selectedProfile,
-                        selectedStaff,
-                        selectedStaffShifts,
-                        classroomMap,
+                      Navigator.pushNamed(
+                        context,
+                        PublishShiftScheduleScreen.routeName,
+                        arguments: payload,
+                      );
+                    },
+                    child: Container(
+                      height: 46,
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: AppColors.buildPrimaryGradient(),
                       ),
-
-                    const SizedBox(height: 20),
-
-                    /// =======================================================
-                    /// SCHEDULE CARD
-                    /// =======================================================
-                    if (state.isLoadingSchedule ||
-                        state.scheduleError != null ||
-                        state.shifts.isEmpty)
-                      const ScheduleCardShimmer()
-                    else
-                      _scheduleCard(selectedStaffShifts, classroomMap),
-                  ],
-                ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Publish',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  GradientAddButton(
+                    onTap: () async {
+                      Navigator.pushNamed(context, AddShiftScreen.routeName);
+                    },
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 16),
+
+              /// ACTION BUTTONS
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // InkWell(
+                  //   borderRadius: BorderRadius.circular(14),
+                  //   onTap: () {
+                  //     Navigator.pushNamed(context, CopyShiftForm.routeName);
+                  //   },
+                  //   child: Container(
+                  //     height: 46,
+                  //     padding: const EdgeInsets.symmetric(horizontal: 18),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.white,
+                  //       borderRadius: BorderRadius.circular(14),
+                  //       border: Border.all(
+                  //         color: AppColors.themeColor,
+                  //         width: 1.5,
+                  //       ),
+                  //     ),
+                  //     child: Row(
+                  //       mainAxisSize: MainAxisSize.min,
+                  //       children: [
+                  //         Icon(
+                  //           Icons.copy_rounded,
+                  //           color: AppColors.themeColor,
+                  //           size: 20,
+                  //         ),
+                  //         const SizedBox(width: 10),
+                  //         Text(
+                  //           'Copy Shift',
+                  //           style: TextStyle(
+                  //             color: AppColors.themeColor,
+                  //             fontSize: 16,
+                  //             fontWeight: FontWeight.w600,
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+                  // ),
+                  const SizedBox(width: 12),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              /// FILTERS
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomDropdown(
+                      items: _staffList.map((s) => s.name).toList(),
+                      selectedItem: _selectedStaff?.name,
+                      hintText: 'Select Staff',
+                      onSelect: _isLoadingStaff
+                          ? null
+                          : (value) {
+                              if (value == null || _staffList.isEmpty) return;
+                              final staff = _staffList.firstWhere(
+                                (s) => s.name == value,
+                                orElse: () => _selectedStaff ?? _staffList[0],
+                              );
+                              setState(() {
+                                _selectedStaff = staff;
+                              });
+                              _loadStaffProfileAndSchedule(staff);
+                            },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomDropdown(
+                      items: const ['Published', 'Unpublished'],
+                      selectedItem: _selectedPublishStatus,
+                      hintText: 'Publish',
+                      onSelect: (value) {
+                        setState(() {
+                          _selectedPublishStatus = value;
+                        });
+                        final selected = _selectedStaff;
+                        if (selected != null) {
+                          _loadStaffProfileAndSchedule(selected);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              _staffCard(),
+
+              const SizedBox(height: 20),
+
+              _scheduleCard(),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _staffCard(
-    StaffProfile? selectedProfile,
-    StaffMember? selectedStaff,
-    List<StaffShiftEntity> selectedStaffShifts,
-    Map<String, String> classroomMap,
-  ) {
-    /// SHOW SHIMMER
-    if (_isLoadingProfileAndSchedule) {
-      return const StaffCardShimmer();
-    }
-
+  Widget _staffCard() {
     final name = _selectedProfile?.fullName.isNotEmpty == true
         ? _selectedProfile!.fullName
         : (_selectedStaff?.name ?? 'Select staff to view details');
@@ -539,7 +585,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                     name,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                  Text(designation),
+                  Text(_formatDesignation(designation)),
                 ],
               ),
               const Spacer(),
@@ -593,14 +639,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
     );
   }
 
-  Widget _scheduleCard(
-    List<StaffShiftEntity> selectedStaffShifts,
-    Map<String, String> classroomMap,
-  ) {
-    /// SHOW SHIMMER
-    if (_isLoadingProfileAndSchedule) {
-      return const ScheduleCardShimmer();
-    }
+  Widget _scheduleCard() {
     final times = List.generate(13, (index) {
       final hour = index + 6;
 
@@ -613,7 +652,12 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
         ? _selectedStaffShifts.first
         : null;
 
-    final scheduleDate = DateFormat('EEE, MMM d yyyy').format(_selectedDate);
+    final scheduleDate = DateFormat('EEE, MMM d yyyy').format(
+      SchoolZoneDateTime.dateTimeFromInstantInSchool(
+        _selectedDate,
+        _schoolTimeZone,
+      ),
+    );
 
     final shiftRange = shift != null
         ? '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'

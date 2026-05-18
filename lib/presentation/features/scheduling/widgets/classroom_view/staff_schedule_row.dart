@@ -22,19 +22,22 @@ class StaffScheduleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 160, child: _buildStaffInfo(shift)),
-            const VerticalDivider(width: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                controller: controller,
-                child: _buildTimelineRow(shift),
+        Container(
+          color: const Color(0xFFF8F9FA),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 160, child: _buildStaffInfo(shift)),
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: controller,
+                  child: _buildTimelineRow(shift),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const Divider(height: 1),
       ],
@@ -53,8 +56,13 @@ class StaffScheduleRow extends StatelessWidget {
                 radius: 18,
                 backgroundColor: AppColors.primaryColor.withOpacity(0.1),
                 child: Text(
-                  shift.staffFirstName.isNotEmpty ? shift.staffFirstName[0] : '?',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  shift.staffFirstName.isNotEmpty
+                      ? shift.staffFirstName[0]
+                      : '?',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -74,13 +82,24 @@ class StaffScheduleRow extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              SvgPicture.asset(MediaRes.availableHoursIcon, width: 14, height: 14),
+              SvgPicture.asset(
+                MediaRes.availableHoursIcon,
+                width: 14,
+                height: 14,
+              ),
               const SizedBox(width: 3),
-              Text('${shift.scheduledHours}h', style: const TextStyle(fontSize: 11)),
+              Text(
+                '${shift.scheduledHours}h',
+                style: const TextStyle(fontSize: 11),
+              ),
               const SizedBox(width: 5),
               Container(width: 1, height: 12, color: AppColors.billingGrey),
               const SizedBox(width: 5),
-              SvgPicture.asset(MediaRes.scheduledHoursIcon, width: 14, height: 14),
+              SvgPicture.asset(
+                MediaRes.scheduledHoursIcon,
+                width: 14,
+                height: 14,
+              ),
               const SizedBox(width: 3),
               Text(
                 '${shift.availableHours}h',
@@ -130,17 +149,18 @@ class StaffScheduleRow extends StatelessWidget {
                   width: 30,
                   height: 30,
                   child: Center(
-                    child: (!isPublished && isInShiftRange)
-                        ? DottedBorder(
-                            options: RoundedRectDottedBorderOptions(
-                              radius: const Radius.circular(6),
-                              dashPattern: const [3, 2],
-                              strokeWidth: 1,
-                              color: AppColors.themeColor,
-                            ),
-                            child: baseSlot,
-                          )
-                        : baseSlot,
+                    // child: (!isPublished && isInShiftRange)
+                    //     ? DottedBorder(
+                    //         options: RoundedRectDottedBorderOptions(
+                    //           radius: const Radius.circular(6),
+                    //           dashPattern: const [3, 2],
+                    //           strokeWidth: 1,
+                    //           color: AppColors.themeColor,
+                    //         ),
+                    //         child: baseSlot,
+                    //       )
+                    //     : baseSlot,
+                    child: baseSlot,
                   ),
                 ),
               );
@@ -178,7 +198,7 @@ class StaffScheduleRow extends StatelessWidget {
       final slotTime = DateFormat('hh:mm a').parse(label);
       final shiftStart = _parseTime(shift.startTime);
       final shiftEnd = _parseTime(shift.endTime);
-      
+
       if (!_isTimeInRange(slotTime, shiftStart, shiftEnd)) {
         return Colors.transparent;
       }
@@ -188,7 +208,7 @@ class StaffScheduleRow extends StatelessWidget {
         final breakStart = _parseTime(shift.breakStartTime!);
         final breakEnd = _parseTime(shift.breakEndTime!);
         if (_isTimeInRange(slotTime, breakStart, breakEnd)) {
-          return Colors.red;
+          return const Color(0xFFF38D8D); // light red
         }
       }
 
@@ -198,17 +218,17 @@ class StaffScheduleRow extends StatelessWidget {
       final today = DateTime(now.year, now.month, now.day);
 
       if (shiftDate.isBefore(today)) {
-        return Colors.blue;
+        return const Color(0xFF9BB7FF); // light blue
       } else if (shiftDate.isAtSameMomentAs(today)) {
         final currentTimeInMinutes = now.hour * 60 + now.minute;
         final slotTimeInMinutes = slotTime.hour * 60 + slotTime.minute;
         if (slotTimeInMinutes < currentTimeInMinutes) {
-          return Colors.blue;
+          return AppColors.colorBox; // light blue
         }
       }
 
       // Default scheduled work hours (Green)
-      return const Color(0xFFACF3AA);
+      return const Color(0xFFACF3AA); // light green
     } catch (e) {
       return Colors.transparent;
     }

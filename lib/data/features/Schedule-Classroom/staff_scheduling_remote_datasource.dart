@@ -7,6 +7,8 @@ abstract class StaffSchedulingRemoteDataSource {
 
   Future<void> editSchedule(String id, Map<String, dynamic> data);
 
+  Future<Map<String, dynamic>?> getShiftByCode(String shiftCode);
+
   Future<List<Map<String, dynamic>>> getStaffShifts({
     required String schoolCode,
     required String organizationCode,
@@ -43,7 +45,16 @@ class StaffSchedulingRemoteDataSourceImpl
   Future<void> editSchedule(String id, Map<String, dynamic> data) async {
     final endpoint = ApiPaths.url('${ApiPaths.staffShifts}/$id');
 
-    await _client.patch(endpoint, data: data);
+    await _client.put(endpoint, data: data);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getShiftByCode(String shiftCode) async {
+    final endpoint = ApiPaths.url('${ApiPaths.staffShifts}/$shiftCode');
+
+    final response = await _client.get<Map<String, dynamic>>(endpoint);
+
+    return response.data?['data'] as Map<String, dynamic>?;
   }
 
   @override
@@ -100,38 +111,40 @@ class StaffSchedulingRemoteDataSourceImpl
 
   @override
   Future<List<Map<String, dynamic>>> getAllClassrooms(String schoolCode) async {
-    final endpoint = ApiPaths.url(ApiPaths.classroomAllStatuses);
-
-    final response = await _client.get<Map<String, dynamic>>(
-      endpoint,
-      queryParameters: {'schoolCode': schoolCode, 'statuses': 'ACTIVE'},
-    );
-
-    final responseData = response.data;
-
-    if (responseData == null) {
-      return [];
+    // Prefer the proven working endpoint:
+    // `GET /api/v1/classroom/all?school=<code>&status=ACTIVE`
+    // Some environments also expose `/all-classrooms` with different method
+    // expectations, so we keep it as a fallback.
+    try {
+      final endpoint = ApiPaths.url(ApiPaths.classroomAll);
+      final response = await _client.get<Map<String, dynamic>>(
+        endpoint,
+        queryParameters: {'school': schoolCode, 'status': 'ACTIVE'},
+      );
+      return _extractClassrooms(response.data);
+    } catch (_) {
+      // Fallback: `/all-classrooms` (method/shape varies per env)
+      final endpoint = ApiPaths.url(ApiPaths.classroomAllStatuses);
+      final response = await _client.get<Map<String, dynamic>>(
+        endpoint,
+        queryParameters: {'schoolCode': schoolCode, 'statuses': 'ACTIVE'},
+      );
+      return _extractClassrooms(response.data);
     }
 
-    final data = responseData['data'];
+  }
 
-    // Case 1:
-    // {
-    //   "data": []
-    // }
+  List<Map<String, dynamic>> _extractClassrooms(Map<String, dynamic>? body) {
+    if (body == null) return [];
+
+    final data = body['data'];
+
     if (data is List) {
       return data.map((e) => Map<String, dynamic>.from(e)).toList();
     }
 
-    // Case 2:
-    // {
-    //   "data": {
-    //      "content": []
-    //   }
-    // }
     if (data is Map<String, dynamic>) {
       final content = data['content'];
-
       if (content is List) {
         return content.map((e) => Map<String, dynamic>.from(e)).toList();
       }

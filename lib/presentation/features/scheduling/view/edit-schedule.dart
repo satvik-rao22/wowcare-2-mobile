@@ -13,6 +13,8 @@ import '../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../shared/common/widgets/custom_repeat_on_days_selector.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
 import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_state.dart';
 
@@ -43,6 +45,15 @@ class EditShiftForm extends StatefulWidget {
 }
 
 class _EditShiftFormState extends State<EditShiftForm> {
+  final StaffSchedulingRepository _repository =
+      serviceLocator<StaffSchedulingRepository>();
+
+  bool _isLoadingShift = false;
+  StaffShiftEntity? _shift;
+  String? _shiftCode;
+  DateTime? _shiftDate;
+  String? _classroomName;
+
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   TimeOfDay? _breakStartTime;
@@ -50,6 +61,9 @@ class _EditShiftFormState extends State<EditShiftForm> {
   String? selectedRoom;
   String? shiftTime;
   TimeOfDay? _breakEndTime;
+  bool _publish = false;
+
+  bool _didInitArgs = false;
 
   int _toMinutes(TimeOfDay time) => (time.hour * 60) + time.minute;
 
@@ -61,14 +75,72 @@ class _EditShiftFormState extends State<EditShiftForm> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_didInitArgs) return;
+    _didInitArgs = true;
 
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     if (args != null) {
       selectedStaff = args['staffName'];
-      selectedRoom = args['room'];
+      selectedRoom = args['classroom']?.toString();
+      _classroomName = args['classroomName']?.toString() ?? selectedRoom;
       shiftTime = args['shift'];
+      _shiftCode = args['shiftCode']?.toString();
+    }
+
+    final code = _shiftCode;
+    if (code != null && code.trim().isNotEmpty) {
+      _loadShift(code);
+    }
+  }
+
+  Future<void> _loadShift(String code) async {
+    setState(() {
+      _isLoadingShift = true;
+    });
+
+    try {
+      final shift = await _repository.getShiftByCode(code);
+      if (!mounted) return;
+
+      if (shift == null) {
+        setState(() {
+          _shift = null;
+          _isLoadingShift = false;
+        });
+        return;
+      }
+
+      TimeOfDay? parseTime(String? hhmmss) {
+        if (hhmmss == null) return null;
+        final parts = hhmmss.split(':');
+        if (parts.length < 2) return null;
+        return TimeOfDay(
+          hour: int.tryParse(parts[0]) ?? 0,
+          minute: int.tryParse(parts[1]) ?? 0,
+        );
+      }
+
+      final shiftDate = DateTime.tryParse(shift.shiftDate);
+
+      setState(() {
+        _shift = shift;
+        _shiftDate = shiftDate;
+        _startTime = parseTime(shift.startTime);
+        _endTime = parseTime(shift.endTime);
+        _breakStartTime = parseTime(shift.breakStartTime);
+        _breakEndTime = parseTime(shift.breakEndTime);
+        _publish = shift.shiftStatus.toUpperCase() == 'PUBLISHED';
+        selectedStaff = selectedStaff ?? shift.staffFullName;
+        selectedRoom = selectedRoom ?? shift.classroomCode;
+        _classroomName = _classroomName ?? shift.classroomCode;
+        _isLoadingShift = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingShift = false);
+      CoreUtils.logApiError(e.toString());
     }
   }
 
@@ -195,21 +267,34 @@ class _EditShiftFormState extends State<EditShiftForm> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (_isLoadingShift)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
                           Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: CustomDateTimeField(
                                   label: 'Date',
                                   isRequired: true,
+                                  initialDate: _shiftDate,
+                                  fetchInitialTime: false,
+                                  onDateSelected: (_) {},
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: CustomDropdown(
-                                  hintText: 'Room',
-                                  label: 'Room',
+                                  hintText: 'Classroom',
+                                  label: 'Classroom',
                                   isRequired: true,
-                                  items: const ['Room 1', 'Room 2', 'Room 3'],
+                                  selectedItem:
+                                      (_classroomName ?? selectedRoom ?? '-'),
+                                  items: [
+                                    (_classroomName ?? selectedRoom ?? '-'),
+                                  ],
+                                  onSelect: (_) {},
                                 ),
                               ),
                             ],
@@ -219,7 +304,11 @@ class _EditShiftFormState extends State<EditShiftForm> {
                             hintText: 'Staff',
                             label: 'Staff',
                             isRequired: true,
-                            items: const ['Staff 1', 'Staff 2', 'Staff 3'],
+                            selectedItem: selectedStaff,
+                            items: selectedStaff == null
+                                ? const []
+                                : [selectedStaff!],
+                            onSelect: (_) {},
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -230,6 +319,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
                                   isTime: true,
                                   isRequired: true,
                                   fetchInitialTime: false,
+                                  initialTime: _startTime,
                                   onTimeSelected: (time) {
                                     setState(() {
                                       _startTime = time;
@@ -267,6 +357,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
                                   isTime: true,
                                   isRequired: true,
                                   fetchInitialTime: false,
+                                  initialTime: _endTime,
                                   onTimeSelected: (time) {
                                     if (_startTime != null &&
                                         _toMinutes(time) <=
@@ -312,6 +403,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
                                   isTime: true,
                                   isRequired: true,
                                   fetchInitialTime: false,
+                                  initialTime: _breakStartTime,
                                   onTimeSelected: (time) {
                                     if (_startTime == null ||
                                         _endTime == null) {
@@ -354,6 +446,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
                                   isTime: true,
                                   isRequired: true,
                                   fetchInitialTime: false,
+                                  initialTime: _breakEndTime,
                                   onTimeSelected: (time) {
                                     if (_startTime == null ||
                                         _endTime == null ||
@@ -398,14 +491,29 @@ class _EditShiftFormState extends State<EditShiftForm> {
                             ],
                           ),
                           const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _publish,
+                                activeColor: AppColors.themeColor,
+                                onChanged: (v) =>
+                                    setState(() => _publish = v ?? false),
+                              ),
+                              const Text(
+                                'Publish shift',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
                           CustomRepeatOnDaysSelector(
                             selectedDays: const [],
                             onSelectionChanged: (days) {},
-                          ),
-                          const SizedBox(height: 16),
-                          const CustomDateTimeField(
-                            label: 'Until Date',
-                            isRequired: true,
                           ),
                           const SizedBox(height: 16),
                           CustomAddNoteButton(onSubmitted: (value) {}),
@@ -457,9 +565,44 @@ class _EditShiftFormState extends State<EditShiftForm> {
           if (!_validateTimes()) {
             return;
           }
+          final code = _shiftCode;
+          final shift = _shift;
+          if (code == null || code.trim().isEmpty || shift == null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Missing shift code. Please go back and try again.',
+              isWarning: true,
+            );
+            return;
+          }
+
+          String fmt(TimeOfDay t) =>
+              '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+
+          final payload = <String, dynamic>{
+            'staffCode': shift.staffCode,
+            'classroomCode': shift.classroomCode,
+            'schoolCode': shift.schoolCode,
+            'organizationCode': shift.organizationCode,
+            'shiftDate': shift.shiftDate,
+            'startTime': fmt(_startTime!),
+            'endTime': fmt(_endTime!),
+            'publish': _publish,
+            'repeat': false,
+            'overrideConflicts': true,
+            'forceAdd': false,
+          };
+
+          if (_breakStartTime != null) {
+            payload['breakStartTime'] = fmt(_breakStartTime!);
+          }
+          if (_breakEndTime != null) {
+            payload['breakEndTime'] = fmt(_breakEndTime!);
+          }
+
           context.read<ScheduleFormCubit>().saveSchedule(
-            id: '123', // In a real app, use actual ID
-            data: {},
+            id: code,
+            data: payload,
           );
         },
         showCancelButton: false,

@@ -62,29 +62,6 @@ class _CustomRepeatOnDaysSelectorState
     super.initState();
 
     _selectedDays = List.from(widget.selectedDays);
-
-    final currentDay = _getCurrentDayName();
-
-    if (_selectedDays.isEmpty && _allDays.contains(currentDay)) {
-      _selectedDays.add(currentDay);
-
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      //   widget.onSelectionChanged(_selectedDays);
-      //   // context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
-      //   try {
-      //     context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
-      //   } catch (_) {}
-      // });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        widget.onSelectionChanged(_selectedDays);
-
-        try {
-          context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
-        } catch (_) {}
-      });
-    }
   }
 
   void _toggleDay(String day) {
@@ -166,7 +143,23 @@ class _CustomRepeatOnDaysSelectorState
                       // context.read<AddShiftCubit>().updateRepeatDays([]);
                       try {
                         context.read<AddShiftCubit>().updateRepeatDays([]);
+                        context.read<AddShiftCubit>().clearRepeatUntil();
                       } catch (_) {}
+                    } else {
+                      // When enabling repeat, preselect current weekday (if applicable)
+                      if (_selectedDays.isEmpty) {
+                        final currentDay = _getCurrentDayName();
+                        if (_allDays.contains(currentDay)) {
+                          _selectedDays.add(currentDay);
+                          final days = List<String>.from(_selectedDays);
+                          widget.onSelectionChanged(days);
+                          try {
+                            context.read<AddShiftCubit>().updateRepeatDays(
+                              days,
+                            );
+                          } catch (_) {}
+                        }
+                      }
                     }
                   });
                 },

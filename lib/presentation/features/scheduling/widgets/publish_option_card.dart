@@ -21,6 +21,9 @@ class PublishOptionCard extends StatelessWidget {
   /// Controls whether to show the date field when "Publish Until Date" is selected
   final bool showDateField;
 
+  /// Optional widget shown above the radio options (e.g. staff dropdown)
+  final Widget? header;
+
   const PublishOptionCard({
     super.key,
     required this.selectedValue,
@@ -32,6 +35,7 @@ class PublishOptionCard extends StatelessWidget {
     this.initialDate,
     this.isVertical = false, // Default: horizontal like screenshot
     this.showDateField = true, // Default: show date field
+    this.header,
   });
 
   @override
@@ -47,17 +51,22 @@ class PublishOptionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (header != null) ...[
+              header!,
+              const SizedBox(height: 16),
+            ],
             // Layout: Horizontal Row or Vertical Column
             if (isVertical)
-              // Vertical Layout
-              Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _radioItem(
                     title: untilDateTitle,
                     value: PublishType.untilDate,
                   ),
+
                   const SizedBox(height: 12),
+
                   _radioItem(
                     title: publishAllTitle,
                     value: PublishType.publishAll,

@@ -24,6 +24,7 @@ import '../../../staff/cubit/staff_cubit.dart';
 import '../../cubit/Add-Shift/cubit/add_shift_cubit.dart';
 import '../../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
 import '../../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_state.dart';
+import '../../cubit/Add-Shift/cubit/add_shift_state.dart';
 
 class AddShiftForm extends StatefulWidget {
   const AddShiftForm({super.key});
@@ -66,6 +67,8 @@ class _AddShiftFormState extends State<AddShiftForm> {
       .toList(growable: false);
 
   int _toMinutes(TimeOfDay time) => (time.hour * 60) + time.minute;
+
+  bool _isBlank(String? value) => value == null || value.trim().isEmpty;
 
   String _formatTime(TimeOfDay? t) {
     if (t == null) return '00:00:00';
@@ -129,7 +132,6 @@ class _AddShiftFormState extends State<AddShiftForm> {
                   },
                   child: const Text('Cancel'),
                 ),
-
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.themeColor,
@@ -200,8 +202,8 @@ class _AddShiftFormState extends State<AddShiftForm> {
 
   void _onConfirm() async {
     if (_shiftDate == null ||
-        _selectedClassroomCode == null ||
-        _selectedStaffCode == null ||
+        _isBlank(_selectedClassroomCode) ||
+        _isBlank(_selectedStaffCode) ||
         _startTime == null ||
         _endTime == null) {
       CoreUtils.showTopSnackBar(
@@ -221,6 +223,15 @@ class _AddShiftFormState extends State<AddShiftForm> {
     final organizationCode = await storage.getString(
       StorageKeys.organizationCode,
     );
+
+    if (_isBlank(schoolCode) || _isBlank(organizationCode)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Missing school/organization info. Please login again.',
+        isWarning: true,
+      );
+      return;
+    }
 
     final repeatDayCodes = _selectedRepeatDayCodes;
 
@@ -249,31 +260,22 @@ class _AddShiftFormState extends State<AddShiftForm> {
       "classroomCode": _selectedClassroomCode,
       "schoolCode": schoolCode,
       "organizationCode": organizationCode,
-
       "shiftDate": DateFormat('yyyy-MM-dd').format(_shiftDate!),
-
       "startTime": _formatTime(_startTime),
       "endTime": _formatTime(_endTime),
-
       if (_breakStartTime != null)
         "breakStartTime": _formatTime(_breakStartTime),
-
       if (_breakEndTime != null) "breakEndTime": _formatTime(_breakEndTime),
-
-      "publish": true,
-
+      "publish": cubitState.publish,
       "repeat": false,
-
       if (isRecurringShift) ...{
         "repeatDays": repeatDayCodes,
         "repeatUntilDate": DateFormat(
           'yyyy-MM-dd',
         ).format(cubitState.repeatUntilDate!),
       },
-
       "overrideConflicts": true,
       "forceAdd": false,
-
       if (_notes.isNotEmpty) "notes": _notes,
     };
     print('Built request data: $data');
@@ -392,12 +394,10 @@ class _AddShiftFormState extends State<AddShiftForm> {
                         responsive.isTablet ? 40.0 : 24.0,
                       ),
                     ),
-
                     child: Padding(
                       padding: EdgeInsets.all(
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
-
                       child: BlocBuilder<ClassroomCubit, ClassroomState>(
                         builder: (context, classroomState) {
                           return BlocBuilder<StaffCubit, StaffState>(
@@ -443,7 +443,7 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                           label: 'Date',
                                           isRequired: true,
                                           labelStyle: TextStyle(
-                                            fontSize: responsive.labelFontSize,
+                                            fontSize: responsive.titleFontSize,
                                             fontWeight: FontWeight.w500,
                                           ),
                                           fetchInitialTime: false,
@@ -541,15 +541,11 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                         hintText: _isLoadingProfile
                                             ? 'Loading classrooms...'
                                             : 'Classroom',
-
                                         label: 'Classroom',
-
                                         isRequired: true,
-
                                         items: classroomList
                                             .map((e) => e['name'] as String)
                                             .toList(),
-
                                         onSelect: (val) {
                                           final found = classroomList
                                               .firstWhere(
@@ -588,7 +584,6 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                       Expanded(
                                         child: GradientTimePickerField(
                                           isRequired: true,
-
                                           onTimeSelected: (value) {
                                             setState(() {
                                               _endTime = value;
@@ -627,7 +622,6 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                               _breakEndError = null;
                                             });
                                           },
-
                                           errorText: _breakEndError,
                                           label: 'Break End',
                                           time: _breakEndTime,
@@ -644,7 +638,36 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                       });
                                     },
                                   ),
-
+                                  const SizedBox(height: 16),
+                                  BlocBuilder<AddShiftCubit, AddShiftState>(
+                                    builder: (context, state) {
+                                      return InkWell(
+                                        onTap: () => context
+                                            .read<AddShiftCubit>()
+                                            .setPublish(!state.publish),
+                                        child: Row(
+                                          children: [
+                                            Checkbox(
+                                              value: state.publish,
+                                              activeColor: AppColors.themeColor,
+                                              onChanged: (v) => context
+                                                  .read<AddShiftCubit>()
+                                                  .setPublish(v ?? false),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text(
+                                              'Publish shift',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.primaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
                                   const SizedBox(height: 16),
                                   CustomAddNoteButton(
                                     onSubmitted: (value) {

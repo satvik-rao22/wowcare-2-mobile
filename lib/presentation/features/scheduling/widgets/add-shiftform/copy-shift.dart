@@ -13,12 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
 import '../../../../../domain/features/staff_scheduling/copy-shift/domain/copy_shift_params.dart';
-import '../../../../../shared/common/widgets/custom_cancel_button.dart';
-import '../../../../../shared/common/widgets/custom_confirm_button.dart';
 import '../../cubit/copy-shift/copy_shift_cubit.dart';
-import '../../cubit/copy-shift/copy_shift_state.dart';
 
 class CopyShiftForm extends StatefulWidget {
   const CopyShiftForm({super.key});

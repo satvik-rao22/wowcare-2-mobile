@@ -83,9 +83,17 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     emit(state.copyWith(repeatUntilDate: date));
   }
 
+  void clearRepeatUntil() {
+    emit(state.copyWith(clearRepeatUntilDate: true));
+  }
+
   /// NOTES
   void updateNotes(String notes) {
     emit(state.copyWith(notes: notes));
+  }
+
+  void setPublish(bool value) {
+    emit(state.copyWith(publish: value));
   }
 
   /// LOAD STAFF PROFILE

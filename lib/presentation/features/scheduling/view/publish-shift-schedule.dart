@@ -128,6 +128,7 @@ class _PublishShiftScheduleScreenState
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: GlobalScaffold(
         hasBackButton: true,
+        isLoading: isSubmitting,
         body: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(
@@ -142,46 +143,6 @@ class _PublishShiftScheduleScreenState
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Staff Drop Down Selection
-              BlocBuilder<StaffCubit, StaffState>(
-                builder: (context, staffState) {
-                  final staffList = staffState.items
-                      .map((s) => {'code': s.code, 'name': s.name})
-                      .toList();
-
-                  return CustomDropdown(
-                    label: 'Staff',
-                    hintText: staffState.isLoading
-                        ? 'Loading staff...'
-                        : 'Select Staff',
-
-                    isRequired: true,
-
-                    selectedItem: _selectedStaffName,
-
-                    items: staffList
-                        .map<String>((e) => e['name'] as String)
-                        .toList(),
-
-                    onSelect: (val) {
-                      final found = staffList.firstWhere(
-                        (e) => e['name'] == val,
-                        orElse: () => {},
-                      );
-
-                      if (found.isNotEmpty) {
-                        setState(() {
-                          _selectedStaffName = found['name'] as String;
-
-                          _selectedStaffCode = found['code'] as String;
-                        });
-                      }
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
               Expanded(
                 child: PublishOptionCard(
                   untilDateTitle: 'Publish Until Date',
@@ -194,6 +155,39 @@ class _PublishShiftScheduleScreenState
                   onChanged: (value) {
                     setState(() => _selectedValue = value);
                   },
+                  isVertical: true,
+                  header: BlocBuilder<StaffCubit, StaffState>(
+                    builder: (context, staffState) {
+                      final staffList = staffState.items
+                          .map((s) => {'code': s.code, 'name': s.name})
+                          .toList();
+
+                      return CustomDropdown(
+                        label: 'Staff',
+                        hintText: staffState.isLoading
+                            ? 'Loading staff...'
+                            : 'Select Staff',
+                        isRequired: true,
+                        selectedItem: _selectedStaffName,
+                        items: staffList
+                            .map<String>((e) => e['name'] as String)
+                            .toList(),
+                        onSelect: (val) {
+                          final found = staffList.firstWhere(
+                            (e) => e['name'] == val,
+                            orElse: () => {},
+                          );
+
+                          if (found.isNotEmpty) {
+                            setState(() {
+                              _selectedStaffName = found['name'] as String;
+                              _selectedStaffCode = found['code'] as String;
+                            });
+                          }
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

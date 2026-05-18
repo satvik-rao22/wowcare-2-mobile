@@ -1,16 +1,17 @@
 import 'package:isar/isar.dart';
-import 'package:wowcare/core/util/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 part 'message_collection.g.dart';
 
 @collection
 class MessageCollection {
-  Id get isarId => fastHash(id);
+  Id isarId = Isar.autoIncrement;
 
   late String id;
-  @Index()
+
+  @Index(type: IndexType.hash)
   late String threadId;
+
   late String text;
   late bool isSentByMe;
   late DateTime time;
@@ -76,13 +77,11 @@ class MessageCollection {
   }
 }
 
-@embedded
 class MessageReactionCollection {
   late String userId;
   late String emoji;
 }
 
-@embedded
 class RecipientStatusCollection {
   late String name;
   String? userId;
@@ -102,7 +101,6 @@ class RecipientStatusCollection {
   }
 }
 
-@embedded
 class ChatAttachmentCollection {
   late String name;
   late String type;

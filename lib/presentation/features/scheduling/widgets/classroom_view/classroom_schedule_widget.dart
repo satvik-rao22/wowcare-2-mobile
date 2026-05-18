@@ -9,10 +9,12 @@ import 'timeline_header.dart';
 class ClassroomScheduleWidget extends StatefulWidget {
   final List<StaffShiftEntity> shifts;
   final bool isLoading;
+  final String classroomName;
 
   const ClassroomScheduleWidget({
     super.key,
     required this.shifts,
+    this.classroomName = 'Class Schedule',
     this.isLoading = false,
   });
 
@@ -23,32 +25,13 @@ class ClassroomScheduleWidget extends StatefulWidget {
 
 class _ClassroomScheduleWidgetState extends State<ClassroomScheduleWidget> {
   late final ScrollController _timelineController;
-
-  final List<String> _timeLabels = [
-    '07:00 AM',
-    '08:00 AM',
-    '09:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '12:00 PM',
-    '01:00 PM',
-    '02:00 PM',
-    '03:00 PM',
-    '04:00 PM',
-    '05:00 PM',
-    '06:00 PM',
-    '07:00 PM',
-  ];
-
-  final List<Color> _topSummaryColors = List.generate(
-    13,
-    (index) => AppColors.colorBox,
-  );
+  late final List<String> _timeLabels;
 
   @override
   void initState() {
     super.initState();
     _timelineController = ScrollController();
+    _timeLabels = _buildHourlyLabels(startHour: 6, endHourInclusive: 18);
   }
 
   @override
@@ -57,8 +40,62 @@ class _ClassroomScheduleWidgetState extends State<ClassroomScheduleWidget> {
     super.dispose();
   }
 
+  List<String> _buildHourlyLabels({
+    required int startHour,
+    required int endHourInclusive,
+  }) {
+    final result = <String>[];
+    for (var hour = startHour; hour <= endHourInclusive; hour++) {
+      final h12 = ((hour + 11) % 12) + 1;
+      final ampm = hour >= 12 ? 'PM' : 'AM';
+      result.add('${h12.toString().padLeft(2, '0')}:00 $ampm');
+    }
+    return result;
+  }
+
+  List<Color> _buildTopSummaryColors() {
+    if (widget.shifts.isEmpty) {
+      return List<Color>.filled(
+        _timeLabels.length,
+        Colors.grey.withOpacity(0.18),
+        growable: false,
+      );
+    }
+
+    bool slotInAnyShift(String label) {
+      final parts = label.split(' ');
+      final time = parts.first;
+      final ampm = parts.length > 1 ? parts[1] : 'AM';
+      final hm = time.split(':');
+      var hour = int.tryParse(hm[0]) ?? 0;
+      final minute = int.tryParse(hm.length > 1 ? hm[1] : '0') ?? 0;
+      if (ampm.toUpperCase() == 'PM' && hour != 12) hour += 12;
+      if (ampm.toUpperCase() == 'AM' && hour == 12) hour = 0;
+      final slotMinutes = hour * 60 + minute;
+
+      for (final s in widget.shifts) {
+        final st = s.startTime.split(':');
+        final et = s.endTime.split(':');
+        final sMinutes =
+            (int.tryParse(st[0]) ?? 0) * 60 + (int.tryParse(st[1]) ?? 0);
+        final eMinutes =
+            (int.tryParse(et[0]) ?? 0) * 60 + (int.tryParse(et[1]) ?? 0);
+        if (slotMinutes >= sMinutes && slotMinutes <= eMinutes) return true;
+      }
+      return false;
+    }
+
+    return List<Color>.generate(_timeLabels.length, (i) {
+      final inAny = slotInAnyShift(_timeLabels[i]);
+      return inAny
+          ? AppColors.themeColor.withOpacity(0.75)
+          : Colors.grey.withOpacity(0.18);
+    }, growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final topSummaryColors = _buildTopSummaryColors();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -76,7 +113,8 @@ class _ClassroomScheduleWidgetState extends State<ClassroomScheduleWidget> {
                 TimelineHeader(
                   controller: _timelineController,
                   timeLabels: _timeLabels,
-                  topSummaryColors: _topSummaryColors,
+                  topSummaryColors: topSummaryColors,
+                  title: widget.classroomName,
                 ),
                 const Divider(height: 1),
                 if (widget.shifts.isEmpty)

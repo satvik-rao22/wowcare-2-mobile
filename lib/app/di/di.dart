@@ -9,7 +9,6 @@ import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/util/api_constants.dart';
 import '../../core/cache/cache_service.dart';
-import '../../core/cache/isar_cache_service.dart';
 import '../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
@@ -65,6 +64,8 @@ import '../../data/features/staff_classroom/datasources/staff_classroom_remote_d
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
 import '../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.dart';
+import '../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
+import '../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
 import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
 import '../../data/features/Schedule-Classroom/staff_scheduling_remote_datasource.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
@@ -168,6 +169,7 @@ import '../../domain/features/communication/usecases/get_cached_conversations_us
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
+import '../../core/cache/isar_cache_service.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
@@ -194,9 +196,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cache
-  final isarCacheService = IsarCacheService();
-  await isarCacheService.init();
-  serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
+  final cacheService = await IsarCacheService.open();
+  serviceLocator.registerSingleton<CacheService>(cacheService);
 
   serviceLocator.registerLazySingleton<ApiClient>(
     () => ApiClient(
@@ -312,7 +313,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
-    () => StaffSchedulingRepositoryImpl(serviceLocator(), serviceLocator()),
+    () => StaffSchedulingRepositoryImpl(serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<CommunicationRepository>(
@@ -585,6 +586,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SaveScheduleUseCase>(
     () => SaveScheduleUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStaffShiftsUseCase>(
+    () => GetStaffShiftsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAllClassroomsUseCase>(
+    () => GetAllClassroomsUseCase(serviceLocator()),
+  );
 
   serviceLocator.registerFactory<GetMessagesUseCase>(
     () => GetMessagesUseCase(serviceLocator()),
@@ -783,7 +790,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   serviceLocator.registerFactory<ClassroomScheduleCubit>(
-    () => ClassroomScheduleCubit(serviceLocator(), serviceLocator()),
+    () => ClassroomScheduleCubit(serviceLocator(), serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
     () => CreateConversationCubit(createConversationUseCase: serviceLocator()),

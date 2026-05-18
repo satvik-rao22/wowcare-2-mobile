@@ -187,9 +187,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    widget.title.contains('-')
-                        ? widget.title.split('-').last.trim()
-                        : widget.title,
+                    widget.title,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -212,6 +210,8 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
   }) {
     return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Classroom Name + Expand Icon
           Expanded(
@@ -253,8 +253,9 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
           ),
 
           // Status Icon (Clickable)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          Container(
+            width: 56,
+            alignment: Alignment.center,
             child: GestureDetector(
               onTap: () => togglePopup(index, classroom.showWarning),
               child: SvgPicture.asset(
@@ -263,6 +264,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                     : MediaRes.greenCheckCircleIcon,
                 width: 24,
                 height: 24,
+                fit: BoxFit.contain,
               ),
             ),
           ),
@@ -295,11 +297,37 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            DocumentImageWidget(
-                              fileUuid: '',
-                              name: staff.name,
-                              size: 32,
-                              fontSize: 14,
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  DocumentImageWidget(
+                                    fileUuid: '',
+                                    name: staff.name,
+                                    size: 32,
+                                    fontSize: 14,
+                                  ),
+                                  if (staff.statusColor != null)
+                                    Positioned(
+                                      top: -1,
+                                      right: -1,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: staff.statusColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
 
                             const SizedBox(width: 12),
@@ -310,17 +338,6 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (staff.statusColor != null) ...[
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: staff.statusColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
                                       Text(
                                         staff.name,
                                         style: const TextStyle(
@@ -352,18 +369,34 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        "${staff.workedHours}h",
-                                        style: const TextStyle(fontSize: 13),
+                                        "${_formatHours(staff.availableHours)}h",
+                                        style: const TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 12,
+                                          height: 1.0,
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       const Text(
                                         "|",
                                         style: TextStyle(color: Colors.grey),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 6),
+                                      SvgPicture.asset(
+                                        MediaRes.scheduledHoursIcon,
+                                        height: 13,
+                                        width: 13,
+                                      ),
+                                      const SizedBox(width: 6),
                                       Text(
-                                        "${staff.totalHours}h",
-                                        style: const TextStyle(fontSize: 13),
+                                        "${_formatHours(staff.scheduledHours)}h",
+                                        style: const TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 12,
+                                          height: 1.0,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -383,98 +416,72 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                           vertical: 8,
                           horizontal: 8,
                         ),
-                        child:
-                            //  DottedBorder(
-                            //   options: RoundedRectDottedBorderOptions(
-                            //     dashPattern: [10, 20],
-                            //     strokeWidth: 2,
-                            //     color: AppColors.themeColor,
-                            //     radius: Radius.circular(10),
-                            //   ),
-                            //   child: Container(
-                            //     padding: const EdgeInsets.symmetric(
-                            //       vertical: 10,
-                            //       horizontal: 12,
-                            //     ),
-                            //     alignment: Alignment.center,
-                            //     child: TextButton(
-                            //       onPressed: () {
-                            //         Navigator.pushNamed(
-                            //           context,
-                            //           EditShiftScreen.routeName,
-                            //         );
-                            //       },
-                            //       child: Text(
-                            //         staff.shift,
-                            //         textAlign: TextAlign.center,
-                            //         style: const TextStyle(
-                            //           fontSize: 12.5,
-                            //           height: 1.4,
-                            //           color: Color(0xFF4B2E4C),
-                            //         ),
-                            //       ),
-                            //     ),
-                            //   ),
-                            // ),
-                            Builder(
-                              builder: (_) {
-                                final status = staff.shiftStatus
-                                    ?.toLowerCase()
-                                    .trim();
+                        child: Builder(
+                          builder: (_) {
+                            final status = staff.shiftStatus
+                                ?.toLowerCase()
+                                .trim();
 
-                                final isPublished =
-                                    status == 'publish' ||
-                                    status == 'published';
+                            final isPublished =
+                                status == 'publish' || status == 'published';
 
-                                final child = Container(
-                                  decoration: BoxDecoration(
-                                    border: isPublished
-                                        ? Border.all(
-                                            color: AppColors.themeColor,
-                                            width: 2,
-                                          )
-                                        : null,
-                                    borderRadius: BorderRadius.circular(10),
+                            final child = Container(
+                              decoration: BoxDecoration(
+                                border: isPublished
+                                    ? Border.all(
+                                        color: AppColors.themeColor,
+                                        width: 2,
+                                      )
+                                    : null,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 12,
+                              ),
+                              alignment: Alignment.center,
+                              child: TextButton(
+                                onPressed: () {
+                                  final args = <String, dynamic>{
+                                    'shiftCode': staff.shiftCode,
+                                    'staffName': staff.name,
+                                    'classroomName': resolvedName,
+                                    'classroom': classroom.classroomCode,
+                                    'shift': staff.shift,
+                                  };
+                                  Navigator.pushNamed(
+                                    context,
+                                    EditShiftScreen.routeName,
+                                    arguments: args,
+                                  );
+                                },
+                                child: Text(
+                                  staff.shift,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.4,
+                                    color: Color(0xFF4B2E4C),
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                    horizontal: 12,
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: TextButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        EditShiftScreen.routeName,
-                                      );
-                                    },
-                                    child: Text(
-                                      staff.shift,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 12.5,
-                                        height: 1.4,
-                                        color: Color(0xFF4B2E4C),
-                                      ),
-                                    ),
-                                  ),
-                                );
+                                ),
+                              ),
+                            );
 
-                                if (isPublished) {
-                                  return child;
-                                }
+                            if (isPublished) {
+                              return child;
+                            }
 
-                                return DottedBorder(
-                                  options: RoundedRectDottedBorderOptions(
-                                    dashPattern: [10, 20],
-                                    strokeWidth: 2,
-                                    color: AppColors.themeColor,
-                                    radius: Radius.circular(10),
-                                  ),
-                                  child: child,
-                                );
-                              },
-                            ),
+                            return DottedBorder(
+                              options: RoundedRectDottedBorderOptions(
+                                dashPattern: [10, 20],
+                                strokeWidth: 2,
+                                color: AppColors.themeColor,
+                                radius: Radius.circular(10),
+                              ),
+                              child: child,
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -491,13 +498,26 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
   Widget _buildPopup(ClassroomSchedule classroom, bool isWarning) {
     if (!isWarning) {
       // FIX 3: Pass resolved name to popup, not the raw code
-      return _properRatioPopup(_classroomName(classroom.title));
+      return _properRatioPopup(
+        title: _classroomName(classroom.title),
+        classroom: classroom,
+      );
     } else {
-      return _underRatioPopup();
+      return _underRatioPopup(classroom: classroom);
     }
   }
 
-  Widget _properRatioPopup(String title) {
+  String _formatHours(double value) {
+    // API sends decimals like 3.97; keep up to 2 decimals but hide trailing .0/.00
+    final fixed = value.toStringAsFixed(2);
+    return fixed.replaceAll(RegExp(r'\.?0+$'), '');
+  }
+
+  Widget _properRatioPopup({
+    required String title,
+    required ClassroomSchedule classroom,
+  }) {
+    final staff = classroom.staffList;
     return Container(
       width: 270,
       padding: const EdgeInsets.all(18),
@@ -517,19 +537,26 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "$title (Published)",
+            title,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 14),
-          const Text("W-7:00 AM - 5:30 PM", style: TextStyle(fontSize: 14)),
-          const SizedBox(height: 6),
-          const Text("B-12:30 PM - 1:00 PM", style: TextStyle(fontSize: 14)),
+          if (staff.isEmpty)
+            const Text("No shifts for this day", style: TextStyle(fontSize: 14))
+          else
+            ...staff.map((s) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _timeRow('${s.name}: ${s.shift}', false),
+              );
+            }),
         ],
       ),
     );
   }
 
-  Widget _underRatioPopup() {
+  Widget _underRatioPopup({required ClassroomSchedule classroom}) {
+    final staff = classroom.staffList;
     return Container(
       width: 260,
       padding: const EdgeInsets.all(18),
@@ -543,11 +570,15 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _timeRow("07:30 AM - 08:00 AM", true),
-          const SizedBox(height: 10),
-          _timeRow("12:30 PM - 02:00 PM", true),
-          const SizedBox(height: 10),
-          _timeRow("03:30 PM - 04:30 PM", true),
+          if (staff.isEmpty)
+            const Text("No shifts for this day", style: TextStyle(fontSize: 14))
+          else
+            ...staff.map((s) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _timeRow('${s.name}: ${s.shift}', true),
+              );
+            }),
         ],
       ),
     );
@@ -693,7 +724,15 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(time, style: const TextStyle(fontSize: 13.5)),
+        Expanded(
+          child: Text(
+            time,
+            style: const TextStyle(fontSize: 13.5),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(
