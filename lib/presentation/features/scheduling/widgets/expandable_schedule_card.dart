@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
-import '../model/classroom-schudle-model.dart';
+import '../../../../domain/features/staff_classroom/entities/classroom-schudle-model.dart';
 import '../view/edit-schedule.dart';
 
 class ExpandableScheduleCard extends StatefulWidget {
@@ -13,6 +14,7 @@ class ExpandableScheduleCard extends StatefulWidget {
   classrooms; // Changed to support multiple classrooms
   final Map<String, String> classroomNameMap;
   final bool isInitiallyExpanded;
+  final bool isLoading; // ADD THIS
 
   const ExpandableScheduleCard({
     super.key,
@@ -20,6 +22,7 @@ class ExpandableScheduleCard extends StatefulWidget {
     required this.classrooms,
     required this.classroomNameMap,
     this.isInitiallyExpanded = false,
+    this.isLoading = false, // ADD THIS
   });
   @override
   State<ExpandableScheduleCard> createState() => _ExpandableScheduleCardState();
@@ -47,6 +50,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
     isExpanded = _areAllExpanded();
   }
 
+  // Returns mapped name, falls back to code if not found
   String _classroomName(String code) {
     return widget.classroomNameMap[code] ?? code;
   }
@@ -95,62 +99,66 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0x33162831)),
       ),
-      child: Stack(
-        children: [
-          Column(
-            children: [
-              // Header
-              _buildHeader(),
-
-              // All Classroom Rows
-              ...widget.classrooms.asMap().entries.map((entry) {
-                final index = entry.key;
-                final classroom = entry.value;
-
-                return Column(
+      child: widget.isLoading
+          ? _buildShimmer()
+          : Stack(
+              children: [
+                Column(
                   children: [
-                    _buildClassroomRow(classroom: classroom, index: index),
-                    if (classroom.isExpanded) _buildStaffList(classroom),
-                    const Divider(height: 1, color: Color(0xFFE5E5E5)),
+                    // Header
+                    _buildHeader(),
+
+                    // All Classroom Rows
+                    ...widget.classrooms.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final classroom = entry.value;
+
+                      return Column(
+                        children: [
+                          _buildClassroomRow(
+                            classroom: classroom,
+                            index: index,
+                          ),
+                          if (classroom.isExpanded) _buildStaffList(classroom),
+                          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+                        ],
+                      );
+                    }).toList(),
                   ],
-                );
-              }).toList(),
-            ],
-          ),
+                ),
 
-          // Right vertical divider
-          Positioned(
-            top: 0,
-            bottom: 0,
-            right:
-                140, // Adjust based on your design (distance from right edge)
-            child: Container(width: 1, color: const Color(0xFFE5E5E5)),
-          ),
+                // Right vertical divider
+                Positioned(
+                  top: 10,
+                  bottom: 0,
+                  right: 140,
+                  child: Container(width: 1, color: const Color(0xFFE5E5E5)),
+                ),
 
-          // Popup Overlay
-          if (activePopupIndex != null)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() => activePopupIndex = null),
-                child: Container(
-                  color: Colors.black.withOpacity(0.08),
-                  child: Center(
-                    child: _buildPopup(
-                      widget.classrooms[activePopupIndex!],
-                      activeIsWarning ?? false,
+                // Popup Overlay
+                if (activePopupIndex != null)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => setState(() => activePopupIndex = null),
+                      child: Container(
+                        color: Colors.black.withOpacity(0.08),
+                        child: Center(
+                          child: _buildPopup(
+                            widget.classrooms[activePopupIndex!],
+                            activeIsWarning ?? false,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+              ],
             ),
-        ],
-      ),
     );
   }
 
   Widget _buildHeader() {
     return Container(
-      color: const Color(0xFFFBF8FC), // 👈 background added
+      color: const Color(0xFFFBF8FC),
       child: Column(
         children: [
           IntrinsicHeight(
@@ -222,6 +230,7 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                 child: Row(
                   children: [
                     Text(
+                      // FIX 1: Always show mapped name, never the raw code
                       _classroomName(classroom.title),
                       style: const TextStyle(
                         fontSize: 16,
@@ -264,6 +273,9 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
 
   Widget _buildStaffList(ClassroomSchedule classroom) {
     final staffList = classroom.staffList;
+    // FIX 2: Resolve the name once and reuse throughout this widget
+    final resolvedName = _classroomName(classroom.title);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
@@ -321,7 +333,8 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    classroom.title,
+                                    // FIX 2: Show resolved name, not the raw code
+                                    resolvedName,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -370,38 +383,98 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                           vertical: 8,
                           horizontal: 8,
                         ),
-                        child: DottedBorder(
-                          options: RoundedRectDottedBorderOptions(
-                            dashPattern: [10, 20],
-                            strokeWidth: 2,
-                            color: AppColors.themeColor,
-                            radius: Radius.circular(10),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                              horizontal: 12,
-                            ),
-                            alignment: Alignment.center,
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  EditShiftScreen.routeName,
+                        child:
+                            //  DottedBorder(
+                            //   options: RoundedRectDottedBorderOptions(
+                            //     dashPattern: [10, 20],
+                            //     strokeWidth: 2,
+                            //     color: AppColors.themeColor,
+                            //     radius: Radius.circular(10),
+                            //   ),
+                            //   child: Container(
+                            //     padding: const EdgeInsets.symmetric(
+                            //       vertical: 10,
+                            //       horizontal: 12,
+                            //     ),
+                            //     alignment: Alignment.center,
+                            //     child: TextButton(
+                            //       onPressed: () {
+                            //         Navigator.pushNamed(
+                            //           context,
+                            //           EditShiftScreen.routeName,
+                            //         );
+                            //       },
+                            //       child: Text(
+                            //         staff.shift,
+                            //         textAlign: TextAlign.center,
+                            //         style: const TextStyle(
+                            //           fontSize: 12.5,
+                            //           height: 1.4,
+                            //           color: Color(0xFF4B2E4C),
+                            //         ),
+                            //       ),
+                            //     ),
+                            //   ),
+                            // ),
+                            Builder(
+                              builder: (_) {
+                                final status = staff.shiftStatus
+                                    ?.toLowerCase()
+                                    .trim();
+
+                                final isPublished =
+                                    status == 'publish' ||
+                                    status == 'published';
+
+                                final child = Container(
+                                  decoration: BoxDecoration(
+                                    border: isPublished
+                                        ? Border.all(
+                                            color: AppColors.themeColor,
+                                            width: 2,
+                                          )
+                                        : null,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                    horizontal: 12,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: TextButton(
+                                    onPressed: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        EditShiftScreen.routeName,
+                                      );
+                                    },
+                                    child: Text(
+                                      staff.shift,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        height: 1.4,
+                                        color: Color(0xFF4B2E4C),
+                                      ),
+                                    ),
+                                  ),
+                                );
+
+                                if (isPublished) {
+                                  return child;
+                                }
+
+                                return DottedBorder(
+                                  options: RoundedRectDottedBorderOptions(
+                                    dashPattern: [10, 20],
+                                    strokeWidth: 2,
+                                    color: AppColors.themeColor,
+                                    radius: Radius.circular(10),
+                                  ),
+                                  child: child,
                                 );
                               },
-                              child: Text(
-                                staff.shift,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.4,
-                                  color: Color(0xFF4B2E4C),
-                                ),
-                              ),
                             ),
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -417,7 +490,8 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
 
   Widget _buildPopup(ClassroomSchedule classroom, bool isWarning) {
     if (!isWarning) {
-      return _properRatioPopup(classroom.title);
+      // FIX 3: Pass resolved name to popup, not the raw code
+      return _properRatioPopup(_classroomName(classroom.title));
     } else {
       return _underRatioPopup();
     }
@@ -430,7 +504,6 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -475,6 +548,142 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
           _timeRow("12:30 PM - 02:00 PM", true),
           const SizedBox(height: 10),
           _timeRow("03:30 PM - 04:30 PM", true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Column(
+        children: [
+          /// Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                Container(height: 18, width: 120, color: Colors.white),
+                const Spacer(),
+                Container(height: 18, width: 80, color: Colors.white),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          ...List.generate(3, (index) {
+            return Column(
+              children: [
+                /// Classroom Row
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              height: 16,
+                              width: 140,
+                              color: Colors.white,
+                            ),
+
+                            const SizedBox(width: 10),
+
+                            Container(
+                              height: 20,
+                              width: 20,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      Container(
+                        height: 24,
+                        width: 24,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                /// Staff List
+                Container(
+                  margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE5E5E5)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: List.generate(2, (i) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    height: 16,
+                                    width: double.infinity,
+                                    color: Colors.white,
+                                  ),
+
+                                  const SizedBox(height: 8),
+
+                                  Container(
+                                    height: 12,
+                                    width: 100,
+                                    color: Colors.white,
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            Container(
+                              height: 50,
+                              width: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            );
+          }),
         ],
       ),
     );

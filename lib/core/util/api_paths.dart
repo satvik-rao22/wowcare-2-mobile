@@ -278,7 +278,8 @@ class ApiPaths {
   static const String staffClassroomsAssignStaff =
       '/api/v1/staff-classrooms/assign-staff';
   static const String staffCount = '/api/v1/staff/count';
-  static String staffListBySchool(String schoolCode) => '/api/v1/staff/$schoolCode/list';
+  static String staffListBySchool(String schoolCode) =>
+      '/api/v1/staff/$schoolCode/list';
   static String get staffProfile => staffList;
 
   static const String staffMyProfile = '/api/v1/staff/my-profile';
@@ -361,6 +362,7 @@ class ApiPaths {
   static String studentSiblings(String code) =>
       '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
+
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
   static const String studentTagsActivityFilter =
       '/api/v1/student-tags/activity-filter';
@@ -554,9 +556,8 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
-  static String get documentUploadSessionsRoot => ApiConstants.isUat
-      ? '/upload-sessions'
-      : '/api/v1/upload-sessions';
+  static String get documentUploadSessionsRoot =>
+      ApiConstants.isUat ? '/upload-sessions' : '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
@@ -619,10 +620,12 @@ class ApiPaths {
       '$documentUploadSessionsRoot/$sessionCode';
   static String documentMediaAssetByCodePath(String assetCode) =>
       ApiConstants.isUat
-          ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
-          : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
+      ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
+      : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>
       '/api/v1/messages/conversation/$conversationCode';
+
+  static const String copyShift = '/api/v1/staff-shifts/copy';
 }

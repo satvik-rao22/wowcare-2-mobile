@@ -10,6 +10,8 @@ class StaffModel {
   final Color? statusColor;
   final String shiftDate;
 
+  final String? shiftStatus;
+
   StaffModel({
     required this.name,
     required this.image,
@@ -18,5 +20,6 @@ class StaffModel {
     required this.shift,
     this.statusColor,
     this.shiftDate = '',
+    this.shiftStatus,
   });
 }

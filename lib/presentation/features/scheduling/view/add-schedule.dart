@@ -4,7 +4,7 @@ import '../../../../app/di/di.dart';
 import '../../classroom/cubit/classroom_cubit.dart';
 import '../../staff/cubit/staff_cubit.dart';
 import '../cubit/Add-Shift/cubit/add_shift_cubit.dart';
-import '../cubit/schedule_form_cubit.dart';
+import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
 import '../widgets/add-shiftform/add-shift-form.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';

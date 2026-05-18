@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/view/admin_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/add-shiftform/copy-shift.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
@@ -11,14 +12,16 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
-
 import '../presentation/features/activities/view/activity_feed_screen.dart';
+import '../presentation/features/scheduling/cubit/Single-Staff-Shift/staff_schedule_cubit.dart';
+import '../presentation/features/scheduling/cubit/copy-shift/copy_shift_cubit.dart';
 import '../presentation/features/scheduling/view/add-schedule.dart';
 import '../presentation/features/scheduling/view/classroom/classroom-view.dart';
 import '../presentation/features/scheduling/view/edit-schedule.dart';
 import '../presentation/features/scheduling/view/edit-shift-permission.dart';
 import '../presentation/features/scheduling/view/publish-shift-schedule.dart';
 import '../presentation/features/scheduling/view/classroom-scheduling.dart';
+import '../presentation/features/scheduling/view/staff-schedule.dart';
 import '../presentation/features/students/view/student_screen.dart';
 import '../app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -208,6 +211,36 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (_) => const AddShiftScreen(),
         settings: settings,
       );
+
+    case CopyShiftForm.routeName:
+      return MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<CopyShiftCubit>(
+              create: (_) => serviceLocator<CopyShiftCubit>(),
+            ),
+
+            BlocProvider<ClassroomCubit>(
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            ),
+
+            BlocProvider<StaffCubit>(
+              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+            ),
+          ],
+          child: const CopyShiftForm(),
+        ),
+      );
+    case StaffSchedulingScreen.routeName:
+      return MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => serviceLocator<StaffScheduleCubit>()..loadStaffList(),
+
+          child: const StaffSchedulingScreen(),
+        ),
+      );
+
     default:
       return MaterialPageRoute(
         builder: (_) => const OnboardingScreen(),

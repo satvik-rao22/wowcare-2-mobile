@@ -123,6 +123,7 @@ flutter:
     - assets/icons/
     - assets/languages/
     - assets/forte_checkout.html
+    - assets/
   fonts:
     - family: MervaleScript
       fonts:

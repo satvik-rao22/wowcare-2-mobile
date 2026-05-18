@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/cubit/Add-Shift/cubit/add_shift_cubit.dart';
+import '../../utils/responsive_helper.dart';
 import 'custom_checkbox.dart';
 import 'custom_date_time_field.dart';
 import 'custom_toggle.dart';
@@ -67,9 +68,21 @@ class _CustomRepeatOnDaysSelectorState
     if (_selectedDays.isEmpty && _allDays.contains(currentDay)) {
       _selectedDays.add(currentDay);
 
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   widget.onSelectionChanged(_selectedDays);
+      //   // context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
+      //   try {
+      //     context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
+      //   } catch (_) {}
+      // });
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
         widget.onSelectionChanged(_selectedDays);
-        context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
+
+        try {
+          context.read<AddShiftCubit>().updateRepeatDays(_selectedDays);
+        } catch (_) {}
       });
     }
   }
@@ -86,7 +99,10 @@ class _CustomRepeatOnDaysSelectorState
 
       widget.onSelectionChanged(days);
 
-      context.read<AddShiftCubit>().updateRepeatDays(days);
+      // context.read<AddShiftCubit>().updateRepeatDays(days);
+      try {
+        context.read<AddShiftCubit>().updateRepeatDays(days);
+      } catch (_) {}
     });
   }
 
@@ -102,14 +118,19 @@ class _CustomRepeatOnDaysSelectorState
 
       widget.onSelectionChanged(days);
 
-      context.read<AddShiftCubit>().updateRepeatDays(days);
+      // context.read<AddShiftCubit>().updateRepeatDays(days);
+      try {
+        context.read<AddShiftCubit>().updateRepeatDays(days);
+      } catch (_) {}
     });
   }
 
   @override
   Widget build(BuildContext context) {
     // final bool isAllSelected = _selectedDays.length == _allDays.length;
-
+    final responsive = ResponsiveHelper(context);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -142,7 +163,10 @@ class _CustomRepeatOnDaysSelectorState
                     if (!value) {
                       _selectedDays.clear();
                       widget.onSelectionChanged([]);
-                      context.read<AddShiftCubit>().updateRepeatDays([]);
+                      // context.read<AddShiftCubit>().updateRepeatDays([]);
+                      try {
+                        context.read<AddShiftCubit>().updateRepeatDays([]);
+                      } catch (_) {}
                     }
                   });
                 },
@@ -173,28 +197,72 @@ class _CustomRepeatOnDaysSelectorState
         ),
 
         // GridView - 3 items per row with better text visibility
+        // if (_isRepeatEnabled)
+        //   GridView.builder(
+        //     shrinkWrap: true,
+        //     physics: const NeverScrollableScrollPhysics(),
+        //     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        //       crossAxisCount: 3,
+        //       crossAxisSpacing: 12,
+        //       mainAxisSpacing: 16,
+        //       childAspectRatio: 2.4, // Increased for better text space
+        //     ),
+        //     itemCount: _allDays.length,
+        //     itemBuilder: (context, index) {
+        //       final day = _allDays[index];
+        //       return CustomCheckbox(
+        //         value: _selectedDays.contains(day),
+        //         onChanged: (_) => _toggleDay(day),
+        //         label: day,
+        //         labelStyle: const TextStyle(
+        //           fontSize: 14,
+        //           fontWeight: FontWeight.w500,
+        //         ),
+        //         usingInkwell: false,
+        //       );
+        //     },
+        //   ),
         if (_isRepeatEnabled)
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 16,
-              childAspectRatio: 2.4, // Increased for better text space
-            ),
-            itemCount: _allDays.length,
-            itemBuilder: (context, index) {
-              final day = _allDays[index];
-              return CustomCheckbox(
-                value: _selectedDays.contains(day),
-                onChanged: (_) => _toggleDay(day),
-                label: day,
-                labelStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+
+              double fontSize = 12;
+              double childAspectRatio = 2.4;
+
+              if (width < 360) {
+                fontSize = 10;
+                childAspectRatio = 2.0;
+              } else if (width < 420) {
+                fontSize = 11;
+                childAspectRatio = 2.2;
+              }
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 11,
+                  mainAxisSpacing: 15,
+                  childAspectRatio: childAspectRatio,
                 ),
-                usingInkwell: false,
+                itemCount: _allDays.length,
+                itemBuilder: (context, index) {
+                  final day = _allDays[index];
+
+                  return CustomCheckbox(
+                    value: _selectedDays.contains(day),
+                    onChanged: (_) => _toggleDay(day),
+                    label: day,
+                    labelStyle: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w500,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    usingInkwell: false,
+                  );
+                },
               );
             },
           ),
@@ -202,12 +270,22 @@ class _CustomRepeatOnDaysSelectorState
         if (_isRepeatEnabled)
           CustomDateTimeField(
             label: 'Until Date',
+
+            labelStyle: TextStyle(
+              fontSize: responsive.labelFontSize,
+              fontWeight: FontWeight.w500,
+            ),
+
             isRangePicker: false,
             isRequired: true,
             hasLabel: true,
+            fetchInitialTime: false,
 
-            onRangeSelected: (startDate, endDate) {
-              context.read<AddShiftCubit>().updateDateRange(startDate, endDate);
+            onDateSelected: (date) {
+              // context.read<AddShiftCubit>().updateDateRange(date, date);
+              try {
+                context.read<AddShiftCubit>().updateDateRange(date, date);
+              } catch (_) {}
             },
           ),
       ],

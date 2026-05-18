@@ -1,16 +1,16 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
-import '../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
-import 'staff_scheduling_state.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
-
+import '../../../../../app/di/di.dart';
+import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
+import 'classroom_staff_scheduling_state.dart';
+import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/storage_keys.dart';
 import 'package:intl/intl.dart';
 
 class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   final StaffSchedulingRepository _repository;
   final StorageService _storageService;
-
+  final StorageService _storage = serviceLocator<StorageService>();
   StaffSchedulingCubit(this._repository, this._storageService)
     : super(StaffSchedulingInitial()) {
     // Default to weekly view and current date
@@ -27,12 +27,14 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         staffShifts: const [],
         isDailyView: isDaily,
         selectedDate: targetDate,
+        isLoadingShifts: true, // Set loading to true when starting to load data
       ),
     );
 
     try {
-      final schoolCode =
-          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await _storage.getString(StorageKeys.schoolCode) ?? '';
+      final organizationCode =
+          await _storage.getString(StorageKeys.organizationCode) ?? '';
 
       List<StaffShiftEntity> shifts = [];
       List<Map<String, dynamic>> classroomsRaw = [];
@@ -58,6 +60,8 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         shifts = await _repository.getStaffShifts(
           dateFrom: dateFrom,
           dateTo: dateTo,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
         );
       } catch (e) {
         print("Error fetching shifts: $e");
@@ -74,11 +78,24 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
           (state as StaffSchedulingLoaded).copyWith(
             staffShifts: shifts,
             allClassrooms: classroomsRaw,
+            isLoadingShifts: false,
           ),
         );
       }
     } catch (e) {
       print("Unexpected error in loadInitialData: $e");
+
+      emit(
+        StaffSchedulingLoaded(
+          expandAll: false,
+          staffList: [],
+          staffShifts: const [],
+          isDailyView: isDaily,
+          selectedDate: targetDate,
+          isLoadingShifts: true,
+          allClassrooms: const [],
+        ),
+      );
     }
   }
 
@@ -88,6 +105,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         (state as StaffSchedulingLoaded).copyWith(
           selectedDate: date,
           isDailyView: isDaily,
+          isLoadingShifts: false,
         ),
       );
     }

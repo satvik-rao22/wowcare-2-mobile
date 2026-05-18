@@ -5,8 +5,8 @@ import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
-import '../cubit/staff_scheduling_cubit.dart';
-import '../cubit/staff_scheduling_state.dart';
+import '../cubit/classroom-day-view/classroom_staff_scheduling_cubit.dart';
+import '../cubit/classroom-day-view/classroom_staff_scheduling_state.dart';
 
 class ScheduleCard extends StatefulWidget {
   const ScheduleCard({super.key});

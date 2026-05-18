@@ -22,9 +22,8 @@ import '../../../../../shared/utils/responsive_helper.dart';
 import '../../../classroom/cubit/classroom_cubit.dart';
 import '../../../staff/cubit/staff_cubit.dart';
 import '../../cubit/Add-Shift/cubit/add_shift_cubit.dart';
-import '../../cubit/schedule_form_cubit.dart';
-import '../../cubit/schedule_form_state.dart';
-import '../../view/publish-shift-schedule.dart';
+import '../../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
+import '../../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_state.dart';
 
 class AddShiftForm extends StatefulWidget {
   const AddShiftForm({super.key});
@@ -230,13 +229,14 @@ class _AddShiftFormState extends State<AddShiftForm> {
     if (repeatDayCodes.isNotEmpty && cubitState.repeatUntilDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select until date for repeating schedule',
+        message: 'Please select until date',
         isWarning: true,
       );
       return;
     }
 
-    final isRecurringShift = repeatDayCodes.isNotEmpty;
+    final isRecurringShift =
+        repeatDayCodes.isNotEmpty && cubitState.repeatUntilDate != null;
 
     final isValidSchoolTime = await _validateAgainstSchoolTimeZone();
 
@@ -277,12 +277,10 @@ class _AddShiftFormState extends State<AddShiftForm> {
       if (_notes.isNotEmpty) "notes": _notes,
     };
     print('Built request data: $data');
+
     if (!mounted) return;
-    Navigator.pushNamed(
-      context,
-      PublishShiftScheduleScreen.routeName,
-      arguments: data,
-    );
+
+    context.read<ScheduleFormCubit>().saveSchedule(data: data);
   }
 
   Future<void> _loadStaffProfile(String staffCode) async {
@@ -316,14 +314,19 @@ class _AddShiftFormState extends State<AddShiftForm> {
     return BlocListener<ScheduleFormCubit, ScheduleFormState>(
       listener: (context, state) {
         if (state is ScheduleFormSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Shift added successfully')),
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Shift added successfully',
+            isSuccess: true,
           );
+
           Navigator.pop(context);
         } else if (state is ScheduleFormError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: ${state.message}')));
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Error: ${state.message}',
+            isWarning: true,
+          );
         }
       },
       child: BlocBuilder<ScheduleFormCubit, ScheduleFormState>(
@@ -439,6 +442,10 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                         child: CustomDateTimeField(
                                           label: 'Date',
                                           isRequired: true,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                           fetchInitialTime: false,
                                           onDateSelected: (date) {
                                             setState(() {
@@ -454,26 +461,51 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                               ? 'Loading staff...'
                                               : 'Staff',
                                           label: 'Staff',
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                           isRequired: true,
                                           items: staffList
                                               .map<String>(
                                                 (e) => e['name'] as String,
                                               )
                                               .toList(),
-                                          onSelect: (val) {
+                                          onSelect: (val) async {
                                             final found = staffList.firstWhere(
                                               (e) => e['name'] == val,
                                               orElse: () => {},
                                             );
-                                            if (found.isNotEmpty) {
+
+                                            if (found.isEmpty) return;
+
+                                            setState(() {
+                                              _selectedStaffCode =
+                                                  found['code'];
+                                              _allowedClassroomCodes = [];
+                                              _allowedClassrooms = [];
+                                              _selectedClassroomCode = null;
+                                            });
+
+                                            await _loadStaffProfile(
+                                              found['code']!,
+                                            );
+
+                                            /// AUTO SELECT PRIMARY CLASSROOM
+                                            if (_allowedClassrooms.isNotEmpty) {
                                               setState(() {
-                                                _selectedStaffCode =
-                                                    found['code'];
-                                                _selectedClassroomCode = null;
-                                                _allowedClassroomCodes = [];
-                                                _allowedClassrooms = [];
+                                                _selectedClassroomCode =
+                                                    _allowedClassrooms
+                                                        .first
+                                                        .code;
                                               });
-                                              _loadStaffProfile(found['code']!);
+                                            } else if (_allowedClassroomCodes
+                                                .isNotEmpty) {
+                                              setState(() {
+                                                _selectedClassroomCode =
+                                                    _allowedClassroomCodes
+                                                        .first;
+                                              });
                                             }
                                           },
                                         ),
@@ -496,20 +528,35 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                     child: AbsorbPointer(
                                       absorbing: _selectedStaffCode == null,
                                       child: CustomDropdown(
+                                        selectedItem: classroomList.firstWhere(
+                                          (e) =>
+                                              e['code'] ==
+                                              _selectedClassroomCode,
+                                          orElse: () => {},
+                                        )['name'],
+                                        labelStyle: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                         hintText: _isLoadingProfile
                                             ? 'Loading classrooms...'
                                             : 'Classroom',
+
                                         label: 'Classroom',
+
                                         isRequired: true,
+
                                         items: classroomList
                                             .map((e) => e['name'] as String)
                                             .toList(),
+
                                         onSelect: (val) {
                                           final found = classroomList
                                               .firstWhere(
                                                 (e) => e['name'] == val,
                                                 orElse: () => {},
                                               );
+
                                           setState(() {
                                             _selectedClassroomCode =
                                                 found['code'];
@@ -581,41 +628,6 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                             });
                                           },
 
-                                          // onTimeSelected: (time) {
-                                          //   if (_startTime == null ||
-                                          //       _endTime == null) {
-                                          //     CoreUtils.showTopSnackBar(
-                                          //       context: context,
-                                          //       message:
-                                          //           'Please select shift start and end time first',
-                                          //       isWarning: true,
-                                          //     );
-                                          //     return;
-                                          //   }
-                                          //   if (!_isWithinShift(
-                                          //     time,
-                                          //     _startTime!,
-                                          //     _endTime!,
-                                          //   )) {
-                                          //     CoreUtils.showTopSnackBar(
-                                          //       context: context,
-                                          //       message:
-                                          //           'Break end must be within shift start and end time',
-                                          //       isWarning: true,
-                                          //     );
-                                          //     return;
-                                          //   }
-                                          //   setState(() {
-                                          //     _breakStartTime = time;
-                                          //     if (_breakEndTime != null &&
-                                          //         _toMinutes(_breakEndTime!) <=
-                                          //             _toMinutes(
-                                          //               _breakStartTime!,
-                                          //             )) {
-                                          //       _breakEndTime = null;
-                                          //     }
-                                          //   });
-                                          // },
                                           errorText: _breakEndError,
                                           label: 'Break End',
                                           time: _breakEndTime,

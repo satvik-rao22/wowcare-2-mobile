@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 
-import '../../../../presentation/features/scheduling/model/staff_model.dart';
+import '../../../../domain/features/staff_classroom/entities/staff_model.dart';
 
 class StaffProviders extends ChangeNotifier {
   StaffModel? _staff;

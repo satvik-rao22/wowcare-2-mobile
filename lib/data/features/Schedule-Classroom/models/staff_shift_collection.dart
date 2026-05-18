@@ -2,8 +2,6 @@ import 'package:isar/isar.dart';
 import '../../../../core/util/isar_utils.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 
-part 'staff_shift_collection.g.dart';
-
 @collection
 class StaffShiftCollection {
   Id get isarId =>

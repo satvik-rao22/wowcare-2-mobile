@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
-
-import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 
 class ClassroomEntity extends Equatable {
   final String classroomCode;
@@ -34,15 +33,18 @@ class ClassroomScheduleLoaded extends ClassroomScheduleState {
   final List<ClassroomEntity> classrooms;
 
   final String date;
+  // ADD THIS
+  final bool isLoadingShifts;
 
   const ClassroomScheduleLoaded({
     required this.shifts,
     required this.classrooms,
     required this.date,
+    this.isLoadingShifts = false, // ADD THIS
   });
 
   @override
-  List<Object?> get props => [shifts, classrooms, date];
+  List<Object?> get props => [shifts, classrooms, date, isLoadingShifts];
 }
 
 class ClassroomScheduleError extends ClassroomScheduleState {

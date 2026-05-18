@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../model/staff_model.dart';
+import '../../../../domain/features/staff_classroom/entities/staff_model.dart';
 
 class StaffItemTile extends StatelessWidget {
   final StaffModel staff;

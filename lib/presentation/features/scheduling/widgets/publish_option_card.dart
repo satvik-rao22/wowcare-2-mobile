@@ -50,7 +50,7 @@ class PublishOptionCard extends StatelessWidget {
             // Layout: Horizontal Row or Vertical Column
             if (isVertical)
               // Vertical Layout
-              Column(
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _radioItem(

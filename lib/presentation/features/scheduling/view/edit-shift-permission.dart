@@ -4,7 +4,6 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_app_bar.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
-
 import '../widgets/publish_option_card.dart';
 
 class EditShiftScheduleScreen extends StatefulWidget {

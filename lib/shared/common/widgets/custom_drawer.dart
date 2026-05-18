@@ -23,6 +23,7 @@ import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../presentation/features/scheduling/cubit/Single-Staff-Shift/staff_schedule_cubit.dart';
 import '../../../presentation/features/scheduling/view/classroom-scheduling.dart';
 import '../../../presentation/features/scheduling/view/staff-schedule.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
@@ -936,10 +937,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 ),
                                 onTap: () {
                                   Navigator.pop(context);
+
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          const StaffSchedulingScreen(),
+                                      builder: (_) => BlocProvider(
+                                        create: (_) =>
+                                            serviceLocator<
+                                              StaffScheduleCubit
+                                            >(),
+                                        child: const StaffSchedulingScreen(),
+                                      ),
                                     ),
                                   );
                                 },

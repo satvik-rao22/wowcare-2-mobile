@@ -13,8 +13,8 @@ import '../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../shared/common/widgets/custom_repeat_on_days_selector.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../core/util/core_utils.dart';
-import '../cubit/schedule_form_cubit.dart';
-import '../cubit/schedule_form_state.dart';
+import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
+import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_state.dart';
 
 class EditShiftScreen extends StatefulWidget {
   const EditShiftScreen({super.key});
@@ -161,11 +161,24 @@ class _EditShiftFormState extends State<EditShiftForm> {
                         ),
                       ),
                       Spacer(),
-                      SvgPicture.asset(
-                        MediaRes.delete_icon,
-                        color: AppColors.errorColor,
-                        height: MediaQuery.of(context).size.height * 0.025,
-                        width: MediaQuery.of(context).size.height * 0.025,
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: const BoxDecoration(
+                          color: AppColors.errorColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: SvgPicture.asset(
+                            MediaRes.delete_icon,
+                            height: 20,
+                            width: 20,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.cardColor,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

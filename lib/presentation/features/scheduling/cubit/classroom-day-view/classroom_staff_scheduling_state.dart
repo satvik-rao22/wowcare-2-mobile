@@ -1,5 +1,5 @@
-import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
-import '../model/staff_model.dart';
+import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../../../../domain/features/staff_classroom/entities/staff_model.dart';
 
 abstract class StaffSchedulingState {}
 
@@ -12,6 +12,8 @@ class StaffSchedulingLoaded extends StaffSchedulingState {
   final List<StaffModel> staffList;
   final List<StaffShiftEntity> staffShifts;
   final List<Map<String, dynamic>> allClassrooms;
+  // ADD THIS
+  final bool isLoadingShifts;
 
   /// ✅ NEW
   final Map<String, bool> expandedMap;
@@ -30,6 +32,8 @@ class StaffSchedulingLoaded extends StaffSchedulingState {
     this.activeMessageMap = const {},
     this.isDailyView = false,
     this.selectedDate,
+    // ADD THIS
+    this.isLoadingShifts = false,
   });
 
   StaffSchedulingLoaded copyWith({
@@ -43,6 +47,9 @@ class StaffSchedulingLoaded extends StaffSchedulingState {
     Map<String, int?>? activeMessageMap,
     bool? isDailyView,
     DateTime? selectedDate,
+
+    // ADD THIS
+    bool? isLoadingShifts,
   }) {
     return StaffSchedulingLoaded(
       expandAll: expandAll ?? this.expandAll,
@@ -55,6 +62,9 @@ class StaffSchedulingLoaded extends StaffSchedulingState {
       activeMessageMap: activeMessageMap ?? this.activeMessageMap,
       isDailyView: isDailyView ?? this.isDailyView,
       selectedDate: selectedDate ?? this.selectedDate,
+
+      // ADD THIS
+      isLoadingShifts: isLoadingShifts ?? this.isLoadingShifts,
     );
   }
 }

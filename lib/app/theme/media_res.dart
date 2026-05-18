@@ -148,7 +148,7 @@ class MediaRes {
   static const String thumbUp = '$_baseIcons/thumb_up.svg';
   static const String thumbDown = '$_baseIcons/thumb_down.svg';
   static const String equivalentIcon = '$_baseIcons/equivalent_icon.svg';
-  static const String delete_icon = '$_baseIcons/delete-icon.svg';
+  static const String delete_icon = 'assets/delect-images.svg';
   static const String calender_icon = '$_baseIcons/calender-icon.svg';
   static const String clock_icon = '$_baseIcons/clock-icon.svg';
   static const String arrow_drop_down = '$_baseIcons/arrow-down.svg';

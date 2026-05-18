@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/app_text_styles.dart';
-import '../../../../shared/common/widgets/custom_app_bar.dart';
-import '../../../../shared/common/widgets/custom_button_layout.dart';
-import '../cubit/schedule_form_cubit.dart';
-import '../cubit/schedule_form_state.dart';
+import '../../../../shared/common/widgets/custom_dropdown.dart';
+import '../../staff/cubit/staff_cubit.dart';
+import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
+import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_state.dart';
 import '../widgets/publish_option_card.dart';
 
 class PublishShiftScheduleScreen extends StatefulWidget {
@@ -27,6 +28,8 @@ class _PublishShiftScheduleScreenState
   DateTime? _publishUntilDate;
   Map<String, dynamic>? _basePayload;
   bool _didLoadArgs = false;
+  String? _selectedStaffName;
+  String? _selectedStaffCode;
 
   @override
   void didChangeDependencies() {
@@ -41,6 +44,14 @@ class _PublishShiftScheduleScreenState
   }
 
   void _handlePublish(BuildContext blocContext) async {
+    if (_selectedStaffCode == null) {
+      CoreUtils.showTopSnackBar(
+        context: blocContext,
+        message: 'Please select staff',
+        isWarning: true,
+      );
+      return;
+    }
     if (_basePayload == null) {
       CoreUtils.showTopSnackBar(
         context: blocContext,
@@ -64,7 +75,9 @@ class _PublishShiftScheduleScreenState
 
     if (_selectedValue == PublishType.untilDate && _publishUntilDate != null) {
       payload['repeat'] = true;
-      payload['repeatUntil'] = DateFormat('yyyy-MM-dd').format(_publishUntilDate!);
+      payload['repeatUntil'] = DateFormat(
+        'yyyy-MM-dd',
+      ).format(_publishUntilDate!);
     }
 
     if (!mounted) return;
@@ -73,8 +86,14 @@ class _PublishShiftScheduleScreenState
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => serviceLocator<ScheduleFormCubit>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => serviceLocator<ScheduleFormCubit>()),
+
+        BlocProvider(
+          create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
+        ),
+      ],
       child: BlocListener<ScheduleFormCubit, ScheduleFormState>(
         listener: (context, state) {
           if (state is ScheduleFormSuccess) {
@@ -107,8 +126,8 @@ class _PublishShiftScheduleScreenState
   Widget _buildScaffold(BuildContext context, {required bool isSubmitting}) {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        appBar: CustomAppBar(hasBackButton: true),
+      child: GlobalScaffold(
+        hasBackButton: true,
         body: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(
@@ -121,6 +140,46 @@ class _PublishShiftScheduleScreenState
                   fontWeight: FontWeight.w600,
                   fontSize: 24,
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // Staff Drop Down Selection
+              BlocBuilder<StaffCubit, StaffState>(
+                builder: (context, staffState) {
+                  final staffList = staffState.items
+                      .map((s) => {'code': s.code, 'name': s.name})
+                      .toList();
+
+                  return CustomDropdown(
+                    label: 'Staff',
+                    hintText: staffState.isLoading
+                        ? 'Loading staff...'
+                        : 'Select Staff',
+
+                    isRequired: true,
+
+                    selectedItem: _selectedStaffName,
+
+                    items: staffList
+                        .map<String>((e) => e['name'] as String)
+                        .toList(),
+
+                    onSelect: (val) {
+                      final found = staffList.firstWhere(
+                        (e) => e['name'] == val,
+                        orElse: () => {},
+                      );
+
+                      if (found.isNotEmpty) {
+                        setState(() {
+                          _selectedStaffName = found['name'] as String;
+
+                          _selectedStaffCode = found['code'] as String;
+                        });
+                      }
+                    },
+                  );
+                },
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -141,33 +200,13 @@ class _PublishShiftScheduleScreenState
             ],
           ),
         ),
-        bottomNavigationBar: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 10,
-                offset: Offset(0, -2),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            child: CustomButtonLayout(
-              confirmButtonLabel: 'Publish',
-              cancelButtonLabel: 'Cancel',
-                onPressedConfirm: isSubmitting
-                    ? null
-                    : () => _handlePublish(context),
-              onPressedCancel: () => Navigator.pop(context),
-              showCancelButton: true,
-              isForm: false,
-              isLoading: isSubmitting,
-            ),
-          ),
-        ),
-      ),);
+        showCustomNavigationBarButtons: true,
+        onPressedConfirm: isSubmitting ? null : () => _handlePublish(context),
+
+        onPressedCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
   }
-    }
+}

@@ -31,6 +31,11 @@ import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import '../../domain/features/staff_scheduling/copy-shift/data-layer/staff_shift_remote_datasource.dart';
+import '../../domain/features/staff_scheduling/copy-shift/data-layer/staff_shift_remote_datasource_impl.dart';
+import '../../domain/features/staff_scheduling/copy-shift/data-layer/staff_shift_repository_impl.dart';
+import '../../domain/features/staff_scheduling/copy-shift/domain/copy_shift_usecase.dart';
+import '../../domain/features/staff_scheduling/copy-shift/domain/staff_shift_repository.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -131,8 +136,10 @@ import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
-import '../../presentation/features/scheduling/cubit/classroom_schedule_cubit.dart';
-import '../../presentation/features/scheduling/cubit/schedule_form_cubit.dart';
+import '../../presentation/features/scheduling/cubit/Single-Staff-Shift/staff_schedule_cubit.dart';
+import '../../presentation/features/scheduling/cubit/classroom-day-view/classroom_day_schedule_cubit.dart';
+import '../../presentation/features/scheduling/cubit/copy-shift/copy_shift_cubit.dart';
+import '../../presentation/features/scheduling/cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -741,9 +748,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStudentImportantDatesUseCase: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<ClassroomScheduleCubit>(
-    () => ClassroomScheduleCubit(serviceLocator()),
-  );
+
   serviceLocator.registerFactory<ScheduleFormCubit>(
     () => ScheduleFormCubit(serviceLocator()),
   );
@@ -756,7 +761,39 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getCachedConversationsUseCase: serviceLocator(),
     ),
   );
+
+  /// DATASOURCE
+  serviceLocator.registerLazySingleton<StaffShiftRemoteDataSource>(
+    () => StaffShiftRemoteDataSourceImpl(serviceLocator()),
+  );
+
+  /// REPOSITORY
+  serviceLocator.registerLazySingleton<StaffShiftRepository>(
+    () => StaffShiftRepositoryImpl(serviceLocator()),
+  );
+
+  /// USECASE
+  serviceLocator.registerLazySingleton(
+    () => CopyShiftUseCase(serviceLocator()),
+  );
+
+  /// CUBIT
+  serviceLocator.registerFactory(
+    () => CopyShiftCubit(copyShiftUseCase: serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<ClassroomScheduleCubit>(
+    () => ClassroomScheduleCubit(serviceLocator(), serviceLocator()),
+  );
   serviceLocator.registerFactory<CreateConversationCubit>(
     () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffScheduleCubit>(
+    () => StaffScheduleCubit(
+      staffRepository: serviceLocator(),
+      classroomRepository: serviceLocator(),
+      staffSchedulingRepository: serviceLocator(),
+      storage: serviceLocator(),
+    ),
   );
 }

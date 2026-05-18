@@ -1,15 +1,23 @@
 import 'package:dio/dio.dart';
+
 import '../../../core/util/api_paths.dart';
 
 abstract class StaffSchedulingRemoteDataSource {
   Future<Map<String, dynamic>?> addSchedule(Map<String, dynamic> data);
+
   Future<void> editSchedule(String id, Map<String, dynamic> data);
+
   Future<List<Map<String, dynamic>>> getStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
     String? classroomCode,
     required String dateFrom,
     required String dateTo,
-    String shiftStatus = 'PUBLISHED',
+    String? shiftStatus,
+    int page = 0,
+    int size = 50,
   });
+
   Future<List<Map<String, dynamic>>> getAllClassrooms(String schoolCode);
 }
 
@@ -27,6 +35,7 @@ class StaffSchedulingRemoteDataSourceImpl
       endpoint,
       data: data,
     );
+
     return response.data?['data'] as Map<String, dynamic>?;
   }
 
@@ -34,33 +43,59 @@ class StaffSchedulingRemoteDataSourceImpl
   Future<void> editSchedule(String id, Map<String, dynamic> data) async {
     final endpoint = ApiPaths.url('${ApiPaths.staffShifts}/$id');
 
-    await _client.patch<dynamic>(endpoint, data: data);
+    await _client.patch(endpoint, data: data);
   }
 
   @override
   Future<List<Map<String, dynamic>>> getStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
     String? classroomCode,
     required String dateFrom,
     required String dateTo,
     String? shiftStatus,
+    int page = 0,
+    int size = 50,
   }) async {
     final endpoint = ApiPaths.url(ApiPaths.staffShifts);
 
     final response = await _client.get<Map<String, dynamic>>(
       endpoint,
       queryParameters: {
-        if (classroomCode != null) 'classroomCode': classroomCode,
-        if (shiftStatus != null) 'shiftStatus': shiftStatus,
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
         'dateFrom': dateFrom,
         'dateTo': dateTo,
-        'page': 0,
-        'size': 100, // Fetching a larger size for the view
+        'page': page,
+        'size': size,
+
+        if (classroomCode != null && classroomCode.isNotEmpty)
+          'classroomCode': classroomCode,
+
+        if (shiftStatus != null && shiftStatus.isNotEmpty)
+          'shiftStatus': shiftStatus,
       },
     );
 
-    final data = response.data?['data'] as Map<String, dynamic>?;
-    final content = data?['content'] as List<dynamic>? ?? [];
-    return content.map((e) => e as Map<String, dynamic>).toList();
+    final responseData = response.data;
+
+    if (responseData == null) {
+      return [];
+    }
+
+    final data = responseData['data'];
+
+    if (data == null) {
+      return [];
+    }
+
+    final content = data['content'];
+
+    if (content is! List) {
+      return [];
+    }
+
+    return content.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   @override
@@ -69,18 +104,39 @@ class StaffSchedulingRemoteDataSourceImpl
 
     final response = await _client.get<Map<String, dynamic>>(
       endpoint,
-      queryParameters: {
-        'schoolCode': schoolCode,
-        'statuses': 'ACTIVE',
-      },
+      queryParameters: {'schoolCode': schoolCode, 'statuses': 'ACTIVE'},
     );
 
-    final data = response.data?['data'];
-    if (data is List) {
-      return data.map((e) => e as Map<String, dynamic>).toList();
-    } else if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List).map((e) => e as Map<String, dynamic>).toList();
+    final responseData = response.data;
+
+    if (responseData == null) {
+      return [];
     }
+
+    final data = responseData['data'];
+
+    // Case 1:
+    // {
+    //   "data": []
+    // }
+    if (data is List) {
+      return data.map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+
+    // Case 2:
+    // {
+    //   "data": {
+    //      "content": []
+    //   }
+    // }
+    if (data is Map<String, dynamic>) {
+      final content = data['content'];
+
+      if (content is List) {
+        return content.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+    }
+
     return [];
   }
 }

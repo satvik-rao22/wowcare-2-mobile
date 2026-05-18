@@ -7,14 +7,15 @@ import '../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
-import '../cubit/staff_scheduling_cubit.dart';
-import '../cubit/staff_scheduling_state.dart';
-import '../model/classroom-schudle-model.dart';
-import '../model/staff_model.dart';
+import '../cubit/classroom-day-view/classroom_staff_scheduling_cubit.dart';
+import '../cubit/classroom-day-view/classroom_staff_scheduling_state.dart';
+import '../../../../domain/features/staff_classroom/entities/classroom-schudle-model.dart';
+import '../../../../domain/features/staff_classroom/entities/staff_model.dart';
+import '../widgets/expandable_schedule_card_shimmer/expandable_schedule_card_shimmer.dart';
 import '../widgets/schedule_card.dart';
 import '../widgets/expandable_schedule_card.dart';
 import 'add-schedule.dart';
-import 'classroom/classroom-view.dart';
+// import 'classroom/classroom-view.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../app/di/di.dart';
 import '../../classroom/cubit/classroom_cubit.dart';
@@ -61,39 +62,39 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
     return code;
   }
 
-  void _openFirstClassroomForDailyView(
-    BuildContext context,
-    StaffSchedulingLoaded state,
-    ClassroomState classroomState,
-  ) {
-    if (state.staffShifts.isEmpty) return;
+  // Future<void> _openFirstClassroomForDailyView(
+  //   BuildContext context,
+  //   StaffSchedulingLoaded state,
+  //   ClassroomState classroomState,
+  // ) async {
+  //   if (state.staffShifts.isEmpty) return;
 
-    final selectedDate = DateFormat(
-      'yyyy-MM-dd',
-    ).format(state.selectedDate ?? DateTime.now());
+  //   final selectedDate = DateFormat(
+  //     'yyyy-MM-dd',
+  //   ).format(state.selectedDate ?? DateTime.now());
 
-    final targetShift =
-        state.staffShifts
-            .where((s) => s.shiftDate == selectedDate)
-            .firstOrNull ??
-        state.staffShifts.first;
+  //   final targetShift =
+  //       state.staffShifts
+  //           .where((s) => s.shiftDate == selectedDate)
+  //           .firstOrNull ??
+  //       state.staffShifts.first;
 
-    final classroomName = _classroomNameForCode(
-      targetShift.classroomCode,
-      state,
-      classroomState,
-    );
+  //   final classroomName = _classroomNameForCode(
+  //     targetShift.classroomCode,
+  //     state,
+  //     classroomState,
+  //   );
 
-    Navigator.pushNamed(
-      context,
-      ClassroomViewScreen.routeName,
-      arguments: ClassroomViewArgs(
-        classroomCode: targetShift.classroomCode,
-        classroomName: classroomName,
-        date: targetShift.shiftDate,
-      ),
-    );
-  }
+  //   Navigator.pushNamed(
+  //     context,
+  //     ClassroomViewScreen.routeName,
+  //     arguments: ClassroomViewArgs(
+  //       classroomCode: targetShift.classroomCode,
+  //       classroomName: classroomName,
+  //       date: targetShift.shiftDate,
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +115,86 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
         // hasBackButton: true,
         body: BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
           builder: (context, state) {
+            /// ==============================
+            /// SHIMMER LOADING
+            /// ==============================
+
+            if (state is StaffSchedulingInitial ||
+                (state is StaffSchedulingLoaded &&
+                    (state.isLoadingShifts || state.staffShifts.isEmpty))) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    /// HEADER SHIMMER
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Container(
+                          height: 40,
+                          width: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Container(
+                          height: 40,
+                          width: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    /// FILTER SHIMMER
+                    Container(
+                      height: 80,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    /// SCHEDULE SHIMMER
+                    ListView.builder(
+                      itemCount: 3,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemBuilder: (_, __) {
+                        return const ExpandableScheduleCardShimmer();
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            /// ==============================
+            /// LOADED
+            /// ==============================
+
             if (state is StaffSchedulingLoaded) {
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -123,11 +204,9 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                     /// 🔹 Header Row
                     Row(
                       children: [
-                        // Date Navigator
                         Expanded(
-                          child: Container(
+                          child: SizedBox(
                             height: 48,
-
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -137,6 +216,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                   onPressed: () {
                                     final current =
                                         state.selectedDate ?? DateTime.now();
+
                                     final newDate = state.isDailyView
                                         ? current.subtract(
                                             const Duration(days: 1),
@@ -144,6 +224,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                         : current.subtract(
                                             const Duration(days: 7),
                                           );
+
                                     context
                                         .read<StaffSchedulingCubit>()
                                         .changeDateAndMode(
@@ -152,6 +233,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                         );
                                   },
                                 ),
+
                                 Expanded(
                                   child: state.isDailyView
                                       ? Text(
@@ -180,15 +262,18 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                           ),
                                         ),
                                 ),
+
                                 IconButton(
                                   icon: const Icon(Icons.chevron_right),
                                   color: AppColors.colorBox3,
                                   onPressed: () {
                                     final current =
                                         state.selectedDate ?? DateTime.now();
+
                                     final newDate = state.isDailyView
                                         ? current.add(const Duration(days: 1))
                                         : current.add(const Duration(days: 7));
+
                                     context
                                         .read<StaffSchedulingCubit>()
                                         .changeDateAndMode(
@@ -202,9 +287,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                           ),
                         ),
 
-                        // View mode toggle
                         Container(
-                          // padding: const EdgeInsets.symmetric(horizontal: 8),
                           width: MediaQuery.sizeOf(context).width * 0.24,
                           child: CustomDropdown(
                             hintText: 'Select View',
@@ -227,32 +310,10 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
                             ),
-                            onSelect: (value) {
-                              if (value == null) return;
-
-                              final bool isDaily = value == 'Daily View';
-
-                              context
-                                  .read<StaffSchedulingCubit>()
-                                  .changeDateAndMode(
-                                    date: state.selectedDate ?? DateTime.now(),
-                                    isDaily: isDaily,
-                                  );
-
-                              final classroomState = context
-                                  .read<ClassroomCubit>()
-                                  .state;
-
-                              if (isDaily && !state.isDailyView) {
-                                _openFirstClassroomForDailyView(
-                                  context,
-                                  state,
-                                  classroomState,
-                                );
-                              }
-                            },
+                            onSelect: (value) {},
                           ),
                         ),
+
                         const SizedBox(width: 12),
 
                         GradientAddButton(
@@ -415,16 +476,24 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                               name:
                                   '${shift.staffFirstName} ${shift.staffLastName}'
                                       .trim(),
+
                               image: DocumentImageWidget(fileUuid: shift.image),
+
                               workedHours: shift.scheduledHours.toInt(),
+
                               totalHours:
                                   (shift.scheduledHours +
                                           shift.unscheduledHours)
                                       .toInt(),
+
                               shift:
                                   '${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}',
+
                               statusColor: statusColor,
+
                               shiftDate: shift.shiftDate,
+
+                              shiftStatus: shift.shiftStatus,
                             );
                           }).toList();
 
@@ -451,6 +520,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                           classroomNameMap: context
                               .read<ClassroomCubit>()
                               .codeNameMap,
+                          isLoading: state.isLoadingShifts,
                         );
                       },
                     ),

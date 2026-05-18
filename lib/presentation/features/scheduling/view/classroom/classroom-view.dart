@@ -7,23 +7,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart' show DateFormat;
-
+import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
-
 import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../../shared/common/widgets/gradient_add_button.dart';
-
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
-import '../../../classroom/cubit/classroom_cubit.dart';
-import '../../cubit/classroom_schedule_cubit.dart';
-import '../../cubit/classroom_schedule_state.dart';
-
-import '../../model/classroom-schudle-model.dart';
-import '../../model/staff_model.dart';
-
+import '../../cubit/classroom-day-view/classroom_day_schedule_cubit.dart';
+import '../../cubit/classroom-day-view/classroom_day_schedule_state.dart';
+import '../../../../../domain/features/staff_classroom/entities/classroom-schudle-model.dart';
+import '../../../../../domain/features/staff_classroom/entities/staff_model.dart';
+import '../../cubit/classroom-day-view/classroom_cubit.dart';
 import '../../widgets/expandable_schedule_card.dart';
 
 class ClassroomViewArgs {
@@ -54,15 +50,22 @@ class ClassroomViewScreen extends StatelessWidget {
 
     final date = args?.date ?? '2026-05-11';
 
-    return BlocProvider(
-      create: (context) => serviceLocator<ClassroomScheduleCubit>()
-        ..fetchSchedules(
-          classroomCode: classroomCode,
-
-          date: date,
-
-          schoolCode: 'SCH_1A748EF9-5',
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ClassroomScheduleCubit>(
+          create: (context) =>
+              serviceLocator<ClassroomScheduleCubit>()..fetchSchedules(
+                classroomCode: classroomCode,
+                date: date,
+                schoolCode: StorageKeys.schoolCode,
+              ),
         ),
+
+        BlocProvider<ClassroomCubit>(
+          create: (context) =>
+              serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+        ),
+      ],
 
       child: GlobalScaffold(
         hasBackButton: true,
@@ -217,6 +220,7 @@ class ClassroomViewBody extends StatelessWidget {
                       classroomNameMap: context
                           .read<ClassroomCubit>()
                           .codeNameMap,
+                      isLoading: state.isLoadingShifts,
                     );
                   },
                 ),
