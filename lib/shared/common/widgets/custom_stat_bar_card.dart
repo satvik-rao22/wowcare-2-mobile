@@ -28,6 +28,7 @@ class CustomStatBarCard extends StatelessWidget {
     this.footer,
     this.selectedFilterValue,
     this.normalizeBarByItemSum = false,
+    this.embedded = false,
     super.key,
   });
 
@@ -42,6 +43,10 @@ class CustomStatBarCard extends StatelessWidget {
   final Widget? footer;
   final String? selectedFilterValue;
   final bool normalizeBarByItemSum;
+
+  /// When `true` the widget renders as a plain section — no border, no
+  /// background, flush horizontal padding — for use inside an existing card.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -159,15 +164,16 @@ class CustomStatBarCard extends StatelessWidget {
       final percentList = barItems.map((item) => item.value).toList();
       final percentTotal = percentList.fold(0.0, (a, b) => a + b);
       return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.cardBorderColor),
-          borderRadius: BorderRadius.circular(12),
-          color: AppColors.cardColor,
-        ),
+        padding: embedded
+            ? const EdgeInsets.symmetric(vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: embedded
+            ? null
+            : BoxDecoration(
+                border: Border.all(color: AppColors.cardBorderColor),
+                borderRadius: BorderRadius.circular(12),
+                color: AppColors.cardColor,
+              ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -245,15 +251,16 @@ class CustomStatBarCard extends StatelessWidget {
     } else {
       // Original style
       return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.cardBorderColor),
-          borderRadius: BorderRadius.circular(12),
-          color: AppColors.cardColor,
-        ),
+        padding: embedded
+            ? const EdgeInsets.symmetric(vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: embedded
+            ? null
+            : BoxDecoration(
+                border: Border.all(color: AppColors.cardBorderColor),
+                borderRadius: BorderRadius.circular(12),
+                color: AppColors.cardColor,
+              ),
         child: Row(
           children: [
             Column(

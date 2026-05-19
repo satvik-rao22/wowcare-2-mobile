@@ -137,6 +137,10 @@ class _SignInScreenState extends State<SignInScreen>
       _saveCredentials();
       await _preloadGuardianChildrenIfNeeded(context);
 
+      // The await above can outlive this screen (e.g. a duplicate auth event
+      // already navigated away). Bail out before touching context/GoRouter.
+      if (!context.mounted) return;
+
       // Check redirectUrl when schoolCode is null
       if (state.redirectUrl != null && state.redirectUrl!.isNotEmpty) {
         final url = state.redirectUrl!.toLowerCase();
