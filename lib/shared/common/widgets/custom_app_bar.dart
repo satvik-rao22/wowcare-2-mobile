@@ -1,19 +1,16 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -222,9 +219,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       top: 8,
                       bottom: 8,
                     ),
-                    child: ProfileMenuHeader(
-                      isParentPersona: isParentPersona,
-                    ),
+                    child: ProfileMenuHeader(isParentPersona: isParentPersona),
                   ),
                 ),
               ),
@@ -233,7 +228,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 1,
               child: Row(
                 children: [
-                  Icon(Icons.account_circle_outlined, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  Icon(
+                    Icons.account_circle_outlined,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'My Profile',
@@ -254,13 +252,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 2,
               child: Row(
                 children: [
-                  Transform.rotate(angle: -pi / 4,
-                      child: Icon(Icons.vpn_key,
-                          color: AppColors.primaryColor.withValues(alpha: 0.5))),
+                  Transform.rotate(
+                    angle: -pi / 4,
+                    child: Icon(
+                      Icons.vpn_key,
+                      color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   FutureBuilder<String?>(
-                    future: serviceLocator<StorageService>()
-                        .getString(StorageKeys.staffPin),
+                    future: serviceLocator<StorageService>().getString(
+                      StorageKeys.staffPin,
+                    ),
                     builder: (context, snapshot) {
                       final pin = (snapshot.data ?? '').trim();
                       final text = pin.isNotEmpty
@@ -286,7 +289,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 3,
               child: Row(
                 children: [
-                  Icon(Icons.autorenew_outlined, color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  Icon(
+                    Icons.autorenew_outlined,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Switch Profile',
@@ -308,9 +314,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 value: 4,
                 child: Row(
                   children: [
-                    Icon(Icons.business,
-                        color:
-                            AppColors.primaryColor.withValues(alpha: 0.5)),
+                    Icon(
+                      Icons.business,
+                      color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'Switch Organisation',
@@ -331,15 +338,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 5,
               child: Row(
                 children: [
-                  Icon(Icons.lock_outline, color: AppColors.primaryColor.withValues(alpha: 0.5)),
-                  const SizedBox(width: 12),
-                  const Text('Change Password',
-                    style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  Icon(
+                    Icons.lock_outline,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Change Password',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -350,16 +361,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 6,
               child: Row(
                 children: [
-                  Icon(Icons.settings, color: AppColors.primaryColor.withValues(alpha: 0.5)),
-                  SizedBox(width: 12),
-                  Text('Notification settings', style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  Icon(
+                    Icons.settings,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Notification settings',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -367,16 +384,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 7,
               child: Row(
                 children: [
-                  Icon(Icons.help_outline, color: AppColors.primaryColor.withValues(alpha: 0.5)),
-                  SizedBox(width: 12),
-                  Text('Help', style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  Icon(
+                    Icons.help_outline,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Help',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -384,16 +407,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 8,
               child: Row(
                 children: [
-                  Icon(Icons.logout, color: AppColors.primaryColor.withValues(alpha: 0.5)),
-                  SizedBox(width: 12),
-                  Text('Logout', style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  Icon(
+                    Icons.logout,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -420,11 +449,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // Pass cached values so Profile screen doesn't render '-' placeholders.
                 final storage = serviceLocator<StorageService>();
                 final name =
-                    (await storage.getString(StorageKeys.displayName) ?? '').trim();
-                final email =
-                    (await storage.getString(StorageKeys.email) ?? '').trim();
+                    (await storage.getString(StorageKeys.displayName) ?? '')
+                        .trim();
+                final email = (await storage.getString(StorageKeys.email) ?? '')
+                    .trim();
                 final activeRole =
-                    (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+                    (await storage.getString(StorageKeys.activeSchoolRole) ??
+                            '')
                         .trim();
                 if (!context.mounted) return;
                 context.go(
@@ -659,7 +690,9 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                         child: Container(
                           height: buttonHeight,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                             gradient: AppColors.buildPrimaryGradient(),
                           ),
                           child: TextButton(
@@ -729,11 +762,7 @@ Future<void> _sendPasswordResetRequest(BuildContext context) async {
   result.fold(
     (failure) {
       final msg = failure.message ?? failure.toString();
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: msg,
-        isError: true,
-      );
+      CoreUtils.showTopSnackBar(context: context, message: msg, isError: true);
     },
     (message) {
       CoreUtils.showTopSnackBar(

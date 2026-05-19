@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -180,17 +178,15 @@ final GoRouter appRouter = GoRouter(
           isSwitchFlow: args['isSwitchFlow'] as bool? ?? false,
           schoolsForOrg: rawSchools is List
               ? rawSchools
-                  .whereType<Map>()
-                  .map(
-                    (m) => m.map(
-                      (k, v) =>
-                          MapEntry(k.toString(), v?.toString() ?? ''),
-                    ),
-                  )
-                  .toList()
+                    .whereType<Map>()
+                    .map(
+                      (m) => m.map(
+                        (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+                      ),
+                    )
+                    .toList()
               : null,
-          orgFromLoginContext:
-              args['orgFromLoginContext'] as bool? ?? false,
+          orgFromLoginContext: args['orgFromLoginContext'] as bool? ?? false,
         );
       },
     ),
@@ -230,9 +226,7 @@ final GoRouter appRouter = GoRouter(
                         ),
                         BlocProvider<ClassroomCubit>(
                           create: (_) => serviceLocator<ClassroomCubit>()
-                            ..loadActiveClassrooms(
-                              onlyTypeClassroom: false,
-                            ),
+                            ..loadActiveClassrooms(onlyTypeClassroom: false),
                         ),
                       ],
                       child: const StaffScreen(),
@@ -250,8 +244,9 @@ final GoRouter appRouter = GoRouter(
                               serviceLocator<StudentCubit>()..loadInitial(),
                         ),
                         BlocProvider<ClassroomCubit>(
-                          create: (_) => serviceLocator<ClassroomCubit>()
-                            ..loadActiveClassrooms(),
+                          create: (_) =>
+                              serviceLocator<ClassroomCubit>()
+                                ..loadActiveClassrooms(),
                         ),
                       ],
                       child: const StudentScreen(),
@@ -291,10 +286,8 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'edit-profile-details-screen',
-                  pageBuilder: (context, state) => _fastPage(
-                    state,
-                    _editProfileDetailsScreen(state.extra),
-                  ),
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _editProfileDetailsScreen(state.extra)),
                 ),
                 GoRoute(
                   path: 'add-shift',
@@ -323,17 +316,13 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'student-attendance-tabbed-view',
-                  pageBuilder: (context, state) => _fastPage(
-                    state,
-                    const StudentAttendanceTabbedView(),
-                  ),
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StudentAttendanceTabbedView()),
                 ),
                 GoRoute(
                   path: 'staff-attendance-tabbed-view',
-                  pageBuilder: (context, state) => _fastPage(
-                    state,
-                    const StaffAttendanceTabbedView(),
-                  ),
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StaffAttendanceTabbedView()),
                 ),
                 GoRoute(
                   path: 'userProfile',
@@ -358,17 +347,13 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'student-profile',
-                  pageBuilder: (context, state) => _fastPage(
-                    state,
-                    _studentProfileScreen(state.extra),
-                  ),
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _studentProfileScreen(state.extra)),
                 ),
                 GoRoute(
                   path: 'staff-profile',
-                  pageBuilder: (context, state) => _fastPage(
-                    state,
-                    _staffProfileScreen(state.extra),
-                  ),
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _staffProfileScreen(state.extra)),
                 ),
                 GoRoute(
                   path: 'student-attendance-profile',
@@ -419,8 +404,9 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final isParent = context.read<RoleProvider>().isParent;
                 return MessagingScreen(
-                  userPersona:
-                      isParent ? UserPersona.parent : UserPersona.admin,
+                  userPersona: isParent
+                      ? UserPersona.parent
+                      : UserPersona.admin,
                 );
               },
             ),
@@ -481,11 +467,13 @@ Widget _studentProfileScreen(Object? extra) {
     classroom: args['classroom'] as String? ?? '',
     tags: args['tags'] ?? const <String, dynamic>{},
     schedule: args['schedule'] ?? const <String, dynamic>{},
-    sibling: args['sibling'] ?? const <String, dynamic>{
-      'name': <dynamic>[],
-      'relation': <dynamic>[],
-      'status': <dynamic>[],
-    },
+    sibling:
+        args['sibling'] ??
+        const <String, dynamic>{
+          'name': <dynamic>[],
+          'relation': <dynamic>[],
+          'status': <dynamic>[],
+        },
     studentCode: args['studentCode'] as String?,
     syncWithParentChildSelection:
         args['syncWithParentChildSelection'] as bool? ?? false,
@@ -533,10 +521,7 @@ Widget _staffAttendanceProfileScreen(Object? extra) {
 /// Snappier page builder for drill-down routes — the default Material
 /// transition is ~300 ms which feels sluggish on back; we use a 180 ms slide
 /// so push *and* pop animations stay smooth and tight.
-Page<dynamic> _fastPage(
-  GoRouterState state,
-  Widget child,
-) {
+Page<dynamic> _fastPage(GoRouterState state, Widget child) {
   return CustomTransitionPage<dynamic>(
     key: state.pageKey,
     name: state.matchedLocation,
@@ -550,8 +535,7 @@ Page<dynamic> _fastPage(
         reverseCurve: Curves.easeInCubic,
       );
       return SlideTransition(
-        position: Tween<Offset>(begin: begin, end: Offset.zero)
-            .animate(curved),
+        position: Tween<Offset>(begin: begin, end: Offset.zero).animate(curved),
         child: FadeTransition(opacity: curved, child: child),
       );
     },
@@ -567,9 +551,7 @@ class _ShellScope extends InheritedWidget {
   final StatefulNavigationShell shell;
 
   static StatefulNavigationShell? maybeOf(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<_ShellScope>()
-        ?.shell;
+    return context.dependOnInheritedWidgetOfExactType<_ShellScope>()?.shell;
   }
 
   @override
