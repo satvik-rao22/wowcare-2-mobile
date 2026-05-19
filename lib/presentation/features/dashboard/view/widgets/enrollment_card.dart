@@ -88,27 +88,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   child: _StatColumn(
                     value: '83%',
                     label: 'Full time Equivalent',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // ── Month-over-month trend ────────────────────────────────────
-            const Row(
-              children: [
-                Icon(
-                  Icons.trending_up,
-                  size: 16,
-                  color: AppColors.successColor,
-                ),
-                SizedBox(width: 6),
-                Text(
-                  '5% vs last month',
-                  style: TextStyle(
-                    color: AppColors.successColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    showTrend: true,
                   ),
                 ),
               ],
@@ -174,11 +154,18 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
 }
 
 /// A single capacity stat (big value + wrapping label) in the summary row.
+/// When [showTrend] is set, a small "5% vs last month" line is shown beneath
+/// the label.
 class _StatColumn extends StatelessWidget {
-  const _StatColumn({required this.value, required this.label});
+  const _StatColumn({
+    required this.value,
+    required this.label,
+    this.showTrend = false,
+  });
 
   final String value;
   final String label;
+  final bool showTrend;
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +191,32 @@ class _StatColumn extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
+        if (showTrend) ...[
+          const SizedBox(height: 6),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.trending_up,
+                size: 12,
+                color: AppColors.successColor,
+              ),
+              SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  '5% vs last month',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.successColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
