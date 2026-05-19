@@ -223,6 +223,8 @@ class ApiPaths {
         }
         return ApiMicroservices.user;
       case 'conversations':
+      case 'newsletters':
+      case 'messages':
         return ApiMicroservices.communication;
       default:
         return ApiMicroservices.user;
@@ -631,4 +633,12 @@ class ApiPaths {
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>
       '/api/v1/messages/conversation/$conversationCode';
+
+  /// GET /api/v1/newsletters/school/{schoolCode}
+  static String newslettersBySchool(String schoolCode) =>
+      '/api/v1/newsletters/school/${Uri.encodeComponent(schoolCode.trim())}';
+
+  /// GET /api/v1/newsletters/{code}
+  static String newsletterByCode(String code) =>
+      '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
 }
