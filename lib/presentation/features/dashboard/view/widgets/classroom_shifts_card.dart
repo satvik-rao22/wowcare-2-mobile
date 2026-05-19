@@ -46,6 +46,11 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   bool _showAllClassrooms = false;
   bool _minimized = false;
 
+  /// Responsive body-text size matching the app's other modules
+  /// (e.g. student_tile.dart): 16 on tablet, 14 on phone.
+  double get _bodyFontSize =>
+      MediaQuery.of(context).size.width > 600 ? 16 : 14;
+
   void _changeDate(int days) {
     setState(() {
       _selectedShiftDate = _selectedShiftDate.add(Duration(days: days));
@@ -77,8 +82,9 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
         const SizedBox(width: 2),
         Text(
           formattedDate,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.primaryColor,
+            fontSize: _bodyFontSize,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -128,7 +134,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                 'Classroom Shifts',
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -155,11 +161,15 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                           SvgPicture.asset(
                             MediaRes.alertTriangleIcon,
                             height: 16,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.red,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           const SizedBox(width: 4.0),
-                          const Text(
+                          Text(
                             'Not In Ratio',
-                            style: TextStyle(fontSize: 14.0),
+                            style: TextStyle(fontSize: _bodyFontSize),
                           ),
                         ],
                       ),
@@ -171,9 +181,9 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                             height: 16,
                           ),
                           const SizedBox(width: 4.0),
-                          const Text(
+                          Text(
                             'In Ratio',
-                            style: TextStyle(fontSize: 14.0),
+                            style: TextStyle(fontSize: _bodyFontSize),
                           ),
                         ],
                       ),
@@ -210,9 +220,9 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                 child: Text(
                                   'Classroom',
                                   style: TextStyle(
-                                    fontSize: 14.0,
+                                    fontSize: _bodyFontSize,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.grey[600],
+                                    color: AppColors.primaryColor,
                                   ),
                                 ),
                               ),
@@ -228,14 +238,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                               ),
                             ],
                           ),
-                          ...displayRatios.map(
-                            (ratio) => _buildTableRow(
-                              ratio.name,
-                              ratio.notInRatio
-                                  ? MediaRes.alertIcon
-                                  : MediaRes.greenCheckCircleIcon,
-                            ),
-                          ),
+                          ...displayRatios.map(_buildTableRow),
                         ],
                       ),
                       if (hasMoreToShow)
@@ -287,16 +290,20 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
     );
   }
 
-  TableRow _buildTableRow(String classroom, String icon) {
+  TableRow _buildTableRow(_RoomRatio ratio) {
     return TableRow(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 15.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                classroom,
-                style: TextStyle(fontSize: 18.0, color: Colors.grey[700]),
+                ratio.name,
+                style: const TextStyle(
+                  fontSize: 18.0,
+                  color: AppColors.primaryColor,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -305,7 +312,15 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 15.0),
           child: Center(
-            child: SvgPicture.asset(icon, height: 20),
+            child: SvgPicture.asset(
+              ratio.notInRatio
+                  ? MediaRes.alertIcon
+                  : MediaRes.greenCheckCircleIcon,
+              height: 20,
+              colorFilter: ratio.notInRatio
+                  ? const ColorFilter.mode(Colors.red, BlendMode.srcIn)
+                  : null,
+            ),
           ),
         ),
       ],
