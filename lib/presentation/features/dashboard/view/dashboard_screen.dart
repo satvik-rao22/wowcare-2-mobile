@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard.dart';
+import 'package:wowcare/presentation/features/dashboard/view/parent_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/staff_dashboard.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 /// Entry point for the `/dashboard` route.
 ///
@@ -21,17 +21,7 @@ class DashboardScreen extends StatelessWidget {
     final role = context.watch<RoleProvider>();
 
     if (role.isParent) {
-      // TODO: replace with ParentDashboard once it is built.
-      return const GlobalScaffold(
-        showCustomNavigationBar: true,
-        body: Center(
-          child: Text(
-            'Dashboard module goes here',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
+      return const ParentDashboard();
     }
 
     if (role.isStaff) {
