@@ -441,12 +441,13 @@ class _AddShiftFormState extends State<AddShiftForm> {
                                       Expanded(
                                         child: CustomDateTimeField(
                                           label: 'Date',
+
                                           isRequired: true,
                                           labelStyle: TextStyle(
                                             fontSize: responsive.titleFontSize,
                                             fontWeight: FontWeight.w500,
                                           ),
-                                          fetchInitialTime: false,
+                                          fetchInitialTime: true,
                                           onDateSelected: (date) {
                                             setState(() {
                                               _shiftDate = date;

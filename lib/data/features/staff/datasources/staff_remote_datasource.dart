@@ -9,6 +9,11 @@ import '../models/school_user_models.dart';
 import '../models/school_regular_schedule_models.dart';
 
 abstract class StaffRemoteDataSource {
+  /// Lightweight staff roster (code + name) for scheduling / assignment flows.
+  Future<List<StaffRosterItemModel>> getStaffListBySchool({
+    required String schoolCode,
+  });
+
   Future<StaffCountModel> getStaffCount({
     required String organizationCode,
     required String schoolCode,
@@ -235,6 +240,39 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   StaffRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  @override
+  Future<List<StaffRosterItemModel>> getStaffListBySchool({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffClassroomsManageStaffList,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        // Some envs require this param; empty keeps "all".
+        'excludeClassroomCode': '',
+        // Backend accepts either string or list; list matches existing usage.
+        'status': const ['ACTIVE'],
+      },
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) return const [];
+
+    final data = body['data'];
+    if (data is! List) return const [];
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StaffRosterItemModel.fromManageStaffListJson)
+        .where((m) => m.staffCode.trim().isNotEmpty)
+        .toList(growable: false);
+  }
 
   @override
   Future<StaffCountModel> getStaffCount({
@@ -921,4 +959,3 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     );
   }
 }
-

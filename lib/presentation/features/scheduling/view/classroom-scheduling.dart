@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
@@ -311,21 +312,22 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
                                   classroomState,
                                 );
 
-                                Navigator.pushNamed(
-                                  context,
-                                  ClassroomViewScreen.routeName,
-                                  arguments: ClassroomViewArgs(
-                                    classroomCode: code,
-                                    classroomName: name,
-                                    date: dateStr,
-                                  ),
-                                ).then((_) {
-                                  if (mounted) {
-                                    setState(
-                                      () => _selectedView = 'Daily View',
-                                    );
-                                  }
-                                });
+                                context
+                                    .push(
+                                      ClassroomViewScreen.routeName,
+                                      extra: ClassroomViewArgs(
+                                        classroomCode: code,
+                                        classroomName: name,
+                                        date: dateStr,
+                                      ),
+                                    )
+                                    .then((_) {
+                                      if (mounted) {
+                                        setState(
+                                          () => _selectedView = 'Daily View',
+                                        );
+                                      }
+                                    });
                               },
                             ),
                           ),
@@ -334,10 +336,7 @@ class _SchedulingScreenState extends State<SchedulingScreen> {
 
                           GradientAddButton(
                             onTap: () async {
-                              Navigator.pushNamed(
-                                context,
-                                AddShiftScreen.routeName,
-                              );
+                              context.push(AddShiftScreen.routeName);
                             },
                           ),
                         ],

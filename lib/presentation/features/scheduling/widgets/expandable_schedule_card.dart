@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -208,13 +209,78 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
     required ClassroomScheduleVm classroom,
     required int index,
   }) {
+    // return IntrinsicHeight(
+    //   child: Row(
+    //     crossAxisAlignment: CrossAxisAlignment.center,
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     children: [
+    //       // Classroom Name + Expand Icon
+    //       Expanded(
+    //         child: InkWell(
+    //           onTap: () {
+    //             setState(() {
+    //               classroom.isExpanded = !classroom.isExpanded;
+    //               isExpanded = _areAllExpanded();
+    //             });
+    //           },
+    //           child: Padding(
+    //             padding: const EdgeInsets.symmetric(
+    //               horizontal: 16,
+    //               vertical: 14,
+    //             ),
+    //             child: Row(
+    //               children: [
+    //                 Text(
+    //                   // FIX 1: Always show mapped name, never the raw code
+    //                   _classroomName(classroom.title),
+    //                   style: const TextStyle(
+    //                     fontSize: 16,
+    //                     fontWeight: FontWeight.w500,
+    //                     color: Color(0xFF4B2E4C),
+    //                   ),
+    //                 ),
+    //                 const SizedBox(width: 8),
+    //                 Icon(
+    //                   classroom.isExpanded
+    //                       ? Icons.keyboard_arrow_up
+    //                       : Icons.keyboard_arrow_down,
+    //                   size: 20,
+    //                   color: const Color(0xFF4B2E4C),
+    //                 ),
+    //               ],
+    //             ),
+    //           ),
+    //         ),
+    //       ),
+
+    //       // Status Icon (Clickable)
+    //       Container(
+    //         width: 56,
+    //         alignment: Alignment.center,
+    //         child: Center(
+    //           child: GestureDetector(
+    //             onTap: () => togglePopup(index, classroom.showWarning),
+    //             child: SvgPicture.asset(
+    //               classroom.showWarning
+    //                   ? MediaRes.alertTriangleIcon
+    //                   : MediaRes.greenCheckCircleIcon,
+    //               width: 24,
+    //               height: 24,
+    //               fit: BoxFit.contain,
+    //             ),
+    //           ),
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
+
     return IntrinsicHeight(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Classroom Name + Expand Icon
-          Expanded(
+          // Left Section
+          SizedBox(
+            width: MediaQuery.of(context).size.width * 0.55,
             child: InkWell(
               onTap: () {
                 setState(() {
@@ -229,16 +295,17 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                 ),
                 child: Row(
                   children: [
-                    Text(
-                      // FIX 1: Always show mapped name, never the raw code
-                      _classroomName(classroom.title),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF4B2E4C),
+                    Expanded(
+                      child: Text(
+                        _classroomName(classroom.title),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF4B2E4C),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+
                     Icon(
                       classroom.isExpanded
                           ? Icons.keyboard_arrow_up
@@ -252,19 +319,21 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
             ),
           ),
 
-          // Status Icon (Clickable)
-          Container(
-            width: 56,
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onTap: () => togglePopup(index, classroom.showWarning),
-              child: SvgPicture.asset(
-                classroom.showWarning
-                    ? MediaRes.alertTriangleIcon
-                    : MediaRes.greenCheckCircleIcon,
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
+          // Divider
+          Container(width: 1, color: const Color(0xFFE5E5E5)),
+
+          // Right Section (CENTER ICON)
+          Expanded(
+            child: Center(
+              child: GestureDetector(
+                onTap: () => togglePopup(index, classroom.showWarning),
+                child: SvgPicture.asset(
+                  classroom.showWarning
+                      ? MediaRes.alertTriangleIcon
+                      : MediaRes.greenCheckCircleIcon,
+                  width: 28,
+                  height: 28,
+                ),
               ),
             ),
           ),
@@ -449,10 +518,9 @@ class _ExpandableScheduleCardState extends State<ExpandableScheduleCard> {
                                     'classroom': classroom.classroomCode,
                                     'shift': staff.shift,
                                   };
-                                  Navigator.pushNamed(
-                                    context,
+                                  context.push(
                                     EditShiftScreen.routeName,
-                                    arguments: args,
+                                    extra: args,
                                   );
                                 },
                                 child: Text(

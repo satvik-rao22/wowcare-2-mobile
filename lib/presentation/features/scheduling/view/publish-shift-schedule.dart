@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../app/di/di.dart';
@@ -15,7 +16,7 @@ import '../widgets/publish_option_card.dart';
 class PublishShiftScheduleScreen extends StatefulWidget {
   const PublishShiftScheduleScreen({super.key});
 
-  static const String routeName = '/publish-shift-schedule';
+  static const String routeName = '/dashboard/publish-shift-schedule';
 
   @override
   State<PublishShiftScheduleScreen> createState() =>
@@ -37,8 +38,10 @@ class _PublishShiftScheduleScreenState
     if (_didLoadArgs) return;
     _didLoadArgs = true;
 
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map<String, dynamic>) {
+    final goExtra = GoRouterState.of(context).extra;
+    final navArgs = ModalRoute.of(context)?.settings.arguments;
+    final args = (goExtra is Map ? goExtra : navArgs);
+    if (args is Map) {
       _basePayload = Map<String, dynamic>.from(args);
     }
   }

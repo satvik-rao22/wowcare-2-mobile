@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
+import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../../../shared/common/widgets/app_text_styles.dart';
 import '../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../cubit/classroom-day-view/classroom_day_schedule_cubit.dart';
 import '../../cubit/classroom-day-view/classroom_day_schedule_state.dart';
 import '../../widgets/classroom_view/classroom_schedule_widget.dart';
 import '../../widgets/classroom_view/all_classrooms_schedule_card.dart';
-import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
-import '../../../../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
-import '../../../../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
-import '../../../../../core/storage/storage_service.dart';
 
 class ClassroomViewArgs {
   final String classroomCode;
@@ -29,23 +27,24 @@ class ClassroomViewArgs {
 class ClassroomViewScreen extends StatelessWidget {
   const ClassroomViewScreen({super.key});
 
-  static const String routeName = "/classroom-view";
+  static const String routeName = '/dashboard/classroom-view';
 
   @override
   Widget build(BuildContext context) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as ClassroomViewArgs?;
+    final goExtra = GoRouterState.of(context).extra;
+    final argsFromGo = goExtra is ClassroomViewArgs ? goExtra : null;
+    final argsFromNavigator =
+        ModalRoute.of(context)?.settings.arguments as ClassroomViewArgs?;
+    final args = argsFromGo ?? argsFromNavigator;
 
     final classroomCode = args?.classroomCode ?? 'CLS_C82D4F6F-E';
     final classroomName = args?.classroomName ?? 'Classroom';
     final date = args?.date ?? '2026-04-24';
 
     return BlocProvider(
-      create: (context) => ClassroomScheduleCubit(
-        serviceLocator<GetStaffShiftsUseCase>(),
-        serviceLocator<GetAllClassroomsUseCase>(),
-        serviceLocator<StorageService>(),
-      )..fetchAllSchedules(date: date),
+      create: (context) =>
+          serviceLocator<ClassroomScheduleCubit>()
+            ..fetchAllSchedules(date: date),
       child: GlobalScaffold(
         hasBackButton: true,
         body: ClassroomViewBody(

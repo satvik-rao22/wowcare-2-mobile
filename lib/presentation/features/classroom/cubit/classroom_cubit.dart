@@ -23,7 +23,9 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   final StorageService _storageService;
   final CacheManager _cacheManager;
 
-  get codeNameMap => null;
+  Map<String, String> get codeNameMap => {
+    for (final c in state.classrooms) c.code: c.name,
+  };
 
   String _activeClassroomsCacheKey(
     String schoolCode,

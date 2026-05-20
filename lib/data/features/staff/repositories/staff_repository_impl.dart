@@ -1102,9 +1102,32 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
   }
 
+  // @override
+  // Future<List<StaffMember>> getStaffListBySchool({required String schoolCode}) {
+  //   // TODO: implement getStaffListBySchool
+  //   throw UnimplementedError();
+  // }
   @override
-  Future<List<StaffMember>> getStaffListBySchool({required String schoolCode}) {
-    // TODO: implement getStaffListBySchool
-    throw UnimplementedError();
+  Future<List<StaffMember>> getStaffListBySchool({
+    required String schoolCode,
+  }) async {
+    final models = await _remoteDataSource.getStaffListBySchool(
+      schoolCode: schoolCode,
+    );
+
+    return models
+        .map(
+          (m) => StaffMember(
+            code: m.staffCode,
+            name: m.fullName,
+            primaryClassroomCode: '',
+            allowedClassroomCodes: const [],
+            designation: '',
+            phoneNumber: '',
+            status: 'ACTIVE',
+            email: '',
+          ),
+        )
+        .toList();
   }
 }

@@ -159,6 +159,34 @@ class StaffListItemModel extends Equatable {
       ];
 }
 
+/// Lightweight staff roster model used by scheduling and classroom flows that
+/// only need `staffCode` + display name.
+class StaffRosterItemModel extends Equatable {
+  const StaffRosterItemModel({required this.staffCode, required this.fullName});
+
+  final String staffCode;
+  final String fullName;
+
+  factory StaffRosterItemModel.fromManageStaffListJson(
+    Map<String, dynamic> json,
+  ) {
+    final code = (json['staffCode'] ?? json['code'] ?? '').toString().trim();
+    final first = (json['firstName'] ?? '').toString().trim();
+    final last = (json['lastName'] ?? '').toString().trim();
+    final name = (json['fullName'] as String?)?.trim();
+    final fullName = (name != null && name.isNotEmpty)
+        ? name
+        : '$first $last'.trim();
+    return StaffRosterItemModel(
+      staffCode: code,
+      fullName: fullName.isEmpty ? code : fullName,
+    );
+  }
+
+  @override
+  List<Object?> get props => [staffCode, fullName];
+}
+
 class StaffPageModel extends Equatable {
   const StaffPageModel({
     required this.items,
@@ -694,5 +722,4 @@ class StaffProfileModel extends Equatable {
         updatedAt,
       ];
 }
-
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
@@ -364,10 +365,9 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                               'notes': shift.notes,
                           };
 
-                          Navigator.pushNamed(
-                            context,
+                          context.push(
                             PublishShiftScheduleScreen.routeName,
-                            arguments: payload,
+                            extra: payload,
                           );
                         },
                         child: Container(
@@ -395,10 +395,7 @@ class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
                       SizedBox(width: 10),
                       GradientAddButton(
                         onTap: () async {
-                          Navigator.pushNamed(
-                            context,
-                            AddShiftScreen.routeName,
-                          );
+                          context.push(AddShiftScreen.routeName);
                         },
                       ),
                     ],

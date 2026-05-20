@@ -29,11 +29,7 @@ class ApiPathsUat {
       'guardian-user',
       'guardian',
     },
-    ApiMicroservices.organization: {
-      'schools',
-      'organizations',
-      'school',
-    },
+    ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
       'staff-classrooms',
@@ -66,11 +62,7 @@ class ApiPathsUat {
       'individual-movements',
       'future-availability',
     },
-    ApiMicroservices.activity: {
-      'classrooms',
-      'activities',
-      'activity-types',
-    },
+    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types'},
     // Document endpoints in this app are handled separately via `/document-ms/...`.
     ApiMicroservices.document: {},
   };
@@ -118,6 +110,8 @@ class ApiPathsUat {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+        return ApiMicroservices.staff;
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
@@ -244,4 +238,3 @@ class ApiPathsUat {
     return '$base/upload-sessions/$s/assets/$a/complete';
   }
 }
-

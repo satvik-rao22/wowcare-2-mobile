@@ -28,6 +28,7 @@ class CustomDateTimeField extends StatefulWidget {
     this.onRangeSelected,
     this.fetchInitialTime = true, // New property to control fetch behavior
     this.isDisabled = false,
+    this.autoCurrentDateSelect = false, // ADD THIS
     this.isRequired = false, // ✅ ADD THIS
     this.firstDate,
     this.lastDate,
@@ -40,6 +41,7 @@ class CustomDateTimeField extends StatefulWidget {
   final bool isTime;
   final bool isRangePicker;
   final ValueChanged<DateTime>? onDateSelected;
+  final bool autoCurrentDateSelect;
   final ValueChanged<TimeOfDay>? onTimeSelected;
   final DateTime? initialDate;
   final TimeOfDay? initialTime;
@@ -76,6 +78,16 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     // Initialize with provided initialDate if available
     if (widget.initialDate != null) {
       selectedDate = widget.initialDate;
+      _updateDisplayValue();
+    }
+
+    // AUTO SELECT CURRENT DATE
+    if (widget.autoCurrentDateSelect &&
+        !widget.isTime &&
+        !widget.isRangePicker &&
+        selectedDate == null) {
+      selectedDate = DateTime.now();
+      widget.onDateSelected?.call(selectedDate!);
       _updateDisplayValue();
     }
 
@@ -220,8 +232,8 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
             text: TextSpan(
               text: widget.label!,
               style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: calHelper.headerFontSize * 0.7,
+                color: AppColors.primaryColor,
+                fontSize: calHelper.headerFontSize * 0.9,
                 fontWeight: FontWeight.w400,
               ),
               children: [

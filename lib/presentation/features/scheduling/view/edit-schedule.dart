@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -21,7 +22,7 @@ import '../cubit/Add-Shift/cubit/edit_and_publish_schedule_form_state.dart';
 class EditShiftScreen extends StatefulWidget {
   const EditShiftScreen({super.key});
 
-  static const String routeName = '/edit-shift';
+  static const String routeName = '/dashboard/edit-shift';
 
   @override
   State<EditShiftScreen> createState() => _EditShiftScreenState();
@@ -78,10 +79,11 @@ class _EditShiftFormState extends State<EditShiftForm> {
     if (_didInitArgs) return;
     _didInitArgs = true;
 
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final goExtra = GoRouterState.of(context).extra;
+    final navArgs = ModalRoute.of(context)?.settings.arguments;
+    final args = (goExtra is Map ? goExtra : navArgs);
 
-    if (args != null) {
+    if (args is Map) {
       selectedStaff = args['staffName'];
       selectedRoom = args['classroom']?.toString();
       _classroomName = args['classroomName']?.toString() ?? selectedRoom;
@@ -204,7 +206,7 @@ class _EditShiftFormState extends State<EditShiftForm> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Shift updated successfully')),
           );
-          Navigator.pushNamed(context, EditShiftScreen.routeName);
+          context.pop();
         } else if (state is ScheduleFormError) {
           ScaffoldMessenger.of(
             context,
@@ -267,11 +269,11 @@ class _EditShiftFormState extends State<EditShiftForm> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_isLoadingShift)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
+                          // if (_isLoadingShift)
+                          //   const Padding(
+                          //     padding: EdgeInsets.symmetric(vertical: 12),
+                          //     child: Center(child: CircularProgressIndicator()),
+                          //   ),
                           Row(
                             children: [
                               Expanded(

@@ -13,7 +13,7 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 class AddShiftScreen extends StatefulWidget {
   const AddShiftScreen({super.key});
 
-  static const String routeName = '/add-shift';
+  static const String routeName = '/dashboard/add-shift';
 
   @override
   State<AddShiftScreen> createState() => _AddShiftScreenState();
