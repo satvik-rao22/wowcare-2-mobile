@@ -14,14 +14,16 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   ClassroomCubit({
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StorageService storageService,
-  })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _storageService = storageService,
-        _cacheManager = CacheManager(storageService),
-        super(const ClassroomState.initial());
+  }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _storageService = storageService,
+       _cacheManager = CacheManager(storageService),
+       super(const ClassroomState.initial());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StorageService _storageService;
   final CacheManager _cacheManager;
+
+  get codeNameMap => null;
 
   String _activeClassroomsCacheKey(
     String schoolCode,
@@ -36,11 +38,10 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     );
   }
 
-  Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) => {
+  Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) =>
+      {
         'items': classrooms
-            .map(
-              (e) => <String, dynamic>{'code': e.code, 'name': e.name},
-            )
+            .map((e) => <String, dynamic>{'code': e.code, 'name': e.name})
             .toList(),
       };
 
@@ -169,4 +170,3 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     emit(state.copyWith(errorMessage: null));
   }
 }
-

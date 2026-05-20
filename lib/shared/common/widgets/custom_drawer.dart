@@ -23,8 +23,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import '../../../presentation/features/staff-scheduling/view/staff-scheduling.dart';
+import '../../../presentation/features/scheduling/view/staff-schedule.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -730,8 +729,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             final nav = Navigator.of(context);
                             final parentChild = context
                                 .read<ParentChildProvider>();
-                            final alreadyHere = _currentRoute ==
-                                StudentProfileScreen.routeName;
+                            final alreadyHere =
+                                _currentRoute == StudentProfileScreen.routeName;
                             Navigator.pop(context);
                             if (alreadyHere) return;
                             _openParentStudentProfile(nav, parentChild);
@@ -741,13 +740,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Attendance',
                             icon: MediaRes.attendanceIcon,
-                            isCurrentRoute: _currentRoute ==
+                            isCurrentRoute:
+                                _currentRoute ==
                                 StudentAttendanceProfile.routeName,
                             onTap: () {
                               final nav = Navigator.of(context);
                               final parentChild = context
                                   .read<ParentChildProvider>();
-                              final alreadyHere = _currentRoute ==
+                              final alreadyHere =
+                                  _currentRoute ==
                                   StudentAttendanceProfile.routeName;
                               Navigator.pop(context);
                               if (alreadyHere) return;
@@ -857,8 +858,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Staff',
                             icon: MediaRes.staffs_drawer_icon,
-                            isCurrentRoute: _currentRoute ==
-                                    StaffScreen.routeName ||
+                            isCurrentRoute:
+                                _currentRoute == StaffScreen.routeName ||
                                 (isStaff &&
                                     _currentRoute ==
                                         StaffProfileScreen.routeName),
@@ -867,8 +868,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               final captured = _currentRoute;
                               Navigator.pop(context);
                               if (isStaff) {
-                                if (captured ==
-                                    StaffProfileScreen.routeName) {
+                                if (captured == StaffProfileScreen.routeName) {
                                   return;
                                 }
                                 await _openLoggedInStaffProfile(navigator);
@@ -885,7 +885,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Staff-Schudling',
                             icon: MediaRes.staffs_drawer_icon,
-                            isCurrentRoute: _currentRoute ==
+                            isCurrentRoute:
+                                _currentRoute ==
                                     StaffSchedulingScreen.routeName ||
                                 (isStaff &&
                                     _currentRoute ==
@@ -895,18 +896,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               final captured = _currentRoute;
                               Navigator.pop(context);
                               if (isStaff) {
-                                if (captured ==
-                                    StaffProfileScreen.routeName) {
+                                if (captured == StaffProfileScreen.routeName) {
                                   return;
                                 }
                                 await _openLoggedInStaffProfile(navigator);
                                 return;
                               }
-                              if (captured !=
-                                  StaffSchedulingScreen.routeName) {
-                                context.go(
-                                  StaffSchedulingScreen.routeName,
-                                );
+                              if (captured != StaffSchedulingScreen.routeName) {
+                                context.go(StaffSchedulingScreen.routeName);
                               }
                             },
                           ),
@@ -930,8 +927,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   onTap: () {
                                     Navigator.pop(context);
                                     if (_currentRoute !=
-                                        StudentAttendanceTabbedView
-                                            .routeName) {
+                                        StudentAttendanceTabbedView.routeName) {
                                       context.go(
                                         StudentAttendanceTabbedView.routeName,
                                       );

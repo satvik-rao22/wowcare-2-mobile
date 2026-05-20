@@ -12,6 +12,8 @@ abstract class StaffRepository {
     required String schoolCode,
   });
 
+  Future<List<StaffMember>> getStaffListBySchool({required String schoolCode});
+
   Future<StaffPage> getStaffPage({
     required String organizationCode,
     required String schoolCode,
@@ -112,9 +114,7 @@ abstract class StaffRepository {
   });
 
   /// Fetches the staff sign-in PIN via my-profile pin API.
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  });
+  Future<String> getStaffSignInPin({required String staffCode});
 
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
@@ -241,6 +241,3 @@ abstract class StaffRepositoryWithCache {
     required String schoolCode,
   });
 }
-
-
-

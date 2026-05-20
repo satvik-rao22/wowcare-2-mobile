@@ -17,7 +17,7 @@ import '../models/school_user_models.dart';
 
 class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   StaffRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _cacheManager = CacheManager(storageService);
+    : _cacheManager = CacheManager(storageService);
 
   final StaffRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
@@ -50,16 +50,18 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     final designationKey = norm(designation);
     final searchKey = (search ?? '').trim().toLowerCase();
     final sortKey = (sortBy ?? 'desc').trim().toLowerCase();
-    final primaryKey = (primaryClassroomCodes ?? [])
-        .map((c) => c.trim())
-        .where((c) => c.isNotEmpty)
-        .toList()
-      ..sort();
-    final classKey = (classCodes ?? [])
-        .map((c) => c.trim())
-        .where((c) => c.isNotEmpty)
-        .toList()
-      ..sort();
+    final primaryKey =
+        (primaryClassroomCodes ?? [])
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toList()
+          ..sort();
+    final classKey =
+        (classCodes ?? [])
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toList()
+          ..sort();
 
     final identifier = [
       schoolCode,
@@ -77,6 +79,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       identifier: identifier,
     );
   }
+
   static String _staffDocumentsCacheKey(String staffCode) =>
       CacheManager.buildCacheKey(
         feature: 'staff',
@@ -87,21 +90,21 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String organizationCode,
     required String schoolCode,
   }) => CacheManager.buildCacheKey(
-        feature: 'staff',
-        resource: 'count',
-        identifier: '${organizationCode.trim()}|${schoolCode.trim()}',
-      );
+    feature: 'staff',
+    resource: 'count',
+    identifier: '${organizationCode.trim()}|${schoolCode.trim()}',
+  );
+
   /// [forEditStaff] matches [getStaffProfile] — scoped vs `my-profile` payloads can differ.
   static String _staffProfileCacheKey(
     String staffCode, {
     required bool forEditStaff,
-  }) =>
-      CacheManager.buildCacheKey(
-        feature: 'staff',
-        resource: 'profile',
-        identifier:
-            '${staffCode.trim().isEmpty ? 'unknown' : staffCode.trim()}|${forEditStaff ? 'byCode' : 'my'}',
-      );
+  }) => CacheManager.buildCacheKey(
+    feature: 'staff',
+    resource: 'profile',
+    identifier:
+        '${staffCode.trim().isEmpty ? 'unknown' : staffCode.trim()}|${forEditStaff ? 'byCode' : 'my'}',
+  );
 
   Future<void> _invalidateStaffProfileCaches(String staffCode) async {
     final c = staffCode.trim();
@@ -111,6 +114,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       _staffProfileCacheKey(c, forEditStaff: true),
     ]);
   }
+
   static String _staffImportantDatesCacheKey(String staffCode) =>
       CacheManager.buildCacheKey(
         feature: 'staff',
@@ -228,10 +232,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       );
 
       if (page == 0) {
-        await _cacheManager.saveCache(
-          listKey,
-          staffPageModel.toJson(),
-        );
+        await _cacheManager.saveCache(listKey, staffPageModel.toJson());
       }
 
       return _mapPageModelToEntity(staffPageModel);
@@ -314,7 +315,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
   @override
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode) async {
-    final payload = await _cacheManager.loadCache(_staffDocumentsCacheKey(staffCode));
+    final payload = await _cacheManager.loadCache(
+      _staffDocumentsCacheKey(staffCode),
+    );
     if (payload == null) return null;
 
     final model = StaffDocumentsPageModel.fromCacheJson(payload);
@@ -329,7 +332,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       return '$displayHour:$displayMinute$period';
     }
 
-    String _formatRange(int startHour, int startMinute, int endHour, int endMinute) {
+    String _formatRange(
+      int startHour,
+      int startMinute,
+      int endHour,
+      int endMinute,
+    ) {
       final start = _formatTimeOfDay(startHour, startMinute);
       final end = _formatTimeOfDay(endHour, endMinute);
       return '$start - $end';
@@ -484,7 +492,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     return _mapDocumentsPageModelToEntity(documentsPageModel);
   }
 
-  StaffDocumentsPage _mapDocumentsPageModelToEntity(StaffDocumentsPageModel model) {
+  StaffDocumentsPage _mapDocumentsPageModelToEntity(
+    StaffDocumentsPageModel model,
+  ) {
     final items = model.items
         .map(
           (m) => StaffDocument(
@@ -625,12 +635,8 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  }) async {
-    return _remoteDataSource.getStaffSignInPin(
-      staffCode: staffCode,
-    );
+  Future<String> getStaffSignInPin({required String staffCode}) async {
+    return _remoteDataSource.getStaffSignInPin(staffCode: staffCode);
   }
 
   @override
@@ -752,19 +758,20 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         .toList();
 
     // Cache the important dates
-    await _cacheManager.saveCache(
-      _staffImportantDatesCacheKey(staffCode),
-      {
-        'dates': result,
-      },
-    );
+    await _cacheManager.saveCache(_staffImportantDatesCacheKey(staffCode), {
+      'dates': result,
+    });
 
     return result;
   }
 
   @override
-  Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode) async {
-    final payload = await _cacheManager.loadCache(_staffImportantDatesCacheKey(staffCode));
+  Future<List<Map<String, String>>?> loadCachedImportantDates(
+    String staffCode,
+  ) async {
+    final payload = await _cacheManager.loadCache(
+      _staffImportantDatesCacheKey(staffCode),
+    );
     if (payload == null) return null;
 
     final dates = payload['dates'] as List<dynamic>?;
@@ -772,12 +779,15 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     return dates
         .map((d) => d as Map<String, dynamic>)
-        .map((d) => <String, String>{
-              'importantDateType': d['importantDateType']?.toString() ?? '',
-              'dueDate': d['dueDate']?.toString() ?? '',
-              if (d['completedDate'] != null) 'completedDate': d['completedDate']!.toString(),
-              if (d['status'] != null) 'status': d['status']!.toString(),
-            })
+        .map(
+          (d) => <String, String>{
+            'importantDateType': d['importantDateType']?.toString() ?? '',
+            'dueDate': d['dueDate']?.toString() ?? '',
+            if (d['completedDate'] != null)
+              'completedDate': d['completedDate']!.toString(),
+            if (d['status'] != null) 'status': d['status']!.toString(),
+          },
+        )
         .toList();
   }
 
@@ -851,7 +861,9 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     // Invalidate cache after update
-    await _cacheManager.invalidateCache(_staffImportantDatesCacheKey(staffCode));
+    await _cacheManager.invalidateCache(
+      _staffImportantDatesCacheKey(staffCode),
+    );
 
     await _invalidateStaffProfileCaches(staffCode);
 
@@ -923,9 +935,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     final model = response.data;
     if (model == null) {
-      throw Exception(response.message.isNotEmpty
-          ? response.message
-          : 'Empty response from create school admin user API');
+      throw Exception(
+        response.message.isNotEmpty
+            ? response.message
+            : 'Empty response from create school admin user API',
+      );
     }
 
     return CreateSchoolUserResult(
@@ -966,17 +980,17 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       allowedClassroomCodes: allowedClassroomCodes,
     );
 
-    final response = await _remoteDataSource.createStaffUser(
-      request: request,
-    );
+    final response = await _remoteDataSource.createStaffUser(request: request);
 
     await _invalidateStaffListAndSummaryCaches(schoolCode);
 
     final model = response.data;
     if (model == null) {
-      throw Exception(response.message.isNotEmpty
-          ? response.message
-          : 'Empty response from create staff user API');
+      throw Exception(
+        response.message.isNotEmpty
+            ? response.message
+            : 'Empty response from create staff user API',
+      );
     }
 
     return CreateSchoolUserResult(
@@ -1087,6 +1101,10 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       upcoming: (payload['upcoming'] as num?)?.toInt() ?? 0,
     );
   }
+
+  @override
+  Future<List<StaffMember>> getStaffListBySchool({required String schoolCode}) {
+    // TODO: implement getStaffListBySchool
+    throw UnimplementedError();
+  }
 }
-
-

@@ -1,21 +1,21 @@
-﻿import 'package:flutter/material.dart';
+﻿// import 'package:flutter/material.dart';
 
-import '../../../../presentation/features/staff-scheduling/model/staff_model.dart';
+// import '../../../../presentation/features/staff-scheduling/model/staff_model.dart';
 
-class StaffProviders extends ChangeNotifier {
-  StaffModel? _staff;
+// class StaffProviders extends ChangeNotifier {
+//   StaffModel? _staff;
 
-  StaffModel? get staff => _staff;
+//   StaffModel? get staff => _staff;
 
-  void initStaff(StaffModel staff) {
-    if (_staff != staff) _staff = staff;
-  }
+//   void initStaff(StaffModel staff) {
+//     if (_staff != staff) _staff = staff;
+//   }
 
-  set employee(StaffModel? staff) {
-    if (_staff != staff) {
-      _staff = staff;
+//   set employee(StaffModel? staff) {
+//     if (_staff != staff) {
+//       _staff = staff;
 
-      Future.delayed(Duration.zero, notifyListeners);
-    }
-  }
-}
+//       Future.delayed(Duration.zero, notifyListeners);
+//     }
+//   }
+// }

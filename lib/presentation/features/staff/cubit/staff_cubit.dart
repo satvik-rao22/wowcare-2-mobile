@@ -6,6 +6,7 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
+import '../../../../domain/features/staff/usecases/get_staff_by_school_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -16,16 +17,19 @@ class StaffCubit extends Cubit<StaffState> {
   StaffCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
     required GetStaffCountUseCase getStaffCountUseCase,
+    required GetStaffListBySchoolUseCase getStaffListBySchoolUseCase,
     required StaffRepository repository,
     required StorageService storageService,
-  })  : _getStaffPageUseCase = getStaffPageUseCase,
-        _getStaffCountUseCase = getStaffCountUseCase,
-        _repository = repository,
-        _storageService = storageService,
-        super(const StaffState.initial());
+  }) : _getStaffPageUseCase = getStaffPageUseCase,
+       _getStaffCountUseCase = getStaffCountUseCase,
+       _getStaffListBySchoolUseCase = getStaffListBySchoolUseCase,
+       _repository = repository,
+       _storageService = storageService,
+       super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
+  final GetStaffListBySchoolUseCase _getStaffListBySchoolUseCase;
   final StaffRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
@@ -125,11 +129,14 @@ class StaffCubit extends Cubit<StaffState> {
 
       // Staff count is non-fatal: if it fails, use defaults so list still shows.
       // Error is already logged by API interceptor -> CoreUtils.
-      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
+      StaffCount staffCount = const StaffCount(
+        total: 0,
+        active: 0,
+        upcoming: 0,
+      );
       try {
         staffCount = await staffCountFuture;
       } catch (_) {}
-
 
       final firstPage = await firstPageFuture;
 
@@ -202,11 +209,13 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> loadNextPage() async {
     // ignore: avoid_print
-    print('[StaffCubit] loadNextPage called: '
-        'isLoadingMore=${state.isLoadingMore}, '
-        'hasMore=${state.hasMore}, '
-        'currentPage=${state.currentPage}, '
-        'items=${state.items.length}');
+    print(
+      '[StaffCubit] loadNextPage called: '
+      'isLoadingMore=${state.isLoadingMore}, '
+      'hasMore=${state.hasMore}, '
+      'currentPage=${state.currentPage}, '
+      'items=${state.items.length}',
+    );
     if (state.isLoadingMore || !state.hasMore) {
       // ignore: avoid_print
       print('[StaffCubit] loadNextPage aborted due to guard.');
@@ -238,9 +247,11 @@ class StaffCubit extends Cubit<StaffState> {
       if (isClosed) return;
 
       // ignore: avoid_print
-      print('[StaffCubit] loaded page=${page.page}, '
-          'itemsAdded=${page.items.length}, '
-          'hasMore=${page.hasMore}');
+      print(
+        '[StaffCubit] loaded page=${page.page}, '
+        'itemsAdded=${page.items.length}, '
+        'hasMore=${page.hasMore}',
+      );
       emit(
         state.copyWith(
           items: [...state.items, ...page.items],
@@ -251,12 +262,7 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoadingMore: false,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
     }
   }
 
@@ -272,7 +278,8 @@ class StaffCubit extends Cubit<StaffState> {
     final staffTypeUpper = profile.staffType.toUpperCase().trim();
     final schoolCode = profile.schoolCode.trim();
     final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+    final bool isOrganizationAdmin =
+        staffTypeUpper.contains('ORGANIZATION') &&
         staffTypeUpper.contains('ADMIN');
 
     // Organization admins are deactivated via a different endpoint that
@@ -305,8 +312,8 @@ class StaffCubit extends Cubit<StaffState> {
     return message;
   }
 
-   /// Activates a staff member (via school user activate API) and refreshes the list.
-   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
+  /// Activates a staff member (via school user activate API) and refreshes the list.
+  /// Returns the success message from the backend. Errors are rethrown for UI to handle.
   Future<String> activateStaff(String staffCode) async {
     // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
     final profile = await _repository.getStaffProfile(
@@ -317,7 +324,8 @@ class StaffCubit extends Cubit<StaffState> {
     final staffTypeUpper = profile.staffType.toUpperCase().trim();
     final schoolCode = profile.schoolCode.trim();
     final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+    final bool isOrganizationAdmin =
+        staffTypeUpper.contains('ORGANIZATION') &&
         staffTypeUpper.contains('ADMIN');
 
     if (isOrganizationAdmin || schoolCodeMissing) {
@@ -350,20 +358,50 @@ class StaffCubit extends Cubit<StaffState> {
   /// Performs a lightweight search that only calls the staff list API (no count
   /// refresh or automatic second-page preloading). Intended for rapid typing.
   Future<void> searchStaff(String query) async {
-    emit(
-      state.copyWith(
-        searchQuery: query,
-      ),
-    );
+    emit(state.copyWith(searchQuery: query));
     await refresh(ignoreRefreshingGuard: true);
   }
 
-  void updateSearch(String query) {
+  Future<void> loadStaffBySchool(String schoolCode) async {
     emit(
       state.copyWith(
-        searchQuery: query,
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
       ),
     );
+
+    try {
+      final staffList = await _getStaffListBySchoolUseCase(
+        schoolCode: schoolCode,
+      );
+
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          items: staffList,
+          currentPage: 0,
+          hasMore: false,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
+
+  void updateSearch(String query) {
+    emit(state.copyWith(searchQuery: query));
   }
 
   void updateFilters({
@@ -382,11 +420,15 @@ class StaffCubit extends Cubit<StaffState> {
     emit(
       state.copyWith(
         statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
-        designationFilter:
-            normalizedDesignation.isEmpty ? '' : normalizedDesignation,
-        primaryClassroomCodes: primaryClassroomCodes ?? state.primaryClassroomCodes,
+        designationFilter: normalizedDesignation.isEmpty
+            ? ''
+            : normalizedDesignation,
+        primaryClassroomCodes:
+            primaryClassroomCodes ?? state.primaryClassroomCodes,
         classCodes: classCodes ?? state.classCodes,
-        sortBy: normalizedSortBy.isEmpty ? state.sortBy : (normalizedSortBy == 'asc' ? 'asc' : 'desc'),
+        sortBy: normalizedSortBy.isEmpty
+            ? state.sortBy
+            : (normalizedSortBy == 'asc' ? 'asc' : 'desc'),
       ),
     );
   }
@@ -423,10 +465,9 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   void removeStaffMember(String code) {
-    final updated =
-        state.items.where((element) => element.code != code).toList();
+    final updated = state.items
+        .where((element) => element.code != code)
+        .toList();
     emit(state.copyWith(items: updated));
   }
 }
-
-

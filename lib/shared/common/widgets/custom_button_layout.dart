@@ -21,6 +21,7 @@ class CustomButtonLayout extends StatelessWidget {
   final void Function()? onPressedCancel;
   final bool showCancelButton;
   final bool isForm;
+
   /// When true, shows a white loader on top of the confirm button
   /// and disables all button interactions.
   final bool isLoading;

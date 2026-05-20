@@ -27,12 +27,6 @@ import 'package:wowcare/presentation/features/staff/view/edit_important_dates_sc
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/add-schedule.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/classroom/classroom-view.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/edit-schedule.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/edit-shift-permission.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/publish-shift-schedule.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/staff-scheduling.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -40,6 +34,13 @@ import 'package:wowcare/presentation/features/user-profile/view/notification_set
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
+
+import '../presentation/features/scheduling/view/add-schedule.dart';
+import '../presentation/features/scheduling/view/classroom-scheduling.dart';
+import '../presentation/features/scheduling/view/classroom/classroom-view.dart';
+import '../presentation/features/scheduling/view/edit-schedule.dart';
+import '../presentation/features/scheduling/view/edit-shift-permission.dart';
+import '../presentation/features/scheduling/view/publish-shift-schedule.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -261,7 +262,7 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'staff-scheduling',
                   pageBuilder: (context, state) =>
-                      _fastPage(state, const StaffSchedulingScreen()),
+                      _fastPage(state, const SchedulingScreen()),
                 ),
                 GoRoute(
                   path: 'future-availability',

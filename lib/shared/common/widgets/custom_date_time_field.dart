@@ -14,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
     this.label,
+    this.labelStyle,
     this.hasLabel = true,
     this.isTime = false,
     this.isRangePicker = false,
@@ -32,7 +33,7 @@ class CustomDateTimeField extends StatefulWidget {
     this.lastDate,
     super.key,
   });
-
+  final TextStyle? labelStyle;
   final String? label;
   final bool hasLabel;
   final bool isRequired;
@@ -125,11 +126,14 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   Future<void> setCurrentDateTime() async {
     DateTime dateTime = DateTime.now();
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        schoolTimeZone,
       );
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
       dateTime = DateTime(
         dt.$1.year,
         dt.$1.month,

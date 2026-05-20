@@ -1,123 +1,66 @@
-import 'package:flutter/material.dart';
 import '../../../domain/features/staff_scheduling/entities/schedule_entry.dart';
+import '../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
+import 'models/staff_shift_collection.dart';
+import 'staff_scheduling_remote_datasource.dart';
 
 class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
-  @override
-  Future<List<ScheduleEntryEntity>> getClassroomSchedules() async {
-    // Simulating API delay
-    await Future.delayed(const Duration(milliseconds: 500));
+  final StaffSchedulingRemoteDataSource _remoteDataSource;
 
-    return [
-      ScheduleEntryEntity(
-        name: 'Ana Biwalkar',
-        avatarUrl: 'https://i.pravatar.cc/150?img=44',
-        scheduledHours: '45',
-        actualHours: '55',
-        slotColors: [
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFF5978F7),
-        ],
-      ),
-      ScheduleEntryEntity(
-        name: 'Ana Biwalkar',
-        avatarUrl: 'https://i.pravatar.cc/150?img=44',
-        scheduledHours: '45',
-        actualHours: '55',
-        slotColors: [
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFF5978F7),
-        ],
-      ),
-
-      ScheduleEntryEntity(
-        name: 'Ana Biwalkar',
-        avatarUrl: 'https://i.pravatar.cc/150?img=44',
-        scheduledHours: '45',
-        actualHours: '55',
-        slotColors: [
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFF5978F7),
-        ],
-      ),
-      ScheduleEntryEntity(
-        name: 'Ana Biwalkar',
-        avatarUrl: 'https://i.pravatar.cc/150?img=44',
-        scheduledHours: '45',
-        actualHours: '55',
-        slotColors: [
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFF5978F7),
-        ],
-      ),
-      ScheduleEntryEntity(
-        name: 'Ana Biwalkar',
-        avatarUrl: 'https://i.pravatar.cc/150?img=44',
-        scheduledHours: '45',
-        actualHours: '55',
-        slotColors: [
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFF5978F7),
-        ],
-      ),
-      ScheduleEntryEntity(
-        name: 'Ana Biwalkar',
-        avatarUrl: 'https://i.pravatar.cc/150?img=44',
-        scheduledHours: '45',
-        actualHours: '55',
-        slotColors: [
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFACF3AA),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFFF38D8D),
-          const Color(0xFF5978F7),
-        ],
-      ),
-    ];
-  }
+  StaffSchedulingRepositoryImpl(this._remoteDataSource);
 
   @override
   Future<void> addSchedule(Map<String, dynamic> data) async {
-    // Simulating API delay
-    await Future.delayed(const Duration(milliseconds: 1000));
+    // Scheduling no longer uses local Isar/Cache storage.
+    await _remoteDataSource.addSchedule(data);
   }
 
   @override
   Future<void> editSchedule(String id, Map<String, dynamic> data) async {
-    // Simulating API delay
-    await Future.delayed(const Duration(milliseconds: 1000));
+    await _remoteDataSource.editSchedule(id, data);
+  }
+
+  @override
+  Future<StaffShiftEntity?> getShiftByCode(String shiftCode) async {
+    final map = await _remoteDataSource.getShiftByCode(shiftCode);
+    if (map == null) return null;
+    return StaffShiftCollection.fromMap(map).toEntity();
+  }
+
+  @override
+  Future<List<StaffShiftEntity>> getStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    String? classroomCode,
+    required String dateFrom,
+    required String dateTo,
+    String? shiftStatus,
+    int page = 0,
+    int size = 50,
+  }) async {
+    final remoteShifts = await _remoteDataSource.getStaffShifts(
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      classroomCode: classroomCode,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      // shiftStatus: shiftStatus ?? 'PUBLISHED',
+      page: page,
+      size: size,
+    );
+
+    return remoteShifts
+        .map((map) => StaffShiftCollection.fromMap(map).toEntity())
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllClassrooms(String schoolCode) async {
+    return await _remoteDataSource.getAllClassrooms(schoolCode);
+  }
+
+  @override
+  Future<List<ScheduleEntryEntity>> getClassroomSchedules() async {
+    return [];
   }
 }

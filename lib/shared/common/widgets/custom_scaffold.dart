@@ -171,22 +171,32 @@ import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
 
+import 'custom_button_layout.dart';
+
 class GlobalScaffold extends StatefulWidget {
   const GlobalScaffold({
     required this.body,
     this.hasBackButton = false,
     this.floatingActionButton,
     this.showCustomNavigationBar = true,
+    this.showCustomNavigationBarButtons = false,
     this.isParent = false,
     this.studentList,
     this.customButtonLayout,
+    this.confirmButtonLabel,
+    this.cancelButtonLabel,
+    this.onPressedConfirm,
+    this.onPressedCancel,
+    this.isLoading = false,
+    this.showCancelButton = true,
+
     /// When null, defaults to 8 px on all sides. Screens like the activity feed
     /// can use asymmetric padding (e.g. zero right/bottom) to align with edges and
     /// sit closer above the bottom navigation bar.
     this.bodyPadding,
     super.key,
   });
-
+  final bool showCustomNavigationBarButtons;
   final Widget body;
   final bool hasBackButton;
   final Widget? floatingActionButton;
@@ -195,6 +205,14 @@ class GlobalScaffold extends StatefulWidget {
   final List<String>? studentList;
   final Widget? customButtonLayout;
   final EdgeInsetsGeometry? bodyPadding;
+  final String? confirmButtonLabel;
+  final String? cancelButtonLabel;
+
+  final VoidCallback? onPressedConfirm;
+  final VoidCallback? onPressedCancel;
+
+  final bool isLoading;
+  final bool showCancelButton;
 
   @override
   State<GlobalScaffold> createState() => _GlobalScaffoldState();
@@ -254,11 +272,48 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
         ),
         extendBody: true,
         floatingActionButton: widget.floatingActionButton,
-        bottomNavigationBar: widget.showCustomNavigationBar
-            // Let the bar size to its natural height (same as the attendance
-            // screens). AnimatedSize keeps the hide-on-scroll animation by
-            // collapsing to zero, without forcing a fixed height that
-            // overflows on devices with a large bottom system inset.
+        // bottomNavigationBar: widget.showCustomNavigationBar
+        //     // Let the bar size to its natural height (same as the attendance
+        //     // screens). AnimatedSize keeps the hide-on-scroll animation by
+        //     // collapsing to zero, without forcing a fixed height that
+        //     // overflows on devices with a large bottom system inset.
+        //     ? AnimatedSize(
+        //         duration: const Duration(milliseconds: 200),
+        //         curve: Curves.easeInOut,
+        //         child: _showBars
+        //             ? const CustomNavigationBar()
+        //             : const SizedBox.shrink(),
+        //       )
+        //     : widget.customButtonLayout,
+        bottomNavigationBar: widget.showCustomNavigationBarButtons
+            ? Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: CustomButtonLayout(
+                    confirmButtonLabel: widget.confirmButtonLabel ?? 'Confirm',
+                    cancelButtonLabel: widget.cancelButtonLabel ?? 'Cancel',
+                    onPressedConfirm: widget.isLoading
+                        ? null
+                        : widget.onPressedConfirm,
+                    onPressedCancel: widget.onPressedCancel,
+                    showCancelButton: widget.showCancelButton,
+                    isForm: false,
+                    isLoading: widget.isLoading,
+                  ),
+                ),
+              )
+            : widget.showCustomNavigationBar
             ? AnimatedSize(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,

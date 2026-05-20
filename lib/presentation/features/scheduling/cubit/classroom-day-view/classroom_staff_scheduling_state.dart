@@ -1,0 +1,70 @@
+import '../../../../../domain/features/staff_scheduling/entities/staff_shift.dart';
+import '../../model/staff_schedule_staff_vm.dart';
+
+abstract class StaffSchedulingState {}
+
+class StaffSchedulingInitial extends StaffSchedulingState {}
+
+class StaffSchedulingLoaded extends StaffSchedulingState {
+  final bool expandAll;
+  final String? selectedClassroom;
+  final String? selectedPublish;
+  final List<StaffScheduleStaffVm> staffList;
+  final List<StaffShiftEntity> staffShifts;
+  final List<Map<String, dynamic>> allClassrooms;
+  // ADD THIS
+  final bool isLoadingShifts;
+
+  /// ✅ NEW
+  final Map<String, bool> expandedMap;
+  final Map<String, int?> activeMessageMap;
+  final bool isDailyView;
+  final DateTime? selectedDate;
+
+  StaffSchedulingLoaded({
+    required this.expandAll,
+    required this.staffList,
+    this.staffShifts = const [],
+    this.allClassrooms = const [],
+    this.selectedClassroom,
+    this.selectedPublish,
+    this.expandedMap = const {},
+    this.activeMessageMap = const {},
+    this.isDailyView = false,
+    this.selectedDate,
+    // ADD THIS
+    this.isLoadingShifts = false,
+  });
+
+  StaffSchedulingLoaded copyWith({
+    bool? expandAll,
+    String? selectedClassroom,
+    String? selectedPublish,
+    List<StaffScheduleStaffVm>? staffList,
+    List<StaffShiftEntity>? staffShifts,
+    List<Map<String, dynamic>>? allClassrooms,
+    Map<String, bool>? expandedMap,
+    Map<String, int?>? activeMessageMap,
+    bool? isDailyView,
+    DateTime? selectedDate,
+
+    // ADD THIS
+    bool? isLoadingShifts,
+  }) {
+    return StaffSchedulingLoaded(
+      expandAll: expandAll ?? this.expandAll,
+      staffList: staffList ?? this.staffList,
+      staffShifts: staffShifts ?? this.staffShifts,
+      allClassrooms: allClassrooms ?? this.allClassrooms,
+      selectedClassroom: selectedClassroom ?? this.selectedClassroom,
+      selectedPublish: selectedPublish ?? this.selectedPublish,
+      expandedMap: expandedMap ?? this.expandedMap,
+      activeMessageMap: activeMessageMap ?? this.activeMessageMap,
+      isDailyView: isDailyView ?? this.isDailyView,
+      selectedDate: selectedDate ?? this.selectedDate,
+
+      // ADD THIS
+      isLoadingShifts: isLoadingShifts ?? this.isLoadingShifts,
+    );
+  }
+}

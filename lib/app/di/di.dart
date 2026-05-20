@@ -34,6 +34,7 @@ import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.d
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
+import '../../domain/features/staff/usecases/get_staff_by_school_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
@@ -58,6 +59,8 @@ import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
 import '../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
+import '../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
+import '../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.dart';
 import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
@@ -129,8 +132,9 @@ import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/classroom_schedule_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/schedule_form_cubit.dart';
+import '../../presentation/features/scheduling/cubit/Add-Shift/cubit/edit_and_publish_schedule_form_cubit.dart';
+import '../../presentation/features/scheduling/cubit/classroom-day-view/classroom_day_schedule_cubit.dart';
+import '../../presentation/features/scheduling/cubit/classroom-day-view/classroom_staff_scheduling_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -299,7 +303,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
-    () => StaffSchedulingRepositoryImpl(),
+    () => StaffSchedulingRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffListBySchoolUseCase>(
+    () => GetStaffListBySchoolUseCase(serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<CommunicationRepository>(
@@ -569,6 +576,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SaveScheduleUseCase>(
     () => SaveScheduleUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStaffShiftsUseCase>(
+    () => GetStaffShiftsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAllClassroomsUseCase>(
+    () => GetAllClassroomsUseCase(serviceLocator()),
+  );
 
   serviceLocator.registerFactory<GetMessagesUseCase>(
     () => GetMessagesUseCase(serviceLocator()),
@@ -600,6 +613,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffCountUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+      getStaffListBySchoolUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffDocumentCubit>(
@@ -732,10 +746,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerFactory<ClassroomScheduleCubit>(
-    () => ClassroomScheduleCubit(serviceLocator()),
+    () => ClassroomScheduleCubit(
+      serviceLocator(),
+      serviceLocator(),
+      serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<ScheduleFormCubit>(
     () => ScheduleFormCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSchedulingCubit>(
+    () => StaffSchedulingCubit(
+      serviceLocator(),
+      serviceLocator(),
+      serviceLocator(),
+    ),
   );
 
   serviceLocator.registerFactory<CommunicationCubit>(
