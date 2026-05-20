@@ -10,9 +10,14 @@ import 'staff_schedule_tile.dart';
 /// column so they stack vertically aligned.
 const double kSchedulingStatusColumnWidth = 140;
 
-/// Grid colour for the table dividers — matches the outer card border
-/// (`Color(0x33162831)`) so the inside lines extend the outer frame.
-const Color kSchedulingGridColor = Color(0x33162831);
+/// Grid colour for the body row dividers — soft grey from the design spec.
+const Color kSchedulingGridColor = Color(0xFFE9ECEF);
+
+/// Blue border colour used to set the header row apart from the body.
+const Color kSchedulingHeaderBorderColor = Color(0x332C62E2);
+
+/// Pinkish background colour for the table's header row.
+const Color kSchedulingHeaderBackground = Color(0xB2F9F5FA);
 
 /// A single row of the schedule table: [left] cell + vertical divider +
 /// fixed-width [right] cell, followed by a horizontal divider unless [isLast].
@@ -23,12 +28,16 @@ class SchedulingTableRow extends StatelessWidget {
     required this.right,
     this.onTap,
     this.isLast = false,
+    this.dividerColor = kSchedulingGridColor,
+    this.backgroundColor,
   });
 
   final Widget left;
   final Widget right;
   final VoidCallback? onTap;
   final bool isLast;
+  final Color dividerColor;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +46,7 @@ class SchedulingTableRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: left),
-          Container(width: 1, color: kSchedulingGridColor),
+          Container(width: 1, color: dividerColor),
           SizedBox(
             width: kSchedulingStatusColumnWidth,
             child: Center(child: right),
@@ -48,11 +57,14 @@ class SchedulingTableRow extends StatelessWidget {
     final tapped = onTap != null
         ? InkWell(onTap: onTap, child: row)
         : row;
+    final filled = backgroundColor != null
+        ? ColoredBox(color: backgroundColor!, child: tapped)
+        : tapped;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        tapped,
-        if (!isLast) Container(height: 1, color: kSchedulingGridColor),
+        filled,
+        if (!isLast) Container(height: 1, color: dividerColor),
       ],
     );
   }

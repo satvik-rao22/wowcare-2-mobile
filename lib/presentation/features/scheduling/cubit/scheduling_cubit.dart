@@ -27,13 +27,57 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     emit(state.copyWith(selectedDay: normalized));
   }
 
+  void shiftSelectedDay(int deltaDays) {
+    selectDay(state.selectedDay.add(Duration(days: deltaDays)));
+  }
+
+  void setViewMode(SchedulingViewMode mode) {
+    if (state.viewMode == mode) return;
+    emit(state.copyWith(viewMode: mode));
+  }
+
   // ---------------- Mock data ----------------
+
+  // 24 slots covering a workday-ish window. Each slot is treated as ~30 min.
+  static const List<TimeSlotStatus> _classroomSlotsBlueD = [
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
+    TimeSlotStatus.underRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.overRatio, TimeSlotStatus.overRatio,
+    TimeSlotStatus.empty, TimeSlotStatus.empty, TimeSlotStatus.empty,
+  ];
+
+  static const List<TimeSlotStatus> _staffSlotsA = [
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.empty, TimeSlotStatus.empty, TimeSlotStatus.empty,
+  ];
+
+  static const List<TimeSlotStatus> _staffSlotsB = [
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
+    TimeSlotStatus.inRatio, TimeSlotStatus.empty, TimeSlotStatus.empty,
+    TimeSlotStatus.empty, TimeSlotStatus.empty, TimeSlotStatus.empty,
+  ];
 
   static const List<ClassroomDaySchedule> _mockClassrooms = [
     ClassroomDaySchedule(
       classroomCode: 'CLS_BLUE_D',
       classroomName: '1-Blue-D',
       ratioStatus: ClassroomRatioStatus.underRatio,
+      daySlots: _classroomSlotsBlueD,
       staff: [
         StaffScheduleEntry(
           staffName: 'Ana Biwalkar',
@@ -41,6 +85,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           availableHours: 55,
           startTime: '07:00 AM',
           endTime: '05:00 PM',
+          daySlots: _staffSlotsA,
         ),
         StaffScheduleEntry(
           staffName: 'Ana Biwalkar',
@@ -48,6 +93,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           availableHours: 55,
           startTime: '07:00 AM',
           endTime: '05:00 PM',
+          daySlots: _staffSlotsB,
         ),
         StaffScheduleEntry(
           staffName: 'Ana Biwalkar',
@@ -55,6 +101,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           availableHours: 55,
           startTime: '07:00 AM',
           endTime: '05:00 PM',
+          daySlots: _staffSlotsA,
         ),
       ],
     ),
@@ -62,6 +109,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       classroomCode: 'CLS_YELLOW_C',
       classroomName: '2-Yellow-C',
       ratioStatus: ClassroomRatioStatus.inRatio,
+      daySlots: _staffSlotsB,
       staff: [
         StaffScheduleEntry(
           staffName: 'Chaitanya Desai',
@@ -69,6 +117,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           availableHours: 55,
           startTime: '07:00 AM',
           endTime: '05:00 PM',
+          daySlots: _staffSlotsA,
         ),
         StaffScheduleEntry(
           staffName: 'Spandana Shah',
@@ -76,6 +125,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           availableHours: 55,
           startTime: '07:00 AM',
           endTime: '05:00 PM',
+          daySlots: _staffSlotsB,
         ),
       ],
     ),

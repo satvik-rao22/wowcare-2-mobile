@@ -9,37 +9,59 @@ class SchedulingLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
-      spacing: 14,
-      runSpacing: 8,
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _LegendItem(
-          icon: _SvgIcon(asset: MediaRes.availableHoursIcon),
-          label: 'Available',
+        Row(
+          children: [
+            Expanded(
+              child: _LegendItem(
+                icon: _SvgIcon(asset: MediaRes.availableHoursIcon),
+                label: 'Available',
+              ),
+            ),
+            Expanded(
+              child: _LegendItem(
+                icon: _SvgIcon(asset: MediaRes.scheduledHoursIcon),
+                label: 'Scheduled',
+              ),
+            ),
+            Expanded(
+              child: _LegendItem(
+                icon: _SvgIcon(asset: MediaRes.notPublishedIcon),
+                label: 'Not Published',
+              ),
+            ),
+          ],
         ),
-        _LegendItem(
-          icon: _SvgIcon(asset: MediaRes.scheduledHoursIcon),
-          label: 'Scheduled',
-        ),
-        _LegendItem(
-          icon: _SvgIcon(asset: MediaRes.notPublishedIcon),
-          label: 'Not Published',
-        ),
-        _LegendItem(
-          icon: _SvgIcon(asset: MediaRes.publishedIcon),
-          label: 'Published',
-        ),
-        _LegendItem(
-          icon: _SvgIcon(
-            asset: MediaRes.alertTriangleIcon,
-            colorFilter:
-                ColorFilter.mode(AppColors.errorColor, BlendMode.srcIn),
-          ),
-          label: 'Under Ratio',
-        ),
-        _LegendItem(
-          icon: _SvgIcon(asset: MediaRes.greenCheckCircleIcon),
-          label: 'In Ratio',
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _LegendItem(
+                icon: _SvgIcon(asset: MediaRes.publishedIcon),
+                label: 'Published',
+              ),
+            ),
+            Expanded(
+              child: _LegendItem(
+                icon: _SvgIcon(
+                  asset: MediaRes.alertTriangleIcon,
+                  colorFilter: ColorFilter.mode(
+                    AppColors.errorColor,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                label: 'Under Ratio',
+              ),
+            ),
+            Expanded(
+              child: _LegendItem(
+                icon: _SvgIcon(asset: MediaRes.greenCheckCircleIcon),
+                label: 'In Ratio',
+              ),
+            ),
+          ],
         ),
       ],
     );

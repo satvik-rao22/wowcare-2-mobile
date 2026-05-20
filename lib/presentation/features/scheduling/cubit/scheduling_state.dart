@@ -5,6 +5,7 @@ class SchedulingState extends Equatable {
   const SchedulingState({
     required this.selectedDay,
     required this.classroomFilter,
+    required this.viewMode,
     required this.classrooms,
     this.isLoading = false,
   });
@@ -15,12 +16,14 @@ class SchedulingState extends Equatable {
     return SchedulingState(
       selectedDay: today,
       classroomFilter: null,
+      viewMode: SchedulingViewMode.week,
       classrooms: const <ClassroomDaySchedule>[],
       isLoading: true,
     );
   }
 
   final DateTime selectedDay;
+  final SchedulingViewMode viewMode;
 
   /// Selected classroom name from filter; null = all.
   final String? classroomFilter;
@@ -41,6 +44,7 @@ class SchedulingState extends Equatable {
   SchedulingState copyWith({
     DateTime? selectedDay,
     Object? classroomFilter = _noChange,
+    SchedulingViewMode? viewMode,
     List<ClassroomDaySchedule>? classrooms,
     bool? isLoading,
   }) {
@@ -49,6 +53,7 @@ class SchedulingState extends Equatable {
       classroomFilter: identical(classroomFilter, _noChange)
           ? this.classroomFilter
           : classroomFilter as String?,
+      viewMode: viewMode ?? this.viewMode,
       classrooms: classrooms ?? this.classrooms,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -58,6 +63,7 @@ class SchedulingState extends Equatable {
   List<Object?> get props => [
         selectedDay,
         classroomFilter,
+        viewMode,
         classrooms,
         isLoading,
       ];

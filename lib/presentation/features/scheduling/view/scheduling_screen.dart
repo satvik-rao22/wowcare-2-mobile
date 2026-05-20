@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../shared/common/widgets/custom_date_time_field.dart';
+import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
@@ -10,8 +11,10 @@ import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../cubit/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
 import '../widgets/day_classroom_section.dart';
+import '../widgets/day_gantt_table.dart';
 import '../widgets/scheduling_filter_bar.dart';
 import '../widgets/week_classroom_row.dart';
+import 'add_shift_screen.dart';
 
 class SchedulingScreen extends StatelessWidget {
   const SchedulingScreen({super.key});
@@ -48,6 +51,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
             .toSet()
             .toList(growable: false);
 
+        final isWeek = state.viewMode == SchedulingViewMode.week;
         return GlobalScaffold(
           hasBackButton: true,
           body: CustomRefreshIndicator(
@@ -61,27 +65,33 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                   _DatePickerHeader(
                     selectedDay: state.selectedDay,
                     onDateSelected: cubit.selectDay,
+                    viewMode: state.viewMode,
+                    onViewModeChanged: cubit.setViewMode,
                   ),
                   const SizedBox(height: 16),
-                  SchedulingFilterBar(
-                    classroomNames: classroomNames,
-                    selectedClassroom: state.classroomFilter,
-                    onClassroomChanged: cubit.setClassroomFilter,
-                  ),
-                  const SizedBox(height: 16),
+                  if (isWeek) ...[
+                    SchedulingFilterBar(
+                      classroomNames: classroomNames,
+                      selectedClassroom: state.classroomFilter,
+                      onClassroomChanged: cubit.setClassroomFilter,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   if (state.isLoading)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 60),
                       child: Center(child: PrimaryCircularLoader()),
                     )
-                  else
+                  else if (isWeek)
                     _ClassroomListCard(
                       classrooms: state.filteredClassrooms,
                       dayLabel: DateFormat('EEE d').format(state.selectedDay),
                       expandAll: _expandAll,
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
-                    ),
+                    )
+                  else
+                    DayGanttTable(classrooms: state.filteredClassrooms),
                 ],
               ),
             ),
@@ -96,10 +106,19 @@ class _DatePickerHeader extends StatelessWidget {
   const _DatePickerHeader({
     required this.selectedDay,
     required this.onDateSelected,
+    required this.viewMode,
+    required this.onViewModeChanged,
   });
 
   final DateTime selectedDay;
   final ValueChanged<DateTime> onDateSelected;
+  final SchedulingViewMode viewMode;
+  final ValueChanged<SchedulingViewMode> onViewModeChanged;
+
+  static const _viewModeLabels = <SchedulingViewMode, String>{
+    SchedulingViewMode.week: 'Week',
+    SchedulingViewMode.day: 'Day',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +134,37 @@ class _DatePickerHeader extends StatelessWidget {
             onDateSelected: onDateSelected,
           ),
         ),
-        const SizedBox(width: 12),
-        GradientAddButton(onTap: () {}),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 110,
+          child: CustomDropdown(
+            hintText: 'View',
+            items: _viewModeLabels.values.toList(growable: false),
+            selectedItem: _viewModeLabels[viewMode],
+            prependHintAsSelectableItem: false,
+            fieldHeight: 44,
+            onSelect: (label) {
+              if (label == null) return;
+              final next = _viewModeLabels.entries
+                  .firstWhere(
+                    (e) => e.value == label,
+                    orElse: () => _viewModeLabels.entries.first,
+                  )
+                  .key;
+              onViewModeChanged(next);
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        GradientAddButton(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AddShiftScreen(initialDate: selectedDay),
+              ),
+            );
+          },
+        ),
       ],
     );
   }

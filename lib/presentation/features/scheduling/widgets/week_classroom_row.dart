@@ -22,6 +22,8 @@ class WeekClassroomHeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SchedulingTableRow(
       onTap: onToggleExpandAll,
+      dividerColor: kSchedulingHeaderBorderColor,
+      backgroundColor: kSchedulingHeaderBackground,
       left: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         child: Text(

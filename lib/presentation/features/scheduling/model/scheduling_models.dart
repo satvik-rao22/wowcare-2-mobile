@@ -3,6 +3,12 @@ import 'package:flutter/foundation.dart';
 /// Ratio outcome for a classroom on a given day.
 enum ClassroomRatioStatus { inRatio, underRatio }
 
+/// Top-level view mode for the schedule screen.
+enum SchedulingViewMode { week, day }
+
+/// Per-slot status used by the day-Gantt timeline strip.
+enum TimeSlotStatus { inRatio, underRatio, overRatio, empty }
+
 /// A single staff member's schedule entry for one day.
 @immutable
 class StaffScheduleEntry {
@@ -13,6 +19,7 @@ class StaffScheduleEntry {
     required this.startTime,
     required this.endTime,
     this.photoUrl,
+    this.daySlots = const <TimeSlotStatus>[],
   });
 
   final String staffName;
@@ -21,6 +28,9 @@ class StaffScheduleEntry {
   final String startTime;
   final String endTime;
   final String? photoUrl;
+
+  /// Status per slot for the day-Gantt timeline (ordered earliest → latest).
+  final List<TimeSlotStatus> daySlots;
 }
 
 /// One classroom's per-day schedule (used by both week and day views).
@@ -31,10 +41,14 @@ class ClassroomDaySchedule {
     required this.classroomName,
     required this.ratioStatus,
     this.staff = const <StaffScheduleEntry>[],
+    this.daySlots = const <TimeSlotStatus>[],
   });
 
   final String classroomCode;
   final String classroomName;
   final ClassroomRatioStatus ratioStatus;
   final List<StaffScheduleEntry> staff;
+
+  /// Aggregate timeline shown next to "Class Schedule" in the day view.
+  final List<TimeSlotStatus> daySlots;
 }
