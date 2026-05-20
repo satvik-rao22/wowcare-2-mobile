@@ -5,7 +5,6 @@ import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
 import '../entities/school_regular_schedule_day.dart';
-
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
     required String organizationCode,

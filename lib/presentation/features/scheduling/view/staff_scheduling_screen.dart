@@ -1,157 +1,219 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Staff Scheduling — single-day view with staff picker, profile summary,
-/// hour totals, and day timeline. UI-only with mock data.
-class StaffSchedulingScreen extends StatefulWidget {
+/// hour totals, and day timeline backed by staff list + staff-shifts APIs.
+class StaffSchedulingScreen extends StatelessWidget {
   const StaffSchedulingScreen({super.key});
 
   static const String routeName = '/dashboard/staff-scheduling';
 
   @override
-  State<StaffSchedulingScreen> createState() => _StaffSchedulingScreenState();
+  Widget build(BuildContext context) {
+    return const _StaffSchedulingView();
+  }
 }
 
-class _StaffSchedulingScreenState extends State<StaffSchedulingScreen> {
-  DateTime _selectedDay = DateTime.now();
-  String? _selectedStaff;
+class _StaffSchedulingView extends StatelessWidget {
+  const _StaffSchedulingView();
 
-  static const List<String> _mockStaffNames = [
-    'Jessica Rhodes',
-    'Natasha White',
-    'Michael Chen',
-  ];
-
-  static const _mockProfileByStaff = <String, ({String title, String room})>{
-    'Jessica Rhodes': (title: 'Lead Teacher', room: '1-Blue-D'),
-    'Natasha White': (title: 'Lead Teacher', room: '1-Blue-D'),
-    'Michael Chen': (title: 'Assistant Teacher', room: '2-Green-A'),
-  };
-
-  static const String _availableHours = '45';
-  static const String _scheduledHours = '35';
-  static const String _unscheduledHours = '10';
-
-  static const List<Shift> _mockShifts = [
-    Shift(start: '07:00:00 AM', end: '05:30:00 PM', room: '1-Blue-D'),
-    Shift(
-      start: '12:00:00 PM',
-      end: '12:30:00 PM',
-      room: 'Lunch Break',
-      isBreakShift: true,
-    ),
-  ];
-
-  String get _displayStaffName =>
-      _selectedStaff != null &&
-              _selectedStaff != 'Select Staff' &&
-              _mockStaffNames.contains(_selectedStaff)
-          ? _selectedStaff!
-          : _mockStaffNames.first;
+  List<Shift> _shiftsFromSummary(StaffShiftDaySummary summary) {
+    return summary.blocks
+        .map(
+          (b) => Shift(
+            start: b.start,
+            end: b.end,
+            room: b.room,
+            isBreakShift: b.isBreak,
+          ),
+        )
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final profile = _mockProfileByStaff[_displayStaffName] ??
-        (title: 'Lead Teacher', room: '1-Blue-D');
-    final dayColumnLabel = DateFormat('EEE, MMM d').format(_selectedDay);
+    return BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
+      builder: (context, state) {
+        final cubit = context.read<StaffSchedulingCubit>();
+        final staff = state.selectedStaff;
+        final dayColumnLabel =
+            DateFormat('EEE, MMM d').format(state.selectedDay);
+        final calendarShifts = _shiftsFromSummary(state.shiftSummary);
 
-    return GlobalScaffold(
-      hasBackButton: true,
-      body: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DateHeaderRow(
-              selectedDay: _selectedDay,
-              onPreviousDay: () => setState(
-                () => _selectedDay = _selectedDay.subtract(
-                  const Duration(days: 1),
-                ),
-              ),
-              onNextDay: () => setState(
-                () => _selectedDay = _selectedDay.add(const Duration(days: 1)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0x19162831)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: CustomDropdown(
-                hintText: 'Select Staff',
-                items: _mockStaffNames,
-                selectedItem: _selectedStaff,
-                fieldHeight: 44,
-                onSelect: (value) => setState(() => _selectedStaff = value),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
+        return GlobalScaffold(
+          hasBackButton: true,
+          body: CustomRefreshIndicator(
+            onRefresh: cubit.refresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(
-                  color: AppColors.primaryColor.withValues(alpha: 0.1),
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _StaffProfileHeader(
-                    staffName: _displayStaffName,
-                    designation: profile.title,
-                    classroom: profile.room,
+                  _DateHeaderRow(
+                    selectedDay: state.selectedDay,
+                    onPreviousDay: () => cubit.shiftSelectedDay(-1),
+                    onNextDay: () => cubit.shiftSelectedDay(1),
                   ),
-                  const SizedBox(height: 16),
-                  const ShiftHoursTile(
-                    bgColor: Color.fromRGBO(255, 250, 234, 1),
-                    label: 'Available Hours',
-                    hours: _availableHours,
-                    icon: MediaRes.availableHoursIcon,
-                  ),
-                  const SizedBox(height: 16),
-                  const ShiftHoursTile(
-                    bgColor: Color.fromRGBO(234, 255, 250, 1),
-                    label: 'Scheduled Hours',
-                    hours: _scheduledHours,
-                    icon: MediaRes.scheduledHoursIcon,
-                  ),
-                  const SizedBox(height: 16),
-                  const ShiftHoursTile(
-                    bgColor: Color.fromRGBO(22, 40, 49, 0.01),
-                    label: 'Unscheduled Hours',
-                    hours: _unscheduledHours,
-                    icon: MediaRes.unScheduledHoursIcon,
-                  ),
-                  const SizedBox(height: 20),
-                  StaffDayScheduleCalendar(
-                    key: ValueKey(
-                      '${_displayStaffName}_${dayColumnLabel}_$_selectedDay',
+                  if (state.errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      state.errorMessage!,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: AppColors.errorColor,
+                        fontSize: 13,
+                      ),
                     ),
-                    dayColumnLabel: dayColumnLabel,
-                    dailyRoomSchedule: const DailyShifts(shifts: _mockShifts),
+                  ],
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0x19162831)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: state.isLoadingStaff
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(child: PrimaryCircularLoader()),
+                          )
+                        : CustomDropdown(
+                            hintText: 'Select Staff',
+                            items: state.staffDropdownNames,
+                            selectedItem: state.selectedStaffDropdownLabel,
+                            fieldHeight: 44,
+                            prependHintAsSelectableItem: false,
+                            onSelect: cubit.selectStaffByName,
+                          ),
                   ),
+                  const SizedBox(height: 16),
+                  if (staff != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _StaffProfileHeader(
+                            staffCode: staff.code,
+                            staffName: staff.name,
+                            designation: formatDesignationForDisplay(
+                              staff.designation,
+                            ),
+                            classroom: staff.displayClassroomName,
+                            profilePhotoAssetCode: staff.profilePhotoAssetCode,
+                          ),
+                          const SizedBox(height: 16),
+                          if (state.isLoadingShifts)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Center(child: PrimaryCircularLoader()),
+                            )
+                          else ...[
+                            ShiftHoursTile(
+                              bgColor: const Color.fromRGBO(255, 250, 234, 1),
+                              label: 'Available Hours',
+                              hours: '${state.shiftSummary.availableHours}',
+                              icon: MediaRes.availableHoursIcon,
+                            ),
+                            const SizedBox(height: 16),
+                            ShiftHoursTile(
+                              bgColor: const Color.fromRGBO(234, 255, 250, 1),
+                              label: 'Scheduled Hours',
+                              hours: '${state.shiftSummary.scheduledHours}',
+                              icon: MediaRes.scheduledHoursIcon,
+                            ),
+                            const SizedBox(height: 16),
+                            ShiftHoursTile(
+                              bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
+                              label: 'Unscheduled Hours',
+                              hours: '${state.shiftSummary.unscheduledHours}',
+                              icon: MediaRes.unScheduledHoursIcon,
+                            ),
+                            const SizedBox(height: 20),
+                            if (state.isLoadingSchoolHours)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: PrimaryCircularLoader(),
+                                ),
+                              )
+                            else if (!state.hasSchoolHoursForDay)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: Text(
+                                    'No school hours configured for this day.',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      color: AppColors.primaryColor,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              )
+                            else
+                              StaffDayScheduleCalendar(
+                                key: ValueKey(
+                                  '${staff.code}_${dayColumnLabel}_'
+                                  '${state.schoolStartTime}_${state.schoolEndTime}',
+                                ),
+                                dayColumnLabel: dayColumnLabel,
+                                schoolStartTime: state.schoolStartTime!,
+                                schoolEndTime: state.schoolEndTime!,
+                                dailyRoomSchedule:
+                                    DailyShifts(shifts: calendarShifts),
+                              ),
+                          ],
+                        ],
+                      ),
+                    )
+                  else if (!state.isLoadingStaff)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Text(
+                          'Select a staff member to view their schedule.',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            color: AppColors.primaryColor,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -221,7 +283,6 @@ class _DateHeaderRow extends StatelessWidget {
   }
 }
 
-/// Gradient action button matching [GradientAddButton], with label text.
 class _GradientPublishButton extends StatelessWidget {
   const _GradientPublishButton({this.onTap});
 
@@ -266,14 +327,18 @@ class _GradientPublishButton extends StatelessWidget {
 
 class _StaffProfileHeader extends StatelessWidget {
   const _StaffProfileHeader({
+    required this.staffCode,
     required this.staffName,
     required this.designation,
     required this.classroom,
+    this.profilePhotoAssetCode,
   });
 
+  final String staffCode;
   final String staffName;
   final String designation;
   final String classroom;
+  final String? profilePhotoAssetCode;
 
   @override
   Widget build(BuildContext context) {
@@ -282,11 +347,14 @@ class _StaffProfileHeader extends StatelessWidget {
         Stack(
           children: [
             DocumentImageWidget(
-              fileUuid: staffName,
+              fileUuid: staffCode,
               name: staffName,
+              mediaAssetCode: profilePhotoAssetCode,
+              staffCode: staffCode,
               size: 80,
               fontSize: 28,
-              disableProfileLookupFallback: true,
+              disableProfileLookupFallback: profilePhotoAssetCode != null &&
+                  profilePhotoAssetCode!.isNotEmpty,
               disableAttendanceStatusLookup: true,
             ),
             Positioned(
