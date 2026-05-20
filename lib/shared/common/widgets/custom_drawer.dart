@@ -25,6 +25,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
+import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
@@ -915,13 +916,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                 ),
                                 onTap: () {
+                                  final captured = _currentRoute;
                                   Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text('Staff Scheduling coming soon'),
-                                    ),
-                                  );
+                                  if (captured !=
+                                      StaffSchedulingScreen.routeName) {
+                                    context.go(
+                                      StaffSchedulingScreen.routeName,
+                                    );
+                                  }
                                 },
                               ),
                             ],

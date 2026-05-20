@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_profile_details_sc
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -262,6 +263,11 @@ final GoRouter appRouter = GoRouter(
                   path: 'scheduling',
                   pageBuilder: (context, state) =>
                       _fastPage(state, const SchedulingScreen()),
+                ),
+                GoRoute(
+                  path: 'staff-scheduling',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StaffSchedulingScreen()),
                 ),
                 GoRoute(
                   path: 'future-availability',
