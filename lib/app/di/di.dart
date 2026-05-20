@@ -41,6 +41,11 @@ import '../../domain/features/onboarding/repositories/onboarding_repository.dart
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../data/features/scheduling/datasources/staff_scheduling_remote_datasource.dart';
+import '../../data/features/scheduling/repositories/staff_scheduling_repository_impl.dart';
+import '../../domain/features/scheduling/repositories/staff_scheduling_repository.dart';
+import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
+import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -226,6 +231,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => AvailabilityRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
+  // Staff Scheduling (staff MS — `/api/v1/staff-shifts`)
+  serviceLocator.registerLazySingleton<StaffSchedulingRemoteDataSource>(
+    () => StaffSchedulingRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
+  );
+
   // Classroom Data Sources
   serviceLocator.registerLazySingleton<ClassroomRemoteDataSource>(
     () => ClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
@@ -304,6 +316,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
     () => AvailabilityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
+  serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
+    () => StaffSchedulingRepositoryImpl(serviceLocator()),
+  );
   serviceLocator.registerLazySingleton<StudentClassroomRepository>(
     () => StudentClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
   );
@@ -345,6 +360,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffShiftsUseCase>(
+    () => GetStaffShiftsUseCase(serviceLocator<StaffSchedulingRepository>()),
   );
   serviceLocator.registerFactory<GetStaffCountUseCase>(
     () => GetStaffCountUseCase(serviceLocator()),
@@ -754,5 +772,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
     () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSchedulingCubit>(
+    () => StaffSchedulingCubit(
+      getStaffPageUseCase: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
 }

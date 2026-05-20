@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 
 /// Day shift calendar for [StaffSchedulingScreen]: hourly time column plus
 /// positioned shift blocks. The day column label is supplied by the parent
@@ -11,14 +12,19 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     super.key,
     required this.dailyRoomSchedule,
     required this.dayColumnLabel,
-    this.schoolStartTime = '06:00:00 AM',
-    this.schoolEndTime = '06:30:00 PM',
-    this.onShiftTap,
+    required this.schoolStartTime,
+    required this.schoolEndTime,
+    this.classroomResolver,
   });
 
   final DailyShifts dailyRoomSchedule;
   final String dayColumnLabel;
+  final ClassroomNameResolver? classroomResolver;
+
+  /// School open time for the selected weekday (`hh:mm:ss a`).
   final String schoolStartTime;
+
+  /// School close time for the selected weekday (`hh:mm:ss a`).
   final String schoolEndTime;
 
   /// Fires when the user taps a non-break shift block. Break blocks are not
@@ -46,12 +52,18 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   @override
   void didUpdateWidget(StaffDayScheduleCalendar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dailyRoomSchedule != widget.dailyRoomSchedule) {
+    final scheduleChanged =
+        oldWidget.dailyRoomSchedule != widget.dailyRoomSchedule;
+    final hoursChanged = oldWidget.schoolStartTime != widget.schoolStartTime ||
+        oldWidget.schoolEndTime != widget.schoolEndTime;
+    if (scheduleChanged) {
       _shifts = List<Shift>.of(widget.dailyRoomSchedule.shifts)
         ..sort((a, b) {
           if (a.isBreakShift == b.isBreakShift) return 0;
           return a.isBreakShift ? 1 : -1;
         });
+    } else if (hoursChanged) {
+      setState(() {});
     }
   }
 
@@ -180,22 +192,30 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     return Column(children: slots.map(_buildTimeItem).toList());
   }
 
+  String _displayRoom(Shift shift) {
+    if (shift.isBreakShift) return shift.room;
+    return widget.classroomResolver?.resolveShiftRoom(shift.room) ??
+        shift.room;
+  }
+
   Widget _buildSingleShift(Shift shift) {
+    final roomLabel = _displayRoom(shift);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
-            shift.room,
+            roomLabel,
             style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: AppColors.secondaryColor,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 3,
+            softWrap: true,
           ),
           const SizedBox(height: 8),
           Text(
@@ -257,15 +277,36 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           shift.start,
         ) *
         cellHeightRow;
-    final shiftWidget = shift.isBreakShift
-        ? _buildBreakShift(shift)
-        : _buildSingleShift(shift);
+
+    if (shift.isBreakShift) {
+      return Positioned(
+        top: topSpace,
+        left: 0,
+        right: 0,
+        child: SizedBox(
+          height: height,
+          child: _buildBreakShift(shift),
+        ),
+      );
+    }
+
     return Positioned(
       top: topSpace,
       left: 0,
       right: 0,
       child: SizedBox(
         height: height,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color.fromRGBO(234, 244, 255, 1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.themeColor.withValues(alpha: 0.15),
+            ),
+          ),
+          child: _buildSingleShift(shift),
+        ),
         child: shift.isBreakShift || widget.onShiftTap == null
             ? shiftWidget
             : GestureDetector(
@@ -282,17 +323,24 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       widget.schoolStartTime,
       widget.schoolEndTime,
     ).length;
+    final workShifts =
+        _shifts.where((s) => !s.isBreakShift).toList(growable: false);
+    final breakShifts =
+        _shifts.where((s) => s.isBreakShift).toList(growable: false);
+
     return SizedBox(
       height: cellHeightRow * slotCount,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color.fromRGBO(234, 244, 255, 1),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            ..._shifts.map(_buildTimeContainer),
+            ...workShifts.map(_buildTimeContainer),
+            ...breakShifts.map(_buildTimeContainer),
             if (_shifts.isEmpty)
               const Center(
                 child: Text(

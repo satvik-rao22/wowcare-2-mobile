@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_profile_details_sc
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
@@ -284,6 +285,9 @@ final GoRouter appRouter = GoRouter(
                   path: 'staff-scheduling',
                   pageBuilder: (context, state) => _fastPage(
                     state,
+                    BlocProvider(
+                      create: (_) =>
+                          serviceLocator<StaffSchedulingCubit>()..loadInitial(),
                     MultiBlocProvider(
                       providers: [
                         BlocProvider<StaffCubit>(

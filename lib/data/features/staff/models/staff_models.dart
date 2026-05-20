@@ -314,11 +314,18 @@ class StaffProfileTimeModel extends Equatable {
     
     // If it's already a Map (object format), parse it
     if (json is Map<String, dynamic>) {
+      int toInt(dynamic v) {
+        if (v == null) return 0;
+        if (v is int) return v;
+        if (v is num) return v.round();
+        return int.tryParse(v.toString()) ?? 0;
+      }
+
       return StaffProfileTimeModel(
-        hour: json['hour'] as int? ?? 0,
-        minute: json['minute'] as int? ?? 0,
-        second: json['second'] as int? ?? 0,
-        nano: json['nano'] as int? ?? 0,
+        hour: toInt(json['hour']),
+        minute: toInt(json['minute']),
+        second: toInt(json['second']),
+        nano: toInt(json['nano']),
       );
     }
     
