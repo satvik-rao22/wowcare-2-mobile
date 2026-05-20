@@ -57,9 +57,6 @@ import '../../domain/features/staff_classroom/usecases/get_staff_classrooms_usec
 import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
-import '../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
-import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.dart';
-import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
@@ -129,8 +126,6 @@ import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/classroom_schedule_cubit.dart';
-import '../../presentation/features/staff-scheduling/cubit/schedule_form_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -298,10 +293,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<ActivityRepository>(
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
-  serviceLocator.registerLazySingleton<StaffSchedulingRepository>(
-    () => StaffSchedulingRepositoryImpl(),
-  );
-
   serviceLocator.registerLazySingleton<CommunicationRepository>(
     () => CommunicationRepositoryImpl(
       remoteDataSource: serviceLocator(),
@@ -566,10 +557,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AssignStaffToClassroomUseCase>(
     () => AssignStaffToClassroomUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<SaveScheduleUseCase>(
-    () => SaveScheduleUseCase(serviceLocator()),
-  );
-
   serviceLocator.registerFactory<GetMessagesUseCase>(
     () => GetMessagesUseCase(serviceLocator()),
   );
@@ -731,13 +718,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStudentImportantDatesUseCase: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<ClassroomScheduleCubit>(
-    () => ClassroomScheduleCubit(serviceLocator()),
-  );
-  serviceLocator.registerFactory<ScheduleFormCubit>(
-    () => ScheduleFormCubit(serviceLocator()),
-  );
-
   serviceLocator.registerFactory<CommunicationCubit>(
     () => CommunicationCubit(
       getMessagesUseCase: serviceLocator(),
