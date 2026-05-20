@@ -326,6 +326,13 @@ class ApiPaths {
 
   static const String staffSchedules = '/api/v1/staff-schedules';
 
+  // —— Staff shifts (staff host) ——
+  /// Canonical staff-shifts resource path (POST = create, GET = list).
+  ///
+  /// On UAT, the gateway resolves this to `/api/v1/staff/staff-shifts`
+  /// via [ApiPathsUat] (it injects the `staff` microservice segment).
+  static const String staffShifts = '/api/v1/staff-shifts';
+
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';
   static const String schoolUsersStaff = '/api/v1/school-users/staff';

@@ -71,13 +71,13 @@ class _HoursBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SvgPicture.asset(MediaRes.scheduledHoursIcon, width: 14, height: 14),
+        SvgPicture.asset(MediaRes.scheduledHoursIcon, width: 16, height: 16),
         const SizedBox(width: 4),
         Text(
           '${scheduledHours}h',
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
             color: AppColors.primaryColor,
           ),
@@ -85,7 +85,7 @@ class _HoursBadge extends StatelessWidget {
         const SizedBox(width: 8),
         Container(
           width: 1,
-          height: 12,
+          height: 14,
           color: AppColors.primaryColor.withValues(alpha: 0.25),
         ),
         const SizedBox(width: 8),
@@ -93,7 +93,7 @@ class _HoursBadge extends StatelessWidget {
           '${availableHours}h',
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
             color: AppColors.primaryColor,
           ),
@@ -135,7 +135,7 @@ class StaffTimeRangePill extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
               height: 1.3,

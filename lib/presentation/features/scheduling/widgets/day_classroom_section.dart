@@ -119,8 +119,8 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
                   widget.classroom.classroomName,
                   style: const TextStyle(
                     fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.primaryColor,
                   ),
                 ),
@@ -130,7 +130,7 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
                     _expanded
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
-                    size: 18,
+                    size: 20,
                     color: AppColors.primaryColor,
                   ),
               ],

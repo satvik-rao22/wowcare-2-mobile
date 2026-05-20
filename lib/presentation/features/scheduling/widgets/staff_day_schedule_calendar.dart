@@ -13,12 +13,17 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     required this.dayColumnLabel,
     this.schoolStartTime = '06:00:00 AM',
     this.schoolEndTime = '06:30:00 PM',
+    this.onShiftTap,
   });
 
   final DailyShifts dailyRoomSchedule;
   final String dayColumnLabel;
   final String schoolStartTime;
   final String schoolEndTime;
+
+  /// Fires when the user taps a non-break shift block. Break blocks are not
+  /// considered an editable shift, so they ignore taps.
+  final ValueChanged<Shift>? onShiftTap;
 
   @override
   State<StaffDayScheduleCalendar> createState() =>
@@ -252,15 +257,22 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           shift.start,
         ) *
         cellHeightRow;
+    final shiftWidget = shift.isBreakShift
+        ? _buildBreakShift(shift)
+        : _buildSingleShift(shift);
     return Positioned(
       top: topSpace,
       left: 0,
       right: 0,
       child: SizedBox(
         height: height,
-        child: shift.isBreakShift
-            ? _buildBreakShift(shift)
-            : _buildSingleShift(shift),
+        child: shift.isBreakShift || widget.onShiftTap == null
+            ? shiftWidget
+            : GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => widget.onShiftTap!(shift),
+                child: shiftWidget,
+              ),
       ),
     );
   }

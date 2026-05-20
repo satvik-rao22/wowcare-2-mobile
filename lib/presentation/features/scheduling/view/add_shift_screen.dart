@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -15,19 +27,15 @@ class AddShiftScreen extends StatefulWidget {
   const AddShiftScreen({
     super.key,
     this.initialDate,
-    this.initialClassroom,
-    this.initialStaff,
-    this.classrooms = const <String>[],
-    this.staff = const <String>[],
+    this.initialClassroomCode,
+    this.initialStaffCode,
   });
 
   static const String routeName = '/add-shift-screen';
 
   final DateTime? initialDate;
-  final String? initialClassroom;
-  final String? initialStaff;
-  final List<String> classrooms;
-  final List<String> staff;
+  final String? initialClassroomCode;
+  final String? initialStaffCode;
 
   @override
   State<AddShiftScreen> createState() => _AddShiftScreenState();
@@ -42,26 +50,36 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     'Friday',
   ];
 
-  static const List<String> _fallbackClassrooms = <String>[
-    '1-Blue D',
-    '2-Green A',
-    '3-Yellow B',
-    '4-Red C',
-  ];
-  static const List<String> _fallbackStaff = <String>[
-    'Kimberly Dixon',
-    'John Smith',
-    'Sara Lee',
-  ];
+  /// 1-based DayOfWeek index expected by the backend (Java).
+  static const Map<String, int> _weekDayIndex = <String, int>{
+    'Monday': 1,
+    'Tuesday': 2,
+    'Wednesday': 3,
+    'Thursday': 4,
+    'Friday': 5,
+    'Saturday': 6,
+    'Sunday': 7,
+  };
+
+  /// Maps `DateTime.weekday` (1..7) to the uppercase key used in
+  /// `StaffMember.workScheduleByDay` / `breakScheduleByDay`.
+  static const Map<int, String> _weekdayDayKey = <int, String>{
+    DateTime.monday: 'MONDAY',
+    DateTime.tuesday: 'TUESDAY',
+    DateTime.wednesday: 'WEDNESDAY',
+    DateTime.thursday: 'THURSDAY',
+    DateTime.friday: 'FRIDAY',
+    DateTime.saturday: 'SATURDAY',
+    DateTime.sunday: 'SUNDAY',
+  };
 
   DateTime? _date;
   DateTime? _untilDate;
-  String? _selectedClassroom;
-  String? _selectedStaff;
+  String? _selectedClassroomCode;
+  String? _selectedStaffCode;
 
   TimeOfDay? _shiftStart;
   TimeOfDay? _shiftEnd;
-  // PRD AC2 — break is optional. Stays null until the user picks a value.
   TimeOfDay? _breakStart;
   TimeOfDay? _breakEnd;
 
@@ -77,18 +95,23 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   String? _breakEndError;
   String? _daysError;
 
+  bool _saving = false;
+
+  /// Tracks the (staffCode|yyyy-MM-dd) combo we've already prefilled times for,
+  /// so the build-time fallback prefill (used when initialStaffCode was passed
+  /// via the constructor and the cubit hadn't loaded yet) only fires once per
+  /// new combo.
+  String? _lastPrefilledKey;
+
   @override
   void initState() {
     super.initState();
-    // PRD AC1 — date defaults to today.
     _date = widget.initialDate ?? DateTime.now();
-    _selectedClassroom = widget.initialClassroom;
-    _selectedStaff = widget.initialStaff;
-
-    // School default work time. When staff is wired, replace with staff's
-    // default work hours per PRD AC1.
-    _shiftStart = const TimeOfDay(hour: 8, minute: 0);
-    _shiftEnd = const TimeOfDay(hour: 17, minute: 0);
+    _selectedClassroomCode = widget.initialClassroomCode;
+    _selectedStaffCode = widget.initialStaffCode;
+    // Shift/break times are intentionally not seeded with hardcoded defaults
+    // anymore — they get prefilled from the selected staff's work/break
+    // schedule for the selected weekday (PRD: staff default work hours).
   }
 
   @override
@@ -97,21 +120,17 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     super.dispose();
   }
 
-  List<String> get _classrooms =>
-      widget.classrooms.isNotEmpty ? widget.classrooms : _fallbackClassrooms;
-  List<String> get _staff =>
-      widget.staff.isNotEmpty ? widget.staff : _fallbackStaff;
-
   int _minutesOf(TimeOfDay t) => t.hour * 60 + t.minute;
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  // PRD: "Missing required input → disable confirm". Gates the bottom button.
   bool get _isFormValid {
     if (_date == null) return false;
-    if (_selectedClassroom == null || _selectedClassroom!.isEmpty) return false;
-    if (_selectedStaff == null || _selectedStaff!.isEmpty) return false;
+    if (_selectedStaffCode == null || _selectedStaffCode!.isEmpty) return false;
+    if (_selectedClassroomCode == null || _selectedClassroomCode!.isEmpty) {
+      return false;
+    }
     if (_shiftStart == null || _shiftEnd == null) return false;
     if (_repeatOn) {
       if (_selectedDays.isEmpty) return false;
@@ -145,8 +164,6 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     });
   }
 
-  /// Time-relationship and break validations (PRD Section 1 AC3/AC4, Section 2 AC1).
-  /// Required-field presence is covered by the disabled Confirm button.
   bool _validate() {
     setState(() {
       _shiftStartError = null;
@@ -159,13 +176,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     final shiftStartMin = _minutesOf(_shiftStart!);
     final shiftEndMin = _minutesOf(_shiftEnd!);
 
-    // AC4: shift end > shift start
     if (shiftEndMin <= shiftStartMin) {
       setState(() => _shiftEndError = 'Shift end must be after shift start');
       return false;
     }
 
-    // AC3: break is optional. If only one side is filled, both are required.
     final hasBreakStart = _breakStart != null;
     final hasBreakEnd = _breakEnd != null;
     if (hasBreakStart != hasBreakEnd) {
@@ -179,14 +194,12 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     if (hasBreakStart && hasBreakEnd) {
       final breakStartMin = _minutesOf(_breakStart!);
       final breakEndMin = _minutesOf(_breakEnd!);
-      // AC3: break end > break start
       if (breakEndMin <= breakStartMin) {
         setState(
           () => _breakEndError = 'Break end must be after break start',
         );
         return false;
       }
-      // AC3: break must fall within shift
       if (breakStartMin < shiftStartMin || breakEndMin > shiftEndMin) {
         setState(() {
           _breakStartError = 'Break must be within shift';
@@ -196,7 +209,6 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
       }
     }
 
-    // Section 2 AC1: recurring shift "Until Date" must be ≥ start date.
     if (_repeatOn && _untilDate != null && _date != null) {
       if (_untilDate!.isBefore(_date!) && !_isSameDay(_untilDate!, _date!)) {
         setState(() => _untilDateError = 'Must be on or after the shift date');
@@ -207,124 +219,270 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     return true;
   }
 
-  /// PRD AC5 — Force-add prompt for a single shift that falls outside staff
-  /// availability. Returns true when the user confirms "Yes".
-  ///
-  /// Not yet invoked automatically: gated by staff-availability data from the
-  /// backend. When wired, call this before submit if (_repeatOn == false) and
-  /// the shift extends past staff working/break hours.
-  // ignore: unused_element
-  Future<bool> _promptForceAdd() async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Outside staff availability'),
-        content: const Text(
-          "You are adding a shift outside this staff's work & break times. "
-          'Do you still want to add this shift?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Yes'),
-          ),
-        ],
+  // ─── Staff / classroom helpers ───────────────────────────────────────────
+
+  /// When the user picks a staff member, default the classroom to their
+  /// primary one (if any), and prefill shift / break times from the staff's
+  /// work + break schedule for the currently selected date's weekday.
+  void _onStaffSelected(String? code, List<StaffMember> staff) {
+    final member = staff.firstWhere(
+      (s) => s.code == code,
+      orElse: () => const StaffMember(
+        code: '',
+        name: '',
+        primaryClassroomCode: '',
+        allowedClassroomCodes: <String>[],
+        designation: '',
+        phoneNumber: '',
+        status: '',
+        email: '',
       ),
     );
-    return result ?? false;
+    setState(() {
+      _selectedStaffCode = code;
+      final primary = member.primaryClassroomCode.trim();
+      final allowed = member.allowedClassroomCodes.toSet();
+      if (primary.isNotEmpty) {
+        _selectedClassroomCode = primary;
+      } else if (allowed.isNotEmpty) {
+        _selectedClassroomCode = allowed.first;
+      } else if (_selectedClassroomCode != null &&
+          allowed.isNotEmpty &&
+          !allowed.contains(_selectedClassroomCode)) {
+        _selectedClassroomCode = null;
+      }
+    });
+    _prefillTimesFromSchedule(code == null || code.isEmpty ? null : member);
   }
 
-  /// PRD AC6 / Section 3 — Overlap or duplicate prompt. Returns true on
-  /// "Yes, override" so existing draft/published shifts get replaced.
-  // ignore: unused_element
-  Future<bool> _promptOverride(String dateRangeLabel) async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Shifts already exist'),
-        content: Text(
-          'Shifts already exist for this staff for $dateRangeLabel. '
-          'Do you want to override?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Yes, override'),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
+  /// Prefills shift start/end and break start/end from the staff's per-day
+  /// work + break schedules for `_date`'s weekday. If the staff has no entry
+  /// for that weekday, both shift and break are cleared (the user can then
+  /// type the times manually).
+  void _prefillTimesFromSchedule(StaffMember? staff) {
+    if (_date == null) return;
+    final key =
+        '${staff?.code ?? ''}|${_date!.toIso8601String().substring(0, 10)}';
+    _lastPrefilledKey = key;
+
+    if (staff == null) return;
+
+    final dayKey = _weekdayDayKey[_date!.weekday] ?? '';
+    if (dayKey.isEmpty) return;
+
+    final work = _parseTimeRange(staff.workScheduleByDay[dayKey]);
+    final brk = _parseTimeRange(staff.breakScheduleByDay[dayKey]);
+
+    setState(() {
+      _shiftStartError = null;
+      _shiftEndError = null;
+      _breakStartError = null;
+      _breakEndError = null;
+      if (work != null) {
+        _shiftStart = work.$1;
+        _shiftEnd = work.$2;
+      } else {
+        _shiftStart = null;
+        _shiftEnd = null;
+      }
+      if (brk != null) {
+        _breakStart = brk.$1;
+        _breakEnd = brk.$2;
+      } else {
+        _breakStart = null;
+        _breakEnd = null;
+      }
+    });
   }
 
-  /// PRD AC7 — Absence hard block. Shows the standard message and aborts.
-  // ignore: unused_element
-  Future<void> _showAbsenceBlocked(String selectedDaysLabel) {
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Staff is absent'),
-        content: Text(
-          'This staff is marked absent for $selectedDaysLabel, '
-          'so no shift can be added for them.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  /// Parses `"8:00AM - 8:00PM"` (the format saved by `StaffRepositoryImpl`)
+  /// into a `(start, end)` tuple. Returns null on any parse failure.
+  (TimeOfDay, TimeOfDay)? _parseTimeRange(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split('-');
+    if (parts.length != 2) return null;
+    final start = _parseClockTime(parts[0]);
+    final end = _parseClockTime(parts[1]);
+    if (start == null || end == null) return null;
+    return (start, end);
   }
+
+  TimeOfDay? _parseClockTime(String raw) {
+    final upper = raw.trim().toUpperCase();
+    if (upper.isEmpty) return null;
+    final isPm = upper.endsWith('PM');
+    final isAm = upper.endsWith('AM');
+    if (!isAm && !isPm) return null;
+    final body = upper.substring(0, upper.length - 2).trim();
+    final segments = body.split(':');
+    if (segments.length < 2) return null;
+    var hour = int.tryParse(segments[0]);
+    final minute = int.tryParse(segments[1]);
+    if (hour == null || minute == null) return null;
+    if (isPm && hour < 12) hour += 12;
+    if (isAm && hour == 12) hour = 0;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  StaffMember? _findStaff(String? code, List<StaffMember> staff) {
+    if (code == null || code.isEmpty) return null;
+    for (final s in staff) {
+      if (s.code == code) return s;
+    }
+    return null;
+  }
+
+  /// Returns `code → name` for the classroom dropdown.
+  /// If a staff is selected, restrict to their allowed classrooms (per PRD).
+  /// Otherwise fall back to the full classroom cubit list.
+  Map<String, String> _classroomOptions({
+    required ClassroomState classroomState,
+    required StaffMember? selectedStaff,
+  }) {
+    final fullList = <String, String>{
+      for (final c in classroomState.classrooms) c.code: c.name,
+    };
+    if (selectedStaff == null) return fullList;
+
+    final allowed = selectedStaff.allowedClassroomCodes;
+    if (allowed.isEmpty) return fullList;
+
+    final result = <String, String>{};
+    for (final code in allowed) {
+      final trimmed = code.trim();
+      if (trimmed.isEmpty) continue;
+      // Prefer the human-readable name from the classroom cubit, then fall back
+      // to the name embedded in the staff list response.
+      final name = (fullList[trimmed] ??
+              selectedStaff.allowedClassroomNameByCode[trimmed] ??
+              '')
+          .trim();
+      result[trimmed] = name.isNotEmpty ? name : trimmed;
+    }
+    // Make sure the primary classroom is represented even if the allowed list
+    // came back empty for it.
+    final primary = selectedStaff.primaryClassroomCode.trim();
+    if (primary.isNotEmpty && !result.containsKey(primary)) {
+      final primaryName = (fullList[primary] ??
+              selectedStaff.primaryClassroomName.trim());
+      result[primary] = primaryName.isNotEmpty ? primaryName : primary;
+    }
+    return result;
+  }
+
+  // ─── Submit ──────────────────────────────────────────────────────────────
 
   Future<void> _onConfirm() async {
     if (!_validate()) return;
+    if (_saving) return;
 
-    // Backend hooks per PRD — uncomment / wire when the data is available:
-    //
-    //   if (isStaffAbsent(_selectedStaff!, _date!)) {
-    //     await _showAbsenceBlocked(DateFormat('MMM d').format(_date!));
-    //     return;
-    //   }
-    //   final outsideAvailability = !shiftWithinAvailability(...);
-    //   if (outsideAvailability) {
-    //     if (_repeatOn) {
-    //       // Section 2 AC2 — recurring: hard error, no force-add.
-    //       CoreUtils.showTopSnackBar(
-    //         context: context,
-    //         message: "You are adding shift outside of this staff's work & "
-    //                  "break times.",
-    //         isError: true,
-    //       );
-    //       return;
-    //     }
-    //     final confirmed = await _promptForceAdd();
-    //     if (!confirmed) return;
-    //   }
-    //   final conflictRange = findOverlappingShifts(...);
-    //   if (conflictRange != null) {
-    //     final override = await _promptOverride(conflictRange);
-    //     if (!override) return;
-    //   }
+    setState(() => _saving = true);
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final orgCode =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
 
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Shift saved successfully',
-      isSuccess: true,
-    );
-    Navigator.of(context).pop(true);
+      if (schoolCode.isEmpty || orgCode.isEmpty) {
+        throw Exception('Missing school/organization context');
+      }
+
+      // PRD: GET existing shifts in the chosen date range, prompt to override
+      // if any conflict, then POST with overrideConflicts flag accordingly.
+      final dateTo = _repeatOn && _untilDate != null ? _untilDate! : _date!;
+      final getShiftsUseCase = serviceLocator<GetStaffShiftsUseCase>();
+      final existing = await getShiftsUseCase(
+        staffCode: _selectedStaffCode!,
+        schoolCode: schoolCode,
+        organizationCode: orgCode,
+        dateFrom: _date!,
+        dateTo: dateTo,
+      );
+
+      // For non-recurring: any shift on the chosen day is a conflict.
+      // For recurring: any shift in the [_date, _untilDate] range whose
+      // weekday is selected is a conflict.
+      final selectedDayIndices =
+          _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
+      final conflicts = <DateTime>[];
+      for (final shift in existing) {
+        if (_repeatOn) {
+          if (selectedDayIndices.isEmpty ||
+              selectedDayIndices.contains(shift.shiftDate.weekday)) {
+            conflicts.add(shift.shiftDate);
+          }
+        } else {
+          if (_isSameDay(shift.shiftDate, _date!)) {
+            conflicts.add(shift.shiftDate);
+          }
+        }
+      }
+
+      var overrideConflicts = false;
+      if (conflicts.isNotEmpty) {
+        if (!mounted) return;
+        final confirmed = await ShiftOverrideBottomSheet.show(
+          context,
+          conflictDates: conflicts,
+        );
+        if (!confirmed) {
+          setState(() => _saving = false);
+          return;
+        }
+        overrideConflicts = true;
+      }
+
+      final request = StaffShiftCreateRequest(
+        staffCode: _selectedStaffCode!,
+        classroomCode: _selectedClassroomCode!,
+        schoolCode: schoolCode,
+        organizationCode: orgCode,
+        shiftDate: _date!,
+        startTime: _shiftStart!,
+        endTime: _shiftEnd!,
+        breakStartTime: _breakStart,
+        breakEndTime: _breakEnd,
+        publish: false,
+        repeat: _repeatOn,
+        repeatDays: _repeatOn
+            ? selectedDayIndices.toList(growable: false)
+            : const <int>[],
+        repeatUntilDate: _repeatOn ? _untilDate : null,
+        overrideConflicts: overrideConflicts,
+        notes: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
+      );
+
+      final createUseCase = serviceLocator<CreateStaffShiftUseCase>();
+      final result = await createUseCase(request);
+
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: result.createdCount > 0
+            ? 'Shift saved successfully'
+            : 'No new shifts were created',
+        isSuccess: true,
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
+
+  // ─── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -332,183 +490,256 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
-    return StaffFormLayout(
-      title: 'Add Shift',
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: bottomPadding,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Confirm',
-          // PRD: disable confirm until all required inputs are present.
-          onPressedConfirm: _isFormValid ? _onConfirm : null,
-          showCancelButton: false,
-          isForm: false,
-        ),
-      ),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildDateField(
-                  responsive,
-                  label: 'Date',
-                  date: _date,
-                  onDateSelected: (d) => setState(() => _date = d),
+    return BlocBuilder<StaffCubit, StaffState>(
+      builder: (context, staffState) {
+        return BlocBuilder<ClassroomCubit, ClassroomState>(
+          builder: (context, classroomState) {
+            final staff = staffState.items;
+            final selectedStaff = _findStaff(_selectedStaffCode, staff);
+
+            // Initial prefill for the case where `initialStaffCode` was
+            // supplied via the constructor but the staff cubit hadn't loaded
+            // its data yet at initState time. Once staff data shows up we
+            // prefill once per (staffCode + date) combo so the times reflect
+            // the staff's work / break schedule for the selected day.
+            if (selectedStaff != null && _date != null) {
+              final key =
+                  '${selectedStaff.code}|${_date!.toIso8601String().substring(0, 10)}';
+              if (_lastPrefilledKey != key) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _prefillTimesFromSchedule(selectedStaff);
+                });
+              }
+            }
+
+            final staffCodeToName = <String, String>{
+              for (final s in staff) s.code: s.name,
+            };
+            final staffNames = staffCodeToName.values.toList(growable: false);
+            final selectedStaffName = staffCodeToName[_selectedStaffCode];
+
+            final classroomCodeToName = _classroomOptions(
+              classroomState: classroomState,
+              selectedStaff: selectedStaff,
+            );
+            final classroomNames =
+                classroomCodeToName.values.toList(growable: false);
+            final selectedClassroomName =
+                classroomCodeToName[_selectedClassroomCode];
+
+            return StaffFormLayout(
+              title: 'Add Shift',
+              bottomBar: Container(
+                padding: EdgeInsets.only(
+                  bottom: bottomPadding,
+                  left: 16,
+                  right: 16,
+                  top: 8,
                 ),
-              ),
-              SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-              Expanded(
-                child: CustomDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select',
-                  items: _classrooms,
-                  selectedItem: _selectedClassroom,
-                  labelStyle: TextStyle(
-                    fontSize: responsive.labelFontSize,
-                    fontFamily: 'Manrope',
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xff573353),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      offset: const Offset(0, -4),
+                      blurRadius: 16,
+                    ),
+                  ],
+                  borderRadius: BorderRadius.only(
+                    topLeft:
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight:
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                   ),
-                  showAsterisk: true,
-                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  onSelect: (val) => setState(() => _selectedClassroom = val),
+                ),
+                child: CustomButtonLayout(
+                  confirmButtonLabel: _saving ? 'Saving…' : 'Confirm',
+                  onPressedConfirm:
+                      (_isFormValid && !_saving) ? _onConfirm : null,
+                  showCancelButton: false,
+                  isForm: false,
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Staff',
-            hintText: 'Select',
-            items: _staff,
-            selectedItem: _selectedStaff,
-            labelStyle: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
-            ),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            onSelect: (val) => setState(() => _selectedStaff = val),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: GradientTimePickerField(
-                  label: 'Shift Start',
-                  isRequired: true,
-                  time: _shiftStart,
-                  errorText: _shiftStartError,
-                  onTimeSelected: (t) => setState(() {
-                    _shiftStart = t;
-                    _shiftStartError = null;
-                  }),
-                ),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  // PRD: Date on the left, Staff on the right; classroom below.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildDateField(
+                          responsive,
+                          label: 'Date',
+                          date: _date,
+                          onDateSelected: (d) {
+                            setState(() => _date = d);
+                            // Re-prefill so the times reflect the new
+                            // weekday's schedule for the currently selected
+                            // staff member, if any.
+                            _prefillTimesFromSchedule(selectedStaff);
+                          },
+                        ),
+                      ),
+                      SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                      Expanded(
+                        child: CustomDropdown(
+                          label: 'Staff',
+                          hintText: 'Select',
+                          items: staffNames,
+                          selectedItem: selectedStaffName,
+                          labelStyle: TextStyle(
+                            fontSize: responsive.labelFontSize,
+                            fontFamily: 'Manrope',
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xff573353),
+                          ),
+                          showAsterisk: true,
+                          labelBottomSpacing:
+                              responsive.isTablet ? 8.0 : 6.0,
+                          onSelect: (name) {
+                            final code = staffCodeToName.entries
+                                .firstWhere(
+                                  (e) => e.value == name,
+                                  orElse: () =>
+                                      const MapEntry<String, String>('', ''),
+                                )
+                                .key;
+                            _onStaffSelected(
+                              code.isEmpty ? null : code,
+                              staff,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  CustomDropdown(
+                    label: 'Classroom',
+                    hintText: 'Select',
+                    items: classroomNames,
+                    selectedItem: selectedClassroomName,
+                    labelStyle: TextStyle(
+                      fontSize: responsive.labelFontSize,
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xff573353),
+                    ),
+                    showAsterisk: true,
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    onSelect: (name) {
+                      final code = classroomCodeToName.entries
+                          .firstWhere(
+                            (e) => e.value == name,
+                            orElse: () =>
+                                const MapEntry<String, String>('', ''),
+                          )
+                          .key;
+                      setState(() => _selectedClassroomCode =
+                          code.isEmpty ? null : code);
+                    },
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Shift Start',
+                          isRequired: true,
+                          time: _shiftStart,
+                          errorText: _shiftStartError,
+                          onTimeSelected: (t) => setState(() {
+                            _shiftStart = t;
+                            _shiftStartError = null;
+                          }),
+                        ),
+                      ),
+                      SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Shift End',
+                          isRequired: true,
+                          time: _shiftEnd,
+                          errorText: _shiftEndError,
+                          onTimeSelected: (t) => setState(() {
+                            _shiftEnd = t;
+                            _shiftEndError = null;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Break Start',
+                          time: _breakStart,
+                          errorText: _breakStartError,
+                          onTimeSelected: (t) => setState(() {
+                            _breakStart = t;
+                            _breakStartError = null;
+                          }),
+                        ),
+                      ),
+                      SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Break End',
+                          time: _breakEnd,
+                          errorText: _breakEndError,
+                          onTimeSelected: (t) => setState(() {
+                            _breakEnd = t;
+                            _breakEndError = null;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildRepeatHeader(responsive),
+                  SizedBox(height: responsive.isTablet ? 16.0 : 12.0),
+                  if (_repeatOn) ...[
+                    _buildDaysGrid(responsive),
+                    if (_daysError != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _daysError!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Manrope',
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: responsive.verticalSpacing),
+                    _buildDateField(
+                      responsive,
+                      label: 'Until Date',
+                      date: _untilDate,
+                      errorText: _untilDateError,
+                      firstDate: _date,
+                      onDateSelected: (d) => setState(() {
+                        _untilDate = d;
+                        _untilDateError = null;
+                      }),
+                    ),
+                    SizedBox(height: responsive.verticalSpacing),
+                  ],
+                  _buildNoteField(responsive),
+                  const SizedBox(height: 12),
+                ],
               ),
-              SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-              Expanded(
-                child: GradientTimePickerField(
-                  label: 'Shift End',
-                  isRequired: true,
-                  time: _shiftEnd,
-                  errorText: _shiftEndError,
-                  onTimeSelected: (t) => setState(() {
-                    _shiftEnd = t;
-                    _shiftEndError = null;
-                  }),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: GradientTimePickerField(
-                  label: 'Break Start',
-                  // PRD AC2 — break is optional.
-                  time: _breakStart,
-                  errorText: _breakStartError,
-                  onTimeSelected: (t) => setState(() {
-                    _breakStart = t;
-                    _breakStartError = null;
-                  }),
-                ),
-              ),
-              SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-              Expanded(
-                child: GradientTimePickerField(
-                  label: 'Break End',
-                  time: _breakEnd,
-                  errorText: _breakEndError,
-                  onTimeSelected: (t) => setState(() {
-                    _breakEnd = t;
-                    _breakEndError = null;
-                  }),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildRepeatHeader(responsive),
-          SizedBox(height: responsive.isTablet ? 16.0 : 12.0),
-          if (_repeatOn) ...[
-            _buildDaysGrid(responsive),
-            if (_daysError != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _daysError!,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
-                ),
-              ),
-            ],
-            SizedBox(height: responsive.verticalSpacing),
-            _buildDateField(
-              responsive,
-              label: 'Until Date',
-              date: _untilDate,
-              errorText: _untilDateError,
-              firstDate: _date,
-              onDateSelected: (d) => setState(() {
-                _untilDate = d;
-                _untilDateError = null;
-              }),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-          ],
-          _buildNoteField(responsive),
-          const SizedBox(height: 12),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -620,7 +851,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         return Container(
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.themeColor.withOpacity(0.12)
+                ? AppColors.themeColor.withValues(alpha: 0.12)
                 : AppColors.fieldBackgroundColor,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -700,4 +931,3 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     );
   }
 }
-

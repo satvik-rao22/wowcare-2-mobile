@@ -26,12 +26,6 @@ class SchedulingLegend extends StatelessWidget {
                 label: 'Scheduled',
               ),
             ),
-            Expanded(
-              child: _LegendItem(
-                icon: _SvgIcon(asset: MediaRes.notPublishedIcon),
-                label: 'Not Published',
-              ),
-            ),
           ],
         ),
         SizedBox(height: 8),
@@ -39,10 +33,21 @@ class SchedulingLegend extends StatelessWidget {
           children: [
             Expanded(
               child: _LegendItem(
+                icon: _SvgIcon(asset: MediaRes.notPublishedIcon),
+                label: 'Not Published',
+              ),
+            ),
+            Expanded(
+              child: _LegendItem(
                 icon: _SvgIcon(asset: MediaRes.publishedIcon),
                 label: 'Published',
               ),
             ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
             Expanded(
               child: _LegendItem(
                 icon: _SvgIcon(
@@ -79,15 +84,18 @@ class _LegendItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(width: 16, height: 16, child: Center(child: icon)),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
+        SizedBox(width: 18, height: 18, child: Center(child: icon)),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -105,8 +113,8 @@ class _SvgIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return SvgPicture.asset(
       asset,
-      width: 16,
-      height: 16,
+      width: 18,
+      height: 18,
       colorFilter: colorFilter,
     );
   }
