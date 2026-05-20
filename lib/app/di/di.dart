@@ -361,8 +361,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetStaffShiftsUseCase>(
-    () => GetStaffShiftsUseCase(serviceLocator<StaffSchedulingRepository>()),
+  serviceLocator.registerFactory<GetStaffShiftsForDayUseCase>(
+    () => GetStaffShiftsForDayUseCase(
+      serviceLocator<StaffSchedulingRepository>(),
+    ),
   );
   serviceLocator.registerFactory<GetStaffCountUseCase>(
     () => GetStaffCountUseCase(serviceLocator()),
@@ -776,7 +778,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StaffSchedulingCubit>(
     () => StaffSchedulingCubit(
       getStaffPageUseCase: serviceLocator(),
-      getStaffShiftsUseCase: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator<GetStaffShiftsForDayUseCase>(),
       getActiveClassroomsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),

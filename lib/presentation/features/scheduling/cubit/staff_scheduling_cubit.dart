@@ -18,7 +18,7 @@ part 'staff_scheduling_state.dart';
 class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   StaffSchedulingCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
-    required GetStaffShiftsUseCase getStaffShiftsUseCase,
+    required GetStaffShiftsForDayUseCase getStaffShiftsUseCase,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
@@ -30,7 +30,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         super(StaffSchedulingState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
-  final GetStaffShiftsUseCase _getStaffShiftsUseCase;
+  final GetStaffShiftsForDayUseCase _getStaffShiftsUseCase;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
@@ -78,7 +78,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
 
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: schoolCode,
-        onlyTypeClassroom: true,
+        onlyTypeClassroom: false,
       );
       final map = <String, String>{};
       for (final c in classrooms) {

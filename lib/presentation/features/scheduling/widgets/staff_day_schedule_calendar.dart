@@ -15,6 +15,7 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     required this.schoolStartTime,
     required this.schoolEndTime,
     this.classroomResolver,
+    this.onShiftTap,
   });
 
   final DailyShifts dailyRoomSchedule;
@@ -37,7 +38,7 @@ class StaffDayScheduleCalendar extends StatefulWidget {
 }
 
 class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
-  late final List<Shift> _shifts;
+  late List<Shift> _shifts;
 
   @override
   void initState() {
@@ -290,23 +291,24 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       );
     }
 
+    final shiftWidget = Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(234, 244, 255, 1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.themeColor.withValues(alpha: 0.15),
+        ),
+      ),
+      child: _buildSingleShift(shift),
+    );
+
     return Positioned(
       top: topSpace,
       left: 0,
       right: 0,
       child: SizedBox(
         height: height,
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(234, 244, 255, 1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.themeColor.withValues(alpha: 0.15),
-            ),
-          ),
-          child: _buildSingleShift(shift),
-        ),
         child: shift.isBreakShift || widget.onShiftTap == null
             ? shiftWidget
             : GestureDetector(

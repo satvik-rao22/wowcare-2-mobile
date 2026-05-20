@@ -1,8 +1,8 @@
 import '../../scheduling/repositories/staff_scheduling_repository.dart';
 import '../entities/staff_shift.dart';
 
-class GetStaffShiftsUseCase {
-  GetStaffShiftsUseCase(this._repository);
+class GetStaffShiftsForDayUseCase {
+  GetStaffShiftsForDayUseCase(this._repository);
 
   final StaffSchedulingRepository _repository;
 

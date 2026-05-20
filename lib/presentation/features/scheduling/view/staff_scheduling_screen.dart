@@ -4,22 +4,16 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
-import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
-import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
-import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
-import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
-import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
-import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -30,7 +24,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 /// hour totals, and day timeline. Staff dropdown is fed by [StaffCubit] (with
 /// disk cache); pull-to-refresh re-pulls staff + classroom data. Shift list
 /// remains placeholder until the shift-API cubit is wired in.
-class StaffSchedulingScreen extends StatefulWidget {
+class StaffSchedulingScreen extends StatelessWidget {
   const StaffSchedulingScreen({super.key});
 
   static const String routeName = '/dashboard/staff-scheduling';
@@ -43,6 +37,29 @@ class StaffSchedulingScreen extends StatefulWidget {
 
 class _StaffSchedulingView extends StatelessWidget {
   const _StaffSchedulingView();
+
+  void _openAddShiftScreen(
+    BuildContext context,
+    StaffSchedulingState state,
+  ) {
+    final staffCubit = context.read<StaffCubit>();
+    final classroomCubit = context.read<ClassroomCubit>();
+    final selectedCode = state.selectedStaff?.code;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>.value(value: staffCubit),
+            BlocProvider<ClassroomCubit>.value(value: classroomCubit),
+          ],
+          child: AddShiftScreen(
+            initialDate: state.selectedDay,
+            initialStaffCode: selectedCode,
+          ),
+        ),
+      ),
+    );
+  }
 
   List<Shift> _shiftsFromSummary(StaffShiftDaySummary summary) {
     return summary.blocks
@@ -84,9 +101,10 @@ class _StaffSchedulingView extends StatelessWidget {
                 children: [
                   _DateHeaderRow(
                     selectedDay: state.selectedDay,
-                    onPreviousDay: () => cubit.shiftSelectedDay(-1),
-                    onNextDay: () => cubit.shiftSelectedDay(1),
+                    staffNames: state.staffDropdownNames,
+                    initialPublishStaff: state.selectedStaffDropdownLabel,
                     onDatePicked: cubit.selectDay,
+                    onAddTap: () => _openAddShiftScreen(context, state),
                   ),
                   if (state.errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -234,8 +252,6 @@ class _StaffSchedulingView extends StatelessWidget {
 class _DateHeaderRow extends StatelessWidget {
   const _DateHeaderRow({
     required this.selectedDay,
-    required this.onPreviousDay,
-    required this.onNextDay,
     required this.onDatePicked,
     required this.onAddTap,
     this.staffNames = const <String>[],
@@ -243,8 +259,6 @@ class _DateHeaderRow extends StatelessWidget {
   });
 
   final DateTime selectedDay;
-  final VoidCallback onPreviousDay;
-  final VoidCallback onNextDay;
   final ValueChanged<DateTime> onDatePicked;
   final VoidCallback onAddTap;
   final List<String> staffNames;
@@ -262,87 +276,21 @@ class _DateHeaderRow extends StatelessWidget {
     );
   }
 
-  static const Color _chevronColor = Color(0xFF9C84FF);
-
-  Future<void> _openDatePicker(BuildContext context) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (_) => CalendarDialog(
-        initialDate: selectedDay,
-      ),
-    );
-    final picked = result?['date'];
-    if (picked is DateTime) {
-      onDatePicked(picked);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('EEE, MMM d').format(selectedDay);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              onPressed: onPreviousDay,
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              icon: const Icon(
-                Icons.chevron_left,
-                color: _chevronColor,
-                size: 24,
-              ),
-            ),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _openDatePicker(context),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        formattedDate,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          color: AppColors.primaryColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.calendar_today_outlined,
-                        size: 18,
-                        color: _chevronColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              onPressed: onNextDay,
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              icon: const Icon(
-                Icons.chevron_right,
-                color: _chevronColor,
-                size: 24,
-              ),
-            ),
-          ],
+        Expanded(
+          child: CustomDateTimeField(
+            key: ValueKey(selectedDay.toIso8601String()),
+            hasLabel: false,
+            fetchInitialTime: false,
+            initialDate: selectedDay,
+            onDateSelected: onDatePicked,
+          ),
         ),
-        const Spacer(),
+        const SizedBox(width: 8),
         GradientAddButton(onTap: onAddTap),
         const SizedBox(width: 8),
         _GradientPublishButton(onTap: () => _openPublishScreen(context)),

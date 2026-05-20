@@ -43,6 +43,20 @@ class _SchedulingScreenContent extends StatefulWidget {
 class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   bool _expandAll = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Kick off staff + classroom fetches on first frame so the screen has
+    // fresh data without requiring a pull-to-refresh.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<StaffCubit>().loadInitial();
+      context.read<ClassroomCubit>().loadActiveClassrooms(
+            onlyTypeClassroom: false,
+          );
+    });
+  }
+
   Future<void> _onRefresh() async {
     final cubit = context.read<SchedulingCubit>();
     final staffCubit = context.read<StaffCubit>();
@@ -82,10 +96,12 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   Widget build(BuildContext context) {
     return BlocBuilder<SchedulingCubit, SchedulingState>(
       builder: (context, state) {
-        final classroomNames = state.classrooms
-            .map((c) => c.classroomName)
-            .toSet()
-            .toList(growable: false);
+        final classroomNames =
+            context.watch<ClassroomCubit>().state.classrooms
+                .map((c) => c.name)
+                .where((n) => n.isNotEmpty)
+                .toSet()
+                .toList(growable: false);
 
         final isWeek = state.viewMode == SchedulingViewMode.week;
         final cubit = context.read<SchedulingCubit>();

@@ -285,11 +285,13 @@ final GoRouter appRouter = GoRouter(
                   path: 'staff-scheduling',
                   pageBuilder: (context, state) => _fastPage(
                     state,
-                    BlocProvider(
-                      create: (_) =>
-                          serviceLocator<StaffSchedulingCubit>()..loadInitial(),
                     MultiBlocProvider(
                       providers: [
+                        BlocProvider<StaffSchedulingCubit>(
+                          create: (_) =>
+                              serviceLocator<StaffSchedulingCubit>()
+                                ..loadInitial(),
+                        ),
                         BlocProvider<StaffCubit>(
                           create: (_) =>
                               serviceLocator<StaffCubit>()..loadInitial(),
