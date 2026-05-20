@@ -25,6 +25,7 @@ import '../../data/features/attendance/datasources/attendance_remote_datasource.
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../data/features/availability/datasources/availability_remote_datasource.dart';
 import '../../data/features/availability/repositories/availability_repository_impl.dart';
+import 'package:wowcare/data/features/Schedule-Classroom/staff_scheduling_remote_datasource.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -62,7 +63,7 @@ import '../../domain/features/staff_scheduling/repositories/staff_scheduling_rep
 import '../../domain/features/staff_scheduling/usecases/get_all_classrooms_usecase.dart';
 import '../../domain/features/staff_scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../domain/features/staff_scheduling/usecases/save_schedule_usecase.dart';
-import '../../data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
+import 'package:wowcare/data/features/Schedule-Classroom/staff_scheduling_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
@@ -227,6 +228,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<AvailabilityRemoteDataSource>(
     () => AvailabilityRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
+  // Staff Scheduling Data Sources
+  serviceLocator.registerLazySingleton<StaffSchedulingRemoteDataSource>(
+    () => StaffSchedulingRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
   // Classroom Data Sources

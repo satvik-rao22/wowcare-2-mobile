@@ -9,6 +9,7 @@
     <application
         android:label="wowcare"
         android:requestLegacyExternalStorage="true"
+        android:enableOnBackInvokedCallback="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -16,7 +17,6 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
-            android:enableOnBackInvokedCallback="false"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:theme="@style/LaunchTheme"

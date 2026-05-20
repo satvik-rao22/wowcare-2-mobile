@@ -2,7 +2,7 @@ import '../../../domain/features/staff_scheduling/entities/schedule_entry.dart';
 import '../../../domain/features/staff_scheduling/entities/staff_shift.dart';
 import '../../../domain/features/staff_scheduling/repositories/staff_scheduling_repository.dart';
 import 'models/staff_shift_collection.dart';
-import 'staff_scheduling_remote_datasource.dart';
+import 'package:wowcare/data/features/Schedule-Classroom/staff_scheduling_remote_datasource.dart';
 
 class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
   final StaffSchedulingRemoteDataSource _remoteDataSource;

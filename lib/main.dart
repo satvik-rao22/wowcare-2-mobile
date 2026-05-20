@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,13 +6,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
-
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
-
 import 'src/app_router.dart';
 
 Future<void> main() async {
@@ -49,8 +46,9 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
-          final systemTextScaleFactor =
-              MediaQuery.of(context).textScaler.scale(1);
+          final systemTextScaleFactor = MediaQuery.of(
+            context,
+          ).textScaler.scale(1);
 
           double customScaler;
           if (systemTextScaleFactor < 0.85) {
@@ -66,8 +64,9 @@ class MyApp extends StatelessWidget {
           }
 
           return MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(customScaler)),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(customScaler)),
             child: Sizer(
               builder: (context, orientation, screenType) {
                 return MultiBlocProvider(

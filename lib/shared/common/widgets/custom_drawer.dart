@@ -17,14 +17,13 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../presentation/features/scheduling/cubit/Single-Staff-Shift/staff_schedule_cubit.dart';
+import '../../../presentation/features/scheduling/view/classroom-scheduling.dart';
 import '../../../presentation/features/scheduling/view/staff-schedule.dart';
-import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:provider/provider.dart';
@@ -881,33 +880,59 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           ),
 
                         // Staff Schudling
+                        // Staff Schudling
                         if (showAdminAttendanceMenu)
                           _CustomExpansionTile(
-                            title: 'Staff-Schudling',
-                            icon: MediaRes.staffs_drawer_icon,
-                            isCurrentRoute:
-                                _currentRoute ==
-                                    StaffSchedulingScreen.routeName ||
-                                (isStaff &&
-                                    _currentRoute ==
-                                        StaffProfileScreen.routeName),
-                            onTap: () async {
-                              final navigator = Navigator.of(context);
-                              final captured = _currentRoute;
-                              Navigator.pop(context);
-                              if (isStaff) {
-                                if (captured == StaffProfileScreen.routeName) {
-                                  return;
-                                }
-                                await _openLoggedInStaffProfile(navigator);
-                                return;
-                              }
-                              if (captured != StaffSchedulingScreen.routeName) {
-                                context.go(StaffSchedulingScreen.routeName);
-                              }
-                            },
-                          ),
+                            title: 'Schedule',
+                            icon: MediaRes.scheduleIcon,
+                            isExpansionEnabled: true,
+                            children: [
+                              DrawerListTile(
+                                title: 'Classroom Schedule',
+                                leading: SvgPicture.asset(
+                                  MediaRes.classroom_Schedule_drawer_icon,
+                                  colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const SchedulingScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
 
+                              DrawerListTile(
+                                title: 'Staff Schedule',
+                                leading: SvgPicture.asset(
+                                  MediaRes.staff_Schedule_drawer_icon,
+                                  colorFilter: const ColorFilter.mode(
+                                    AppColors.themeColor,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => BlocProvider(
+                                        create: (_) =>
+                                            serviceLocator<
+                                              StaffScheduleCubit
+                                            >(),
+                                        child: const StaffSchedulingScreen(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         if (showAdminAttendanceMenu)
                           _CustomExpansionTile(
                             title: 'Attendance',
