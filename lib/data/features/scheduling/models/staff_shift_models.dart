@@ -132,6 +132,8 @@ class StaffShiftModel {
     this.isPublished = false,
     this.seriesCode,
     this.isRecurring = false,
+    this.seriesRecurrenceDays = const <int>[],
+    this.seriesEndDate,
   });
 
   final String shiftCode;
@@ -148,6 +150,8 @@ class StaffShiftModel {
   final bool isPublished;
   final String? seriesCode;
   final bool isRecurring;
+  final List<int> seriesRecurrenceDays;
+  final String? seriesEndDate;
 
   factory StaffShiftModel.fromJson(Map<String, dynamic> json) {
     final start = TimeOfDayModel.tryParse(json['startTime']);
@@ -161,23 +165,51 @@ class StaffShiftModel {
             json['shiftSeriesCode'] ??
             json['recurringSeriesCode'])
         ?.toString();
+    // Detail endpoint exposes `shiftStatus`/`publishedAt`; fall back to those
+    // when the list endpoint's `publish` flag isn't present.
+    bool publishedFromStatus() {
+      final status = json['shiftStatus']?.toString().toUpperCase();
+      if (status == 'PUBLISHED') return true;
+      if (status == 'UNPUBLISHED' || status == 'DRAFT') return false;
+      final publishedAt = json['publishedAt']?.toString().trim();
+      return publishedAt != null && publishedAt.isNotEmpty;
+    }
+    // Detail endpoint splits the staff name into `staffFirstName`/`staffLastName`.
+    String composedStaffName() {
+      final direct = (json['staffName'] ?? '').toString().trim();
+      if (direct.isNotEmpty) return direct;
+      final first = (json['staffFirstName'] ?? '').toString().trim();
+      final last = (json['staffLastName'] ?? '').toString().trim();
+      return [first, last].where((p) => p.isNotEmpty).join(' ');
+    }
+    final recurrenceRaw = json['seriesRecurrenceDays'] ?? json['repeatDays'];
+    final recurrenceDays = recurrenceRaw is List
+        ? recurrenceRaw
+            .map((e) => e is num ? e.toInt() : int.tryParse(e.toString()))
+            .whereType<int>()
+            .toList(growable: false)
+        : const <int>[];
+    final seriesEnd =
+        (json['seriesEndDate'] ?? json['repeatUntilDate'])?.toString();
     return StaffShiftModel(
       shiftCode: (json['shiftCode'] ?? json['code'] ?? '').toString(),
       staffCode: (json['staffCode'] ?? '').toString(),
       classroomCode: (json['classroomCode'] ?? '').toString(),
       classroomName: (json['classroomName'] ?? '').toString(),
-      staffName: (json['staffName'] ?? '').toString(),
+      staffName: composedStaffName(),
       shiftDate: (json['shiftDate'] ?? json['date'] ?? '').toString(),
       startTime: start,
       endTime: end,
       breakStartTime: TimeOfDayModel.tryParse(json['breakStartTime']),
       breakEndTime: TimeOfDayModel.tryParse(json['breakEndTime']),
       notes: json['notes']?.toString(),
-      isPublished: publishedRaw is bool ? publishedRaw : false,
+      isPublished: publishedRaw is bool ? publishedRaw : publishedFromStatus(),
       seriesCode: (seriesCode ?? '').isEmpty ? null : seriesCode,
       isRecurring: repeatRaw is bool
           ? repeatRaw
           : (seriesCode != null && seriesCode.isNotEmpty),
+      seriesRecurrenceDays: recurrenceDays,
+      seriesEndDate: (seriesEnd ?? '').isEmpty ? null : seriesEnd,
     );
   }
 
@@ -196,6 +228,9 @@ class StaffShiftModel {
         'publish': isPublished,
         if (seriesCode != null) 'seriesCode': seriesCode,
         'repeat': isRecurring,
+        if (seriesRecurrenceDays.isNotEmpty)
+          'seriesRecurrenceDays': seriesRecurrenceDays,
+        if (seriesEndDate != null) 'seriesEndDate': seriesEndDate,
       };
 
   StaffShift toEntity() {
@@ -214,6 +249,9 @@ class StaffShiftModel {
       isPublished: isPublished,
       seriesCode: seriesCode,
       isRecurring: isRecurring,
+      seriesRecurrenceDays: seriesRecurrenceDays,
+      seriesEndDate:
+          seriesEndDate == null ? null : DateTime.tryParse(seriesEndDate!),
     );
   }
 }

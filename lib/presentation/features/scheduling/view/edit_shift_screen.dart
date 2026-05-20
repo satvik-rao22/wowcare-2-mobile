@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -103,6 +108,25 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
   String? _breakEndError;
   String? _untilDateError;
   String? _daysError;
+  String? _schoolHoursError;
+
+  /// School open/close hours per weekday. Drives the hard-rule check that
+  /// shift / break times must fall inside school hours.
+  SchoolHoursResolver? _schoolHoursResolver;
+
+  static const Map<int, String> _weekDayIndex = <int, String>{
+    1: 'Monday',
+    2: 'Tuesday',
+    3: 'Wednesday',
+    4: 'Thursday',
+    5: 'Friday',
+    6: 'Saturday',
+    7: 'Sunday',
+  };
+
+  static final Map<String, int> _weekDayNameToIndex = <String, int>{
+    for (final entry in _weekDayIndex.entries) entry.value: entry.key,
+  };
 
   bool get _isSeriesMode => widget.mode == EditShiftMode.entireSeries;
 
@@ -114,12 +138,68 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
       : <String>[widget.staff];
 
   @override
+  void initState() {
+    super.initState();
+    _loadSchoolHours();
+  }
+
+  @override
   void dispose() {
     _noteController.dispose();
     super.dispose();
   }
 
+  Future<void> _loadSchoolHours() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final repo = serviceLocator<StaffRepository>();
+      final days =
+          await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      if (!mounted) return;
+      setState(() {
+        _schoolHoursResolver = SchoolHoursResolver.fromDays(days);
+      });
+    } catch (_) {
+      // Best-effort: without school hours the hard-rule check no-ops.
+    }
+  }
+
   int _minutesOf(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  TimeOfDay? _parse24hTime(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  (TimeOfDay, TimeOfDay)? _schoolHoursForDate(DateTime date) {
+    final day = _schoolHoursResolver?.dayFor(date);
+    if (day == null) return null;
+    final start = _parse24hTime(day.startTime);
+    final end = _parse24hTime(day.endTime);
+    if (start == null || end == null) return null;
+    return (start, end);
+  }
+
+  (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {
+    final anchor = _date ?? DateTime.now();
+    for (var i = 0; i < 7; i++) {
+      final probe = anchor.add(Duration(days: i));
+      if (probe.weekday == weekday) {
+        return _schoolHoursForDate(probe);
+      }
+    }
+    return null;
+  }
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -157,6 +237,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
       _breakEndError = null;
       _untilDateError = null;
       _daysError = null;
+      _schoolHoursError = null;
     });
 
     final shiftStartMin = _minutesOf(_shiftStart!);
@@ -197,6 +278,51 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
       if (_untilDate!.isBefore(_date!) && !_isSameDay(_untilDate!, _date!)) {
         setState(() => _untilDateError = 'Must be on or after the shift date');
         return false;
+      }
+    }
+
+    // Hard rule: shift + break times must fall within the school's open/close
+    // hours for the targeted day(s).
+    final windows = <(TimeOfDay, TimeOfDay)>[];
+    if (_isSeriesMode && _selectedDays.isNotEmpty) {
+      for (final day in _selectedDays) {
+        final weekday = _weekDayNameToIndex[day];
+        if (weekday == null) continue;
+        final w = _schoolHoursForWeekday(weekday);
+        if (w != null) windows.add(w);
+      }
+    } else if (_date != null) {
+      final w = _schoolHoursForDate(_date!);
+      if (w != null) windows.add(w);
+    }
+    for (final window in windows) {
+      final schoolStartMin = _minutesOf(window.$1);
+      final schoolEndMin = _minutesOf(window.$2);
+      final windowLabel =
+          '${window.$1.format(context)} – ${window.$2.format(context)}';
+      if (shiftStartMin < schoolStartMin || shiftEndMin > schoolEndMin) {
+        final msg = 'Shift must be within school hours ($windowLabel).';
+        setState(() => _schoolHoursError = msg);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: msg,
+          isError: true,
+        );
+        return false;
+      }
+      if (hasBreakStart && hasBreakEnd) {
+        final breakStartMin = _minutesOf(_breakStart!);
+        final breakEndMin = _minutesOf(_breakEnd!);
+        if (breakStartMin < schoolStartMin || breakEndMin > schoolEndMin) {
+          final msg = 'Break must be within school hours ($windowLabel).';
+          setState(() => _schoolHoursError = msg);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: msg,
+            isError: true,
+          );
+          return false;
+        }
       }
     }
 
@@ -264,7 +390,10 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                   responsive,
                   label: 'Date',
                   date: _date,
-                  onDateSelected: (d) => setState(() => _date = d),
+                  onDateSelected: (d) => setState(() {
+                    _date = d;
+                    _schoolHoursError = null;
+                  }),
                 ),
               ),
               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -316,6 +445,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                   onTimeSelected: (t) => setState(() {
                     _shiftStart = t;
                     _shiftStartError = null;
+                    _schoolHoursError = null;
                   }),
                 ),
               ),
@@ -329,6 +459,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                   onTimeSelected: (t) => setState(() {
                     _shiftEnd = t;
                     _shiftEndError = null;
+                    _schoolHoursError = null;
                   }),
                 ),
               ),
@@ -346,6 +477,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                   onTimeSelected: (t) => setState(() {
                     _breakStart = t;
                     _breakStartError = null;
+                    _schoolHoursError = null;
                   }),
                 ),
               ),
@@ -358,11 +490,14 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                   onTimeSelected: (t) => setState(() {
                     _breakEnd = t;
                     _breakEndError = null;
+                    _schoolHoursError = null;
                   }),
                 ),
               ),
             ],
           ),
+          if (_schoolHoursError != null)
+            CoreUtils.buildInlineFieldError(_schoolHoursError),
           SizedBox(height: responsive.verticalSpacing),
           if (_isSeriesMode) ...[
             _buildRepeatHeader(responsive),

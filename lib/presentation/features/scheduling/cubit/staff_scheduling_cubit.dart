@@ -55,11 +55,17 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   }
 
   Future<void> loadInitial() async {
-    await Future.wait([
-      _loadSchoolHours(),
-      _loadClassroomNames(),
-    ]);
-    await _loadAllStaff(selectFirst: true);
+    try {
+      await Future.wait([
+        _loadSchoolHours(),
+        _loadClassroomNames(),
+      ]);
+      await _loadAllStaff(selectFirst: true);
+    } finally {
+      if (!isClosed) {
+        emit(state.copyWith(hasAttemptedInitialLoad: true));
+      }
+    }
   }
 
   Future<void> refresh() async {
@@ -137,6 +143,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
               start: b.start,
               end: b.end,
               isBreak: b.isBreak,
+              shiftCode: b.shiftCode,
             ),
           )
           .toList(),
@@ -273,6 +280,10 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
           selectedStaffCode: nextCode,
           clearSelectedStaffCode: nextCode == null,
           isLoadingStaff: false,
+          // Pre-flip so the inner body shimmer stays solid through the
+          // handoff into _loadShiftsForSelection without a one-frame flash
+          // of the actual (empty) summary tiles.
+          isLoadingShifts: nextCode != null ? true : state.isLoadingShifts,
         ),
       );
 

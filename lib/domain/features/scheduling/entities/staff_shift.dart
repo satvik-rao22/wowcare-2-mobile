@@ -18,6 +18,8 @@ class StaffShift extends Equatable {
     this.isPublished = false,
     this.seriesCode,
     this.isRecurring = false,
+    this.seriesRecurrenceDays = const <int>[],
+    this.seriesEndDate,
   });
 
   final String shiftCode;
@@ -35,6 +37,10 @@ class StaffShift extends Equatable {
   final String? seriesCode;
   final bool isRecurring;
 
+  /// 1..7 (Mon..Sun) — recurrence days when this shift is part of a series.
+  final List<int> seriesRecurrenceDays;
+  final DateTime? seriesEndDate;
+
   @override
   List<Object?> get props => [
         shiftCode,
@@ -51,6 +57,8 @@ class StaffShift extends Equatable {
         isPublished,
         seriesCode,
         isRecurring,
+        seriesRecurrenceDays,
+        seriesEndDate,
       ];
 }
 

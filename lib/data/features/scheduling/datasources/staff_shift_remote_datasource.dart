@@ -13,6 +13,8 @@ abstract class StaffShiftRemoteDataSource {
     required String dateTo,
   });
 
+  Future<StaffShiftModel> getStaffShiftByCode({required String shiftCode});
+
   Future<StaffShiftCreateResultModel> createStaffShift({
     required Map<String, dynamic> body,
   });
@@ -50,6 +52,28 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     );
 
     return _parseShiftList(response.data);
+  }
+
+  @override
+  Future<StaffShiftModel> getStaffShiftByCode({
+    required String shiftCode,
+  }) async {
+    final base = ApiPaths.urlWithBase(
+      ApiPaths.staffShifts,
+      ApiConstants.staffBaseUrl,
+    );
+    final endpoint = '$base/${Uri.encodeComponent(shiftCode)}';
+
+    final response = await _client.get<dynamic>(endpoint);
+    final raw = response.data;
+    if (raw is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff-shift detail API response format');
+    }
+    final data = raw['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload in staff-shift detail response');
+    }
+    return StaffShiftModel.fromJson(data);
   }
 
   @override

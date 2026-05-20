@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Staff Scheduling — single-day view with staff picker, profile summary,
@@ -69,9 +75,205 @@ class _StaffSchedulingView extends StatelessWidget {
             end: b.end,
             room: b.room,
             isBreakShift: b.isBreak,
+            shiftCode: b.shiftCode,
           ),
         )
         .toList();
+  }
+
+  /// Parses `"hh:mm:ss a"` (the format used by `StaffShiftTimelineBlock`) into
+  /// `TimeOfDay`. Returns null on any parse failure.
+  TimeOfDay? _parseClockTime(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split(' ');
+    if (parts.length < 2) return null;
+    final timePart = parts[0];
+    final marker = parts[1].toUpperCase();
+    final segments = timePart.split(':');
+    if (segments.length < 2) return null;
+    var hour = int.tryParse(segments[0]);
+    final minute = int.tryParse(segments[1]);
+    if (hour == null || minute == null) return null;
+    final isPm = marker == 'PM';
+    final isAm = marker == 'AM';
+    if (!isAm && !isPm) return null;
+    if (isPm && hour < 12) hour += 12;
+    if (isAm && hour == 12) hour = 0;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  Future<void> _openViewShiftScreen(
+    BuildContext context,
+    StaffSchedulingState state,
+    Shift tappedShift,
+  ) async {
+    final navigator = Navigator.of(context);
+    final shiftCode = tappedShift.shiftCode.trim();
+    if (shiftCode.isEmpty) {
+      // Fallback for legacy/mocked blocks that don't carry a shiftCode —
+      // open the view screen with whatever the timeline block had.
+      _pushViewShiftFromBlock(navigator, state, tappedShift);
+      return;
+    }
+
+    try {
+      final shift =
+          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      if (!context.mounted) return;
+      final classroomName = shift.classroomName.trim().isNotEmpty
+          ? shift.classroomName
+          : (state.classroomNamesByCode[shift.classroomCode] ??
+              shift.classroomCode);
+      final staffName = shift.staffName.trim().isNotEmpty
+          ? shift.staffName
+          : (state.selectedStaff?.name ?? '');
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => ViewShiftScreen(
+            date: shift.shiftDate,
+            staff: staffName,
+            classroom: classroomName,
+            shiftStart: shift.startTime,
+            shiftEnd: shift.endTime,
+            breakStart: shift.breakStartTime,
+            breakEnd: shift.breakEndTime,
+            note: shift.notes,
+            status: shift.isPublished
+                ? ShiftStatus.published
+                : ShiftStatus.draft,
+            isRecurring: shift.isRecurring,
+            onEditThis: () => _openEditShiftScreen(
+              context,
+              state,
+              shiftCode,
+              EditShiftMode.thisShift,
+            ),
+            onEditSeries: () => _openEditShiftScreen(
+              context,
+              state,
+              shiftCode,
+              EditShiftMode.entireSeries,
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
+  /// Same prefetch pattern as [_openViewShiftScreen] — fires
+  /// `GET /api/v1/staff-shifts/{shiftCode}` so the Edit form lands with the
+  /// freshest server-side data and not whatever was on screen in View.
+  Future<void> _openEditShiftScreen(
+    BuildContext context,
+    StaffSchedulingState state,
+    String shiftCode,
+    EditShiftMode mode,
+  ) async {
+    final navigator = Navigator.of(context);
+    try {
+      final shift =
+          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      if (!context.mounted) return;
+      final classroomName = shift.classroomName.trim().isNotEmpty
+          ? shift.classroomName
+          : (state.classroomNamesByCode[shift.classroomCode] ??
+              shift.classroomCode);
+      final staffName = shift.staffName.trim().isNotEmpty
+          ? shift.staffName
+          : (state.selectedStaff?.name ?? '');
+      const dayNameByIndex = <int, String>{
+        1: 'Monday',
+        2: 'Tuesday',
+        3: 'Wednesday',
+        4: 'Thursday',
+        5: 'Friday',
+        6: 'Saturday',
+        7: 'Sunday',
+      };
+      final selectedDays = <String>{
+        for (final d in shift.seriesRecurrenceDays)
+          if (dayNameByIndex[d] != null) dayNameByIndex[d]!,
+      };
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => EditShiftScreen(
+            mode: mode,
+            initialDate: shift.shiftDate,
+            staff: staffName,
+            classroom: classroomName,
+            shiftStart: shift.startTime,
+            shiftEnd: shift.endTime,
+            breakStart: shift.breakStartTime,
+            breakEnd: shift.breakEndTime,
+            note: shift.notes,
+            status: shift.isPublished
+                ? ShiftStatus.published
+                : ShiftStatus.draft,
+            isPublished: shift.isPublished,
+            selectedDays: selectedDays,
+            untilDate: shift.seriesEndDate,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
+  void _pushViewShiftFromBlock(
+    NavigatorState navigator,
+    StaffSchedulingState state,
+    Shift tappedShift,
+  ) {
+    final start = _parseClockTime(tappedShift.start);
+    final end = _parseClockTime(tappedShift.end);
+    if (start == null || end == null) return;
+
+    TimeOfDay? breakStart;
+    TimeOfDay? breakEnd;
+    final shiftStartMin = start.hour * 60 + start.minute;
+    final shiftEndMin = end.hour * 60 + end.minute;
+    for (final block in state.shiftSummary.blocks) {
+      if (!block.isBreak) continue;
+      final bs = _parseClockTime(block.start);
+      final be = _parseClockTime(block.end);
+      if (bs == null || be == null) continue;
+      final bsMin = bs.hour * 60 + bs.minute;
+      final beMin = be.hour * 60 + be.minute;
+      if (bsMin >= shiftStartMin && beMin <= shiftEndMin) {
+        breakStart = bs;
+        breakEnd = be;
+        break;
+      }
+    }
+
+    navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => ViewShiftScreen(
+          date: state.selectedDay,
+          staff: state.selectedStaff?.name ?? '',
+          classroom: tappedShift.room,
+          shiftStart: start,
+          shiftEnd: end,
+          breakStart: breakStart,
+          breakEnd: breakEnd,
+        ),
+      ),
+    );
   }
 
   @override
@@ -83,8 +285,12 @@ class _StaffSchedulingView extends StatelessWidget {
         final dayColumnLabel =
             DateFormat('EEE, MMM d').format(state.selectedDay);
         final calendarShifts = _shiftsFromSummary(state.shiftSummary);
-        final isInitialLoad =
-            state.isLoadingStaff && state.staffList.isEmpty;
+        // Keep the shimmer up until the very first load attempt has settled,
+        // OR while the staff list is being (re)loaded with nothing to show.
+        // This avoids briefly flashing the "Select a staff" empty state before
+        // `loadInitial()` flips the loading flag on.
+        final isInitialLoad = !state.hasAttemptedInitialLoad ||
+            (state.isLoadingStaff && state.staffList.isEmpty);
         final isProfileLoading = state.isLoadingStaff ||
             state.isLoadingShifts ||
             state.isLoadingSchoolHours;
@@ -134,10 +340,7 @@ class _StaffSchedulingView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   if (isInitialLoad)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 60),
-                      child: Center(child: PrimaryCircularLoader()),
-                    )
+                    const StaffSchedulingShimmer()
                   else if (staff != null)
                     Container(
                       width: double.infinity,
@@ -164,10 +367,7 @@ class _StaffSchedulingView extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           if (isProfileLoading)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(child: PrimaryCircularLoader()),
-                            )
+                            const StaffShiftsBodyShimmer()
                           else ...[
                             ShiftHoursTile(
                               bgColor: const Color.fromRGBO(255, 250, 234, 1),
@@ -219,6 +419,11 @@ class _StaffSchedulingView extends StatelessWidget {
                                 classroomResolver: state.classroomResolver,
                                 dailyRoomSchedule:
                                     DailyShifts(shifts: calendarShifts),
+                                onShiftTap: (shift) => _openViewShiftScreen(
+                                  context,
+                                  state,
+                                  shift,
+                                ),
                               ),
                           ],
                         ],

@@ -13,6 +13,7 @@ class StaffSchedulingState extends Equatable {
     this.isLoadingStaff = false,
     this.isLoadingShifts = false,
     this.isLoadingSchoolHours = false,
+    this.hasAttemptedInitialLoad = false,
     this.errorMessage,
   });
 
@@ -32,6 +33,13 @@ class StaffSchedulingState extends Equatable {
   final bool isLoadingStaff;
   final bool isLoadingShifts;
   final bool isLoadingSchoolHours;
+
+  /// True once the very first `loadInitial()` has settled (success or failure).
+  /// Used by the UI to keep the shimmer up until the first load is done, so we
+  /// don't briefly show the "Select a staff member" empty state before the
+  /// first emission flips the loading flags on.
+  final bool hasAttemptedInitialLoad;
+
   final String? errorMessage;
 
   StaffMember? get selectedStaff {
@@ -71,6 +79,7 @@ class StaffSchedulingState extends Equatable {
     bool? isLoadingStaff,
     bool? isLoadingShifts,
     bool? isLoadingSchoolHours,
+    bool? hasAttemptedInitialLoad,
     String? errorMessage,
     bool clearError = false,
     bool clearSchoolHours = false,
@@ -94,6 +103,8 @@ class StaffSchedulingState extends Equatable {
       isLoadingShifts: isLoadingShifts ?? this.isLoadingShifts,
       isLoadingSchoolHours:
           isLoadingSchoolHours ?? this.isLoadingSchoolHours,
+      hasAttemptedInitialLoad:
+          hasAttemptedInitialLoad ?? this.hasAttemptedInitialLoad,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -111,6 +122,7 @@ class StaffSchedulingState extends Equatable {
         isLoadingStaff,
         isLoadingShifts,
         isLoadingSchoolHours,
+        hasAttemptedInitialLoad,
         errorMessage,
       ];
 }

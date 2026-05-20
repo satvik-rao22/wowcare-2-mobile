@@ -10,6 +10,9 @@ abstract class StaffShiftRepository {
     required DateTime dateTo,
   });
 
+  /// `GET /api/v1/staff-shifts/{shiftCode}` — full detail for one shift.
+  Future<StaffShift> getStaffShiftByCode(String shiftCode);
+
   /// Creates one or many shifts (POST `/api/v1/staff-shifts`).
   /// Returns the result envelope (created/skipped/overridden counts + dates).
   Future<StaffShiftCreateResult> createStaffShift(

@@ -33,6 +33,7 @@ class StaffShiftTimelineBlock extends Equatable {
     required this.start,
     required this.end,
     this.isBreak = false,
+    this.shiftCode = '',
   });
 
   /// Classroom code/label or "Lunch Break".
@@ -43,6 +44,10 @@ class StaffShiftTimelineBlock extends Equatable {
   final String end;
   final bool isBreak;
 
+  /// Source shift identity (empty for legacy/mocked data). Lets the view
+  /// screen re-fetch the full record via `GET /api/v1/staff-shifts/{shiftCode}`.
+  final String shiftCode;
+
   @override
-  List<Object?> get props => [room, start, end, isBreak];
+  List<Object?> get props => [room, start, end, isBreak, shiftCode];
 }

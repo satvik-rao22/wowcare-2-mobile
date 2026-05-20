@@ -141,6 +141,12 @@ class StaffShiftRepositoryImpl
   }
 
   @override
+  Future<StaffShift> getStaffShiftByCode(String shiftCode) async {
+    final model = await _remote.getStaffShiftByCode(shiftCode: shiftCode);
+    return model.toEntity();
+  }
+
+  @override
   Future<StaffShiftCreateResult> createStaffShift(
     StaffShiftCreateRequest request,
   ) async {

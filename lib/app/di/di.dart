@@ -30,6 +30,7 @@ import '../../data/features/scheduling/repositories/staff_shift_repository_impl.
 import '../../core/util/cache_manager.dart';
 import '../../domain/features/scheduling/repositories/staff_shift_repository.dart';
 import '../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
+import '../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
@@ -617,6 +618,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateStaffShiftUseCase>(
     () => CreateStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<GetStaffShiftByCodeUseCase>(
+    () => GetStaffShiftByCodeUseCase(serviceLocator<StaffShiftRepository>()),
   );
 
   // Cubits (factory - new instance each time for UI)

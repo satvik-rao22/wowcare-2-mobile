@@ -20,12 +20,18 @@ class Shift {
     required this.end,
     required this.room,
     this.isBreakShift = false,
+    this.shiftCode = '',
   });
 
   final String start;
   final String end;
   final String room;
   final bool isBreakShift;
+
+  /// Source shift identity (empty for mock/legacy data). Lets the
+  /// scheduling screen fetch full details via
+  /// `GET /api/v1/staff-shifts/{shiftCode}` on tap.
+  final String shiftCode;
 }
 
 /// All shifts for one day.

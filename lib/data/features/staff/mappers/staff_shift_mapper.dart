@@ -52,6 +52,7 @@ class StaffShiftMapper {
             room: room,
             start: _toShiftClockString(item.startTime),
             end: _toShiftClockString(item.endTime),
+            shiftCode: item.shiftCode,
           ),
         );
       }
@@ -64,6 +65,7 @@ class StaffShiftMapper {
             start: _toShiftClockString(item.breakStartTime!),
             end: _toShiftClockString(item.breakEndTime!),
             isBreak: true,
+            shiftCode: item.shiftCode,
           ),
         );
       }

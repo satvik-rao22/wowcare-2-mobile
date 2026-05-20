@@ -11,7 +11,10 @@ import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -95,6 +98,16 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   String? _breakEndError;
   String? _daysError;
 
+  /// True when the currently selected staff has no work schedule entry for
+  /// the currently selected date's weekday. Drives the inline red message
+  /// below the break row.
+  bool _noScheduleForSelectedDate = false;
+
+  /// School open/close hours per weekday. Drives the hard-rule check that
+  /// shift / break times must fall inside school hours.
+  SchoolHoursResolver? _schoolHoursResolver;
+  String? _schoolHoursError;
+
   bool _saving = false;
 
   /// Tracks the (staffCode|yyyy-MM-dd) combo we've already prefilled times for,
@@ -112,6 +125,25 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     // Shift/break times are intentionally not seeded with hardcoded defaults
     // anymore — they get prefilled from the selected staff's work/break
     // schedule for the selected weekday (PRD: staff default work hours).
+    _loadSchoolHours();
+  }
+
+  Future<void> _loadSchoolHours() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final repo = serviceLocator<StaffRepository>();
+      final days =
+          await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      if (!mounted) return;
+      setState(() {
+        _schoolHoursResolver = SchoolHoursResolver.fromDays(days);
+      });
+    } catch (_) {
+      // Best-effort: without school hours the hard-rule check no-ops.
+    }
   }
 
   @override
@@ -121,6 +153,45 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   }
 
   int _minutesOf(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  /// Parses a raw 24h API time string (`HH:mm` or `HH:mm:ss`) into TimeOfDay.
+  /// Returns null on any parse failure.
+  TimeOfDay? _parse24hTime(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  /// Returns the school open/close window for the given date, or null if the
+  /// school is closed that day or no resolver has loaded yet.
+  (TimeOfDay, TimeOfDay)? _schoolHoursForDate(DateTime date) {
+    final day = _schoolHoursResolver?.dayFor(date);
+    if (day == null) return null;
+    final start = _parse24hTime(day.startTime);
+    final end = _parse24hTime(day.endTime);
+    if (start == null || end == null) return null;
+    return (start, end);
+  }
+
+  /// Returns the school window for [weekday] (1..7, Monday-first). Iterates
+  /// forward up to 7 days starting from [_date] (or today) to find a real
+  /// matching weekday — purely a lookup helper for recurring validation.
+  (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {
+    final anchor = _date ?? DateTime.now();
+    for (var i = 0; i < 7; i++) {
+      final probe = anchor.add(Duration(days: i));
+      if (probe.weekday == weekday) {
+        return _schoolHoursForDate(probe);
+      }
+    }
+    return null;
+  }
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -171,6 +242,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
       _breakStartError = null;
       _breakEndError = null;
       _untilDateError = null;
+      _schoolHoursError = null;
     });
 
     final shiftStartMin = _minutesOf(_shiftStart!);
@@ -213,6 +285,53 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
       if (_untilDate!.isBefore(_date!) && !_isSameDay(_untilDate!, _date!)) {
         setState(() => _untilDateError = 'Must be on or after the shift date');
         return false;
+      }
+    }
+
+    // Hard rule: shift + break times must fall within the school's open/close
+    // hours for the targeted day(s). Skip when school hours haven't loaded yet
+    // or the school is closed that day (the existing "no schedule" UX already
+    // covers staff-side gaps).
+    final windows = <(TimeOfDay, TimeOfDay)>[];
+    if (_repeatOn && _selectedDays.isNotEmpty) {
+      for (final day in _selectedDays) {
+        final weekday = _weekDayIndex[day];
+        if (weekday == null) continue;
+        final w = _schoolHoursForWeekday(weekday);
+        if (w != null) windows.add(w);
+      }
+    } else if (_date != null) {
+      final w = _schoolHoursForDate(_date!);
+      if (w != null) windows.add(w);
+    }
+    for (final window in windows) {
+      final schoolStartMin = _minutesOf(window.$1);
+      final schoolEndMin = _minutesOf(window.$2);
+      final windowLabel =
+          '${window.$1.format(context)} – ${window.$2.format(context)}';
+      if (shiftStartMin < schoolStartMin || shiftEndMin > schoolEndMin) {
+        final msg = 'Shift must be within school hours ($windowLabel).';
+        setState(() => _schoolHoursError = msg);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: msg,
+          isError: true,
+        );
+        return false;
+      }
+      if (hasBreakStart && hasBreakEnd) {
+        final breakStartMin = _minutesOf(_breakStart!);
+        final breakEndMin = _minutesOf(_breakEnd!);
+        if (breakStartMin < schoolStartMin || breakEndMin > schoolEndMin) {
+          final msg = 'Break must be within school hours ($windowLabel).';
+          setState(() => _schoolHoursError = msg);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: msg,
+            isError: true,
+          );
+          return false;
+        }
       }
     }
 
@@ -265,7 +384,12 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         '${staff?.code ?? ''}|${_date!.toIso8601String().substring(0, 10)}';
     _lastPrefilledKey = key;
 
-    if (staff == null) return;
+    if (staff == null) {
+      if (_noScheduleForSelectedDate) {
+        setState(() => _noScheduleForSelectedDate = false);
+      }
+      return;
+    }
 
     final dayKey = _weekdayDayKey[_date!.weekday] ?? '';
     if (dayKey.isEmpty) return;
@@ -278,6 +402,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
       _shiftEndError = null;
       _breakStartError = null;
       _breakEndError = null;
+      _noScheduleForSelectedDate = work == null;
       if (work != null) {
         _shiftStart = work.$1;
         _shiftEnd = work.$2;
@@ -325,6 +450,25 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     if (isAm && hour == 12) hour = 0;
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
     return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  /// Returns true when the selected staff has no work schedule entry for
+  /// the day(s) the user is targeting. For a single (non-recurring) shift
+  /// this checks the selected date's weekday; for a recurring shift it
+  /// returns true if any selected weekday is missing a schedule.
+  bool _staffHasNoScheduleForSelection(StaffMember staff) {
+    if (_repeatOn && _selectedDays.isNotEmpty) {
+      for (final day in _selectedDays) {
+        final raw = staff.workScheduleByDay[day.toUpperCase()]?.trim() ?? '';
+        if (raw.isEmpty) return true;
+      }
+      return false;
+    }
+    if (_date == null) return false;
+    final dayKey = _weekdayDayKey[_date!.weekday] ?? '';
+    if (dayKey.isEmpty) return false;
+    final raw = staff.workScheduleByDay[dayKey]?.trim() ?? '';
+    return raw.isEmpty;
   }
 
   StaffMember? _findStaff(String? code, List<StaffMember> staff) {
@@ -378,6 +522,20 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   Future<void> _onConfirm() async {
     if (!_validate()) return;
     if (_saving) return;
+
+    // If the selected staff has no work schedule defined for the targeted
+    // day(s), prompt the user. Tapping Yes routes through the API with
+    // `forceAdd: true` so the backend skips the schedule-required check.
+    var forceAdd = false;
+    final staffList = context.read<StaffCubit>().state.items;
+    final selectedStaff = _findStaff(_selectedStaffCode, staffList);
+    if (selectedStaff != null &&
+        _staffHasNoScheduleForSelection(selectedStaff)) {
+      final confirmed = await NoScheduleBottomSheet.show(context);
+      if (!confirmed) return;
+      if (!mounted) return;
+      forceAdd = true;
+    }
 
     setState(() => _saving = true);
     try {
@@ -453,6 +611,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
             : const <int>[],
         repeatUntilDate: _repeatOn ? _untilDate : null,
         overrideConflicts: overrideConflicts,
+        forceAdd: forceAdd,
         notes: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
@@ -574,7 +733,10 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                           label: 'Date',
                           date: _date,
                           onDateSelected: (d) {
-                            setState(() => _date = d);
+                            setState(() {
+                              _date = d;
+                              _schoolHoursError = null;
+                            });
                             // Re-prefill so the times reflect the new
                             // weekday's schedule for the currently selected
                             // staff member, if any.
@@ -654,6 +816,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                           onTimeSelected: (t) => setState(() {
                             _shiftStart = t;
                             _shiftStartError = null;
+                            _schoolHoursError = null;
                           }),
                         ),
                       ),
@@ -667,6 +830,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                           onTimeSelected: (t) => setState(() {
                             _shiftEnd = t;
                             _shiftEndError = null;
+                            _schoolHoursError = null;
                           }),
                         ),
                       ),
@@ -684,6 +848,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                           onTimeSelected: (t) => setState(() {
                             _breakStart = t;
                             _breakStartError = null;
+                            _schoolHoursError = null;
                           }),
                         ),
                       ),
@@ -696,11 +861,18 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                           onTimeSelected: (t) => setState(() {
                             _breakEnd = t;
                             _breakEndError = null;
+                            _schoolHoursError = null;
                           }),
                         ),
                       ),
                     ],
                   ),
+                  if (_noScheduleForSelectedDate)
+                    CoreUtils.buildInlineFieldError(
+                      'No schedule available for the selected date.',
+                    ),
+                  if (_schoolHoursError != null)
+                    CoreUtils.buildInlineFieldError(_schoolHoursError),
                   SizedBox(height: responsive.verticalSpacing),
                   _buildRepeatHeader(responsive),
                   SizedBox(height: responsive.isTablet ? 16.0 : 12.0),
