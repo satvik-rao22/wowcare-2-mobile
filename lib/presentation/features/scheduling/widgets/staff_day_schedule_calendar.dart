@@ -27,6 +27,10 @@ class StaffDayScheduleCalendar extends StatefulWidget {
   /// School close time for the selected weekday (`hh:mm:ss a`).
   final String schoolEndTime;
 
+  /// Fires when the user taps a non-break shift block. Break blocks are not
+  /// considered an editable shift, so they ignore taps.
+  final ValueChanged<Shift>? onShiftTap;
+
   @override
   State<StaffDayScheduleCalendar> createState() =>
       _StaffDayScheduleCalendarState();
@@ -303,6 +307,13 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           ),
           child: _buildSingleShift(shift),
         ),
+        child: shift.isBreakShift || widget.onShiftTap == null
+            ? shiftWidget
+            : GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => widget.onShiftTap!(shift),
+                child: shiftWidget,
+              ),
       ),
     );
   }

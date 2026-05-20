@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../presentation/features/classroom/cubit/classroom_cubit.dart';
+import '../../../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
@@ -41,32 +43,78 @@ class _SchedulingScreenContent extends StatefulWidget {
 class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   bool _expandAll = false;
 
+  Future<void> _onRefresh() async {
+    final cubit = context.read<SchedulingCubit>();
+    final staffCubit = context.read<StaffCubit>();
+    final classroomCubit = context.read<ClassroomCubit>();
+    // Refresh shift mock data + invalidate staff/classroom caches so the next
+    // dropdown render shows fresh data (per PRD pull-to-refresh requirement).
+    await Future.wait<void>([
+      Future.sync(cubit.load),
+      staffCubit.refresh(),
+      classroomCubit.loadActiveClassrooms(
+        force: true,
+        onlyTypeClassroom: false,
+      ),
+    ]);
+  }
+
+  void _openAddShiftScreen(DateTime selectedDay) {
+    // The cubits are provided at the route level; capture them here so they
+    // remain available inside the pushed [MaterialPageRoute] (which would
+    // otherwise lose the provider scope).
+    final staffCubit = context.read<StaffCubit>();
+    final classroomCubit = context.read<ClassroomCubit>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StaffCubit>.value(value: staffCubit),
+            BlocProvider<ClassroomCubit>.value(value: classroomCubit),
+          ],
+          child: AddShiftScreen(initialDate: selectedDay),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SchedulingCubit, SchedulingState>(
       builder: (context, state) {
-        final cubit = context.read<SchedulingCubit>();
         final classroomNames = state.classrooms
             .map((c) => c.classroomName)
             .toSet()
             .toList(growable: false);
 
         final isWeek = state.viewMode == SchedulingViewMode.week;
+        final cubit = context.read<SchedulingCubit>();
         return GlobalScaffold(
           hasBackButton: true,
           body: CustomRefreshIndicator(
-            onRefresh: () async => cubit.load(),
+            onRefresh: _onRefresh,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'Classroom Schedule',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   _DatePickerHeader(
                     selectedDay: state.selectedDay,
                     onDateSelected: cubit.selectDay,
                     viewMode: state.viewMode,
                     onViewModeChanged: cubit.setViewMode,
+                    onAddTap: () => _openAddShiftScreen(state.selectedDay),
                   ),
                   const SizedBox(height: 16),
                   if (isWeek) ...[
@@ -91,7 +139,10 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                           setState(() => _expandAll = !_expandAll),
                     )
                   else
-                    DayGanttTable(classrooms: state.filteredClassrooms),
+                    DayGanttTable(
+                      classrooms: state.filteredClassrooms,
+                      day: state.selectedDay,
+                    ),
                 ],
               ),
             ),
@@ -108,12 +159,14 @@ class _DatePickerHeader extends StatelessWidget {
     required this.onDateSelected,
     required this.viewMode,
     required this.onViewModeChanged,
+    required this.onAddTap,
   });
 
   final DateTime selectedDay;
   final ValueChanged<DateTime> onDateSelected;
   final SchedulingViewMode viewMode;
   final ValueChanged<SchedulingViewMode> onViewModeChanged;
+  final VoidCallback onAddTap;
 
   static const _viewModeLabels = <SchedulingViewMode, String>{
     SchedulingViewMode.week: 'Week',
@@ -156,15 +209,7 @@ class _DatePickerHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        GradientAddButton(
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => AddShiftScreen(initialDate: selectedDay),
-              ),
-            );
-          },
-        ),
+        GradientAddButton(onTap: onAddTap),
       ],
     );
   }

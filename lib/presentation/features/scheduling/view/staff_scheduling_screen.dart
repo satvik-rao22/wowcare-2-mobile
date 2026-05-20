@@ -10,6 +10,16 @@ import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -17,8 +27,10 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Staff Scheduling — single-day view with staff picker, profile summary,
-/// hour totals, and day timeline backed by staff list + staff-shifts APIs.
-class StaffSchedulingScreen extends StatelessWidget {
+/// hour totals, and day timeline. Staff dropdown is fed by [StaffCubit] (with
+/// disk cache); pull-to-refresh re-pulls staff + classroom data. Shift list
+/// remains placeholder until the shift-API cubit is wired in.
+class StaffSchedulingScreen extends StatefulWidget {
   const StaffSchedulingScreen({super.key});
 
   static const String routeName = '/dashboard/staff-scheduling';
@@ -225,12 +237,30 @@ class _DateHeaderRow extends StatelessWidget {
     required this.onPreviousDay,
     required this.onNextDay,
     required this.onDatePicked,
+    required this.onAddTap,
+    this.staffNames = const <String>[],
+    this.initialPublishStaff,
   });
 
   final DateTime selectedDay;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
   final ValueChanged<DateTime> onDatePicked;
+  final VoidCallback onAddTap;
+  final List<String> staffNames;
+  final String? initialPublishStaff;
+
+  Future<void> _openPublishScreen(BuildContext context) async {
+    await Navigator.of(context).push<PublishShiftsResult>(
+      MaterialPageRoute<PublishShiftsResult>(
+        builder: (_) => PublishShiftsScreen(
+          staff: staffNames,
+          initialStaff: initialPublishStaff,
+          initialUntilDate: selectedDay,
+        ),
+      ),
+    );
+  }
 
   static const Color _chevronColor = Color(0xFF9C84FF);
 
@@ -313,9 +343,9 @@ class _DateHeaderRow extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        GradientAddButton(onTap: () {}),
+        GradientAddButton(onTap: onAddTap),
         const SizedBox(width: 8),
-        _GradientPublishButton(onTap: () {}),
+        _GradientPublishButton(onTap: () => _openPublishScreen(context)),
       ],
     );
   }

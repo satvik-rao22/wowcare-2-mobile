@@ -262,8 +262,24 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'scheduling',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const SchedulingScreen()),
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<StaffCubit>(
+                          create: (_) =>
+                              serviceLocator<StaffCubit>()..loadInitial(),
+                        ),
+                        BlocProvider<ClassroomCubit>(
+                          create: (_) => serviceLocator<ClassroomCubit>()
+                            ..loadActiveClassrooms(
+                              onlyTypeClassroom: false,
+                            ),
+                        ),
+                      ],
+                      child: const SchedulingScreen(),
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'staff-scheduling',
@@ -272,6 +288,19 @@ final GoRouter appRouter = GoRouter(
                     BlocProvider(
                       create: (_) =>
                           serviceLocator<StaffSchedulingCubit>()..loadInitial(),
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<StaffCubit>(
+                          create: (_) =>
+                              serviceLocator<StaffCubit>()..loadInitial(),
+                        ),
+                        BlocProvider<ClassroomCubit>(
+                          create: (_) => serviceLocator<ClassroomCubit>()
+                            ..loadActiveClassrooms(
+                              onlyTypeClassroom: false,
+                            ),
+                        ),
+                      ],
                       child: const StaffSchedulingScreen(),
                     ),
                   ),

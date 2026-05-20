@@ -30,7 +30,7 @@ class WeekClassroomHeaderRow extends StatelessWidget {
           expandAll ? 'Collapse All' : 'Expand All',
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
           ),
@@ -40,7 +40,7 @@ class WeekClassroomHeaderRow extends StatelessWidget {
         dayLabel,
         style: const TextStyle(
           fontFamily: 'Manrope',
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           color: AppColors.primaryColor,
         ),

@@ -25,6 +25,12 @@ import '../../data/features/attendance/datasources/attendance_remote_datasource.
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../data/features/availability/datasources/availability_remote_datasource.dart';
 import '../../data/features/availability/repositories/availability_repository_impl.dart';
+import '../../data/features/scheduling/datasources/staff_shift_remote_datasource.dart';
+import '../../data/features/scheduling/repositories/staff_shift_repository_impl.dart';
+import '../../core/util/cache_manager.dart';
+import '../../domain/features/scheduling/repositories/staff_shift_repository.dart';
+import '../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
+import '../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -254,6 +260,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<StaffClassroomRemoteDataSource>(
     () =>
         StaffClassroomRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
+  // Staff Shift (scheduling)
+  serviceLocator.registerLazySingleton<StaffShiftRemoteDataSource>(
+    () => StaffShiftRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<CacheManager>(
+    () => CacheManager(serviceLocator<StorageService>()),
+  );
+  serviceLocator.registerLazySingleton<StaffShiftRepository>(
+    () => StaffShiftRepositoryImpl(
+      serviceLocator<StaffShiftRemoteDataSource>(),
+      serviceLocator<CacheManager>(),
+    ),
   );
 
   // Onboarding Data Sources
@@ -589,6 +609,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetCachedConversationsUseCase>(
     () => GetCachedConversationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffShiftsUseCase>(
+    () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<CreateStaffShiftUseCase>(
+    () => CreateStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
   );
 
   // Cubits (factory - new instance each time for UI)
