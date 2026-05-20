@@ -13,6 +13,7 @@ class GetStaffShiftsUseCase {
     required DateTime date,
     String? classroomCode,
     List<String>? shiftStatus,
+    Map<String, String> classroomNamesByCode = const {},
   }) {
     return _repository.getStaffShiftsForDay(
       organizationCode: organizationCode,
@@ -21,6 +22,7 @@ class GetStaffShiftsUseCase {
       date: date,
       classroomCode: classroomCode,
       shiftStatus: shiftStatus,
+      classroomNamesByCode: classroomNamesByCode,
     );
   }
 }

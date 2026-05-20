@@ -16,6 +16,7 @@ class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
     required DateTime date,
     String? classroomCode,
     List<String>? shiftStatus,
+    Map<String, String> classroomNamesByCode = const {},
   }) async {
     final dateStr = StaffShiftMapper.formatApiDate(date);
     final page = await _remoteDataSource.getStaffShifts(
@@ -27,6 +28,9 @@ class StaffSchedulingRepositoryImpl implements StaffSchedulingRepository {
       classroomCode: classroomCode,
       shiftStatus: shiftStatus,
     );
-    return StaffShiftMapper.toDaySummary(page);
+    return StaffShiftMapper.toDaySummary(
+      page,
+      classroomNamesByCode: classroomNamesByCode,
+    );
   }
 }

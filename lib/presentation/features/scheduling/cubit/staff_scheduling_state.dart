@@ -9,6 +9,7 @@ class StaffSchedulingState extends Equatable {
     this.schoolStartTime,
     this.schoolEndTime,
     this.hasSchoolHoursForDay = false,
+    this.classroomNamesByCode = const {},
     this.isLoadingStaff = false,
     this.isLoadingShifts = false,
     this.isLoadingSchoolHours = false,
@@ -24,6 +25,9 @@ class StaffSchedulingState extends Equatable {
   final String? schoolStartTime;
   final String? schoolEndTime;
   final bool hasSchoolHoursForDay;
+
+  /// Active classroom code → display name for the logged-in school.
+  final Map<String, String> classroomNamesByCode;
 
   final bool isLoadingStaff;
   final bool isLoadingShifts;
@@ -44,6 +48,9 @@ class StaffSchedulingState extends Equatable {
 
   String? get selectedStaffDropdownLabel => selectedStaff?.name;
 
+  ClassroomNameResolver get classroomResolver =>
+      ClassroomNameResolver.fromMap(classroomNamesByCode);
+
   factory StaffSchedulingState.initial() {
     final now = DateTime.now();
     return StaffSchedulingState(
@@ -60,6 +67,7 @@ class StaffSchedulingState extends Equatable {
     String? schoolStartTime,
     String? schoolEndTime,
     bool? hasSchoolHoursForDay,
+    Map<String, String>? classroomNamesByCode,
     bool? isLoadingStaff,
     bool? isLoadingShifts,
     bool? isLoadingSchoolHours,
@@ -80,6 +88,8 @@ class StaffSchedulingState extends Equatable {
           clearSchoolHours ? null : (schoolEndTime ?? this.schoolEndTime),
       hasSchoolHoursForDay:
           hasSchoolHoursForDay ?? this.hasSchoolHoursForDay,
+      classroomNamesByCode:
+          classroomNamesByCode ?? this.classroomNamesByCode,
       isLoadingStaff: isLoadingStaff ?? this.isLoadingStaff,
       isLoadingShifts: isLoadingShifts ?? this.isLoadingShifts,
       isLoadingSchoolHours:
@@ -97,6 +107,7 @@ class StaffSchedulingState extends Equatable {
         schoolStartTime,
         schoolEndTime,
         hasSchoolHoursForDay,
+        classroomNamesByCode,
         isLoadingStaff,
         isLoadingShifts,
         isLoadingSchoolHours,

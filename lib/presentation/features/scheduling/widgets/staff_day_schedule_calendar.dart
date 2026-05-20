@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 
 /// Day shift calendar for [StaffSchedulingScreen]: hourly time column plus
 /// positioned shift blocks. The day column label is supplied by the parent
@@ -13,10 +14,12 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     required this.dayColumnLabel,
     required this.schoolStartTime,
     required this.schoolEndTime,
+    this.classroomResolver,
   });
 
   final DailyShifts dailyRoomSchedule;
   final String dayColumnLabel;
+  final ClassroomNameResolver? classroomResolver;
 
   /// School open time for the selected weekday (`hh:mm:ss a`).
   final String schoolStartTime;
@@ -185,7 +188,14 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     return Column(children: slots.map(_buildTimeItem).toList());
   }
 
+  String _displayRoom(Shift shift) {
+    if (shift.isBreakShift) return shift.room;
+    return widget.classroomResolver?.resolveShiftRoom(shift.room) ??
+        shift.room;
+  }
+
   Widget _buildSingleShift(Shift shift) {
+    final roomLabel = _displayRoom(shift);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Column(
@@ -193,15 +203,15 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
-            shift.room,
+            roomLabel,
             style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: AppColors.secondaryColor,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 3,
+            softWrap: true,
           ),
           const SizedBox(height: 8),
           Text(

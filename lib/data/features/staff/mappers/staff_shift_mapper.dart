@@ -26,7 +26,14 @@ class StaffShiftMapper {
   static StaffShiftDaySummary toDaySummary(
     StaffShiftsPageModel page, {
     String fallbackRoomLabel = '',
+    Map<String, String> classroomNamesByCode = const {},
   }) {
+    String labelForCode(String code) {
+      final c = code.trim();
+      if (c.isEmpty) return fallbackRoomLabel;
+      final name = classroomNamesByCode[c]?.trim() ?? '';
+      return name.isNotEmpty ? name : c;
+    }
     if (page.items.isEmpty) {
       return StaffShiftDaySummary.empty;
     }
@@ -36,7 +43,7 @@ class StaffShiftMapper {
 
     for (final item in page.items) {
       final room = item.classroomCode.trim().isNotEmpty
-          ? item.classroomCode.trim()
+          ? labelForCode(item.classroomCode)
           : fallbackRoomLabel;
 
       if (_hasMeaningfulTime(item.startTime) && _hasMeaningfulTime(item.endTime)) {

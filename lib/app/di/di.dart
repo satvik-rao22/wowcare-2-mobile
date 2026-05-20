@@ -751,6 +751,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffSchedulingCubit(
       getStaffPageUseCase: serviceLocator(),
       getStaffShiftsUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),

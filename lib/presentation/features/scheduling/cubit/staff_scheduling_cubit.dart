@@ -4,11 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_shift.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
+import '../utils/classroom_name_resolver.dart';
 import '../utils/school_hours_resolver.dart';
 
 part 'staff_scheduling_state.dart';
@@ -17,16 +19,19 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   StaffSchedulingCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
+    required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
   })  : _getStaffPageUseCase = getStaffPageUseCase,
         _getStaffShiftsUseCase = getStaffShiftsUseCase,
+        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _staffRepository = staffRepository,
         _storageService = storageService,
         super(StaffSchedulingState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffShiftsUseCase _getStaffShiftsUseCase;
+  final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
 
@@ -50,14 +55,101 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   }
 
   Future<void> loadInitial() async {
-    await _loadSchoolHours();
+    await Future.wait([
+      _loadSchoolHours(),
+      _loadClassroomNames(),
+    ]);
     await _loadAllStaff(selectFirst: true);
   }
 
   Future<void> refresh() async {
-    await _loadSchoolHours();
+    await Future.wait([
+      _loadSchoolHours(),
+      _loadClassroomNames(),
+    ]);
     await _loadAllStaff(selectFirst: false);
     await _loadShiftsForSelection();
+  }
+
+  Future<void> _loadClassroomNames() async {
+    try {
+      final schoolCode = await _resolveSchoolCode();
+      if (schoolCode.isEmpty) return;
+
+      final classrooms = await _getActiveClassroomsUseCase(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: true,
+      );
+      final map = <String, String>{};
+      for (final c in classrooms) {
+        final code = c.code.trim();
+        if (code.isEmpty) continue;
+        final name = c.name.trim();
+        map[code] = name.isNotEmpty ? name : code;
+      }
+      if (isClosed) return;
+      emit(state.copyWith(classroomNamesByCode: map));
+      _reapplyShiftSummaryLabels();
+    } catch (_) {
+      // Non-fatal: fall back to staff API / codes when lookup fails.
+    }
+  }
+
+  void _mergeClassroomNamesFromStaff(List<StaffMember> staff) {
+    if (staff.isEmpty) return;
+    final merged = Map<String, String>.from(state.classroomNamesByCode);
+    for (final member in staff) {
+      final primaryCode = member.primaryClassroomCode.trim();
+      final primaryName = member.primaryClassroomName.trim();
+      if (primaryCode.isNotEmpty && primaryName.isNotEmpty) {
+        merged[primaryCode] = primaryName;
+      }
+      member.allowedClassroomNameByCode.forEach((code, name) {
+        final c = code.trim();
+        final n = name.trim();
+        if (c.isNotEmpty && n.isNotEmpty) merged[c] = n;
+      });
+    }
+    emit(state.copyWith(classroomNamesByCode: merged));
+    _reapplyShiftSummaryLabels();
+  }
+
+  StaffShiftDaySummary _labelShiftSummary(
+    StaffShiftDaySummary summary,
+    StaffMember? staff,
+  ) {
+    final resolver = state.classroomResolver;
+    final fallbackRoom =
+        staff != null ? resolver.resolveForStaff(staff) : '';
+
+    return StaffShiftDaySummary(
+      availableHours: summary.availableHours,
+      scheduledHours: summary.scheduledHours,
+      unscheduledHours: summary.unscheduledHours,
+      blocks: summary.blocks
+          .map(
+            (b) => StaffShiftTimelineBlock(
+              room: b.isBreak
+                  ? b.room
+                  : (b.room.isNotEmpty
+                      ? resolver.resolveShiftRoom(b.room)
+                      : fallbackRoom),
+              start: b.start,
+              end: b.end,
+              isBreak: b.isBreak,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  void _reapplyShiftSummaryLabels() {
+    if (state.shiftSummary.blocks.isEmpty) return;
+    final labeled = _labelShiftSummary(
+      state.shiftSummary,
+      state.selectedStaff,
+    );
+    emit(state.copyWith(shiftSummary: labeled));
   }
 
   Future<void> _loadSchoolHours() async {
@@ -184,6 +276,8 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         ),
       );
 
+      _mergeClassroomNamesFromStaff(allStaff);
+
       if (nextCode != null) {
         await _loadShiftsForSelection();
       } else {
@@ -234,28 +328,12 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
             classroomCode != null && classroomCode.isNotEmpty
                 ? classroomCode
                 : null,
+        classroomNamesByCode: state.classroomNamesByCode,
       );
 
       if (isClosed) return;
 
-      final fallbackRoom = staff?.displayClassroomName ?? '';
-      final enriched = summary.blocks.isEmpty && fallbackRoom.isNotEmpty
-          ? summary
-          : StaffShiftDaySummary(
-              availableHours: summary.availableHours,
-              scheduledHours: summary.scheduledHours,
-              unscheduledHours: summary.unscheduledHours,
-              blocks: summary.blocks
-                  .map(
-                    (b) => StaffShiftTimelineBlock(
-                      room: b.room.isNotEmpty ? b.room : fallbackRoom,
-                      start: b.start,
-                      end: b.end,
-                      isBreak: b.isBreak,
-                    ),
-                  )
-                  .toList(),
-            );
+      final enriched = _labelShiftSummary(summary, staff);
 
       emit(
         state.copyWith(
@@ -300,24 +378,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   }
 
   void shiftSelectedDay(int deltaDays) {
-    final next = state.selectedDay.add(Duration(days: deltaDays));
-    emit(
-      state.copyWith(
-        selectedDay: DateTime(next.year, next.month, next.day),
-      ),
-    );
+    selectDay(state.selectedDay.add(Duration(days: deltaDays)));
+  }
+
+  void selectDay(DateTime day) {
+    final normalized = DateTime(day.year, day.month, day.day);
+    emit(state.copyWith(selectedDay: normalized));
     _applySchoolHoursForSelectedDay();
     _loadShiftsForSelection();
-  }
-}
-
-extension StaffMemberSchedulingDisplay on StaffMember {
-  String get displayClassroomName {
-    if (primaryClassroomName.trim().isNotEmpty) {
-      return primaryClassroomName.trim();
-    }
-    final code = primaryClassroomOrFirstAllowed;
-    if (code.isEmpty) return '';
-    return allowedClassroomNameByCode[code] ?? code;
   }
 }

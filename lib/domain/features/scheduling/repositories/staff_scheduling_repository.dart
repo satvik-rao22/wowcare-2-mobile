@@ -9,5 +9,6 @@ abstract class StaffSchedulingRepository {
     required DateTime date,
     String? classroomCode,
     List<String>? shiftStatus,
+    Map<String, String> classroomNamesByCode,
   });
 }

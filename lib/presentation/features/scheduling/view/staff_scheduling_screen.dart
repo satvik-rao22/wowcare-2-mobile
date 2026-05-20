@@ -8,7 +8,8 @@ import 'package:wowcare/presentation/features/classrooom/views/filters/designati
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -53,6 +54,11 @@ class _StaffSchedulingView extends StatelessWidget {
         final dayColumnLabel =
             DateFormat('EEE, MMM d').format(state.selectedDay);
         final calendarShifts = _shiftsFromSummary(state.shiftSummary);
+        final isInitialLoad =
+            state.isLoadingStaff && state.staffList.isEmpty;
+        final isProfileLoading = state.isLoadingStaff ||
+            state.isLoadingShifts ||
+            state.isLoadingSchoolHours;
 
         return GlobalScaffold(
           hasBackButton: true,
@@ -68,6 +74,7 @@ class _StaffSchedulingView extends StatelessWidget {
                     selectedDay: state.selectedDay,
                     onPreviousDay: () => cubit.shiftSelectedDay(-1),
                     onNextDay: () => cubit.shiftSelectedDay(1),
+                    onDatePicked: cubit.selectDay,
                   ),
                   if (state.errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -88,22 +95,20 @@ class _StaffSchedulingView extends StatelessWidget {
                       border: Border.all(color: const Color(0x19162831)),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: state.isLoadingStaff
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Center(child: PrimaryCircularLoader()),
-                          )
-                        : CustomDropdown(
-                            hintText: 'Select Staff',
-                            items: state.staffDropdownNames,
-                            selectedItem: state.selectedStaffDropdownLabel,
-                            fieldHeight: 44,
-                            prependHintAsSelectableItem: false,
-                            onSelect: cubit.selectStaffByName,
-                          ),
+                    child: StaffSchedulingStaffDropdown(
+                      staffNames: state.staffDropdownNames,
+                      selectedStaffName: state.selectedStaffDropdownLabel,
+                      isLoading: state.isLoadingStaff,
+                      onSelected: cubit.selectStaffByName,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  if (staff != null)
+                  if (isInitialLoad)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(child: PrimaryCircularLoader()),
+                    )
+                  else if (staff != null)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -123,11 +128,12 @@ class _StaffSchedulingView extends StatelessWidget {
                             designation: formatDesignationForDisplay(
                               staff.designation,
                             ),
-                            classroom: staff.displayClassroomName,
+                            classroom:
+                                state.classroomResolver.resolveForStaff(staff),
                             profilePhotoAssetCode: staff.profilePhotoAssetCode,
                           ),
                           const SizedBox(height: 16),
-                          if (state.isLoadingShifts)
+                          if (isProfileLoading)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 24),
                               child: Center(child: PrimaryCircularLoader()),
@@ -154,14 +160,7 @@ class _StaffSchedulingView extends StatelessWidget {
                               icon: MediaRes.unScheduledHoursIcon,
                             ),
                             const SizedBox(height: 20),
-                            if (state.isLoadingSchoolHours)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Center(
-                                  child: PrimaryCircularLoader(),
-                                ),
-                              )
-                            else if (!state.hasSchoolHoursForDay)
+                            if (!state.hasSchoolHoursForDay)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 24),
                                 child: Center(
@@ -181,11 +180,13 @@ class _StaffSchedulingView extends StatelessWidget {
                               StaffDayScheduleCalendar(
                                 key: ValueKey(
                                   '${staff.code}_${dayColumnLabel}_'
-                                  '${state.schoolStartTime}_${state.schoolEndTime}',
+                                  '${state.schoolStartTime}_${state.schoolEndTime}_'
+                                  '${state.classroomNamesByCode.length}',
                                 ),
                                 dayColumnLabel: dayColumnLabel,
                                 schoolStartTime: state.schoolStartTime!,
                                 schoolEndTime: state.schoolEndTime!,
+                                classroomResolver: state.classroomResolver,
                                 dailyRoomSchedule:
                                     DailyShifts(shifts: calendarShifts),
                               ),
@@ -223,13 +224,28 @@ class _DateHeaderRow extends StatelessWidget {
     required this.selectedDay,
     required this.onPreviousDay,
     required this.onNextDay,
+    required this.onDatePicked,
   });
 
   final DateTime selectedDay;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
+  final ValueChanged<DateTime> onDatePicked;
 
   static const Color _chevronColor = Color(0xFF9C84FF);
+
+  Future<void> _openDatePicker(BuildContext context) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => CalendarDialog(
+        initialDate: selectedDay,
+      ),
+    );
+    final picked = result?['date'];
+    if (picked is DateTime) {
+      onDatePicked(picked);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,13 +268,35 @@ class _DateHeaderRow extends StatelessWidget {
                 size: 24,
               ),
             ),
-            Text(
-              formattedDate,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.primaryColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _openDatePicker(context),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          color: AppColors.primaryColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 18,
+                        color: _chevronColor,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
             IconButton(
@@ -388,38 +426,32 @@ class _StaffProfileHeader extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      designation,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              if (designation.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  designation,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    color: AppColors.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      classroom,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                    ),
+                  softWrap: true,
+                ),
+              ],
+              if (classroom.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  classroom,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    color: AppColors.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
-              ),
+                  softWrap: true,
+                ),
+              ],
             ],
           ),
         ),
