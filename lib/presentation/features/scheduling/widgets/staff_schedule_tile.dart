@@ -45,8 +45,9 @@ class StaffRowLeft extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 _HoursBadge(
-                  scheduledHours: entry.scheduledHours,
                   availableHours: entry.availableHours,
+                  scheduledHours: entry.scheduledHours,
+                  unscheduledHours: entry.unscheduledHours,
                 ),
               ],
             ),
@@ -59,38 +60,54 @@ class StaffRowLeft extends StatelessWidget {
 
 class _HoursBadge extends StatelessWidget {
   const _HoursBadge({
-    required this.scheduledHours,
     required this.availableHours,
+    required this.scheduledHours,
+    required this.unscheduledHours,
   });
 
-  final double scheduledHours;
   final double availableHours;
+  final double scheduledHours;
+  final double unscheduledHours;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _HourChip(
+          iconAsset: MediaRes.availableHoursIcon,
+          hours: availableHours,
+        ),
+        _HourChip(
+          iconAsset: MediaRes.scheduledHoursIcon,
+          hours: scheduledHours,
+        ),
+        _HourChip(
+          iconAsset: MediaRes.unScheduledHoursIcon,
+          hours: unscheduledHours,
+        ),
+      ],
+    );
+  }
+}
+
+class _HourChip extends StatelessWidget {
+  const _HourChip({required this.iconAsset, required this.hours});
+
+  final String iconAsset;
+  final double hours;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SvgPicture.asset(MediaRes.scheduledHoursIcon, width: 16, height: 16),
+        SvgPicture.asset(iconAsset, width: 16, height: 16),
         const SizedBox(width: 4),
         Text(
-          '${_formatHours(scheduledHours)}h',
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 1,
-          height: 14,
-          color: AppColors.primaryColor.withValues(alpha: 0.25),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${_formatHours(availableHours)}h',
+          '${_formatHours(hours)}h',
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 13,

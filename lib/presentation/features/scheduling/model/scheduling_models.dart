@@ -63,6 +63,7 @@ class StaffScheduleEntry {
     required this.staffName,
     required this.scheduledHours,
     required this.availableHours,
+    required this.unscheduledHours,
     required this.startTime,
     required this.endTime,
     this.isPublished = false,
@@ -76,14 +77,14 @@ class StaffScheduleEntry {
 
   final String staffName;
 
-  /// Hours for this specific shift row (computed from start/end). Backend
-  /// returns the same per-day aggregate on every shift of a staff member,
-  /// which is misleading per row — we compute per-shift duration instead.
+  /// Per-day totals from the staff-shifts API (`scheduledHours`).
   final double scheduledHours;
 
-  /// Total available hours for the staff member on this day (backend's
-  /// aggregate). Repeats across rows of the same staff, which is intentional.
+  /// Per-day totals from the staff-shifts API (`availableHours`).
   final double availableHours;
+
+  /// Per-day totals from the staff-shifts API (`unscheduledHours`).
+  final double unscheduledHours;
 
   final String startTime;
   final String endTime;

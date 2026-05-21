@@ -336,6 +336,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
         staffName: entry.staffName,
         scheduledHours: entry.scheduledHours,
         availableHours: entry.availableHours,
+        unscheduledHours: entry.unscheduledHours,
         startTime: entry.startTime,
         endTime: entry.endTime,
         isPublished: entry.isPublished,
@@ -470,13 +471,11 @@ class _ClassroomBucket {
 
   ClassroomDaySchedule toClassroomDaySchedule() {
     final staffEntries = shifts.map((s) {
-      final scheduled = _hoursBetween(s.startTime, s.endTime);
-      final available =
-          s.availableHours > 0 ? s.availableHours.toDouble() : scheduled;
       return StaffScheduleEntry(
         staffName: s.staffName.isNotEmpty ? s.staffName : s.staffCode,
-        scheduledHours: scheduled,
-        availableHours: available,
+        scheduledHours: s.scheduledHours.toDouble(),
+        availableHours: s.availableHours.toDouble(),
+        unscheduledHours: s.unscheduledHours.toDouble(),
         startTime: _formatTimeOfDay(s.startTime),
         endTime: _formatTimeOfDay(s.endTime),
         isPublished: s.isPublished,
@@ -490,13 +489,6 @@ class _ClassroomBucket {
       ratioStatus: ClassroomRatioStatus.inRatio,
       staff: staffEntries,
     );
-  }
-
-  static double _hoursBetween(TimeOfDay start, TimeOfDay end) {
-    final startMin = start.hour * 60 + start.minute;
-    final endMin = end.hour * 60 + end.minute;
-    final diff = (endMin - startMin).clamp(0, 24 * 60);
-    return diff / 60.0;
   }
 
   static String _formatTimeOfDay(TimeOfDay t) {
