@@ -63,8 +63,8 @@ class _HoursBadge extends StatelessWidget {
     required this.availableHours,
   });
 
-  final int scheduledHours;
-  final int availableHours;
+  final double scheduledHours;
+  final double availableHours;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +74,7 @@ class _HoursBadge extends StatelessWidget {
         SvgPicture.asset(MediaRes.scheduledHoursIcon, width: 16, height: 16),
         const SizedBox(width: 4),
         Text(
-          '${scheduledHours}h',
+          '${_formatHours(scheduledHours)}h',
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 13,
@@ -90,7 +90,7 @@ class _HoursBadge extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          '${availableHours}h',
+          '${_formatHours(availableHours)}h',
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 13,
@@ -103,46 +103,65 @@ class _HoursBadge extends StatelessWidget {
   }
 }
 
-/// Right-cell content for a staff row: dashed-border time-range pill.
+/// Drop trailing `.0` so whole hours render as `9h` not `9.0h`, but fractional
+/// values (e.g. 7.5h) keep their decimal.
+String _formatHours(double hours) {
+  if (hours == hours.truncateToDouble()) return hours.toInt().toString();
+  return hours.toStringAsFixed(1);
+}
+
+/// Right-cell content for a staff row: time-range pill with a solid border
+/// for published shifts and a dotted border for drafts.
 class StaffTimeRangePill extends StatelessWidget {
   const StaffTimeRangePill({
     super.key,
     required this.startTime,
     required this.endTime,
+    this.isPublished = false,
   });
 
   final String startTime;
   final String endTime;
+  final bool isPublished;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      child: CustomPaint(
-        foregroundPainter: _DashedRRectPainter(
-          color: const Color(0xFF89A0FF),
-          strokeWidth: 1.2,
-          radius: 8,
-        ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '$startTime -\n$endTime',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryColor,
-              height: 1.3,
-            ),
-          ),
+    const borderColor = Color(0xFF89A0FF);
+    const radius = 8.0;
+    final inner = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.fieldBackgroundColor,
+        borderRadius: BorderRadius.circular(radius),
+        border: isPublished
+            ? Border.all(color: borderColor, width: 1.2)
+            : null,
+      ),
+      child: Text(
+        '$startTime -\n$endTime',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryColor,
+          height: 1.3,
         ),
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      child: isPublished
+          ? inner
+          : CustomPaint(
+              foregroundPainter: _DashedRRectPainter(
+                color: borderColor,
+                strokeWidth: 1.2,
+                radius: radius,
+              ),
+              child: inner,
+            ),
     );
   }
 }

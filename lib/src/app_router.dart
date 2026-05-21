@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_profile_details_sc
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
@@ -266,9 +267,12 @@ final GoRouter appRouter = GoRouter(
                     state,
                     MultiBlocProvider(
                       providers: [
-                        BlocProvider<StaffCubit>(
-                          create: (_) =>
-                              serviceLocator<StaffCubit>()..loadInitial(),
+                        // No-pagination staff fetch for the scheduling
+                        // feature (status=ACTIVE&status=UPCOMING). Singleton
+                        // so AddShift shares the same cached list.
+                        BlocProvider<SchedulingStaffListCubit>.value(
+                          value: serviceLocator<SchedulingStaffListCubit>()
+                            ..load(),
                         ),
                         BlocProvider<ClassroomCubit>(
                           create: (_) => serviceLocator<ClassroomCubit>()
@@ -287,14 +291,21 @@ final GoRouter appRouter = GoRouter(
                     state,
                     MultiBlocProvider(
                       providers: [
+                        // Singleton scheduling staff list (no pagination).
+                        // Provided here so AddShift can read it from context
+                        // without triggering another API call.
+                        BlocProvider<SchedulingStaffListCubit>.value(
+                          value: serviceLocator<SchedulingStaffListCubit>(),
+                        ),
+                        // lazy:false so loadInitial() (which triggers the
+                        // no-pagination staff fetch via
+                        // [SchedulingStaffListCubit]) fires immediately on
+                        // route entry instead of waiting for the first read.
                         BlocProvider<StaffSchedulingCubit>(
+                          lazy: false,
                           create: (_) =>
                               serviceLocator<StaffSchedulingCubit>()
                                 ..loadInitial(),
-                        ),
-                        BlocProvider<StaffCubit>(
-                          create: (_) =>
-                              serviceLocator<StaffCubit>()..loadInitial(),
                         ),
                         BlocProvider<ClassroomCubit>(
                           create: (_) => serviceLocator<ClassroomCubit>()

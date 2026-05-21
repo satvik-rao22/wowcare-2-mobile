@@ -32,6 +32,7 @@ import '../../domain/features/scheduling/repositories/staff_shift_repository.dar
 import '../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import '../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -42,11 +43,14 @@ import '../../domain/features/onboarding/repositories/onboarding_repository.dart
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../domain/features/staff/usecases/get_all_staff_usecase.dart';
 import '../../data/features/scheduling/datasources/staff_scheduling_remote_datasource.dart';
 import '../../data/features/scheduling/repositories/staff_scheduling_repository_impl.dart';
 import '../../domain/features/scheduling/repositories/staff_scheduling_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
+import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
+import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -362,6 +366,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetAllStaffUseCase>(
+    () => GetAllStaffUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffShiftsForDayUseCase>(
     () => GetStaffShiftsForDayUseCase(
       serviceLocator<StaffSchedulingRepository>(),
@@ -622,6 +629,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffShiftByCodeUseCase>(
     () => GetStaffShiftByCodeUseCase(serviceLocator<StaffShiftRepository>()),
   );
+  serviceLocator.registerFactory<GetSchoolStaffShiftsUseCase>(
+    () => GetSchoolStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -779,12 +789,28 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<CreateConversationCubit>(
     () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
   );
+  // Singleton so the scheduling staff list is loaded once per session and
+  // shared between [StaffSchedulingCubit] (injected via DI) and the widget
+  // tree (provided via `BlocProvider.value`). Lets AddShift reuse the cached
+  // staff list instead of triggering a second fetch.
+  serviceLocator.registerLazySingleton<SchedulingStaffListCubit>(
+    () => SchedulingStaffListCubit(
+      getAllStaffUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<StaffSchedulingCubit>(
     () => StaffSchedulingCubit(
-      getStaffPageUseCase: serviceLocator(),
+      schedulingStaffListCubit: serviceLocator(),
       getStaffShiftsUseCase: serviceLocator<GetStaffShiftsForDayUseCase>(),
       getActiveClassroomsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<SchedulingCubit>(
+    () => SchedulingCubit(
+      getSchoolStaffShiftsUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

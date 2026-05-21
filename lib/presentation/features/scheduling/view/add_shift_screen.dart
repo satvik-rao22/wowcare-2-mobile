@@ -16,7 +16,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -527,7 +527,8 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     // day(s), prompt the user. Tapping Yes routes through the API with
     // `forceAdd: true` so the backend skips the schedule-required check.
     var forceAdd = false;
-    final staffList = context.read<StaffCubit>().state.items;
+    final staffList =
+        context.read<SchedulingStaffListCubit>().state.staff;
     final selectedStaff = _findStaff(_selectedStaffCode, staffList);
     if (selectedStaff != null &&
         _staffHasNoScheduleForSelection(selectedStaff)) {
@@ -649,11 +650,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
-    return BlocBuilder<StaffCubit, StaffState>(
+    return BlocBuilder<SchedulingStaffListCubit, SchedulingStaffListState>(
       builder: (context, staffState) {
         return BlocBuilder<ClassroomCubit, ClassroomState>(
           builder: (context, classroomState) {
-            final staff = staffState.items;
+            final staff = staffState.staff;
             final selectedStaff = _findStaff(_selectedStaffCode, staff);
 
             // Initial prefill for the case where `initialStaffCode` was

@@ -16,9 +16,9 @@ import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.d
 import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -48,14 +48,20 @@ class _StaffSchedulingView extends StatelessWidget {
     BuildContext context,
     StaffSchedulingState state,
   ) {
-    final staffCubit = context.read<StaffCubit>();
     final classroomCubit = context.read<ClassroomCubit>();
+    final schedulingStaffListCubit =
+        context.read<SchedulingStaffListCubit>();
     final selectedCode = state.selectedStaff?.code;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MultiBlocProvider(
           providers: [
-            BlocProvider<StaffCubit>.value(value: staffCubit),
+            // AddShift reads the staff list from the singleton scheduling
+            // cubit (cached, no pagination) instead of the paginated
+            // [StaffCubit].
+            BlocProvider<SchedulingStaffListCubit>.value(
+              value: schedulingStaffListCubit,
+            ),
             BlocProvider<ClassroomCubit>.value(value: classroomCubit),
           ],
           child: AddShiftScreen(

@@ -347,7 +347,8 @@ class _StaffLeft extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${entry.scheduledHours}h │ ${entry.availableHours}h',
+                  '${_formatGanttHours(entry.scheduledHours)}h │ '
+                  '${_formatGanttHours(entry.availableHours)}h',
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 11,
@@ -725,4 +726,9 @@ class _CountRow extends StatelessWidget {
       ],
     );
   }
+}
+
+String _formatGanttHours(double hours) {
+  if (hours == hours.truncateToDouble()) return hours.toInt().toString();
+  return hours.toStringAsFixed(1);
 }

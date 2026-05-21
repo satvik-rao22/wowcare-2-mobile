@@ -18,15 +18,28 @@ class StaffScheduleEntry {
     required this.availableHours,
     required this.startTime,
     required this.endTime,
+    this.isPublished = false,
     this.photoUrl,
     this.daySlots = const <TimeSlotStatus>[],
   });
 
   final String staffName;
-  final int scheduledHours;
-  final int availableHours;
+
+  /// Hours for this specific shift row (computed from start/end). Backend
+  /// returns the same per-day aggregate on every shift of a staff member,
+  /// which is misleading per row — we compute per-shift duration instead.
+  final double scheduledHours;
+
+  /// Total available hours for the staff member on this day (backend's
+  /// aggregate). Repeats across rows of the same staff, which is intentional.
+  final double availableHours;
+
   final String startTime;
   final String endTime;
+
+  /// Drives the pill border style: solid for published, dotted for draft.
+  final bool isPublished;
+
   final String? photoUrl;
 
   /// Status per slot for the day-Gantt timeline (ordered earliest → latest).

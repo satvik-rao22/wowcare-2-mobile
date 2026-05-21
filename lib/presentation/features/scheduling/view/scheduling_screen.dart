@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../app/di/di.dart';
+import '../../../../app/theme/colors.dart';
 import '../../../../presentation/features/classroom/cubit/classroom_cubit.dart';
-import '../../../../presentation/features/staff/cubit/staff_cubit.dart';
+import '../cubit/scheduling_staff_list_cubit.dart';
 import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
@@ -25,8 +27,8 @@ class SchedulingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => SchedulingCubit()..load(),
+    return BlocProvider<SchedulingCubit>(
+      create: (_) => serviceLocator<SchedulingCubit>()..load(),
       child: const _SchedulingScreenContent(),
     );
   }
@@ -46,11 +48,10 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   @override
   void initState() {
     super.initState();
-    // Kick off staff + classroom fetches on first frame so the screen has
-    // fresh data without requiring a pull-to-refresh.
+    // Kick off classroom fetch on first frame. The no-pagination scheduling
+    // staff list is loaded by [SchedulingStaffListCubit] at the route level.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<StaffCubit>().loadInitial();
       context.read<ClassroomCubit>().loadActiveClassrooms(
             onlyTypeClassroom: false,
           );
@@ -59,13 +60,13 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
 
   Future<void> _onRefresh() async {
     final cubit = context.read<SchedulingCubit>();
-    final staffCubit = context.read<StaffCubit>();
+    final staffListCubit = context.read<SchedulingStaffListCubit>();
     final classroomCubit = context.read<ClassroomCubit>();
-    // Refresh shift mock data + invalidate staff/classroom caches so the next
-    // dropdown render shows fresh data (per PRD pull-to-refresh requirement).
+    // Refetch today's shifts, force-refetch the no-pagination staff list,
+    // and invalidate the classroom cache (per PRD pull-to-refresh).
     await Future.wait<void>([
-      Future.sync(cubit.load),
-      staffCubit.refresh(),
+      cubit.load(),
+      staffListCubit.load(force: true),
       classroomCubit.loadActiveClassrooms(
         force: true,
         onlyTypeClassroom: false,
@@ -77,13 +78,18 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     // The cubits are provided at the route level; capture them here so they
     // remain available inside the pushed [MaterialPageRoute] (which would
     // otherwise lose the provider scope).
-    final staffCubit = context.read<StaffCubit>();
     final classroomCubit = context.read<ClassroomCubit>();
+    final schedulingStaffListCubit =
+        context.read<SchedulingStaffListCubit>();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MultiBlocProvider(
           providers: [
-            BlocProvider<StaffCubit>.value(value: staffCubit),
+            // AddShift reads staff from the singleton scheduling cubit
+            // (cached, no pagination) instead of the paginated [StaffCubit].
+            BlocProvider<SchedulingStaffListCubit>.value(
+              value: schedulingStaffListCubit,
+            ),
             BlocProvider<ClassroomCubit>.value(value: classroomCubit),
           ],
           child: AddShiftScreen(initialDate: selectedDay),
@@ -96,12 +102,25 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   Widget build(BuildContext context) {
     return BlocBuilder<SchedulingCubit, SchedulingState>(
       builder: (context, state) {
-        final classroomNames =
-            context.watch<ClassroomCubit>().state.classrooms
-                .map((c) => c.name)
-                .where((n) => n.isNotEmpty)
-                .toSet()
-                .toList(growable: false);
+        final classroomState = context.watch<ClassroomCubit>().state;
+        final classroomNames = classroomState.classrooms
+            .map((c) => c.name)
+            .where((n) => n.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
+
+        // Feed classroom code→name into SchedulingCubit so grouped rows show
+        // names instead of codes (the staff-shifts API only returns codes).
+        // The cubit no-ops when the map is unchanged.
+        final namesByCode = <String, String>{
+          for (final c in classroomState.classrooms)
+            if (c.code.trim().isNotEmpty && c.name.trim().isNotEmpty)
+              c.code.trim(): c.name.trim(),
+        };
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          context.read<SchedulingCubit>().setClassroomNames(namesByCode);
+        });
 
         final isWeek = state.viewMode == SchedulingViewMode.week;
         final cubit = context.read<SchedulingCubit>();
@@ -141,10 +160,35 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  if (state.errorMessage != null) ...[
+                    Text(
+                      state.errorMessage!,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: AppColors.errorColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (state.isLoading)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 60),
                       child: Center(child: PrimaryCircularLoader()),
+                    )
+                  else if (state.filteredClassrooms.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Center(
+                        child: Text(
+                          'No shifts for the selected day.',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            color: AppColors.primaryColor,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
                     )
                   else if (isWeek)
                     _ClassroomListCard(

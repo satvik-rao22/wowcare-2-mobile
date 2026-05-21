@@ -141,6 +141,22 @@ class StaffShiftRepositoryImpl
   }
 
   @override
+  Future<List<StaffShift>> getSchoolStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  }) async {
+    final models = await _remote.getSchoolStaffShifts(
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      dateFrom: _formatDate(dateFrom),
+      dateTo: _formatDate(dateTo),
+    );
+    return models.map((m) => m.toEntity()).toList(growable: false);
+  }
+
+  @override
   Future<StaffShift> getStaffShiftByCode(String shiftCode) async {
     final model = await _remote.getStaffShiftByCode(shiftCode: shiftCode);
     return model.toEntity();

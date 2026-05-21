@@ -134,6 +134,9 @@ class StaffShiftModel {
     this.isRecurring = false,
     this.seriesRecurrenceDays = const <int>[],
     this.seriesEndDate,
+    this.availableHours = 0,
+    this.scheduledHours = 0,
+    this.unscheduledHours = 0,
   });
 
   final String shiftCode;
@@ -152,6 +155,9 @@ class StaffShiftModel {
   final bool isRecurring;
   final List<int> seriesRecurrenceDays;
   final String? seriesEndDate;
+  final int availableHours;
+  final int scheduledHours;
+  final int unscheduledHours;
 
   factory StaffShiftModel.fromJson(Map<String, dynamic> json) {
     final start = TimeOfDayModel.tryParse(json['startTime']);
@@ -191,6 +197,9 @@ class StaffShiftModel {
         : const <int>[];
     final seriesEnd =
         (json['seriesEndDate'] ?? json['repeatUntilDate'])?.toString();
+    int parseHours(dynamic raw) =>
+        raw is num ? raw.toInt() : (int.tryParse(raw?.toString() ?? '') ?? 0);
+
     return StaffShiftModel(
       shiftCode: (json['shiftCode'] ?? json['code'] ?? '').toString(),
       staffCode: (json['staffCode'] ?? '').toString(),
@@ -210,6 +219,9 @@ class StaffShiftModel {
           : (seriesCode != null && seriesCode.isNotEmpty),
       seriesRecurrenceDays: recurrenceDays,
       seriesEndDate: (seriesEnd ?? '').isEmpty ? null : seriesEnd,
+      availableHours: parseHours(json['availableHours']),
+      scheduledHours: parseHours(json['scheduledHours']),
+      unscheduledHours: parseHours(json['unscheduledHours']),
     );
   }
 
@@ -231,6 +243,9 @@ class StaffShiftModel {
         if (seriesRecurrenceDays.isNotEmpty)
           'seriesRecurrenceDays': seriesRecurrenceDays,
         if (seriesEndDate != null) 'seriesEndDate': seriesEndDate,
+        'availableHours': availableHours,
+        'scheduledHours': scheduledHours,
+        'unscheduledHours': unscheduledHours,
       };
 
   StaffShift toEntity() {
@@ -252,6 +267,9 @@ class StaffShiftModel {
       seriesRecurrenceDays: seriesRecurrenceDays,
       seriesEndDate:
           seriesEndDate == null ? null : DateTime.tryParse(seriesEndDate!),
+      availableHours: availableHours,
+      scheduledHours: scheduledHours,
+      unscheduledHours: unscheduledHours,
     );
   }
 }

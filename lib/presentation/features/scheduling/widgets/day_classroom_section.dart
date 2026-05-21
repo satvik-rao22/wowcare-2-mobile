@@ -146,6 +146,7 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
               right: StaffTimeRangePill(
                 startTime: staff[i].startTime,
                 endTime: staff[i].endTime,
+                isPublished: staff[i].isPublished,
               ),
             ),
       ],

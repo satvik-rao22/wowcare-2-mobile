@@ -8,34 +8,32 @@ import '../../../../domain/features/classroom/usecases/get_active_classrooms_use
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_shift.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../utils/classroom_name_resolver.dart';
 import '../utils/school_hours_resolver.dart';
+import 'scheduling_staff_list_cubit.dart';
 
 part 'staff_scheduling_state.dart';
 
 class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   StaffSchedulingCubit({
-    required GetStaffPageUseCase getStaffPageUseCase,
+    required SchedulingStaffListCubit schedulingStaffListCubit,
     required GetStaffShiftsForDayUseCase getStaffShiftsUseCase,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  })  : _getStaffPageUseCase = getStaffPageUseCase,
+  })  : _schedulingStaffListCubit = schedulingStaffListCubit,
         _getStaffShiftsUseCase = getStaffShiftsUseCase,
         _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _staffRepository = staffRepository,
         _storageService = storageService,
         super(StaffSchedulingState.initial());
 
-  final GetStaffPageUseCase _getStaffPageUseCase;
+  final SchedulingStaffListCubit _schedulingStaffListCubit;
   final GetStaffShiftsForDayUseCase _getStaffShiftsUseCase;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
-
-  static const int _staffPageSize = 100;
 
   String? _schoolCode;
   String? _organizationCode;
@@ -73,7 +71,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       _loadSchoolHours(),
       _loadClassroomNames(),
     ]);
-    await _loadAllStaff(selectFirst: false);
+    await _loadAllStaff(selectFirst: false, force: true);
     await _loadShiftsForSelection();
   }
 
@@ -222,7 +220,10 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     );
   }
 
-  Future<void> _loadAllStaff({required bool selectFirst}) async {
+  Future<void> _loadAllStaff({
+    required bool selectFirst,
+    bool force = false,
+  }) async {
     emit(
       state.copyWith(
         isLoadingStaff: true,
@@ -231,40 +232,24 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     );
 
     try {
-      final organizationCode = await _resolveOrganizationCode();
-      final schoolCode = await _resolveSchoolCode();
+      // Delegated to SchedulingStaffListCubit which calls the staff API once
+      // with `status=ACTIVE&status=UPCOMING` and no pagination. Singleton —
+      // returns cached data on repeat calls unless [force] is set.
+      final allStaff =
+          await _schedulingStaffListCubit.load(force: force);
 
-      if (organizationCode.isEmpty || schoolCode.isEmpty) {
+      if (isClosed) return;
+
+      final listError = _schedulingStaffListCubit.state.errorMessage;
+      if (listError != null) {
         emit(
           state.copyWith(
             isLoadingStaff: false,
-            errorMessage: 'School context is missing. Please sign in again.',
+            errorMessage: listError,
           ),
         );
         return;
       }
-
-      final allStaff = <StaffMember>[];
-      var page = 0;
-      var hasMore = true;
-
-      while (hasMore) {
-        final result = await _getStaffPageUseCase(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          page: page,
-          size: _staffPageSize,
-          status: 'ACTIVE',
-        );
-        allStaff.addAll(result.items);
-        hasMore = result.hasMore;
-        page++;
-        if (isClosed) return;
-      }
-
-      allStaff.sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-      );
 
       String? nextCode = state.selectedStaffCode;
       if (selectFirst && allStaff.isNotEmpty) {

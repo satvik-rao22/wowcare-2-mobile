@@ -20,6 +20,9 @@ class StaffShift extends Equatable {
     this.isRecurring = false,
     this.seriesRecurrenceDays = const <int>[],
     this.seriesEndDate,
+    this.availableHours = 0,
+    this.scheduledHours = 0,
+    this.unscheduledHours = 0,
   });
 
   final String shiftCode;
@@ -41,6 +44,12 @@ class StaffShift extends Equatable {
   final List<int> seriesRecurrenceDays;
   final DateTime? seriesEndDate;
 
+  /// Aggregate totals from the school-wide shifts API (same value across all
+  /// shifts of one staff member on a day — backend pre-computes them).
+  final int availableHours;
+  final int scheduledHours;
+  final int unscheduledHours;
+
   @override
   List<Object?> get props => [
         shiftCode,
@@ -59,6 +68,9 @@ class StaffShift extends Equatable {
         isRecurring,
         seriesRecurrenceDays,
         seriesEndDate,
+        availableHours,
+        scheduledHours,
+        unscheduledHours,
       ];
 }
 

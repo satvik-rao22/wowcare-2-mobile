@@ -8,6 +8,7 @@ class SchedulingState extends Equatable {
     required this.viewMode,
     required this.classrooms,
     this.isLoading = false,
+    this.errorMessage,
   });
 
   factory SchedulingState.initial() {
@@ -32,6 +33,7 @@ class SchedulingState extends Equatable {
   /// list so a row can expand inline.
   final List<ClassroomDaySchedule> classrooms;
   final bool isLoading;
+  final String? errorMessage;
 
   List<ClassroomDaySchedule> get filteredClassrooms {
     final String? f = classroomFilter;
@@ -47,6 +49,7 @@ class SchedulingState extends Equatable {
     SchedulingViewMode? viewMode,
     List<ClassroomDaySchedule>? classrooms,
     bool? isLoading,
+    String? errorMessage,
   }) {
     return SchedulingState(
       selectedDay: selectedDay ?? this.selectedDay,
@@ -56,6 +59,7 @@ class SchedulingState extends Equatable {
       viewMode: viewMode ?? this.viewMode,
       classrooms: classrooms ?? this.classrooms,
       isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
     );
   }
 
@@ -66,6 +70,7 @@ class SchedulingState extends Equatable {
         viewMode,
         classrooms,
         isLoading,
+        errorMessage,
       ];
 }
 

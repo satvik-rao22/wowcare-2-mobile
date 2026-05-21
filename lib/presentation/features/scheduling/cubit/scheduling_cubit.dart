@@ -1,30 +1,127 @@
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/scheduling/entities/staff_shift.dart';
+import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import '../model/scheduling_models.dart';
 
 part 'scheduling_state.dart';
 
 class SchedulingCubit extends Cubit<SchedulingState> {
-  SchedulingCubit() : super(SchedulingState.initial());
+  SchedulingCubit({
+    required GetSchoolStaffShiftsUseCase getSchoolStaffShiftsUseCase,
+    required StorageService storageService,
+  })  : _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
+        _storageService = storageService,
+        super(SchedulingState.initial());
 
-  /// Seed mock data so the UI renders before a real API is wired up.
-  /// Replace this with a use-case-backed fetch when the backend lands.
-  void load() {
-    emit(state.copyWith(
-      classrooms: _mockClassrooms,
-      isLoading: false,
-    ));
+  final GetSchoolStaffShiftsUseCase _getSchoolStaffShiftsUseCase;
+  final StorageService _storageService;
+
+  String? _schoolCode;
+  String? _organizationCode;
+
+  /// Classroom code → display name. Populated by the screen from
+  /// [ClassroomCubit] so we can resolve human-readable names since the
+  /// `staff-shifts` API only returns `classroomCode`.
+  Map<String, String> _classroomNamesByCode = const {};
+
+  /// Most-recently fetched shifts, kept so [setClassroomNames] can re-group
+  /// without re-hitting the API when classroom names arrive late.
+  List<StaffShift> _lastShifts = const [];
+
+  Future<String> _resolveSchoolCode() async {
+    if (_schoolCode != null) return _schoolCode!;
+    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    return _schoolCode!;
+  }
+
+  Future<String> _resolveOrganizationCode() async {
+    if (_organizationCode != null) return _organizationCode!;
+    _organizationCode =
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    return _organizationCode!;
+  }
+
+  /// Loads shifts for the currently selected day. The scheduling screen has
+  /// no date-range picker, so both `dateFrom` and `dateTo` use the same day.
+  Future<void> load() async {
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+
+    try {
+      final schoolCode = await _resolveSchoolCode();
+      final organizationCode = await _resolveOrganizationCode();
+
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            classrooms: const <ClassroomDaySchedule>[],
+            errorMessage: 'School context is missing. Please sign in again.',
+          ),
+        );
+        return;
+      }
+
+      final day = state.selectedDay;
+      final shifts = await _getSchoolStaffShiftsUseCase(
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        dateFrom: day,
+        dateTo: day,
+      );
+
+      if (isClosed) return;
+      _lastShifts = shifts;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          classrooms: _groupShiftsByClassroom(shifts),
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
   }
 
   void setClassroomFilter(String? name) {
     emit(state.copyWith(classroomFilter: name));
   }
 
+  /// Pushes the latest classroom code→name map from [ClassroomCubit]. Re-groups
+  /// the most-recent shifts so any rows currently rendering a fallback code
+  /// pick up the resolved name (and vice versa if names disappear).
+  void setClassroomNames(Map<String, String> namesByCode) {
+    if (_mapsEqual(_classroomNamesByCode, namesByCode)) return;
+    _classroomNamesByCode = namesByCode;
+    if (_lastShifts.isEmpty) return;
+    emit(state.copyWith(classrooms: _groupShiftsByClassroom(_lastShifts)));
+  }
+
+  static bool _mapsEqual(Map<String, String> a, Map<String, String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
+  }
+
   void selectDay(DateTime day) {
     final DateTime normalized = DateTime(day.year, day.month, day.day);
+    if (normalized == state.selectedDay) return;
     emit(state.copyWith(selectedDay: normalized));
+    load();
   }
 
   void shiftSelectedDay(int deltaDays) {
@@ -36,118 +133,92 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     emit(state.copyWith(viewMode: mode));
   }
 
-  // ---------------- Mock data ----------------
+  // ---------------- Mapping ----------------
 
-  // 24 slots covering a workday-ish window. Each slot is treated as ~30 min.
-  static const List<TimeSlotStatus> _classroomSlotsBlueD = [
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
-    TimeSlotStatus.underRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.overRatio, TimeSlotStatus.overRatio,
-    TimeSlotStatus.empty, TimeSlotStatus.empty, TimeSlotStatus.empty,
-  ];
+  /// Buckets [shifts] into one [ClassroomDaySchedule] per classroomCode. Each
+  /// shift becomes a [StaffScheduleEntry] preserving the staff name + start /
+  /// end times. We don't have ratio info from the API yet so every classroom
+  /// is reported as `inRatio` and `daySlots` is left empty (the timeline
+  /// strips render no bars until ratio data is available).
+  List<ClassroomDaySchedule> _groupShiftsByClassroom(List<StaffShift> shifts) {
+    if (shifts.isEmpty) return const <ClassroomDaySchedule>[];
 
-  static const List<TimeSlotStatus> _staffSlotsA = [
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.empty, TimeSlotStatus.empty, TimeSlotStatus.empty,
-  ];
+    final byClassroom = <String, _ClassroomBucket>{};
+    for (final shift in shifts) {
+      final code = shift.classroomCode.trim();
+      if (code.isEmpty) continue;
+      final bucket = byClassroom.putIfAbsent(
+        code,
+        () {
+          // Prefer the name baked into the shift (some endpoints include it),
+          // then the lookup map from ClassroomCubit, then fall back to the
+          // code so the row is at least identifiable.
+          final shiftName = shift.classroomName.trim();
+          if (shiftName.isNotEmpty) {
+            return _ClassroomBucket(code: code, name: shiftName);
+          }
+          final lookup = _classroomNamesByCode[code]?.trim() ?? '';
+          return _ClassroomBucket(
+            code: code,
+            name: lookup.isNotEmpty ? lookup : code,
+          );
+        },
+      );
+      bucket.shifts.add(shift);
+    }
 
-  static const List<TimeSlotStatus> _staffSlotsB = [
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.underRatio, TimeSlotStatus.underRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.inRatio, TimeSlotStatus.inRatio,
-    TimeSlotStatus.inRatio, TimeSlotStatus.empty, TimeSlotStatus.empty,
-    TimeSlotStatus.empty, TimeSlotStatus.empty, TimeSlotStatus.empty,
-  ];
+    return byClassroom.values
+        .map((b) => b.toClassroomDaySchedule())
+        .toList(growable: false);
+  }
+}
 
-  static const List<ClassroomDaySchedule> _mockClassrooms = [
-    ClassroomDaySchedule(
-      classroomCode: 'CLS_BLUE_D',
-      classroomName: '1-Blue-D',
-      ratioStatus: ClassroomRatioStatus.underRatio,
-      daySlots: _classroomSlotsBlueD,
-      staff: [
-        StaffScheduleEntry(
-          staffName: 'Ana Biwalkar',
-          scheduledHours: 45,
-          availableHours: 55,
-          startTime: '07:00 AM',
-          endTime: '05:00 PM',
-          daySlots: _staffSlotsA,
-        ),
-        StaffScheduleEntry(
-          staffName: 'Ana Biwalkar',
-          scheduledHours: 45,
-          availableHours: 55,
-          startTime: '07:00 AM',
-          endTime: '05:00 PM',
-          daySlots: _staffSlotsB,
-        ),
-        StaffScheduleEntry(
-          staffName: 'Ana Biwalkar',
-          scheduledHours: 45,
-          availableHours: 55,
-          startTime: '07:00 AM',
-          endTime: '05:00 PM',
-          daySlots: _staffSlotsA,
-        ),
-      ],
-    ),
-    ClassroomDaySchedule(
-      classroomCode: 'CLS_YELLOW_C',
-      classroomName: '2-Yellow-C',
+class _ClassroomBucket {
+  _ClassroomBucket({required this.code, required this.name});
+
+  final String code;
+  final String name;
+  final List<StaffShift> shifts = <StaffShift>[];
+
+  ClassroomDaySchedule toClassroomDaySchedule() {
+    final staffEntries = shifts.map((s) {
+      // Per-shift duration computed from start/end. The API's `scheduledHours`
+      // is a per-staff-per-day aggregate — repeating it across every shift
+      // row is misleading, so we compute the actual duration of THIS shift.
+      final scheduled = _hoursBetween(s.startTime, s.endTime);
+      // Available hours stay as the API aggregate (staff's total work
+      // window for the day); fall back to scheduled if backend omitted it.
+      final available =
+          s.availableHours > 0 ? s.availableHours.toDouble() : scheduled;
+      return StaffScheduleEntry(
+        staffName: s.staffName.isNotEmpty ? s.staffName : s.staffCode,
+        scheduledHours: scheduled,
+        availableHours: available,
+        startTime: _formatTimeOfDay(s.startTime),
+        endTime: _formatTimeOfDay(s.endTime),
+        isPublished: s.isPublished,
+      );
+    }).toList(growable: false);
+
+    return ClassroomDaySchedule(
+      classroomCode: code,
+      classroomName: name,
       ratioStatus: ClassroomRatioStatus.inRatio,
-      daySlots: _staffSlotsB,
-      staff: [
-        StaffScheduleEntry(
-          staffName: 'Chaitanya Desai',
-          scheduledHours: 45,
-          availableHours: 55,
-          startTime: '07:00 AM',
-          endTime: '05:00 PM',
-          daySlots: _staffSlotsA,
-        ),
-        StaffScheduleEntry(
-          staffName: 'Spandana Shah',
-          scheduledHours: 45,
-          availableHours: 55,
-          startTime: '07:00 AM',
-          endTime: '05:00 PM',
-          daySlots: _staffSlotsB,
-        ),
-      ],
-    ),
-    ClassroomDaySchedule(
-      classroomCode: 'CLS_PURPLE_D',
-      classroomName: '3-Purple-D',
-      ratioStatus: ClassroomRatioStatus.underRatio,
-    ),
-    ClassroomDaySchedule(
-      classroomCode: 'CLS_YELLOW_D',
-      classroomName: '4-Yellow-D',
-      ratioStatus: ClassroomRatioStatus.inRatio,
-    ),
-    ClassroomDaySchedule(
-      classroomCode: 'CLS_GREEN_P',
-      classroomName: '5-Green-P',
-      ratioStatus: ClassroomRatioStatus.inRatio,
-    ),
-    ClassroomDaySchedule(
-      classroomCode: 'CLS_PINK_P',
-      classroomName: '6-Pink-P',
-      ratioStatus: ClassroomRatioStatus.underRatio,
-    ),
-  ];
+      staff: staffEntries,
+    );
+  }
+
+  static double _hoursBetween(TimeOfDay start, TimeOfDay end) {
+    final startMin = start.hour * 60 + start.minute;
+    final endMin = end.hour * 60 + end.minute;
+    final diff = (endMin - startMin).clamp(0, 24 * 60);
+    return diff / 60.0;
+  }
+
+  static String _formatTimeOfDay(TimeOfDay t) {
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final hour12 = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final minute = t.minute.toString().padLeft(2, '0');
+    return '${hour12.toString().padLeft(2, '0')}:$minute $period';
+  }
 }

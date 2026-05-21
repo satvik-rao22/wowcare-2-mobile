@@ -263,6 +263,22 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<List<StaffMember>> getAllStaff({
+    required String organizationCode,
+    required String schoolCode,
+    List<String>? statuses,
+    int size = 200,
+  }) async {
+    final items = await _remoteDataSource.getAllStaff(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      statuses: statuses,
+      size: size,
+    );
+    return items.map(_mapStaffListItemToEntity).toList();
+  }
+
+  @override
   Future<StaffPage?> loadCachedStaffPage(
     String schoolCode, {
     String? status,
@@ -322,59 +338,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   StaffPage _mapPageModelToEntity(StaffPageModel model) {
-    String _formatTimeOfDay(int hour, int minute) {
-      final period = hour >= 12 ? 'PM' : 'AM';
-      final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-      final displayMinute = minute.toString().padLeft(2, '0');
-      return '$displayHour:$displayMinute$period';
-    }
-
-    String _formatRange(int startHour, int startMinute, int endHour, int endMinute) {
-      final start = _formatTimeOfDay(startHour, startMinute);
-      final end = _formatTimeOfDay(endHour, endMinute);
-      return '$start - $end';
-    }
-
-    final items = model.items.map((m) {
-      final workByDay = <String, String>{};
-      for (final ws in m.workSchedules) {
-        if (ws.dayOfWeek.isEmpty) continue;
-        workByDay[ws.dayOfWeek] = _formatRange(
-          ws.workStartTime.hour,
-          ws.workStartTime.minute,
-          ws.workEndTime.hour,
-          ws.workEndTime.minute,
-        );
-      }
-
-      final breakByDay = <String, String>{};
-      for (final bs in m.breakSchedules) {
-        if (bs.dayOfWeek.isEmpty) continue;
-        breakByDay[bs.dayOfWeek] = _formatRange(
-          bs.breakStartTime.hour,
-          bs.breakStartTime.minute,
-          bs.breakEndTime.hour,
-          bs.breakEndTime.minute,
-        );
-      }
-
-      return StaffMember(
-        code: m.code,
-        name: m.name,
-        primaryClassroomCode: m.primaryClassroomCode,
-        primaryClassroomName: m.primaryClassroomName,
-        allowedClassroomCodes: m.allowedClassroomCodes,
-        allowedClassroomNameByCode: m.allowedClassroomNameByCode,
-        designation: m.designation,
-        phoneNumber: m.phoneNumber,
-        profilePhotoAssetCode: m.profilePhotoAssetCode,
-        status: m.status,
-        email: m.email,
-        workScheduleByDay: workByDay,
-        breakScheduleByDay: breakByDay,
-      );
-    }).toList();
-
+    final items = model.items.map(_mapStaffListItemToEntity).toList();
     return StaffPage(
       items: items,
       page: model.page,
@@ -382,6 +346,59 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       totalPages: model.totalPages,
       totalElements: model.totalElements,
       hasMore: model.hasMore,
+    );
+  }
+
+  StaffMember _mapStaffListItemToEntity(StaffListItemModel m) {
+    String formatTimeOfDay(int hour, int minute) {
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+      final displayMinute = minute.toString().padLeft(2, '0');
+      return '$displayHour:$displayMinute$period';
+    }
+
+    String formatRange(int startHour, int startMinute, int endHour, int endMinute) {
+      final start = formatTimeOfDay(startHour, startMinute);
+      final end = formatTimeOfDay(endHour, endMinute);
+      return '$start - $end';
+    }
+
+    final workByDay = <String, String>{};
+    for (final ws in m.workSchedules) {
+      if (ws.dayOfWeek.isEmpty) continue;
+      workByDay[ws.dayOfWeek] = formatRange(
+        ws.workStartTime.hour,
+        ws.workStartTime.minute,
+        ws.workEndTime.hour,
+        ws.workEndTime.minute,
+      );
+    }
+
+    final breakByDay = <String, String>{};
+    for (final bs in m.breakSchedules) {
+      if (bs.dayOfWeek.isEmpty) continue;
+      breakByDay[bs.dayOfWeek] = formatRange(
+        bs.breakStartTime.hour,
+        bs.breakStartTime.minute,
+        bs.breakEndTime.hour,
+        bs.breakEndTime.minute,
+      );
+    }
+
+    return StaffMember(
+      code: m.code,
+      name: m.name,
+      primaryClassroomCode: m.primaryClassroomCode,
+      primaryClassroomName: m.primaryClassroomName,
+      allowedClassroomCodes: m.allowedClassroomCodes,
+      allowedClassroomNameByCode: m.allowedClassroomNameByCode,
+      designation: m.designation,
+      phoneNumber: m.phoneNumber,
+      profilePhotoAssetCode: m.profilePhotoAssetCode,
+      status: m.status,
+      email: m.email,
+      workScheduleByDay: workByDay,
+      breakScheduleByDay: breakByDay,
     );
   }
 

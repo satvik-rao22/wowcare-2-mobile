@@ -10,6 +10,15 @@ abstract class StaffShiftRepository {
     required DateTime dateTo,
   });
 
+  /// School-wide shifts for [dateFrom]..[dateTo]. Used by the classroom
+  /// scheduling table where shifts span all staff in the school.
+  Future<List<StaffShift>> getSchoolStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime dateFrom,
+    required DateTime dateTo,
+  });
+
   /// `GET /api/v1/staff-shifts/{shiftCode}` — full detail for one shift.
   Future<StaffShift> getStaffShiftByCode(String shiftCode);
 

@@ -13,6 +13,15 @@ abstract class StaffShiftRemoteDataSource {
     required String dateTo,
   });
 
+  /// School-wide shift list for [dateFrom]..[dateTo] (no `staffCode`).
+  /// Backs the classroom scheduling table.
+  Future<List<StaffShiftModel>> getSchoolStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    required String dateFrom,
+    required String dateTo,
+  });
+
   Future<StaffShiftModel> getStaffShiftByCode({required String shiftCode});
 
   Future<StaffShiftCreateResultModel> createStaffShift({
@@ -44,6 +53,31 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
       endpoint,
       queryParameters: <String, dynamic>{
         'staffCode': staffCode,
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
+        'dateFrom': dateFrom,
+        'dateTo': dateTo,
+      },
+    );
+
+    return _parseShiftList(response.data);
+  }
+
+  @override
+  Future<List<StaffShiftModel>> getSchoolStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    required String dateFrom,
+    required String dateTo,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffShifts,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
         'schoolCode': schoolCode,
         'organizationCode': organizationCode,
         'dateFrom': dateFrom,
@@ -99,8 +133,9 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     return const StaffShiftCreateResultModel();
   }
 
-  /// Tolerates either `{ data: { items: [...] } }`, `{ data: [...] }`,
-  /// or a raw `[...]` body. Mirrors the loose shape used by the staff service.
+  /// Backend may return either the flat envelope `{ data: [...] }` or the
+  /// Spring Pageable envelope `{ data: { content: [...], pageable, totalPages,
+  /// ... } }`. Also tolerates a raw `[...]` body as a defensive fallback.
   static List<StaffShiftModel> _parseShiftList(dynamic raw) {
     List<dynamic>? items;
     if (raw is List) {
@@ -110,13 +145,18 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
       if (data is List) {
         items = data;
       } else if (data is Map<String, dynamic>) {
-        final inner = data['items'] ?? data['content'] ?? data['shifts'];
-        if (inner is List) items = inner;
+        final content = data['content'];
+        if (content is List) items = content;
       }
     }
     if (items == null) return const <StaffShiftModel>[];
     return items
         .whereType<Map<String, dynamic>>()
+        // Cancelled shifts shouldn't show up in the schedule grid — the
+        // backend keeps them in the same list, so filter at the boundary.
+        .where((json) =>
+            (json['shiftStatus']?.toString().toUpperCase() ?? '') !=
+            'CANCELLED')
         .map((json) {
           try {
             return StaffShiftModel.fromJson(json);

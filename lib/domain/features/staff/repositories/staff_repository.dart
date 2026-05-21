@@ -25,6 +25,18 @@ abstract class StaffRepository {
     String? sortBy,
   });
 
+  /// Fetches the full staff list (single-page; [size] caps how many records
+  /// are returned, default 200) with support for multiple `status` values
+  /// sent as repeated query keys (e.g. `status=ACTIVE&status=UPCOMING`).
+  /// Intended for the scheduling feature, which needs every active/upcoming
+  /// staff member at once.
+  Future<List<StaffMember>> getAllStaff({
+    required String organizationCode,
+    required String schoolCode,
+    List<String>? statuses,
+    int size = 200,
+  });
+
   Future<String> addStaffDocument({
     required String staffCode,
     required StaffDocument document,
