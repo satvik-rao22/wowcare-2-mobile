@@ -302,7 +302,7 @@ class _StaffSchedulingView extends StatelessWidget {
             state.isLoadingSchoolHours;
 
         return GlobalScaffold(
-          hasBackButton: true,
+          hasBackButton: false,
           body: CustomRefreshIndicator(
             onRefresh: cubit.refresh,
             child: SingleChildScrollView(
@@ -311,6 +311,16 @@ class _StaffSchedulingView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'Staff Schedule',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   _DateHeaderRow(
                     selectedDay: state.selectedDay,
                     staffNames: state.staffDropdownNames,

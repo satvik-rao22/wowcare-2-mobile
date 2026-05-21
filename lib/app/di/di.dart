@@ -802,7 +802,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StaffSchedulingCubit>(
     () => StaffSchedulingCubit(
       schedulingStaffListCubit: serviceLocator(),
-      getStaffShiftsUseCase: serviceLocator<GetStaffShiftsForDayUseCase>(),
+      getSchoolStaffShiftsUseCase:
+          serviceLocator<GetSchoolStaffShiftsUseCase>(),
       getActiveClassroomsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),

@@ -1,14 +1,17 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import '../../../../domain/features/scheduling/entities/staff_shift.dart'
+    as sched;
+import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_shift.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../../../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../utils/classroom_name_resolver.dart';
 import '../utils/school_hours_resolver.dart';
 import 'scheduling_staff_list_cubit.dart';
@@ -18,19 +21,22 @@ part 'staff_scheduling_state.dart';
 class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   StaffSchedulingCubit({
     required SchedulingStaffListCubit schedulingStaffListCubit,
-    required GetStaffShiftsForDayUseCase getStaffShiftsUseCase,
+    required GetSchoolStaffShiftsUseCase getSchoolStaffShiftsUseCase,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
   })  : _schedulingStaffListCubit = schedulingStaffListCubit,
-        _getStaffShiftsUseCase = getStaffShiftsUseCase,
+        _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
         _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _staffRepository = staffRepository,
         _storageService = storageService,
         super(StaffSchedulingState.initial());
 
   final SchedulingStaffListCubit _schedulingStaffListCubit;
-  final GetStaffShiftsForDayUseCase _getStaffShiftsUseCase;
+  // Uses the school-wide non-paginated `/api/v1/staff-shifts` endpoint and
+  // filters by the selected staff + day client-side. Mirrors what the
+  // Classroom Schedule screen does so we hit the same endpoint everywhere.
+  final GetSchoolStaffShiftsUseCase _getSchoolStaffShiftsUseCase;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
@@ -313,23 +319,26 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       final organizationCode = await _resolveOrganizationCode();
       final schoolCode = await _resolveSchoolCode();
       final staff = state.selectedStaff;
-      final classroomCode = staff?.primaryClassroomCode;
+      final day = state.selectedDay;
 
-      final summary = await _getStaffShiftsUseCase(
-        organizationCode: organizationCode,
+      // School-wide, non-paginated endpoint — same one the Classroom
+      // Schedule screen uses. We then filter to this staff + day locally.
+      final shifts = await _getSchoolStaffShiftsUseCase(
         schoolCode: schoolCode,
-        staffCode: staffCode,
-        date: state.selectedDay,
-        classroomCode:
-            classroomCode != null && classroomCode.isNotEmpty
-                ? classroomCode
-                : null,
-        classroomNamesByCode: state.classroomNamesByCode,
+        organizationCode: organizationCode,
+        dateFrom: day,
+        dateTo: day,
       );
 
       if (isClosed) return;
 
-      final enriched = _labelShiftSummary(summary, staff);
+      final filtered = shifts
+          .where((s) =>
+              s.staffCode == staffCode && _isSameDay(s.shiftDate, day))
+          .toList(growable: false);
+
+      final raw = _buildSummaryFromShifts(filtered);
+      final enriched = _labelShiftSummary(raw, staff);
 
       emit(
         state.copyWith(
@@ -383,4 +392,65 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     _applySchoolHoursForSelectedDay();
     _loadShiftsForSelection();
   }
+
+  /// Aggregates a list of single-staff single-day shifts (already filtered)
+  /// into the [StaffShiftDaySummary] shape the screen consumes. Mirrors what
+  /// `StaffShiftMapper.toDaySummary` does, but for the scheduling-domain
+  /// [sched.StaffShift] entity returned by the school-wide endpoint.
+  StaffShiftDaySummary _buildSummaryFromShifts(
+    List<sched.StaffShift> shifts,
+  ) {
+    if (shifts.isEmpty) return StaffShiftDaySummary.empty;
+
+    // The backend repeats the per-staff-per-day aggregate on every row, so
+    // any matching shift carries the correct totals.
+    final first = shifts.first;
+    final blocks = <StaffShiftTimelineBlock>[];
+
+    for (final s in shifts) {
+      blocks.add(
+        StaffShiftTimelineBlock(
+          // Store the raw classroomCode here — [_labelShiftSummary] resolves
+          // it to a display name via [classroomResolver].
+          room: s.classroomCode.trim(),
+          start: _formatTimeOfDay(s.startTime),
+          end: _formatTimeOfDay(s.endTime),
+          shiftCode: s.shiftCode,
+        ),
+      );
+      final bs = s.breakStartTime;
+      final be = s.breakEndTime;
+      if (bs != null && be != null) {
+        blocks.add(
+          StaffShiftTimelineBlock(
+            room: 'Lunch Break',
+            start: _formatTimeOfDay(bs),
+            end: _formatTimeOfDay(be),
+            isBreak: true,
+            shiftCode: s.shiftCode,
+          ),
+        );
+      }
+    }
+
+    return StaffShiftDaySummary(
+      availableHours: first.availableHours,
+      scheduledHours: first.scheduledHours,
+      unscheduledHours: first.unscheduledHours,
+      blocks: blocks,
+    );
+  }
+
+  /// Formats a [TimeOfDay] as `hh:mm:ss a` (e.g. `09:00:00 AM`) — the format
+  /// [StaffDayScheduleCalendar] parses. Seconds are always `00` since
+  /// [TimeOfDay] doesn't carry them.
+  static String _formatTimeOfDay(TimeOfDay t) {
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final h12 = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
+    final mm = t.minute.toString().padLeft(2, '0');
+    return '${h12.toString().padLeft(2, '0')}:$mm:00 $period';
+  }
+
+  static bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 }

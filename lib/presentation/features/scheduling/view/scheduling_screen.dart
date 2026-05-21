@@ -125,7 +125,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
         final isWeek = state.viewMode == SchedulingViewMode.week;
         final cubit = context.read<SchedulingCubit>();
         return GlobalScaffold(
-          hasBackButton: true,
+          hasBackButton: false,
           body: CustomRefreshIndicator(
             onRefresh: _onRefresh,
             child: SingleChildScrollView(
