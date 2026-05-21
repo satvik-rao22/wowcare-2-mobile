@@ -32,6 +32,8 @@ import '../../domain/features/scheduling/repositories/staff_shift_repository.dar
 import '../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import '../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
+import '../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
@@ -632,6 +634,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetSchoolStaffShiftsUseCase>(
     () => GetSchoolStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
+  serviceLocator.registerFactory<GetClassroomForecastUseCase>(
+    () => GetClassroomForecastUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<GetClassroomForecastRangeUseCase>(
+    () =>
+        GetClassroomForecastRangeUseCase(serviceLocator<StaffShiftRepository>()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -812,6 +821,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SchedulingCubit>(
     () => SchedulingCubit(
       getSchoolStaffShiftsUseCase: serviceLocator(),
+      getClassroomForecastUseCase: serviceLocator(),
+      getClassroomForecastRangeUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
+import '../models/classroom_forecast_models.dart';
 import '../models/staff_shift_models.dart';
 
 abstract class StaffShiftRemoteDataSource {
@@ -26,6 +27,18 @@ abstract class StaffShiftRemoteDataSource {
 
   Future<StaffShiftCreateResultModel> createStaffShift({
     required Map<String, dynamic> body,
+  });
+
+  Future<List<ClassroomForecastBlockModel>> getClassroomForecast({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastRequestModel request,
+  });
+
+  Future<List<ClassroomForecastBlockModel>> getClassroomForecastRange({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastRangeRequestModel request,
   });
 }
 
@@ -131,6 +144,80 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     }
     // Some endpoints return success without a structured `data` body.
     return const StaffShiftCreateResultModel();
+  }
+
+  @override
+  Future<List<ClassroomForecastBlockModel>> getClassroomForecast({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffShiftClassroomForecast,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+      options: Options(
+        headers: <String, String>{
+          'X-School-Code': schoolCode,
+          'X-Organization-Code': organizationCode,
+        },
+      ),
+    );
+
+    return _parseForecastList(response.data);
+  }
+
+  @override
+  Future<List<ClassroomForecastBlockModel>> getClassroomForecastRange({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastRangeRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffShiftClassroomForecastRange,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+      options: Options(
+        headers: <String, String>{
+          'X-School-Code': schoolCode,
+          'X-Organization-Code': organizationCode,
+        },
+      ),
+    );
+
+    return _parseForecastList(response.data);
+  }
+
+  static List<ClassroomForecastBlockModel> _parseForecastList(dynamic raw) {
+    List<dynamic>? items;
+    if (raw is Map<String, dynamic>) {
+      final data = raw['data'];
+      if (data is List) {
+        items = data;
+      }
+    } else if (raw is List) {
+      items = raw;
+    }
+    if (items == null) return const <ClassroomForecastBlockModel>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map((json) {
+          try {
+            return ClassroomForecastBlockModel.fromJson(json);
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<ClassroomForecastBlockModel>()
+        .toList(growable: false);
   }
 
   /// Backend may return either the flat envelope `{ data: [...] }` or the

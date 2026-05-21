@@ -3,16 +3,18 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
+import '../model/scheduling_models.dart';
+import '../utils/scheduling_block_status_style.dart';
 
 class SchedulingLegend extends StatelessWidget {
   const SchedulingLegend({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
             Expanded(
               child: _LegendItem(
@@ -28,8 +30,8 @@ class SchedulingLegend extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 8),
-        Row(
+        const SizedBox(height: 8),
+        const Row(
           children: [
             Expanded(
               child: _LegendItem(
@@ -45,25 +47,27 @@ class SchedulingLegend extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: _LegendItem(
-                icon: _SvgIcon(
-                  asset: MediaRes.alertTriangleIcon,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.errorColor,
-                    BlendMode.srcIn,
-                  ),
+                icon: SchedulingBlockStatusStyle.weekViewIcon(
+                  SchedulingBlockStatusKind.underRatio,
                 ),
-                label: 'Under Ratio',
+                label: SchedulingBlockStatusStyle.weekViewLabel(
+                  SchedulingBlockStatusKind.underRatio,
+                ),
               ),
             ),
             Expanded(
               child: _LegendItem(
-                icon: _SvgIcon(asset: MediaRes.greenCheckCircleIcon),
-                label: 'In Ratio',
+                icon: SchedulingBlockStatusStyle.weekViewIcon(
+                  SchedulingBlockStatusKind.inRatio,
+                ),
+                label: SchedulingBlockStatusStyle.weekViewLabel(
+                  SchedulingBlockStatusKind.inRatio,
+                ),
               ),
             ),
           ],
@@ -120,28 +124,18 @@ class _SvgIcon extends StatelessWidget {
   }
 }
 
-/// Reused by classroom rows / sections to show the ratio status icon.
+/// Week-view classroom column icon for forecast `blockStatus`.
 class RatioStatusIcon extends StatelessWidget {
-  const RatioStatusIcon.inRatio({super.key}) : _isInRatio = true;
-  const RatioStatusIcon.underRatio({super.key}) : _isInRatio = false;
+  const RatioStatusIcon.inRatio({super.key}) : status = ClassroomRatioStatus.inRatio;
+  const RatioStatusIcon.underRatio({super.key})
+      : status = ClassroomRatioStatus.underRatio;
+  const RatioStatusIcon.overRatio({super.key})
+      : status = ClassroomRatioStatus.overRatio;
 
-  final bool _isInRatio;
+  final ClassroomRatioStatus status;
 
   @override
   Widget build(BuildContext context) {
-    if (_isInRatio) {
-      return SvgPicture.asset(
-        MediaRes.greenCheckCircleIcon,
-        width: 18,
-        height: 18,
-      );
-    }
-    return SvgPicture.asset(
-      MediaRes.alertTriangleIcon,
-      width: 18,
-      height: 18,
-      colorFilter:
-          const ColorFilter.mode(AppColors.errorColor, BlendMode.srcIn),
-    );
+    return SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(status);
   }
 }

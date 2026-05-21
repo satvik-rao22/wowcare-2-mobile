@@ -1,7 +1,9 @@
 import '../../../../core/util/cache_manager.dart';
+import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/repositories/staff_shift_repository.dart';
 import '../datasources/staff_shift_remote_datasource.dart';
+import '../models/classroom_forecast_models.dart';
 import '../models/staff_shift_models.dart';
 
 class StaffShiftRepositoryImpl
@@ -160,6 +162,47 @@ class StaffShiftRepositoryImpl
   Future<StaffShift> getStaffShiftByCode(String shiftCode) async {
     final model = await _remote.getStaffShiftByCode(shiftCode: shiftCode);
     return model.toEntity();
+  }
+
+  @override
+  Future<List<ClassroomForecastBlock>> getClassroomForecast({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastQuery query,
+  }) async {
+    final models = await _remote.getClassroomForecast(
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      request: ClassroomForecastRequestModel(
+        date: _formatDate(query.date),
+        startTime: formatForecastClockTime(query.startTime),
+        endTime: formatForecastClockTime(query.endTime),
+        durationMinutes: query.durationMinutes,
+        classroomCodes: query.classroomCodes,
+      ),
+    );
+    return models.map((m) => m.toEntity()).toList(growable: false);
+  }
+
+  @override
+  Future<List<ClassroomForecastBlock>> getClassroomForecastRange({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastRangeQuery query,
+  }) async {
+    final models = await _remote.getClassroomForecastRange(
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      request: ClassroomForecastRangeRequestModel(
+        startDate: _formatDate(query.startDate),
+        endDate: _formatDate(query.endDate),
+        startTime: formatForecastClockTime(query.startTime),
+        endTime: formatForecastClockTime(query.endTime),
+        durationMinutes: query.durationMinutes,
+        classroomCodes: query.classroomCodes,
+      ),
+    );
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
   @override

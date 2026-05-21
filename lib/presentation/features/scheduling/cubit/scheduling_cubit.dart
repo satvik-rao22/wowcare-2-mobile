@@ -5,33 +5,45 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
+import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../model/scheduling_models.dart';
+import '../utils/forecast_slot_mapper.dart';
+import '../utils/school_hours_resolver.dart';
 
 part 'scheduling_state.dart';
 
 class SchedulingCubit extends Cubit<SchedulingState> {
   SchedulingCubit({
     required GetSchoolStaffShiftsUseCase getSchoolStaffShiftsUseCase,
+    required GetClassroomForecastUseCase getClassroomForecastUseCase,
+    required GetClassroomForecastRangeUseCase getClassroomForecastRangeUseCase,
+    required StaffRepository staffRepository,
     required StorageService storageService,
   })  : _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
+        _getClassroomForecastUseCase = getClassroomForecastUseCase,
+        _getClassroomForecastRangeUseCase = getClassroomForecastRangeUseCase,
+        _staffRepository = staffRepository,
         _storageService = storageService,
         super(SchedulingState.initial());
 
   final GetSchoolStaffShiftsUseCase _getSchoolStaffShiftsUseCase;
+  final GetClassroomForecastUseCase _getClassroomForecastUseCase;
+  final GetClassroomForecastRangeUseCase _getClassroomForecastRangeUseCase;
+  final StaffRepository _staffRepository;
   final StorageService _storageService;
 
   String? _schoolCode;
   String? _organizationCode;
+  SchoolHoursResolver? _schoolHoursResolver;
 
-  /// Classroom code → display name. Populated by the screen from
-  /// [ClassroomCubit] so we can resolve human-readable names since the
-  /// `staff-shifts` API only returns `classroomCode`.
   Map<String, String> _classroomNamesByCode = const {};
-
-  /// Most-recently fetched shifts, kept so [setClassroomNames] can re-group
-  /// without re-hitting the API when classroom names arrive late.
+  List<String> _allClassroomCodes = const [];
   List<StaffShift> _lastShifts = const [];
 
   Future<String> _resolveSchoolCode() async {
@@ -47,8 +59,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     return _organizationCode!;
   }
 
-  /// Loads shifts for the currently selected day. The scheduling screen has
-  /// no date-range picker, so both `dateFrom` and `dateTo` use the same day.
+  /// Loads regular-schedule, shifts, and forecast data for [selectedDay].
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
 
@@ -68,19 +79,37 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       }
 
       final day = state.selectedDay;
-      final shifts = await _getSchoolStaffShiftsUseCase(
+
+      final results = await Future.wait<dynamic>([
+        _getSchoolStaffShiftsUseCase(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          dateFrom: day,
+          dateTo: day,
+        ),
+        _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode),
+      ]);
+
+      if (isClosed) return;
+
+      final shifts = results[0] as List<StaffShift>;
+      _schoolHoursResolver = SchoolHoursResolver.fromDays(
+        results[1] as List<SchoolRegularScheduleDay>,
+      );
+
+      _lastShifts = shifts;
+      final classrooms = await _buildClassroomsWithForecast(
+        shifts: shifts,
         schoolCode: schoolCode,
         organizationCode: organizationCode,
-        dateFrom: day,
-        dateTo: day,
+        day: day,
       );
 
       if (isClosed) return;
-      _lastShifts = shifts;
       emit(
         state.copyWith(
           isLoading: false,
-          classrooms: _groupShiftsByClassroom(shifts),
+          classrooms: classrooms,
         ),
       );
     } catch (e) {
@@ -94,18 +123,262 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     }
   }
 
+  Future<List<ClassroomDaySchedule>> _buildClassroomsWithForecast({
+    required List<StaffShift> shifts,
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime day,
+  }) async {
+    var codes = _allClassroomCodes.isNotEmpty
+        ? List<String>.from(_allClassroomCodes)
+        : shifts
+            .map((s) => s.classroomCode.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
+
+    var base = _mergeClassroomSchedules(
+      _groupShiftsByClassroom(shifts),
+      classroomCodes: codes,
+    );
+
+    if (codes.isEmpty && base.isEmpty) return base;
+
+    final schoolHours = _schoolHoursResolver?.hoursFor(day);
+    if (schoolHours?.startTimeOfDay == null ||
+        schoolHours?.endTimeOfDay == null) {
+      return base;
+    }
+
+    final start = schoolHours!.startTimeOfDay!;
+    final end = schoolHours.endTimeOfDay!;
+    final blockMinutes = schoolHours.durationMinutes ?? 30;
+    final windowStart = ForecastSlotMapper.minutesOf(start);
+    final windowEnd = ForecastSlotMapper.minutesOf(end);
+
+    if (codes.isEmpty) {
+      codes.addAll(
+        base.map((c) => c.classroomCode).where((c) => c.isNotEmpty),
+      );
+    }
+    if (codes.isEmpty) return base;
+
+    List<ClassroomForecastBlock> forecastBlocks;
+    try {
+      if (state.viewMode == SchedulingViewMode.week) {
+        forecastBlocks = await _getClassroomForecastRangeUseCase(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          startDate: day,
+          endDate: day,
+          startTime: start,
+          endTime: end,
+          durationMinutes: blockMinutes,
+          classroomCodes: codes,
+        );
+      } else {
+        forecastBlocks = await _getClassroomForecastUseCase(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          date: day,
+          startTime: start,
+          endTime: end,
+          durationMinutes: blockMinutes,
+          classroomCodes: codes,
+        );
+      }
+    } catch (_) {
+      return base;
+    }
+
+    final blocksByClassroom = <String, List<ClassroomForecastBlock>>{};
+    for (final block in forecastBlocks) {
+      final code = block.classroomCode.trim();
+      if (code.isEmpty) continue;
+      blocksByClassroom.putIfAbsent(code, () => <ClassroomForecastBlock>[]).add(
+            block,
+          );
+    }
+
+    if (state.viewMode == SchedulingViewMode.week) {
+      return base
+          .map(
+            (c) => _applyWeekForecast(
+              classroom: c,
+              blocks: blocksByClassroom[c.classroomCode] ?? const [],
+              day: day,
+            ),
+          )
+          .toList(growable: false);
+    }
+
+    return base
+        .map(
+          (c) => _applyDayForecast(
+            classroom: c,
+            blocks: blocksByClassroom[c.classroomCode] ?? const [],
+            shifts: shifts,
+            day: day,
+            windowStart: windowStart,
+            windowEnd: windowEnd,
+            blockMinutes: blockMinutes,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// Ensures every active classroom appears even when it has no shift rows.
+  List<ClassroomDaySchedule> _mergeClassroomSchedules(
+    List<ClassroomDaySchedule> fromShifts, {
+    required List<String> classroomCodes,
+  }) {
+    if (classroomCodes.isEmpty) return fromShifts;
+
+    final byCode = <String, ClassroomDaySchedule>{
+      for (final c in fromShifts) c.classroomCode: c,
+    };
+
+    for (final code in classroomCodes) {
+      final trimmed = code.trim();
+      if (trimmed.isEmpty || byCode.containsKey(trimmed)) continue;
+      final name = _classroomNamesByCode[trimmed]?.trim();
+      byCode[trimmed] = ClassroomDaySchedule(
+        classroomCode: trimmed,
+        classroomName: name != null && name.isNotEmpty ? name : trimmed,
+        ratioStatus: ClassroomRatioStatus.inRatio,
+        staff: const <StaffScheduleEntry>[],
+      );
+    }
+
+    final ordered = <ClassroomDaySchedule>[];
+    for (final code in classroomCodes) {
+      final trimmed = code.trim();
+      final row = byCode.remove(trimmed);
+      if (row != null) ordered.add(row);
+    }
+    ordered.addAll(byCode.values);
+    return ordered;
+  }
+
+  ClassroomDaySchedule _applyWeekForecast({
+    required ClassroomDaySchedule classroom,
+    required List<ClassroomForecastBlock> blocks,
+    required DateTime day,
+  }) {
+    return ClassroomDaySchedule(
+      classroomCode: classroom.classroomCode,
+      classroomName: classroom.classroomName,
+      ratioStatus: ForecastSlotMapper.ratioFromBlocksForWeek(
+        blocks,
+        filterDate: day,
+      ),
+      staff: classroom.staff,
+    );
+  }
+
+  ClassroomDaySchedule _applyDayForecast({
+    required ClassroomDaySchedule classroom,
+    required List<ClassroomForecastBlock> blocks,
+    required List<StaffShift> shifts,
+    required DateTime day,
+    required int windowStart,
+    required int windowEnd,
+    required int blockMinutes,
+  }) {
+    final classroomShifts = shifts
+        .where((s) => s.classroomCode.trim() == classroom.classroomCode.trim())
+        .toList(growable: false);
+
+    final classTimeline = ForecastSlotMapper.buildTimeline(
+      windowStartMinutes: windowStart,
+      windowEndMinutes: windowEnd,
+      slotMinutes: blockMinutes,
+      blocks: blocks,
+      filterDate: day,
+      shiftsForScheduledCount: classroomShifts,
+    );
+
+    final staffEntries = classroom.staff.map((entry) {
+      final shiftCode = entry.shiftCode?.trim() ?? '';
+      if (shiftCode.isEmpty) return entry;
+
+      final staffStart = _parseClockMinutes(entry.startTime);
+      final staffEnd = _parseClockMinutes(entry.endTime);
+      if (staffStart == null || staffEnd == null || staffEnd <= staffStart) {
+        return entry;
+      }
+
+      var staffTimeline = ForecastSlotMapper.buildTimeline(
+        windowStartMinutes: staffStart,
+        windowEndMinutes: staffEnd,
+        slotMinutes: blockMinutes,
+        blocks: blocks,
+        filterDate: day,
+        staffShiftCodesFilter: [shiftCode],
+        shiftsForScheduledCount: classroomShifts,
+      );
+
+      final hasColouredSlot = staffTimeline.slots.any(
+        (s) => s != TimeSlotStatus.empty,
+      );
+      if (!hasColouredSlot) {
+        staffTimeline = ForecastSlotMapper.buildTimeline(
+          windowStartMinutes: staffStart,
+          windowEndMinutes: staffEnd,
+          slotMinutes: blockMinutes,
+          blocks: blocks,
+          filterDate: day,
+          shiftsForScheduledCount: classroomShifts,
+        );
+      }
+
+      return StaffScheduleEntry(
+        staffName: entry.staffName,
+        scheduledHours: entry.scheduledHours,
+        availableHours: entry.availableHours,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        isPublished: entry.isPublished,
+        shiftCode: entry.shiftCode,
+        photoUrl: entry.photoUrl,
+        daySlots: staffTimeline.slots,
+        slotDetails: staffTimeline.details,
+        timelineStartMinutes: staffTimeline.dayStartMinutes,
+        slotMinutes: staffTimeline.slotMinutes,
+      );
+    }).toList(growable: false);
+
+    return ClassroomDaySchedule(
+      classroomCode: classroom.classroomCode,
+      classroomName: classroom.classroomName,
+      ratioStatus: ForecastSlotMapper.ratioFromBlocksForWeek(
+        blocks,
+        filterDate: day,
+      ),
+      staff: staffEntries,
+      daySlots: classTimeline.slots,
+      slotDetails: classTimeline.details,
+      timelineStartMinutes: classTimeline.dayStartMinutes,
+      slotMinutes: classTimeline.slotMinutes,
+    );
+  }
+
   void setClassroomFilter(String? name) {
     emit(state.copyWith(classroomFilter: name));
   }
 
-  /// Pushes the latest classroom code→name map from [ClassroomCubit]. Re-groups
-  /// the most-recent shifts so any rows currently rendering a fallback code
-  /// pick up the resolved name (and vice versa if names disappear).
   void setClassroomNames(Map<String, String> namesByCode) {
-    if (_mapsEqual(_classroomNamesByCode, namesByCode)) return;
+    final codes = namesByCode.keys
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList(growable: false);
+    final namesChanged = !_mapsEqual(_classroomNamesByCode, namesByCode);
+    final codesChanged = !_codeSetsEqual(_allClassroomCodes, codes);
+    if (!namesChanged && !codesChanged) return;
     _classroomNamesByCode = namesByCode;
+    _allClassroomCodes = codes;
     if (_lastShifts.isEmpty) return;
-    emit(state.copyWith(classrooms: _groupShiftsByClassroom(_lastShifts)));
+    load();
   }
 
   static bool _mapsEqual(Map<String, String> a, Map<String, String> b) {
@@ -115,6 +388,12 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       if (b[entry.key] != entry.value) return false;
     }
     return true;
+  }
+
+  static bool _codeSetsEqual(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    final setB = b.toSet();
+    return a.every(setB.contains);
   }
 
   void selectDay(DateTime day) {
@@ -131,15 +410,27 @@ class SchedulingCubit extends Cubit<SchedulingState> {
   void setViewMode(SchedulingViewMode mode) {
     if (state.viewMode == mode) return;
     emit(state.copyWith(viewMode: mode));
+    if (_lastShifts.isNotEmpty || _allClassroomCodes.isNotEmpty) {
+      load();
+    }
   }
 
-  // ---------------- Mapping ----------------
+  static int? _parseClockMinutes(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split(' ');
+    final timePart = parts.first;
+    final period = parts.length > 1 ? parts[1].toUpperCase() : '';
+    final segments = timePart.split(':');
+    if (segments.length < 2) return null;
+    var hour = int.tryParse(segments[0]);
+    final minute = int.tryParse(segments[1]);
+    if (hour == null || minute == null) return null;
+    if (period == 'PM' && hour < 12) hour += 12;
+    if (period == 'AM' && hour == 12) hour = 0;
+    return hour * 60 + minute;
+  }
 
-  /// Buckets [shifts] into one [ClassroomDaySchedule] per classroomCode. Each
-  /// shift becomes a [StaffScheduleEntry] preserving the staff name + start /
-  /// end times. We don't have ratio info from the API yet so every classroom
-  /// is reported as `inRatio` and `daySlots` is left empty (the timeline
-  /// strips render no bars until ratio data is available).
   List<ClassroomDaySchedule> _groupShiftsByClassroom(List<StaffShift> shifts) {
     if (shifts.isEmpty) return const <ClassroomDaySchedule>[];
 
@@ -150,9 +441,6 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       final bucket = byClassroom.putIfAbsent(
         code,
         () {
-          // Prefer the name baked into the shift (some endpoints include it),
-          // then the lookup map from ClassroomCubit, then fall back to the
-          // code so the row is at least identifiable.
           final shiftName = shift.classroomName.trim();
           if (shiftName.isNotEmpty) {
             return _ClassroomBucket(code: code, name: shiftName);
@@ -182,12 +470,7 @@ class _ClassroomBucket {
 
   ClassroomDaySchedule toClassroomDaySchedule() {
     final staffEntries = shifts.map((s) {
-      // Per-shift duration computed from start/end. The API's `scheduledHours`
-      // is a per-staff-per-day aggregate — repeating it across every shift
-      // row is misleading, so we compute the actual duration of THIS shift.
       final scheduled = _hoursBetween(s.startTime, s.endTime);
-      // Available hours stay as the API aggregate (staff's total work
-      // window for the day); fall back to scheduled if backend omitted it.
       final available =
           s.availableHours > 0 ? s.availableHours.toDouble() : scheduled;
       return StaffScheduleEntry(
@@ -197,6 +480,7 @@ class _ClassroomBucket {
         startTime: _formatTimeOfDay(s.startTime),
         endTime: _formatTimeOfDay(s.endTime),
         isPublished: s.isPublished,
+        shiftCode: s.shiftCode,
       );
     }).toList(growable: false);
 

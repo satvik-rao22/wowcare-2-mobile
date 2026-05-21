@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../model/scheduling_models.dart';
-import 'scheduling_legend.dart';
+import '../utils/scheduling_block_status_style.dart';
 import 'staff_schedule_tile.dart';
 
 /// Width of the right-side column used in every row of the schedule
@@ -154,11 +154,8 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
   }
 
   Widget _statusIcon() {
-    switch (widget.classroom.ratioStatus) {
-      case ClassroomRatioStatus.inRatio:
-        return const RatioStatusIcon.inRatio();
-      case ClassroomRatioStatus.underRatio:
-        return const RatioStatusIcon.underRatio();
-    }
+    return SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
+      widget.classroom.ratioStatus,
+    );
   }
 }

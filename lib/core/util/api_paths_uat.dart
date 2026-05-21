@@ -192,6 +192,16 @@ class ApiPathsUat {
     if (version != 'v1' && version != 'v2') return p;
 
     final seg = parts[2];
+
+    // Classroom forecast APIs: `/api/v1/staff-shifts/schedule/classroom/forecast[/range]`
+    // (no `/staff/` segment between `v1` and `staff-shifts` in UAT).
+    if (seg == 'staff-shifts' &&
+        parts.length > 4 &&
+        parts[3] == 'schedule' &&
+        parts[4] == 'classroom') {
+      return p;
+    }
+
     if (_microservicePathSegments.contains(seg)) {
       // Ambiguous case: some endpoints use the same word for both MS and resource
       // (e.g. local `/api/v1/staff/code` should become `/api/v1/staff/staff/code` in UAT).

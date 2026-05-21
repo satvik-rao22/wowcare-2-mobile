@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../model/scheduling_models.dart';
+import '../utils/scheduling_block_status_style.dart'; // ForecastSlotDetailStyle
 
 /// Width of the LEFT (name) column of the day Gantt table.
 const double _kLeftColumnWidth = 150;
@@ -18,11 +19,11 @@ const double _kSlotHPad = 3;
 /// Vertical padding making each slot a more thumb-friendly hit target.
 const double _kSlotVPad = 8;
 
-/// Granularity of one slot in minutes.
-const int _kSlotMinutes = 30;
+/// Default granularity when the API omits a duration (minutes).
+const int _kDefaultSlotMinutes = 30;
 
-/// First slot's start-of-day in minutes since midnight (07:00 AM).
-const int _kDayStartMinutes = 7 * 60;
+/// Default first-slot anchor when school hours are unavailable.
+const int _kDefaultDayStartMinutes = 7 * 60;
 
 /// Day-view of the schedule. Renders an outer card with a header (legend +
 /// "Collapse All"), a "Class Schedule" aggregate row per classroom, and a
@@ -135,41 +136,33 @@ class _DayLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
+    return Wrap(
       spacing: 12,
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _LegendDot(
-          color: Color(0xFFF38D8D),
-          label: 'Not in Ratio/Break Time',
-        ),
-        _LegendDot(color: Color(0xFFACF3AA), label: 'In Ratio/Work Time'),
-        _LegendDot(color: Color(0xFF5978F7), label: 'Extra staff'),
+        _LegendDot(kind: SchedulingBlockStatusKind.underRatio),
+        _LegendDot(kind: SchedulingBlockStatusKind.inRatio),
+        _LegendDot(kind: SchedulingBlockStatusKind.extraStaff),
       ],
     );
   }
 }
 
 class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label});
+  const _LegendDot({required this.kind});
 
-  final Color color;
-  final String label;
+  final SchedulingBlockStatusKind kind;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        SchedulingBlockStatusStyle.dayLegendDot(kind),
         const SizedBox(width: 6),
         Text(
-          label,
+          SchedulingBlockStatusStyle.dayViewLabel(kind),
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 12,
@@ -251,8 +244,11 @@ class _ClassroomBlockState extends State<_ClassroomBlock> {
           ),
           right: _TimelineWithAxis(
             slots: widget.classroom.daySlots,
+            slotDetails: widget.classroom.slotDetails,
             day: widget.day,
             classroomName: widget.classroom.classroomName,
+            dayStartMinutes: widget.classroom.timelineStartMinutes,
+            slotMinutes: widget.classroom.slotMinutes,
           ),
         ),
         if (_open)
@@ -261,8 +257,12 @@ class _ClassroomBlockState extends State<_ClassroomBlock> {
               left: _StaffLeft(entry: s),
               right: _TimelineWithAxis(
                 slots: s.daySlots,
+                slotDetails: s.slotDetails,
                 day: widget.day,
                 classroomName: widget.classroom.classroomName,
+                dayStartMinutes: s.timelineStartMinutes,
+                slotMinutes: s.slotMinutes,
+                staffName: s.staffName,
               ),
             ),
       ],
@@ -370,13 +370,21 @@ class _StaffLeft extends StatelessWidget {
 class _TimelineWithAxis extends StatelessWidget {
   const _TimelineWithAxis({
     required this.slots,
+    required this.slotDetails,
     required this.day,
     required this.classroomName,
+    required this.dayStartMinutes,
+    required this.slotMinutes,
+    this.staffName,
   });
 
   final List<TimeSlotStatus> slots;
+  final List<ForecastSlotDetail?> slotDetails;
   final DateTime day;
   final String classroomName;
+  final int dayStartMinutes;
+  final int slotMinutes;
+  final String? staffName;
 
   @override
   Widget build(BuildContext context) {
@@ -405,11 +413,15 @@ class _TimelineWithAxis extends StatelessWidget {
           for (int i = 0; i < slots.length; i++)
             _SlotTapTarget(
               status: slots[i],
-              onTap: () => _showSlotDetails(
-                context,
-                slotIndex: i,
-                status: slots[i],
-              ),
+              onTap: slots[i] == TimeSlotStatus.empty
+                  ? null
+                  : () => _showSlotDetails(
+                        context,
+                        slotIndex: i,
+                        status: slots[i],
+                        detail:
+                            i < slotDetails.length ? slotDetails[i] : null,
+                      ),
             ),
         ],
       ),
@@ -420,6 +432,7 @@ class _TimelineWithAxis extends StatelessWidget {
     BuildContext context, {
     required int slotIndex,
     required TimeSlotStatus status,
+    ForecastSlotDetail? detail,
   }) {
     showDialog<void>(
       context: context,
@@ -429,6 +442,10 @@ class _TimelineWithAxis extends StatelessWidget {
         slotIndex: slotIndex,
         classroomName: classroomName,
         status: status,
+        detail: detail,
+        dayStartMinutes: dayStartMinutes,
+        slotMinutes: slotMinutes,
+        staffName: staffName,
       ),
     );
   }
@@ -437,17 +454,13 @@ class _TimelineWithAxis extends StatelessWidget {
 /// One slot — visible rounded square + transparent padding that doubles as
 /// a generous thumb-tap target.
 class _SlotTapTarget extends StatelessWidget {
-  const _SlotTapTarget({required this.status, required this.onTap});
+  const _SlotTapTarget({required this.status, this.onTap});
 
   final TimeSlotStatus status;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
-  static const Map<TimeSlotStatus, Color> _colors = {
-    TimeSlotStatus.inRatio: Color(0xFFACF3AA),
-    TimeSlotStatus.underRatio: Color(0xFFF38D8D),
-    TimeSlotStatus.overRatio: Color(0xFF5978F7),
-    TimeSlotStatus.empty: Color(0xFFE9ECEF),
-  };
+  Color _colorFor(TimeSlotStatus status) =>
+      SchedulingBlockStatusStyle.daySlotColor(status);
 
   @override
   Widget build(BuildContext context) {
@@ -463,7 +476,7 @@ class _SlotTapTarget extends StatelessWidget {
           width: _kSlotSize,
           height: _kSlotSize,
           decoration: BoxDecoration(
-            color: _colors[status],
+            color: _colorFor(status),
             borderRadius: BorderRadius.circular(3),
           ),
         ),
@@ -479,23 +492,54 @@ class _SlotDetailsDialog extends StatelessWidget {
     required this.slotIndex,
     required this.classroomName,
     required this.status,
+    required this.detail,
+    required this.dayStartMinutes,
+    required this.slotMinutes,
+    this.staffName,
   });
 
   final DateTime day;
   final int slotIndex;
   final String classroomName;
   final TimeSlotStatus status;
+  final ForecastSlotDetail? detail;
+  final int dayStartMinutes;
+  final int slotMinutes;
+  final String? staffName;
 
   @override
   Widget build(BuildContext context) {
-    final startMin = _kDayStartMinutes + slotIndex * _kSlotMinutes;
-    final start = TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60);
-    final endMin = startMin + _kSlotMinutes;
-    final end = TimeOfDay(hour: endMin ~/ 60, minute: endMin % 60);
+    final slot = slotMinutes > 0 ? slotMinutes : _kDefaultSlotMinutes;
+    final anchor =
+        dayStartMinutes > 0 ? dayStartMinutes : _kDefaultDayStartMinutes;
+    final startMin = anchor + slotIndex * slot;
+    final fallbackStart =
+        TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60);
+    final fallbackEndMin = startMin + slot;
+    final fallbackEnd = TimeOfDay(
+      hour: fallbackEndMin ~/ 60,
+      minute: fallbackEndMin % 60,
+    );
 
-    final counts = _countsFor(status);
-    final badge = _badgeLabel(status);
-    final description = _descriptionFor(status);
+    final hasForecast = detail?.hasForecastData ?? false;
+    final start = hasForecast && detail!.blockStart != null
+        ? detail!.blockStart!
+        : fallbackStart;
+    final end =
+        hasForecast && detail!.blockEnd != null ? detail!.blockEnd! : fallbackEnd;
+
+    final effectiveStatus =
+        hasForecast ? detail!.slotStatus : status;
+    final kind = hasForecast
+        ? detail!.statusKind
+        : SchedulingBlockStatusStyle.fromTimeSlotStatus(effectiveStatus);
+    final counts = _countsFromDetail(detail, hasForecast);
+    final badge = hasForecast
+        ? detail!.dayViewStatusLabel
+        : SchedulingBlockStatusStyle.dayViewLabel(kind);
+    final description = _descriptionFor(detail, effectiveStatus, hasForecast);
+    final badgeColor = SchedulingBlockStatusStyle.badgeColorForKind(kind);
+    final rawBlockStatus = detail?.blockStatus.trim() ?? '';
 
     return Dialog(
       backgroundColor: Colors.white,
@@ -551,7 +595,22 @@ class _SlotDetailsDialog extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
                         ),
+                        textAlign: TextAlign.end,
                       ),
+                      if (staffName != null && staffName!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          staffName!,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color:
+                                AppColors.primaryColor.withValues(alpha: 0.65),
+                          ),
+                          textAlign: TextAlign.end,
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -559,7 +618,7 @@ class _SlotDetailsDialog extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryColor.withValues(alpha: 0.7),
+                          color: badgeColor,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -599,6 +658,52 @@ class _SlotDetailsDialog extends StatelessWidget {
                 label: 'Scheduled Staff',
                 count: counts.scheduled,
               ),
+              if (hasForecast && detail!.ratioRule > 0) ...[
+                const SizedBox(height: 6),
+                _CountRow(
+                  color: AppColors.primaryColor.withValues(alpha: 0.35),
+                  label: 'Ratio Rule',
+                  count: detail!.ratioRule,
+                ),
+              ],
+              if (hasForecast && !detail!.withinMonitoringWindow) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Outside monitoring window',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.errorColor.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+              if (hasForecast &&
+                  rawBlockStatus.isNotEmpty &&
+                  rawBlockStatus.toUpperCase() != badge.toUpperCase()) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Status: $rawBlockStatus',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryColor.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+              if (!hasForecast) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Forecast details are not available for this block.',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryColor.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Text(
                 description,
@@ -624,42 +729,55 @@ class _SlotDetailsDialog extends StatelessWidget {
     return '$h12:$mm $ap';
   }
 
-  String _badgeLabel(TimeSlotStatus s) {
+  String _descriptionFor(
+    ForecastSlotDetail? d,
+    TimeSlotStatus s,
+    bool hasForecast,
+  ) {
+    if (d != null && hasForecast) {
+      final gap = d.requiredStaff - d.scheduledStaff;
+      switch (d.slotStatus) {
+        case TimeSlotStatus.overRatio:
+          return 'Scheduled staff (${d.scheduledStaff}) exceeds required '
+              '(${d.requiredStaff}) for ${d.expectedStudents} expected '
+              'students in this block.';
+        case TimeSlotStatus.underRatio:
+          return gap > 0
+              ? 'This block is short $gap staff member(s): '
+                  '${d.scheduledStaff} scheduled vs ${d.requiredStaff} required '
+                  'for ${d.expectedStudents} expected students.'
+              : 'Staffing is below the required ratio for this time block.';
+        case TimeSlotStatus.inRatio:
+          return 'Staffing meets the ratio for this block: '
+              '${d.scheduledStaff} scheduled, ${d.requiredStaff} required, '
+              '${d.expectedStudents} expected students.';
+        case TimeSlotStatus.empty:
+          break;
+      }
+    }
     switch (s) {
       case TimeSlotStatus.overRatio:
-        return 'Extra Staff';
+        return 'Extra staff scheduled during this monitoring block.';
       case TimeSlotStatus.inRatio:
-        return 'In Ratio';
+        return d?.withinMonitoringWindow ?? true
+            ? 'This block is inside the monitoring window and meets ratio.'
+            : 'This block meets ratio but is outside the monitoring window.';
       case TimeSlotStatus.underRatio:
-        return 'Break / Absent';
+        return 'This block is under ratio for the required staffing level.';
       case TimeSlotStatus.empty:
-        return 'No Schedule';
+        return 'No forecast data for this time block.';
     }
   }
 
-  String _descriptionFor(TimeSlotStatus s) {
-    switch (s) {
-      case TimeSlotStatus.overRatio:
-      case TimeSlotStatus.inRatio:
-        return 'This block is inside the monitoring window and counts toward daily compliance.';
-      case TimeSlotStatus.underRatio:
-        return 'This block flags a ratio gap or break time and does not count toward staff compliance.';
-      case TimeSlotStatus.empty:
-        return 'No schedule recorded for this slot.';
+  _SlotCounts _countsFromDetail(ForecastSlotDetail? d, bool hasForecast) {
+    if (d != null && hasForecast) {
+      return _SlotCounts(
+        expected: d.expectedStudents,
+        required: d.requiredStaff,
+        scheduled: d.scheduledStaff,
+      );
     }
-  }
-
-  _SlotCounts _countsFor(TimeSlotStatus s) {
-    switch (s) {
-      case TimeSlotStatus.overRatio:
-        return const _SlotCounts(expected: 0, required: 0, scheduled: 3);
-      case TimeSlotStatus.inRatio:
-        return const _SlotCounts(expected: 8, required: 2, scheduled: 2);
-      case TimeSlotStatus.underRatio:
-        return const _SlotCounts(expected: 8, required: 2, scheduled: 1);
-      case TimeSlotStatus.empty:
-        return const _SlotCounts(expected: 0, required: 0, scheduled: 0);
-    }
+    return const _SlotCounts(expected: 0, required: 0, scheduled: 0);
   }
 }
 
