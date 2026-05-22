@@ -41,6 +41,7 @@ class ApiPathsUat {
       'staff-dates',
       'staff-address',
       'staff-schedules',
+      'staff-shifts',
     },
     ApiMicroservices.student: {
       'student',
@@ -118,6 +119,7 @@ class ApiPathsUat {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':

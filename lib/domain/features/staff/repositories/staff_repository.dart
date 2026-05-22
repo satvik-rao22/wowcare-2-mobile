@@ -5,7 +5,6 @@ import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
 import '../entities/school_regular_schedule_day.dart';
-
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
     required String organizationCode,
@@ -24,6 +23,18 @@ abstract class StaffRepository {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+  });
+
+  /// Fetches the full staff list (single-page; [size] caps how many records
+  /// are returned, default 200) with support for multiple `status` values
+  /// sent as repeated query keys (e.g. `status=ACTIVE&status=UPCOMING`).
+  /// Intended for the scheduling feature, which needs every active/upcoming
+  /// staff member at once.
+  Future<List<StaffMember>> getAllStaff({
+    required String organizationCode,
+    required String schoolCode,
+    List<String>? statuses,
+    int size = 200,
   });
 
   Future<String> addStaffDocument({

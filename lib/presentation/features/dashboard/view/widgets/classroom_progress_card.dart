@@ -59,9 +59,9 @@ class _ClassroomProgressCardState extends State<ClassroomProgressCard> {
           ),
           if (!_minimized) ...[
             const SizedBox(height: 12),
-            // Classroom selector.
+            // Classroom selector — left-aligned, directly below the heading.
             Align(
-              alignment: Alignment.centerRight,
+              alignment: Alignment.centerLeft,
               child: SizedBox(
                 width: 170,
                 child: CustomDropdown(

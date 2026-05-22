@@ -39,7 +39,7 @@ class DashboardCardHeader extends StatelessWidget {
           softWrap: false,
           style: const TextStyle(
             color: AppColors.primaryColor,
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -55,14 +55,15 @@ class DashboardCardHeader extends StatelessWidget {
             ),
           ),
         ],
-        // Remaining space: trailing widget (shrinks if cramped) + the toggle,
-        // pinned to the right.
+        // Remaining space: trailing widget + the toggle, pinned to the right.
+        // `trailing` is placed directly (no Flexible wrapper) so a card may
+        // pass an `Expanded`/`Flexible` itself without competing parent data.
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               if (trailing != null) ...[
-                Flexible(child: trailing!),
+                trailing!,
                 const SizedBox(width: 8),
               ],
               DashboardCardToggle(minimized: minimized, onTap: onToggle),

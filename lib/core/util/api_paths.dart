@@ -184,6 +184,7 @@ class ApiPaths {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
@@ -325,6 +326,13 @@ class ApiPaths {
       '$staffClassrooms/$staffCode/primary-classroom';
 
   static const String staffSchedules = '/api/v1/staff-schedules';
+
+  /// Staff MS — staff scheduling shifts (`GET` with query filters).
+  static const String staffShifts = '/api/v1/staff-shifts';
+
+  /// Builds a full URL on the staff microservice host.
+  static String staffMicroserviceUrl(String path) =>
+      urlWithBase(path, ApiConstants.staffBaseUrl);
 
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';

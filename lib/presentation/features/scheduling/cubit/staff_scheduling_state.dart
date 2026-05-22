@@ -1,0 +1,128 @@
+part of 'staff_scheduling_cubit.dart';
+
+class StaffSchedulingState extends Equatable {
+  const StaffSchedulingState({
+    required this.selectedDay,
+    this.staffList = const [],
+    this.selectedStaffCode,
+    this.shiftSummary = StaffShiftDaySummary.empty,
+    this.schoolStartTime,
+    this.schoolEndTime,
+    this.hasSchoolHoursForDay = false,
+    this.classroomNamesByCode = const {},
+    this.isLoadingStaff = false,
+    this.isLoadingShifts = false,
+    this.isLoadingSchoolHours = false,
+    this.hasAttemptedInitialLoad = false,
+    this.errorMessage,
+  });
+
+  final DateTime selectedDay;
+  final List<StaffMember> staffList;
+  final String? selectedStaffCode;
+  final StaffShiftDaySummary shiftSummary;
+
+  /// School open/close for [selectedDay] (`hh:mm:ss a`), from regular-schedule API.
+  final String? schoolStartTime;
+  final String? schoolEndTime;
+  final bool hasSchoolHoursForDay;
+
+  /// Active classroom code → display name for the logged-in school.
+  final Map<String, String> classroomNamesByCode;
+
+  final bool isLoadingStaff;
+  final bool isLoadingShifts;
+  final bool isLoadingSchoolHours;
+
+  /// True once the very first `loadInitial()` has settled (success or failure).
+  /// Used by the UI to keep the shimmer up until the first load is done, so we
+  /// don't briefly show the "Select a staff member" empty state before the
+  /// first emission flips the loading flags on.
+  final bool hasAttemptedInitialLoad;
+
+  final String? errorMessage;
+
+  StaffMember? get selectedStaff {
+    final code = selectedStaffCode;
+    if (code == null || code.isEmpty) return null;
+    for (final s in staffList) {
+      if (s.code == code) return s;
+    }
+    return null;
+  }
+
+  List<String> get staffDropdownNames =>
+      staffList.map((s) => s.name).toList(growable: false);
+
+  String? get selectedStaffDropdownLabel => selectedStaff?.name;
+
+  ClassroomNameResolver get classroomResolver =>
+      ClassroomNameResolver.fromMap(classroomNamesByCode);
+
+  factory StaffSchedulingState.initial() {
+    final now = DateTime.now();
+    return StaffSchedulingState(
+      selectedDay: DateTime(now.year, now.month, now.day),
+    );
+  }
+
+  StaffSchedulingState copyWith({
+    DateTime? selectedDay,
+    List<StaffMember>? staffList,
+    String? selectedStaffCode,
+    bool clearSelectedStaffCode = false,
+    StaffShiftDaySummary? shiftSummary,
+    String? schoolStartTime,
+    String? schoolEndTime,
+    bool? hasSchoolHoursForDay,
+    Map<String, String>? classroomNamesByCode,
+    bool? isLoadingStaff,
+    bool? isLoadingShifts,
+    bool? isLoadingSchoolHours,
+    bool? hasAttemptedInitialLoad,
+    String? errorMessage,
+    bool clearError = false,
+    bool clearSchoolHours = false,
+  }) {
+    return StaffSchedulingState(
+      selectedDay: selectedDay ?? this.selectedDay,
+      staffList: staffList ?? this.staffList,
+      selectedStaffCode: clearSelectedStaffCode
+          ? null
+          : (selectedStaffCode ?? this.selectedStaffCode),
+      shiftSummary: shiftSummary ?? this.shiftSummary,
+      schoolStartTime:
+          clearSchoolHours ? null : (schoolStartTime ?? this.schoolStartTime),
+      schoolEndTime:
+          clearSchoolHours ? null : (schoolEndTime ?? this.schoolEndTime),
+      hasSchoolHoursForDay:
+          hasSchoolHoursForDay ?? this.hasSchoolHoursForDay,
+      classroomNamesByCode:
+          classroomNamesByCode ?? this.classroomNamesByCode,
+      isLoadingStaff: isLoadingStaff ?? this.isLoadingStaff,
+      isLoadingShifts: isLoadingShifts ?? this.isLoadingShifts,
+      isLoadingSchoolHours:
+          isLoadingSchoolHours ?? this.isLoadingSchoolHours,
+      hasAttemptedInitialLoad:
+          hasAttemptedInitialLoad ?? this.hasAttemptedInitialLoad,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        selectedDay,
+        staffList,
+        selectedStaffCode,
+        shiftSummary,
+        schoolStartTime,
+        schoolEndTime,
+        hasSchoolHoursForDay,
+        classroomNamesByCode,
+        isLoadingStaff,
+        isLoadingShifts,
+        isLoadingSchoolHours,
+        hasAttemptedInitialLoad,
+        errorMessage,
+      ];
+}
