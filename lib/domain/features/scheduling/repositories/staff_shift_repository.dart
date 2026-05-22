@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../entities/classroom_forecast_block.dart';
 import '../entities/staff_shift.dart';
+import '../entities/staff_shift_hours_entry.dart';
 
 /// Parameters for `POST .../classroom/forecast`.
 class ClassroomForecastQuery {
@@ -77,6 +78,15 @@ abstract class StaffShiftRepository {
     required String schoolCode,
     required String organizationCode,
     required ClassroomForecastRangeQuery query,
+  });
+
+  /// `POST /api/v1/staff-shifts/hours/range` — per-staff day hour totals.
+  Future<List<StaffShiftHoursEntry>> getStaffShiftHoursRange({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime startDate,
+    required DateTime endDate,
+    List<String> staffCodes = const <String>[],
   });
 }
 

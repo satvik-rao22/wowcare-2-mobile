@@ -330,6 +330,9 @@ class ApiPaths {
   /// Staff MS — staff scheduling shifts (`GET` with query filters).
   static const String staffShifts = '/api/v1/staff-shifts';
 
+  /// POST per-staff available / scheduled / unscheduled hours for a date range.
+  static const String staffShiftHoursRange = '/api/v1/staff-shifts/hours/range';
+
   /// POST classroom ratio forecast for a single day.
   static const String staffShiftClassroomForecast =
       '/api/v1/staff-shifts/schedule/classroom/forecast';

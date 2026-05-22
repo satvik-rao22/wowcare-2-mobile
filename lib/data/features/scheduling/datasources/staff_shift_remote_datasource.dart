@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/classroom_forecast_models.dart';
+import '../models/staff_shift_hours_models.dart';
 import '../models/staff_shift_models.dart';
 
 abstract class StaffShiftRemoteDataSource {
@@ -39,6 +40,10 @@ abstract class StaffShiftRemoteDataSource {
     required String schoolCode,
     required String organizationCode,
     required ClassroomForecastRangeRequestModel request,
+  });
+
+  Future<List<StaffShiftHoursEntryModel>> getStaffShiftHoursRange({
+    required StaffShiftHoursRangeRequestModel request,
   });
 }
 
@@ -194,6 +199,45 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     );
 
     return _parseForecastList(response.data);
+  }
+
+  @override
+  Future<List<StaffShiftHoursEntryModel>> getStaffShiftHoursRange({
+    required StaffShiftHoursRangeRequestModel request,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffShiftHoursRange,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: request.toJson(),
+    );
+
+    return _parseHoursList(response.data);
+  }
+
+  static List<StaffShiftHoursEntryModel> _parseHoursList(dynamic raw) {
+    List<dynamic>? items;
+    if (raw is Map<String, dynamic>) {
+      final data = raw['data'];
+      if (data is List) items = data;
+    } else if (raw is List) {
+      items = raw;
+    }
+    if (items == null) return const <StaffShiftHoursEntryModel>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map((json) {
+          try {
+            return StaffShiftHoursEntryModel.fromJson(json);
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<StaffShiftHoursEntryModel>()
+        .toList(growable: false);
   }
 
   static List<ClassroomForecastBlockModel> _parseForecastList(dynamic raw) {

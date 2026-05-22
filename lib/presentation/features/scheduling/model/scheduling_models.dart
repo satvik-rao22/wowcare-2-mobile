@@ -15,8 +15,40 @@ enum SchedulingBlockStatusKind {
 /// Top-level view mode for the schedule screen.
 enum SchedulingViewMode { week, day }
 
-/// Per-slot status used by the day-Gantt timeline strip.
+/// Per-slot status used by the classroom day-Gantt (forecast ratio only).
 enum TimeSlotStatus { inRatio, underRatio, overRatio, empty }
+
+/// Per-slot status for staff day-Gantt rows (shift work/break only).
+enum StaffShiftSlotStatus { empty, workTime, breakTime }
+
+/// Payload for one staff shift slot (hover / tap); not forecast ratio data.
+@immutable
+class StaffShiftSlotDetail {
+  const StaffShiftSlotDetail({
+    required this.status,
+    this.shiftStart,
+    this.shiftEnd,
+    this.breakStart,
+    this.breakEnd,
+    this.classroomCode = '',
+    this.shiftCode = '',
+    this.isPublished = false,
+  });
+
+  final StaffShiftSlotStatus status;
+  final TimeOfDay? shiftStart;
+  final TimeOfDay? shiftEnd;
+  final TimeOfDay? breakStart;
+  final TimeOfDay? breakEnd;
+  final String classroomCode;
+  final String shiftCode;
+  final bool isPublished;
+
+  bool get hasShiftData =>
+      status != StaffShiftSlotStatus.empty &&
+      shiftStart != null &&
+      shiftEnd != null;
+}
 
 /// Forecast metrics for one monitoring block (day-view slot dialog).
 @immutable
@@ -66,18 +98,22 @@ class StaffScheduleEntry {
     required this.unscheduledHours,
     required this.startTime,
     required this.endTime,
+    this.staffCode = '',
     this.isPublished = false,
     this.shiftCode,
     this.photoUrl,
-    this.daySlots = const <TimeSlotStatus>[],
-    this.slotDetails = const <ForecastSlotDetail?>[],
+    this.profilePhotoAssetCode,
+    this.staffDaySlots = const <StaffShiftSlotStatus>[],
+    this.staffSlotDetails = const <StaffShiftSlotDetail?>[],
     this.timelineStartMinutes = 7 * 60,
+    this.timelineEndMinutes = 19 * 60,
     this.slotMinutes = 30,
   });
 
   final String staffName;
+  final String staffCode;
 
-  /// Per-day totals from the staff-shifts API (`scheduledHours`).
+  /// Per-day totals from `POST /staff-shifts/hours/range` (summed per staff/day).
   final double scheduledHours;
 
   /// Per-day totals from the staff-shifts API (`availableHours`).
@@ -92,19 +128,24 @@ class StaffScheduleEntry {
   /// Drives the pill border style: solid for published, dotted for draft.
   final bool isPublished;
 
-  /// Used to match forecast blocks (`staffShiftCodes`) in day view.
   final String? shiftCode;
 
   final String? photoUrl;
 
-  /// Status per slot for the day-Gantt timeline (ordered earliest → latest).
-  final List<TimeSlotStatus> daySlots;
+  /// Staff profile asset code for [DocumentImageWidget].
+  final String? profilePhotoAssetCode;
 
-  /// Parallel to [daySlots] — forecast payload for the slot popover.
-  final List<ForecastSlotDetail?> slotDetails;
+  /// Staff row: work/break colours across the full school-day window.
+  final List<StaffShiftSlotStatus> staffDaySlots;
+
+  /// Staff row: shift timing payload for hover/tap.
+  final List<StaffShiftSlotDetail?> staffSlotDetails;
 
   /// Minutes since midnight for the first Gantt slot.
   final int timelineStartMinutes;
+
+  /// School-day end from regular schedule (axis shows through this time).
+  final int timelineEndMinutes;
 
   /// Width of each coloured block in minutes (from regular-schedule duration).
   final int slotMinutes;
@@ -121,6 +162,7 @@ class ClassroomDaySchedule {
     this.daySlots = const <TimeSlotStatus>[],
     this.slotDetails = const <ForecastSlotDetail?>[],
     this.timelineStartMinutes = 7 * 60,
+    this.timelineEndMinutes = 19 * 60,
     this.slotMinutes = 30,
   });
 
@@ -134,5 +176,6 @@ class ClassroomDaySchedule {
 
   final List<ForecastSlotDetail?> slotDetails;
   final int timelineStartMinutes;
+  final int timelineEndMinutes;
   final int slotMinutes;
 }

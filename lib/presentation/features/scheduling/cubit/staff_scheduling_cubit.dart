@@ -8,12 +8,15 @@ import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart'
     as sched;
+import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
 import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_shift.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../utils/classroom_name_resolver.dart';
 import '../utils/school_hours_resolver.dart';
+import '../utils/staff_hours_aggregator.dart';
 import 'scheduling_staff_list_cubit.dart';
 
 part 'staff_scheduling_state.dart';
@@ -22,11 +25,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   StaffSchedulingCubit({
     required SchedulingStaffListCubit schedulingStaffListCubit,
     required GetSchoolStaffShiftsUseCase getSchoolStaffShiftsUseCase,
+    required GetStaffShiftHoursRangeUseCase getStaffShiftHoursRangeUseCase,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
   })  : _schedulingStaffListCubit = schedulingStaffListCubit,
         _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
+        _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
         _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _staffRepository = staffRepository,
         _storageService = storageService,
@@ -37,6 +42,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   // filters by the selected staff + day client-side. Mirrors what the
   // Classroom Schedule screen does so we hit the same endpoint everywhere.
   final GetSchoolStaffShiftsUseCase _getSchoolStaffShiftsUseCase;
+  final GetStaffShiftHoursRangeUseCase _getStaffShiftHoursRangeUseCase;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
@@ -321,8 +327,6 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       final staff = state.selectedStaff;
       final day = state.selectedDay;
 
-      // School-wide, non-paginated endpoint — same one the Classroom
-      // Schedule screen uses. We then filter to this staff + day locally.
       final shifts = await _getSchoolStaffShiftsUseCase(
         schoolCode: schoolCode,
         organizationCode: organizationCode,
@@ -337,7 +341,25 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
               s.staffCode == staffCode && _isSameDay(s.shiftDate, day))
           .toList(growable: false);
 
-      final raw = _buildSummaryFromShifts(filtered);
+      var totals = StaffHoursTotals.zero;
+      try {
+        final hourRows = await _getStaffShiftHoursRangeUseCase(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          startDate: day,
+          endDate: day,
+          staffCodes: <String>[staffCode],
+        );
+        totals = StaffHoursAggregator.sumForStaffOnDay(
+          entries: hourRows,
+          staffCode: staffCode,
+          day: day,
+        );
+      } catch (_) {
+        totals = StaffHoursTotals.zero;
+      }
+
+      final raw = _buildSummaryFromShifts(filtered, totals: totals);
       final enriched = _labelShiftSummary(raw, staff);
 
       emit(
@@ -398,13 +420,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   /// `StaffShiftMapper.toDaySummary` does, but for the scheduling-domain
   /// [sched.StaffShift] entity returned by the school-wide endpoint.
   StaffShiftDaySummary _buildSummaryFromShifts(
-    List<sched.StaffShift> shifts,
-  ) {
-    if (shifts.isEmpty) return StaffShiftDaySummary.empty;
+    List<sched.StaffShift> shifts, {
+    required StaffHoursTotals totals,
+  }) {
+    if (shifts.isEmpty && totals == StaffHoursTotals.zero) {
+      return StaffShiftDaySummary.empty;
+    }
 
-    // The backend repeats the per-staff-per-day aggregate on every row, so
-    // any matching shift carries the correct totals.
-    final first = shifts.first;
     final blocks = <StaffShiftTimelineBlock>[];
 
     for (final s in shifts) {
@@ -434,9 +456,9 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     }
 
     return StaffShiftDaySummary(
-      availableHours: first.availableHours,
-      scheduledHours: first.scheduledHours,
-      unscheduledHours: first.unscheduledHours,
+      availableHours: totals.availableHours,
+      scheduledHours: totals.scheduledHours,
+      unscheduledHours: totals.unscheduledHours,
       blocks: blocks,
     );
   }

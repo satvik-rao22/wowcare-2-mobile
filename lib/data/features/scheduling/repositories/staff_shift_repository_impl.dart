@@ -1,9 +1,11 @@
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
+import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
 import '../../../../domain/features/scheduling/repositories/staff_shift_repository.dart';
 import '../datasources/staff_shift_remote_datasource.dart';
 import '../models/classroom_forecast_models.dart';
+import '../models/staff_shift_hours_models.dart';
 import '../models/staff_shift_models.dart';
 
 class StaffShiftRepositoryImpl
@@ -200,6 +202,26 @@ class StaffShiftRepositoryImpl
         endTime: formatForecastClockTime(query.endTime),
         durationMinutes: query.durationMinutes,
         classroomCodes: query.classroomCodes,
+      ),
+    );
+    return models.map((m) => m.toEntity()).toList(growable: false);
+  }
+
+  @override
+  Future<List<StaffShiftHoursEntry>> getStaffShiftHoursRange({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime startDate,
+    required DateTime endDate,
+    List<String> staffCodes = const <String>[],
+  }) async {
+    final models = await _remote.getStaffShiftHoursRange(
+      request: StaffShiftHoursRangeRequestModel(
+        startDate: _formatDate(startDate),
+        endDate: _formatDate(endDate),
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        staffCodes: staffCodes,
       ),
     );
     return models.map((m) => m.toEntity()).toList(growable: false);

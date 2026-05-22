@@ -34,6 +34,7 @@ import '../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecas
 import '../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
+import '../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
@@ -641,6 +642,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () =>
         GetClassroomForecastRangeUseCase(serviceLocator<StaffShiftRepository>()),
   );
+  serviceLocator.registerFactory<GetStaffShiftHoursRangeUseCase>(
+    () => GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -813,6 +817,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       schedulingStaffListCubit: serviceLocator(),
       getSchoolStaffShiftsUseCase:
           serviceLocator<GetSchoolStaffShiftsUseCase>(),
+      getStaffShiftHoursRangeUseCase:
+          serviceLocator<GetStaffShiftHoursRangeUseCase>(),
       getActiveClassroomsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
@@ -823,6 +829,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getSchoolStaffShiftsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
       getClassroomForecastRangeUseCase: serviceLocator(),
+      getStaffShiftHoursRangeUseCase: serviceLocator(),
+      schedulingStaffListCubit: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),

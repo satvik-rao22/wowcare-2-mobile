@@ -162,27 +162,30 @@ class SchedulingBlockStatusStyle {
 
 
 
-  static SchedulingBlockStatusKind _kindFromCounts(
-
-    int scheduled,
-
-    int required,
-
-  ) {
-
-    if (scheduled > required) return SchedulingBlockStatusKind.extraStaff;
-
-    if (scheduled < required) return SchedulingBlockStatusKind.underRatio;
-
-    if (scheduled > 0 || required > 0) {
-
-      return SchedulingBlockStatusKind.inRatio;
-
+  /// PRD Use Case 6: derive block colour from scheduled vs required staff.
+  static SchedulingBlockStatusKind kindFromPrdCounts({
+    required int scheduledStaff,
+    required int requiredStaff,
+    bool withinMonitoringWindow = true,
+  }) {
+    if (!withinMonitoringWindow) return SchedulingBlockStatusKind.empty;
+    if (scheduledStaff < requiredStaff) {
+      return SchedulingBlockStatusKind.underRatio;
     }
-
-    return SchedulingBlockStatusKind.empty;
-
+    if (scheduledStaff > requiredStaff) {
+      return SchedulingBlockStatusKind.extraStaff;
+    }
+    return SchedulingBlockStatusKind.inRatio;
   }
+
+  static SchedulingBlockStatusKind _kindFromCounts(
+    int scheduled,
+    int required,
+  ) =>
+      kindFromPrdCounts(
+        scheduledStaff: scheduled,
+        requiredStaff: required,
+      );
 
 
 
@@ -377,27 +380,30 @@ class SchedulingBlockStatusStyle {
 
 
   static String dayViewLabel(SchedulingBlockStatusKind kind) {
-
     switch (kind) {
-
       case SchedulingBlockStatusKind.underRatio:
-
         return 'Not in Ratio/Break Time';
-
       case SchedulingBlockStatusKind.extraStaff:
-
         return 'Extra staff';
-
       case SchedulingBlockStatusKind.inRatio:
-
         return 'In Ratio/Work Time';
-
       case SchedulingBlockStatusKind.empty:
-
         return 'No Schedule';
-
     }
+  }
 
+  /// Short badge text for classroom slot dialogs (matches design mockups).
+  static String ratioBadgeLabel(SchedulingBlockStatusKind kind) {
+    switch (kind) {
+      case SchedulingBlockStatusKind.underRatio:
+        return 'Not in Ratio/Break Time';
+      case SchedulingBlockStatusKind.extraStaff:
+        return 'Extra Staff';
+      case SchedulingBlockStatusKind.inRatio:
+        return 'In Ratio/Work Time';
+      case SchedulingBlockStatusKind.empty:
+        return 'No Schedule';
+    }
   }
 
 
@@ -537,17 +543,22 @@ class SchedulingBlockStatusStyle {
 
 
 extension ForecastSlotDetailStyle on ForecastSlotDetail {
+  /// Grid colour: grey outside monitoring when all counts are zero.
+  TimeSlotStatus get displaySlotStatus {
+    if (!withinMonitoringWindow &&
+        expectedStudents == 0 &&
+        requiredStaff == 0 &&
+        scheduledStaff == 0) {
+      return TimeSlotStatus.empty;
+    }
+    return slotStatus;
+  }
 
   SchedulingBlockStatusKind get statusKind =>
-
       SchedulingBlockStatusStyle.parseKind(
-
         blockStatus,
-
         scheduledStaff: scheduledStaff,
-
         requiredStaff: requiredStaff,
-
       );
 
 
@@ -571,18 +582,9 @@ extension ForecastSlotDetailStyle on ForecastSlotDetail {
 
 
   String get dayViewStatusLabel =>
+      SchedulingBlockStatusStyle.dayViewLabel(statusKind);
 
-      SchedulingBlockStatusStyle.labelFromBlockStatus(
-
-        blockStatus,
-
-        scheduledStaff: scheduledStaff,
-
-        requiredStaff: requiredStaff,
-
-        dayView: true,
-
-      );
-
+  String get ratioBadgeLabel =>
+      SchedulingBlockStatusStyle.ratioBadgeLabel(statusKind);
 }
 

@@ -9,9 +9,9 @@ class StaffShiftDaySummary extends Equatable {
     this.blocks = const [],
   });
 
-  final int availableHours;
-  final int scheduledHours;
-  final int unscheduledHours;
+  final double availableHours;
+  final double scheduledHours;
+  final double unscheduledHours;
 
   /// Timeline blocks for the day calendar (work + optional lunch break).
   final List<StaffShiftTimelineBlock> blocks;

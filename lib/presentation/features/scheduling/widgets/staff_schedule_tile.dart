@@ -6,8 +6,135 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../model/scheduling_models.dart';
 
-/// Left-cell content for a staff row in the schedule table: avatar, name,
-/// and the scheduled/available hours badge.
+/// Drop trailing `.0` so whole hours render as `9h` not `9.0h`, but fractional
+/// values (e.g. 7.5h) keep their decimal.
+String formatSchedulingHours(double hours) {
+  if (hours == hours.truncateToDouble()) return hours.toInt().toString();
+  return hours.toStringAsFixed(1);
+}
+
+/// Day-view left column: image, name, optional subtitle / hour chips (stacked).
+class SchedulingEntityLeftCell extends StatelessWidget {
+  const SchedulingEntityLeftCell({
+    super.key,
+    required this.title,
+    required this.imageFileUuid,
+    this.mediaAssetCode,
+    this.staffCode,
+    this.placeholderAsset,
+    this.subtitle,
+    this.availableHours,
+    this.scheduledHours,
+    this.unscheduledHours,
+    this.showHours = false,
+  });
+
+  final String title;
+  final String imageFileUuid;
+  final String? mediaAssetCode;
+  final String? staffCode;
+  final String? placeholderAsset;
+  final String? subtitle;
+  final double? availableHours;
+  final double? scheduledHours;
+  final double? unscheduledHours;
+  final bool showHours;
+
+  static const TextStyle _nameStyle = TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  static final TextStyle _subtitleStyle = TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor.withValues(alpha: 0.65),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+          children: [
+            DocumentImageWidget(
+              fileUuid: imageFileUuid,
+              name: title,
+              mediaAssetCode: mediaAssetCode,
+              staffCode: staffCode,
+              size: 38,
+              placeholderAsset: placeholderAsset ?? MediaRes.classroomIcon,
+              disableProfileLookupFallback: mediaAssetCode != null &&
+                  mediaAssetCode!.trim().isNotEmpty,
+              disableAttendanceStatusLookup: true,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: _nameStyle,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                style: _subtitleStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (showHours &&
+                availableHours != null &&
+                scheduledHours != null &&
+                unscheduledHours != null) ...[
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: _HoursBadge(
+                  availableHours: availableHours!,
+                  scheduledHours: scheduledHours!,
+                  unscheduledHours: unscheduledHours!,
+                ),
+              ),
+            ],
+          ],
+      ),
+    );
+  }
+}
+
+/// Classroom row: logo → name → "Class Schedule".
+class ClassroomRowLeft extends StatelessWidget {
+  const ClassroomRowLeft({
+    super.key,
+    required this.classroomCode,
+    required this.classroomName,
+  });
+
+  final String classroomCode;
+  final String classroomName;
+
+  @override
+  Widget build(BuildContext context) {
+    return SchedulingEntityLeftCell(
+      title: classroomName,
+      imageFileUuid: classroomCode,
+      placeholderAsset: MediaRes.classroomIcon,
+      subtitle: 'Class Schedule',
+    );
+  }
+}
+
+/// Staff row: photo → name → three hour chips on one line.
 class StaffRowLeft extends StatelessWidget {
   const StaffRowLeft({super.key, required this.entry});
 
@@ -15,45 +142,16 @@ class StaffRowLeft extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      child: Row(
-        children: [
-          DocumentImageWidget(
-            fileUuid: entry.staffName,
-            name: entry.staffName,
-            imageUrl: entry.photoUrl,
-            size: 38,
-            disableProfileLookupFallback: true,
-            disableAttendanceStatusLookup: true,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.staffName,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryColor,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                _HoursBadge(
-                  availableHours: entry.availableHours,
-                  scheduledHours: entry.scheduledHours,
-                  unscheduledHours: entry.unscheduledHours,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final code = entry.staffCode.trim();
+    return SchedulingEntityLeftCell(
+      title: entry.staffName,
+      imageFileUuid: code.isNotEmpty ? code : entry.staffName,
+      mediaAssetCode: entry.profilePhotoAssetCode,
+      staffCode: code.isNotEmpty ? code : null,
+      availableHours: entry.availableHours,
+      scheduledHours: entry.scheduledHours,
+      unscheduledHours: entry.unscheduledHours,
+      showHours: true,
     );
   }
 }
@@ -71,19 +169,19 @@ class _HoursBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         _HourChip(
           iconAsset: MediaRes.availableHoursIcon,
           hours: availableHours,
         ),
+        const SizedBox(width: 5),
         _HourChip(
           iconAsset: MediaRes.scheduledHoursIcon,
           hours: scheduledHours,
         ),
+        const SizedBox(width: 5),
         _HourChip(
           iconAsset: MediaRes.unScheduledHoursIcon,
           hours: unscheduledHours,
@@ -104,13 +202,13 @@ class _HourChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SvgPicture.asset(iconAsset, width: 16, height: 16),
-        const SizedBox(width: 4),
+        SvgPicture.asset(iconAsset, width: 13, height: 13),
+        const SizedBox(width: 2),
         Text(
-          '${_formatHours(hours)}h',
+          '${formatSchedulingHours(hours)}h',
           style: const TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 13,
+            fontSize: 11,
             fontWeight: FontWeight.w500,
             color: AppColors.primaryColor,
           ),
@@ -118,13 +216,6 @@ class _HourChip extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Drop trailing `.0` so whole hours render as `9h` not `9.0h`, but fractional
-/// values (e.g. 7.5h) keep their decimal.
-String _formatHours(double hours) {
-  if (hours == hours.truncateToDouble()) return hours.toInt().toString();
-  return hours.toStringAsFixed(1);
 }
 
 /// Right-cell content for a staff row: time-range pill with a solid border

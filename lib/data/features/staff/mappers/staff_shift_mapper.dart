@@ -72,9 +72,9 @@ class StaffShiftMapper {
     }
 
     return StaffShiftDaySummary(
-      availableHours: first.availableHours,
-      scheduledHours: first.scheduledHours,
-      unscheduledHours: first.unscheduledHours,
+      availableHours: first.availableHours.toDouble(),
+      scheduledHours: first.scheduledHours.toDouble(),
+      unscheduledHours: first.unscheduledHours.toDouble(),
       blocks: blocks,
     );
   }

@@ -15,7 +15,6 @@ import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../cubit/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
 import '../widgets/day_classroom_section.dart';
-import '../widgets/day_gantt_table.dart';
 import '../widgets/scheduling_filter_bar.dart';
 import '../widgets/week_classroom_row.dart';
 import 'add_shift_screen.dart';
@@ -193,15 +192,19 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                   else if (isWeek)
                     _ClassroomListCard(
                       classrooms: state.filteredClassrooms,
+                      day: state.selectedDay,
                       dayLabel: DateFormat('EEE d').format(state.selectedDay),
                       expandAll: _expandAll,
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
                     )
                   else
-                    DayGanttTable(
+                    _DailyClassroomListCard(
                       classrooms: state.filteredClassrooms,
                       day: state.selectedDay,
+                      expandAll: _expandAll,
+                      onToggleExpandAll: () =>
+                          setState(() => _expandAll = !_expandAll),
                     ),
                 ],
               ),
@@ -278,12 +281,14 @@ class _DatePickerHeader extends StatelessWidget {
 class _ClassroomListCard extends StatelessWidget {
   const _ClassroomListCard({
     required this.classrooms,
+    required this.day,
     required this.dayLabel,
     required this.expandAll,
     required this.onToggleExpandAll,
   });
 
   final List<ClassroomDaySchedule> classrooms;
+  final DateTime day;
   final String dayLabel;
   final bool expandAll;
   final VoidCallback onToggleExpandAll;
@@ -308,8 +313,56 @@ class _ClassroomListCard extends StatelessWidget {
             ),
             for (int i = 0; i < classrooms.length; i++)
               DayClassroomSection(
-                key: ValueKey('${classrooms[i].classroomCode}-$expandAll'),
+                key: ValueKey('week-${classrooms[i].classroomCode}-$expandAll'),
                 classroom: classrooms[i],
+                viewMode: SchedulingViewMode.week,
+                day: day,
+                initiallyExpanded: expandAll,
+                isLast: i == classrooms.length - 1,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DailyClassroomListCard extends StatelessWidget {
+  const _DailyClassroomListCard({
+    required this.classrooms,
+    required this.day,
+    required this.expandAll,
+    required this.onToggleExpandAll,
+  });
+
+  final List<ClassroomDaySchedule> classrooms;
+  final DateTime day;
+  final bool expandAll;
+  final VoidCallback onToggleExpandAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0x33162831)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DailyClassroomScheduleHeader(
+              expandAll: expandAll,
+              onToggleExpandAll: onToggleExpandAll,
+            ),
+            for (int i = 0; i < classrooms.length; i++)
+              DayClassroomSection(
+                key: ValueKey('day-${classrooms[i].classroomCode}-$expandAll'),
+                classroom: classrooms[i],
+                viewMode: SchedulingViewMode.day,
+                day: day,
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
               ),
