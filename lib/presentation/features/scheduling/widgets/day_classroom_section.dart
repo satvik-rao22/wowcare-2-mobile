@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../model/scheduling_models.dart';
-import 'scheduling_legend.dart';
+import '../utils/scheduling_block_status_style.dart';
+import 'scheduling_day_timeline.dart';
 import 'staff_schedule_tile.dart';
 
-/// Width of the right-side column used in every row of the schedule
-/// table. The day label, status icon, and time pills all live in this
-/// column so they stack vertically aligned.
+/// Width of the right-side column used in every row of the week schedule
+/// table. The day label, status icon, and time pills all live in this column.
 const double kSchedulingStatusColumnWidth = 140;
 
 /// Grid colour for the body row dividers — soft grey from the design spec.
@@ -70,15 +70,77 @@ class SchedulingTableRow extends StatelessWidget {
   }
 }
 
+/// Header for the daily classroom list (legend + collapse).
+class DailyClassroomScheduleHeader extends StatelessWidget {
+  const DailyClassroomScheduleHeader({
+    super.key,
+    required this.expandAll,
+    required this.onToggleExpandAll,
+  });
+
+  final bool expandAll;
+  final VoidCallback onToggleExpandAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: kSchedulingHeaderBackground,
+        border: Border(
+          bottom: BorderSide(color: kSchedulingHeaderBorderColor),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: kSchedulingDayLeftColumnWidth,
+            child: InkWell(
+              onTap: onToggleExpandAll,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                child: Text(
+                  expandAll ? 'Collapse All' : 'Expand All',
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Container(width: 1, color: kSchedulingHeaderBorderColor),
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: SchedulingDayLegend(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Week table row or daily Gantt block for one classroom (PRD Use Case 6).
 class DayClassroomSection extends StatefulWidget {
   const DayClassroomSection({
     super.key,
     required this.classroom,
+    required this.viewMode,
+    required this.day,
     this.initiallyExpanded = true,
     this.isLast = false,
   });
 
   final ClassroomDaySchedule classroom;
+  final SchedulingViewMode viewMode;
+  final DateTime day;
   final bool initiallyExpanded;
   final bool isLast;
 
@@ -97,11 +159,83 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     }
   }
 
+  bool get _isDayView => widget.viewMode == SchedulingViewMode.day;
+
   @override
   Widget build(BuildContext context) {
+    if (_isDayView) {
+      return _buildDayView(context);
+    }
+    return _buildWeekView(context);
+  }
+
+  /// PRD Use Case 6 — expanded timeline, colour blocks, daily compliance icon.
+  Widget _buildDayView(BuildContext context) {
+    final staff = widget.classroom.staff;
+    final hasStaff = staff.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SchedulingDayGanttRow(
+          left: InkWell(
+            onTap: hasStaff ? () => setState(() => _expanded = !_expanded) : null,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: ClassroomRowLeft(
+                      classroomCode: widget.classroom.classroomCode,
+                      classroomName: widget.classroom.classroomName,
+                    ),
+                  ),
+                ),
+                if (hasStaff)
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    size: 18,
+                    color: AppColors.primaryColor,
+                  ),
+              ],
+            ),
+          ),
+          right: SchedulingClassroomDayTimeline(
+            slots: widget.classroom.daySlots,
+            slotDetails: widget.classroom.slotDetails,
+            day: widget.day,
+            classroomName: widget.classroom.classroomName,
+            dayStartMinutes: widget.classroom.timelineStartMinutes,
+            dayEndMinutes: widget.classroom.timelineEndMinutes,
+            slotMinutes: widget.classroom.slotMinutes,
+          ),
+        ),
+        if (_expanded)
+          for (final entry in staff)
+            SchedulingDayGanttRow(
+              left: StaffRowLeft(entry: entry),
+              right: SchedulingStaffDayTimeline(
+                slots: entry.staffDaySlots,
+                slotDetails: entry.staffSlotDetails,
+                day: widget.day,
+                classroomName: widget.classroom.classroomName,
+                dayStartMinutes: entry.timelineStartMinutes,
+                dayEndMinutes: entry.timelineEndMinutes,
+                slotMinutes: entry.slotMinutes,
+                staffName: entry.staffName,
+              ),
+            ),
+      ],
+    );
+  }
+
+  /// Week view — staff list with shift pills and compliance icon column.
+  Widget _buildWeekView(BuildContext context) {
     final staff = widget.classroom.staff;
     final hasStaff = staff.isNotEmpty;
     final headerIsLastInSection = !_expanded || !hasStaff;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -110,33 +244,30 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
               ? () => setState(() => _expanded = !_expanded)
               : null,
           isLast: widget.isLast && headerIsLastInSection,
-          left: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                Text(
-                  widget.classroom.classroomName,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryColor,
+          left: Row(
+            children: [
+              Expanded(
+                child: Center(
+                  child: ClassroomRowLeft(
+                    classroomCode: widget.classroom.classroomCode,
+                    classroomName: widget.classroom.classroomName,
                   ),
                 ),
-                const SizedBox(width: 4),
-                if (hasStaff)
-                  Icon(
+              ),
+              if (hasStaff)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(
                     _expanded
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     size: 20,
                     color: AppColors.primaryColor,
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-          right: _statusIcon(),
+          right: _weekComplianceIcon(),
         ),
         if (_expanded)
           for (int i = 0; i < staff.length; i++)
@@ -153,12 +284,11 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     );
   }
 
-  Widget _statusIcon() {
-    switch (widget.classroom.ratioStatus) {
-      case ClassroomRatioStatus.inRatio:
-        return const RatioStatusIcon.inRatio();
-      case ClassroomRatioStatus.underRatio:
-        return const RatioStatusIcon.underRatio();
-    }
+  /// Week view only — ratio icon in the status column (not day Gantt left column).
+  Widget _weekComplianceIcon() {
+    return SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
+      widget.classroom.ratioStatus,
+      size: 20,
+    );
   }
 }

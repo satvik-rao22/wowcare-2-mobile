@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_scr
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -388,21 +389,27 @@ class _StaffSchedulingView extends StatelessWidget {
                             ShiftHoursTile(
                               bgColor: const Color.fromRGBO(255, 250, 234, 1),
                               label: 'Available Hours',
-                              hours: '${state.shiftSummary.availableHours}',
+                              hours: formatSchedulingHours(
+                                state.shiftSummary.availableHours,
+                              ),
                               icon: MediaRes.availableHoursIcon,
                             ),
                             const SizedBox(height: 16),
                             ShiftHoursTile(
                               bgColor: const Color.fromRGBO(234, 255, 250, 1),
                               label: 'Scheduled Hours',
-                              hours: '${state.shiftSummary.scheduledHours}',
+                              hours: formatSchedulingHours(
+                                state.shiftSummary.scheduledHours,
+                              ),
                               icon: MediaRes.scheduledHoursIcon,
                             ),
                             const SizedBox(height: 16),
                             ShiftHoursTile(
                               bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
                               label: 'Unscheduled Hours',
-                              hours: '${state.shiftSummary.unscheduledHours}',
+                              hours: formatSchedulingHours(
+                                state.shiftSummary.unscheduledHours,
+                              ),
                               icon: MediaRes.unScheduledHoursIcon,
                             ),
                             const SizedBox(height: 20),

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
 import 'day_classroom_section.dart';
+import 'staff_schedule_tile.dart';
+
+export 'staff_schedule_tile.dart' show ClassroomRowLeft, StaffRowLeft;
 
 /// Header row of the schedule table — "Collapse/Expand All" on the left,
 /// the selected day label on the right. Uses [SchedulingTableRow] so the

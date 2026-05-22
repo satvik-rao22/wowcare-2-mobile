@@ -1,4 +1,44 @@
+import 'package:flutter/material.dart';
+
+import '../entities/classroom_forecast_block.dart';
 import '../entities/staff_shift.dart';
+import '../entities/staff_shift_hours_entry.dart';
+
+/// Parameters for `POST .../classroom/forecast`.
+class ClassroomForecastQuery {
+  const ClassroomForecastQuery({
+    required this.date,
+    required this.startTime,
+    required this.endTime,
+    required this.durationMinutes,
+    required this.classroomCodes,
+  });
+
+  final DateTime date;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final int durationMinutes;
+  final List<String> classroomCodes;
+}
+
+/// Parameters for `POST .../classroom/forecast/range`.
+class ClassroomForecastRangeQuery {
+  const ClassroomForecastRangeQuery({
+    required this.startDate,
+    required this.endDate,
+    required this.startTime,
+    required this.endTime,
+    required this.durationMinutes,
+    required this.classroomCodes,
+  });
+
+  final DateTime startDate;
+  final DateTime endDate;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final int durationMinutes;
+  final List<String> classroomCodes;
+}
 
 abstract class StaffShiftRepository {
   /// Lists shifts for [staffCode] between [dateFrom] and [dateTo] (inclusive).
@@ -27,6 +67,27 @@ abstract class StaffShiftRepository {
   Future<StaffShiftCreateResult> createStaffShift(
     StaffShiftCreateRequest request,
   );
+
+  Future<List<ClassroomForecastBlock>> getClassroomForecast({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastQuery query,
+  });
+
+  Future<List<ClassroomForecastBlock>> getClassroomForecastRange({
+    required String schoolCode,
+    required String organizationCode,
+    required ClassroomForecastRangeQuery query,
+  });
+
+  /// `POST /api/v1/staff-shifts/hours/range` — per-staff day hour totals.
+  Future<List<StaffShiftHoursEntry>> getStaffShiftHoursRange({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime startDate,
+    required DateTime endDate,
+    List<String> staffCodes = const <String>[],
+  });
 }
 
 /// Optional cache-aware contract — same pattern as `StaffRepositoryWithCache`.

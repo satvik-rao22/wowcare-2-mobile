@@ -192,6 +192,7 @@ class ApiPathsUat {
     if (version != 'v1' && version != 'v2') return p;
 
     final seg = parts[2];
+
     if (_microservicePathSegments.contains(seg)) {
       // Ambiguous case: some endpoints use the same word for both MS and resource
       // (e.g. local `/api/v1/staff/code` should become `/api/v1/staff/staff/code` in UAT).
