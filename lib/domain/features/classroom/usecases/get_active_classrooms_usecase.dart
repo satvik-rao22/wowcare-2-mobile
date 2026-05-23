@@ -9,10 +9,12 @@ class GetActiveClassroomsUseCase {
   Future<List<Classroom>> call({
     required String schoolCode,
     bool onlyTypeClassroom = true,
+    String? typeOverride,
   }) {
     return _repository.getActiveClassrooms(
       schoolCode: schoolCode,
       onlyTypeClassroom: onlyTypeClassroom,
+      typeOverride: typeOverride,
     );
   }
 }

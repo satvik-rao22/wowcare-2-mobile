@@ -27,6 +27,8 @@ class SchedulingEntityLeftCell extends StatelessWidget {
     this.scheduledHours,
     this.unscheduledHours,
     this.showHours = false,
+    this.statusColor,
+    this.statusTooltip,
   });
 
   final String title;
@@ -39,6 +41,12 @@ class SchedulingEntityLeftCell extends StatelessWidget {
   final double? scheduledHours;
   final double? unscheduledHours;
   final bool showHours;
+
+  /// Pre-resolved status dot color (e.g. green for SIGNED_IN, red for ABSENT)
+  /// — bypasses [DocumentImageWidget]'s built-in per-staff attendance API call
+  /// in favor of a bulk lookup done at the screen level.
+  final Color? statusColor;
+  final String? statusTooltip;
 
   static const TextStyle _nameStyle = TextStyle(
     fontFamily: 'Manrope',
@@ -72,6 +80,8 @@ class SchedulingEntityLeftCell extends StatelessWidget {
               disableProfileLookupFallback: mediaAssetCode != null &&
                   mediaAssetCode!.trim().isNotEmpty,
               disableAttendanceStatusLookup: true,
+              statusColor: statusColor,
+              statusTooltip: statusTooltip,
             ),
             const SizedBox(height: 8),
             Text(
@@ -134,11 +144,40 @@ class ClassroomRowLeft extends StatelessWidget {
   }
 }
 
+/// Maps a today's sign-in status string from the bulk
+/// `/staff-attendance/sign-in/status` endpoint to the dot color used on the
+/// scheduling screens. SIGNED_IN → green, ABSENT → red, anything else → null
+/// (the avatar shows no dot).
+Color? schedulingAttendanceDotColor(String? status) {
+  final normalized = (status ?? '').trim().toUpperCase();
+  if (normalized.isEmpty) return null;
+  if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') {
+    return const Color.fromRGBO(0, 177, 21, 1);
+  }
+  if (normalized == 'ABSENT') return Colors.red;
+  return null;
+}
+
+String? schedulingAttendanceDotTooltip(String? status) {
+  final normalized = (status ?? '').trim().toUpperCase();
+  if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') return 'Signed in';
+  if (normalized == 'ABSENT') return 'Absent';
+  return null;
+}
+
 /// Staff row: photo → name → three hour chips on one line.
 class StaffRowLeft extends StatelessWidget {
-  const StaffRowLeft({super.key, required this.entry});
+  const StaffRowLeft({
+    super.key,
+    required this.entry,
+    this.attendanceStatus,
+  });
 
   final StaffScheduleEntry entry;
+
+  /// Today's sign-in status for this staff, resolved by the screen via the
+  /// bulk `/staff-attendance/sign-in/status` POST. Drives the avatar dot.
+  final String? attendanceStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +191,8 @@ class StaffRowLeft extends StatelessWidget {
       scheduledHours: entry.scheduledHours,
       unscheduledHours: entry.unscheduledHours,
       showHours: true,
+      statusColor: schedulingAttendanceDotColor(attendanceStatus),
+      statusTooltip: schedulingAttendanceDotTooltip(attendanceStatus),
     );
   }
 }

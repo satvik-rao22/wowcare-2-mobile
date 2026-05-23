@@ -84,10 +84,20 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   }
 
   double _getTimeDifferenceInHours(String startTime, String endTime) {
-    final format = DateFormat('hh:mm:ss a');
-    final start = format.parse(startTime);
-    final end = format.parse(endTime);
+    final start = _parseTime(startTime);
+    final end = _parseTime(endTime);
     return end.difference(start).inMinutes / 60.0;
+  }
+
+  /// Returns the school start rounded DOWN to the hour, formatted as
+  /// `hh:mm:ss a`. The hourly time-slot column is built from this rounded
+  /// value (so a school opening at 8:30 still shows the "8:00 AM" row), so
+  /// every shift block must measure its `topSpace` from the same anchor —
+  /// otherwise a 9:30 shift gets painted half a row too high.
+  String _slotGridStartLabel() {
+    final raw = _parseTime(widget.schoolStartTime);
+    final rounded = DateTime(raw.year, raw.month, raw.day, raw.hour);
+    return DateFormat('hh:mm:ss a').format(rounded);
   }
 
   List<String> _generateHourlyTimeSlots(String start, String end) {
@@ -199,31 +209,105 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
         shift.room;
   }
 
-  Widget _buildSingleShift(Shift shift) {
+  /// Returns the unobstructed vertical space at the top of a work-shift block,
+  /// i.e. the height before any break overlay starts painting over it. For
+  /// shifts with no internal break this is just the full block height; for a
+  /// short shift containing a break it's the gap between the shift start and
+  /// the break start. Drives the compact-layout switch in [_buildSingleShift].
+  double _contentHeightAboveBreak(Shift workShift, double fullHeight) {
+    final workStart = _parseTime(workShift.start);
+    final workEnd = _parseTime(workShift.end);
+    DateTime? firstBreakStart;
+    for (final s in _shifts) {
+      if (!s.isBreakShift) continue;
+      final bStart = _parseTime(s.start);
+      final bEnd = _parseTime(s.end);
+      if (!bEnd.isAfter(workStart) || !bStart.isBefore(workEnd)) continue;
+      if (firstBreakStart == null || bStart.isBefore(firstBreakStart)) {
+        firstBreakStart = bStart;
+      }
+    }
+    if (firstBreakStart == null) return fullHeight;
+    final preBreakHours =
+        firstBreakStart.difference(workStart).inMinutes / 60.0;
+    if (preBreakHours <= 0) return 0;
+    return preBreakHours * cellHeightRow;
+  }
+
+  Widget _buildSingleShift(Shift shift, double contentHeight) {
     final roomLabel = _displayRoom(shift);
+    final timeLabel =
+        '${_convertTimeToHHmm(shift.start)} - ${_convertTimeToHHmm(shift.end)}';
+
+    // Short block: one row at the top, "Office · 4:10 PM - 5:30 PM". Used
+    // when the visible content area (above any internal break overlay) is too
+    // small to stack a title and time line without one of them being clipped
+    // or covered by the break.
+    if (contentHeight < 44) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                roomLabel,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.secondaryColor,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              timeLabel,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // [Flexible] on the room label so the time row is never clipped when the
+    // shift block is shorter than the natural content height (e.g. a 2nd
+    // shift in a series often lands in a ≤1-hour cell): the room name
+    // ellipsises before the time disappears.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Text(
-            roomLabel,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.secondaryColor,
+          Flexible(
+            child: Text(
+              roomLabel,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.secondaryColor,
+              ),
+              maxLines: 2,
+              softWrap: true,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 3,
-            softWrap: true,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
-            '${_convertTimeToHHmm(shift.start)} - ${_convertTimeToHHmm(shift.end)}',
+            timeLabel,
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
             ),
@@ -238,18 +322,19 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   Widget _buildBreakShift(Shift shift) {
     return Container(
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       color: const Color.fromRGBO(254, 241, 199, 1),
       child: Text.rich(
         TextSpan(
           children: [
             const TextSpan(
-              text: 'Lunch Break  ',
+              text: '🍔  Lunch Break  ',
               style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Colors.black87,
+                height: 1.2,
               ),
             ),
             TextSpan(
@@ -260,12 +345,14 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Colors.black87,
+                height: 1.2,
               ),
             ),
           ],
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        maxLines: 2,
+        softWrap: true,
+        overflow: TextOverflow.visible,
       ),
     );
   }
@@ -274,23 +361,28 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     final double height =
         _getTimeDifferenceInHours(shift.start, shift.end) * cellHeightRow;
     final double topSpace = _getTimeDifferenceInHours(
-          widget.schoolStartTime,
+          _slotGridStartLabel(),
           shift.start,
         ) *
         cellHeightRow;
 
     if (shift.isBreakShift) {
+      // Break uses [minHeight] (not a fixed height) so the yellow background
+      // grows to cover the full wrapped label — a 30-min break is only ~20 px
+      // tall on the grid, which can't fit "🍔 Lunch Break  04:30 PM - 05:05 PM"
+      // on a single line, so the time portion wraps to a second line.
       return Positioned(
         top: topSpace,
         left: 0,
         right: 0,
-        child: SizedBox(
-          height: height,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: height),
           child: _buildBreakShift(shift),
         ),
       );
     }
 
+    final contentHeight = _contentHeightAboveBreak(shift, height);
     final shiftWidget = Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -300,7 +392,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           color: AppColors.themeColor.withValues(alpha: 0.15),
         ),
       ),
-      child: _buildSingleShift(shift),
+      alignment: Alignment.topLeft,
+      child: _buildSingleShift(shift, contentHeight),
     );
 
     return Positioned(

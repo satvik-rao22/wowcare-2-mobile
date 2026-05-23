@@ -32,6 +32,7 @@ class ViewShiftScreen extends StatelessWidget {
     this.onEditSeries,
     this.onDeleteThis,
     this.onDeleteSeries,
+    this.readOnly = false,
   });
 
   static const String routeName = '/view-shift-screen';
@@ -50,10 +51,19 @@ class ViewShiftScreen extends StatelessWidget {
   /// Per-occurrence and series-level callbacks. For non-recurring shifts only
   /// the "this" callbacks are used; the bottom sheet still appears as a
   /// confirmation but the second option is hidden.
-  final VoidCallback? onEditThis;
-  final VoidCallback? onEditSeries;
-  final VoidCallback? onDeleteThis;
-  final VoidCallback? onDeleteSeries;
+  ///
+  /// Each callback returns `true` when the underlying edit / delete succeeds.
+  /// On success this screen pops itself (with `true`) so the source screen
+  /// — staff scheduling or classroom scheduling — receives the mutation
+  /// signal and refreshes, instead of leaving the user stranded on View.
+  final Future<bool> Function()? onEditThis;
+  final Future<bool> Function()? onEditSeries;
+  final Future<bool> Function()? onDeleteThis;
+  final Future<bool> Function()? onDeleteSeries;
+
+  /// STAFF persona opens this screen to inspect their own shift but cannot
+  /// mutate it — the bottom Edit/Delete bar is suppressed entirely.
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -63,45 +73,49 @@ class ViewShiftScreen extends StatelessWidget {
 
     return StaffFormLayout(
       title: 'View Shift',
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: bottomPadding,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
+      bottomBar: readOnly
+          ? const SizedBox.shrink()
+          : Container(
+              padding: EdgeInsets.only(
+                bottom: bottomPadding,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft:
+                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight:
+                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
+              ),
+              child: CustomButtonLayout(
+                cancelButtonLabel: 'Delete',
+                confirmButtonLabel: 'Edit',
+                onPressedCancel: () => _confirmAction(
+                  context,
+                  actionLabel: 'Delete',
+                  onThis: onDeleteThis,
+                  onSeries: onDeleteSeries,
+                ),
+                onPressedConfirm: () => _confirmAction(
+                  context,
+                  actionLabel: 'Edit',
+                  onThis: onEditThis,
+                  onSeries: onEditSeries,
+                ),
+                isForm: false,
+              ),
             ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          cancelButtonLabel: 'Delete',
-          confirmButtonLabel: 'Edit',
-          onPressedCancel: () => _confirmAction(
-            context,
-            actionLabel: 'Delete',
-            onThis: onDeleteThis,
-            onSeries: onDeleteSeries,
-          ),
-          onPressedConfirm: () => _confirmAction(
-            context,
-            actionLabel: 'Edit',
-            onThis: onEditThis,
-            onSeries: onEditSeries,
-          ),
-          isForm: false,
-        ),
-      ),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -314,8 +328,8 @@ class ViewShiftScreen extends StatelessWidget {
   Future<void> _confirmAction(
     BuildContext context, {
     required String actionLabel,
-    required VoidCallback? onThis,
-    required VoidCallback? onSeries,
+    required Future<bool> Function()? onThis,
+    required Future<bool> Function()? onSeries,
   }) async {
     final isDelete = actionLabel == 'Delete';
     final lower = actionLabel.toLowerCase();
@@ -351,7 +365,11 @@ class ViewShiftScreen extends StatelessWidget {
     final onAction = chosen == _SeriesScope.thisShift ? onThis : onSeries;
 
     if (!isDelete) {
-      onAction?.call();
+      final succeeded = await onAction?.call() ?? false;
+      if (!context.mounted) return;
+      if (succeeded) {
+        Navigator.of(context).pop(true);
+      }
       return;
     }
 
@@ -366,7 +384,11 @@ class ViewShiftScreen extends StatelessWidget {
         onCancel: () => Navigator.of(sheetCtx).pop(),
         onDelete: () async {
           Navigator.of(sheetCtx).pop();
-          onAction?.call();
+          final succeeded = await onAction?.call() ?? false;
+          if (!context.mounted) return;
+          if (succeeded) {
+            Navigator.of(context).pop(true);
+          }
         },
       ),
     );
