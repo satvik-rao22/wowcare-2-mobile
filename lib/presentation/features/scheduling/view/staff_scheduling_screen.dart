@@ -6,6 +6,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -52,7 +54,6 @@ class _StaffSchedulingView extends StatelessWidget {
     final classroomCubit = context.read<ClassroomCubit>();
     final schedulingStaffListCubit =
         context.read<SchedulingStaffListCubit>();
-    final selectedCode = state.selectedStaff?.code;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MultiBlocProvider(
@@ -67,7 +68,8 @@ class _StaffSchedulingView extends StatelessWidget {
           ],
           child: AddShiftScreen(
             initialDate: state.selectedDay,
-            initialStaffCode: selectedCode,
+            initialPublish: true,
+            prefillStaff: false,
           ),
         ),
       ),
@@ -116,6 +118,7 @@ class _StaffSchedulingView extends StatelessWidget {
     StaffSchedulingState state,
     Shift tappedShift,
   ) async {
+    final schedulingCubit = context.read<StaffSchedulingCubit>();
     final navigator = Navigator.of(context);
     final shiftCode = tappedShift.shiftCode.trim();
     if (shiftCode.isEmpty) {
@@ -136,8 +139,12 @@ class _StaffSchedulingView extends StatelessWidget {
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : (state.selectedStaff?.name ?? '');
-      navigator.push(
-        MaterialPageRoute<void>(
+      // Await the View screen so we can refresh the scheduling cubit when
+      // the user returns from a successful edit / delete. The View screen
+      // is popped programmatically from inside [_openEditShiftScreen] /
+      // [_deleteStaffShift] which propagates `true` back here.
+      final mutated = await navigator.push<bool>(
+        MaterialPageRoute<bool>(
           builder: (_) => ViewShiftScreen(
             date: shift.shiftDate,
             staff: staffName,
@@ -163,9 +170,25 @@ class _StaffSchedulingView extends StatelessWidget {
               shiftCode,
               EditShiftMode.entireSeries,
             ),
+            onDeleteThis: () => _deleteStaffShift(
+              context,
+              shiftCode: shift.shiftCode,
+              staffCode: shift.staffCode,
+              isSeries: false,
+            ),
+            onDeleteSeries: () => _deleteStaffShift(
+              context,
+              shiftCode: shift.shiftCode,
+              staffCode: shift.staffCode,
+              seriesCode: shift.seriesCode,
+              isSeries: true,
+            ),
           ),
         ),
       );
+      if (mutated == true) {
+        await schedulingCubit.refresh();
+      }
     } catch (e) {
       if (!context.mounted) return;
       CoreUtils.showTopSnackBar(
@@ -185,6 +208,12 @@ class _StaffSchedulingView extends StatelessWidget {
     String shiftCode,
     EditShiftMode mode,
   ) async {
+    // Capture cubits BEFORE awaiting — once the GET resolves the original
+    // BuildContext may be on a different element. EditShiftScreen needs both
+    // the classroom dropdown source and the staff list (for availability
+    // checks) provided above it via MultiBlocProvider.
+    final classroomCubit = context.read<ClassroomCubit>();
+    final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
     final navigator = Navigator.of(context);
     try {
       final shift =
@@ -197,40 +226,135 @@ class _StaffSchedulingView extends StatelessWidget {
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : (state.selectedStaff?.name ?? '');
+      // Backend stores `seriesRecurrenceDays` as 0-indexed (Mon=0..Sun=6) on
+      // new shifts and 1-indexed (Mon=1..Sun=7) on some legacy ones, so the
+      // numeric index alone isn't trustworthy. The one thing we always know
+      // for sure is the shift's actual weekday from `shiftDate`. Use that as
+      // the anchor: decode the recurrence list, and if it doesn't include
+      // the shift's actual day, fall back to just the actual day (covers
+      // single-occurrence series with a mis-encoded recurrence value).
+      const weekdayName = <int, String>{
+        DateTime.monday: 'Monday',
+        DateTime.tuesday: 'Tuesday',
+        DateTime.wednesday: 'Wednesday',
+        DateTime.thursday: 'Thursday',
+        DateTime.friday: 'Friday',
+        DateTime.saturday: 'Saturday',
+        DateTime.sunday: 'Sunday',
+      };
       const dayNameByIndex = <int, String>{
-        1: 'Monday',
-        2: 'Tuesday',
-        3: 'Wednesday',
-        4: 'Thursday',
-        5: 'Friday',
-        6: 'Saturday',
+        0: 'Monday',
+        1: 'Tuesday',
+        2: 'Wednesday',
+        3: 'Thursday',
+        4: 'Friday',
+        5: 'Saturday',
+        6: 'Sunday',
         7: 'Sunday',
       };
-      final selectedDays = <String>{
+      final actualDay = weekdayName[shift.shiftDate.weekday];
+      final decodedDays = <String>{
         for (final d in shift.seriesRecurrenceDays)
           if (dayNameByIndex[d] != null) dayNameByIndex[d]!,
       };
-      navigator.push(
-        MaterialPageRoute<void>(
-          builder: (_) => EditShiftScreen(
-            mode: mode,
-            initialDate: shift.shiftDate,
-            staff: staffName,
-            classroom: classroomName,
-            shiftStart: shift.startTime,
-            shiftEnd: shift.endTime,
-            breakStart: shift.breakStartTime,
-            breakEnd: shift.breakEndTime,
-            note: shift.notes,
-            status: shift.isPublished
-                ? ShiftStatus.published
-                : ShiftStatus.draft,
-            isPublished: shift.isPublished,
-            selectedDays: selectedDays,
-            untilDate: shift.seriesEndDate,
+      final selectedDays = (actualDay != null && decodedDays.contains(actualDay))
+          ? decodedDays
+          : <String>{if (actualDay != null) actualDay};
+      final saved = await navigator.push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => MultiBlocProvider(
+            providers: [
+              BlocProvider<SchedulingStaffListCubit>.value(
+                value: schedulingStaffListCubit,
+              ),
+              BlocProvider<ClassroomCubit>.value(value: classroomCubit),
+            ],
+            child: EditShiftScreen(
+              mode: mode,
+              shiftCode: shift.shiftCode,
+              seriesCode: shift.seriesCode,
+              staffCode: shift.staffCode,
+              classroomCode: shift.classroomCode,
+              initialDate: shift.shiftDate,
+              staff: staffName,
+              classroom: classroomName,
+              shiftStart: shift.startTime,
+              shiftEnd: shift.endTime,
+              breakStart: shift.breakStartTime,
+              breakEnd: shift.breakEndTime,
+              note: shift.notes,
+              status: shift.isPublished
+                  ? ShiftStatus.published
+                  : ShiftStatus.draft,
+              isPublished: shift.isPublished,
+              selectedDays: selectedDays,
+              // Fall back to the shift's own date when the series-end is
+              // missing — covers single-occurrence series where the backend
+              // omits seriesEndDate but the form still needs a value.
+              untilDate: shift.seriesEndDate ?? shift.shiftDate,
+            ),
           ),
         ),
       );
+      // EditShiftScreen returns `true` from `_onSave` after the PUT succeeds.
+      // Pop the View screen too with `true` so [_openViewShiftScreen] can
+      // refresh the cubit and the user lands back on the staff scheduling
+      // screen with fresh data. Defer to the next frame — popping again
+      // synchronously after the edit-screen pop trips Navigator's
+      // `_debugLocked` assertion because the previous route transition is
+      // still mid-resolution.
+      if (saved == true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (navigator.canPop()) navigator.pop(true);
+        });
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
+  }
+
+  /// Fires the appropriate DELETE — `/api/v1/staff-shifts/{shiftCode}` for a
+  /// single occurrence or `/api/v1/staff-shifts/series/{seriesCode}` for the
+  /// whole series — then pops the View screen with `true` so the caller can
+  /// trigger [StaffSchedulingCubit.refresh].
+  Future<void> _deleteStaffShift(
+    BuildContext context, {
+    required String shiftCode,
+    required String staffCode,
+    String? seriesCode,
+    required bool isSeries,
+  }) async {
+    final navigator = Navigator.of(context);
+    try {
+      if (isSeries) {
+        final code = (seriesCode ?? '').trim();
+        if (code.isEmpty) {
+          throw Exception('Missing series code');
+        }
+        await serviceLocator<DeleteStaffShiftSeriesUseCase>()(
+          seriesCode: code,
+          staffCode: staffCode,
+        );
+      } else {
+        await serviceLocator<DeleteStaffShiftUseCase>()(
+          shiftCode: shiftCode,
+          staffCode: staffCode,
+        );
+      }
+      if (!context.mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: isSeries
+            ? 'Shift series deleted successfully'
+            : 'Shift deleted successfully',
+        isSuccess: true,
+      );
+      if (navigator.canPop()) navigator.pop(true);
     } catch (e) {
       if (!context.mounted) return;
       CoreUtils.showTopSnackBar(

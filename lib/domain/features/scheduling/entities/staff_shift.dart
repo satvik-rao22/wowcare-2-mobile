@@ -159,6 +159,134 @@ class StaffShiftCreateRequest extends Equatable {
       ];
 }
 
+/// Request body for `PUT /api/v1/staff-shifts/{shiftCode}` — updates a
+/// single shift occurrence. The backend wants the full identity block
+/// (`shiftCode`, `staffCode`, `schoolCode`, `organizationCode`, `shiftDate`)
+/// on the wire even though the public swagger only documents a subset.
+class StaffShiftUpdateRequest extends Equatable {
+  const StaffShiftUpdateRequest({
+    required this.shiftCode,
+    required this.staffCode,
+    required this.schoolCode,
+    required this.organizationCode,
+    required this.classroomCode,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    this.breakStartTime,
+    this.breakEndTime,
+    this.notes,
+    this.overrideConflicts = false,
+    this.forceAdd = false,
+    this.publish = false,
+  });
+
+  final String shiftCode;
+  final String staffCode;
+  final String schoolCode;
+  final String organizationCode;
+  final String classroomCode;
+  final DateTime shiftDate;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
+  final String? notes;
+  final bool overrideConflicts;
+  final bool forceAdd;
+  final bool publish;
+
+  @override
+  List<Object?> get props => [
+        shiftCode,
+        staffCode,
+        schoolCode,
+        organizationCode,
+        classroomCode,
+        shiftDate,
+        startTime,
+        endTime,
+        breakStartTime,
+        breakEndTime,
+        notes,
+        overrideConflicts,
+        forceAdd,
+        publish,
+      ];
+}
+
+/// Request body for `PUT /api/v1/staff-shifts/series/{seriesCode}` — updates
+/// every occurrence in a recurring series. The body in practice carries more
+/// than the public swagger lists; the backend wants the full identity block
+/// (`shiftCode`, `staffCode`, `schoolCode`, `organizationCode`, `shiftDate`)
+/// alongside the recurrence pattern so `publish` etc. take effect.
+class StaffShiftSeriesUpdateRequest extends Equatable {
+  const StaffShiftSeriesUpdateRequest({
+    required this.seriesCode,
+    required this.shiftCode,
+    required this.staffCode,
+    required this.schoolCode,
+    required this.organizationCode,
+    required this.shiftDate,
+    required this.classroomCode,
+    required this.startTime,
+    required this.endTime,
+    this.breakStartTime,
+    this.breakEndTime,
+    this.notes,
+    this.overrideConflicts = false,
+    this.repeat = true,
+    this.repeatDays = const <int>[],
+    this.repeatUntilDate,
+    this.publish = false,
+  });
+
+  final String seriesCode;
+  final String shiftCode;
+  final String staffCode;
+  final String schoolCode;
+  final String organizationCode;
+  final DateTime shiftDate;
+  final String classroomCode;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
+  final String? notes;
+  final bool overrideConflicts;
+  final bool repeat;
+  /// 0=Monday … 6=Sunday (matches the wire format the backend expects on
+  /// POST and now also on series PUT).
+  final List<int> repeatDays;
+  final DateTime? repeatUntilDate;
+  /// Required by the backend to actually flip `shiftStatus` to PUBLISHED on
+  /// every occurrence in the series. The swagger doesn't list this on the
+  /// series-PUT body but the API honors it when the full identity block is
+  /// also present.
+  final bool publish;
+
+  @override
+  List<Object?> get props => [
+        seriesCode,
+        shiftCode,
+        staffCode,
+        schoolCode,
+        organizationCode,
+        shiftDate,
+        classroomCode,
+        startTime,
+        endTime,
+        breakStartTime,
+        breakEndTime,
+        notes,
+        overrideConflicts,
+        repeat,
+        repeatDays,
+        repeatUntilDate,
+        publish,
+      ];
+}
+
 /// Result returned by `POST /api/v1/staff-shifts`.
 class StaffShiftCreateResult extends Equatable {
   const StaffShiftCreateResult({
