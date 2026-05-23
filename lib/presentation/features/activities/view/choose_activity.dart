@@ -9,6 +9,7 @@ import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
+import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -188,11 +189,11 @@ class _ChooseActivityState extends State<ChooseActivity> {
       }
     }
 
-    // Nap cannot be started for a mixed multi-selection that includes
-    // students who are already in an active nap.
+    // Nap should be disabled only for a mixed multi-selection where
+    // some students are already napping and some are not.
     if (_isMultipleStudentsSelected &&
         normalized == 'nap' &&
-        _hasAnyAlreadyNappingStudent()) {
+        _hasMixedNappingSelection()) {
       return true;
     }
 
@@ -208,8 +209,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
     final normalized = activityName.toLowerCase();
     if (_isMultipleStudentsSelected &&
         normalized == 'nap' &&
-        _hasAnyAlreadyNappingStudent()) {
-      return 'Nap is disabled because one or more selected students are already napping.';
+        _hasMixedNappingSelection()) {
+      return 'Nap is disabled for mixed selection. Select either all currently napping students or all not-napping students.';
     }
     if (activityName == 'Incident' && _isMultipleStudentsSelected) {
       return 'Incident can only be recorded for a single student.';
@@ -217,26 +218,37 @@ class _ChooseActivityState extends State<ChooseActivity> {
     return 'This activity is currently disabled';
   }
 
-  bool _hasAnyAlreadyNappingStudent() {
-    for (final student in widget.selectedStudents) {
-      final dynamic status = student['nappingStatus'] ?? student['isNapping'];
-      if (status == true) return true;
-      if (status is String && status.toLowerCase() == 'true') return true;
-    }
+  bool _isStudentCurrentlyNapping(Map<String, dynamic> student) {
+    final dynamic status = student['nappingStatus'] ?? student['isNapping'];
+    if (status == true) return true;
+    if (status is String && status.toLowerCase() == 'true') return true;
     return false;
+  }
+
+  bool _hasMixedNappingSelection() {
+    if (widget.selectedStudents.isEmpty) return false;
+    final hasNapping = widget.selectedStudents.any(_isStudentCurrentlyNapping);
+    final hasNotNapping = widget.selectedStudents.any(
+      (student) => !_isStudentCurrentlyNapping(student),
+    );
+    return hasNapping && hasNotNapping;
   }
 
   void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {
     final RenderBox renderBox = tileContext.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
+    final screenWidth = MediaQuery.of(context).size.width;
 
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
 
+    final maxWidth = (screenWidth - 16).clamp(160.0, 320.0);
+    final left = position.dx.clamp(8.0, screenWidth - maxWidth - 8.0);
+
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: position.dy - 60,
-        left: position.dx,
+        left: left,
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -245,15 +257,19 @@ class _ChooseActivityState extends State<ChooseActivity> {
               color: Colors.black87,
               borderRadius: BorderRadius.circular(6),
             ),
-                child: Text(
-              _getDisabledActivityTooltip(activityName),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                  ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Text(
+                _getDisabledActivityTooltip(activityName),
+                softWrap: true,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
                 ),
               ),
             ),
+          ),
+        ),
       ),
     );
 
@@ -286,7 +302,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                 children: [
           Expanded(
             child: _isLoadingActivities
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _visibleActivityKeys.isEmpty
                     ? const Center(
                         child: Text(

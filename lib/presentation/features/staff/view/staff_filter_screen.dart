@@ -275,6 +275,10 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     Navigator.pop(context, {
       'status': status,
       'designation': designation,
+      /// All selected designations (backend codes), for screens that support multi-select.
+      'designations': widget.sections.contains(StaffFilterSection.designation)
+          ? List<String>.from(_selectedDesignationList)
+          : const <String>[],
       'primaryClassroomCodes':
           widget.sections.contains(StaffFilterSection.primaryClassroom)
           ? primaryCodes

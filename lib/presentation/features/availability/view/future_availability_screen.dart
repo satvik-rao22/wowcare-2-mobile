@@ -9,14 +9,15 @@ import 'package:wowcare/core/util/color_utils.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
-import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/gradient_toggle_button.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class FutureAvailabilityScreen extends StatefulWidget {
   const FutureAvailabilityScreen({super.key});
 
-  static const String routeName = '/future-availability';
+  static const String routeName = '/dashboard/future-availability';
 
   @override
   State<FutureAvailabilityScreen> createState() =>
@@ -24,7 +25,13 @@ class FutureAvailabilityScreen extends StatefulWidget {
 }
 
 class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
-  static const double _cellHeightRow = 40;
+  static const double _cellHeightRow = 48;
+  static const double _headerHeight = 36;
+  static const double _avatarRadius = 14;
+
+  static const Color _tintOtherColumns = Color.fromRGBO(247, 245, 249, 1);
+  static const Color _tintHeaderOtherColumns = Color.fromRGBO(245, 243, 247, 1);
+  static const Color _classroomColumnBg = Colors.white;
   DateTime _selectedAvailabilityDate = DateTime.now();
   bool _isTwoShifts = true;
   late final FutureAvailabilityCubit _cubit;
@@ -99,18 +106,13 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () async {
-              final Map<String, dynamic>? result =
-                  await showDialog<Map<String, dynamic>>(
+              final picked = await pickNormalDate(
                 context: context,
-                builder: (_) => CalendarDialog(
-                  isTimePicker: false,
-                  initialDate: _selectedAvailabilityDate,
-                ),
+                initialDate: _selectedAvailabilityDate,
+                firstDate: DateTime(DateTime.now().year - 2),
+                lastDate: DateTime(DateTime.now().year + 5),
               );
-
-              if (result != null && result['date'] != null) {
-                _onDateChanged(result['date'] as DateTime);
-              }
+              if (picked != null) _onDateChanged(picked);
             },
             borderRadius: BorderRadius.circular(100),
             splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
@@ -149,160 +151,177 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     return BlocProvider<FutureAvailabilityCubit>.value(
       value: _cubit,
       child: GlobalScaffold(
-        hasBackButton: true,
+        hasBackButton: false,
         showCustomNavigationBar: true,
-        body: SingleChildScrollView(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: AppColors.primaryColor.withValues(alpha: 0.08),
-              ),
-              borderRadius: BorderRadius.circular(10),
-              color: Colors.white,
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      const Text(
-                        'Availability',
-                        style: TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      _buildAvailabilityDateNavigator(),
-                    ],
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(top: 8, bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(246, 244, 248, 1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: <Widget>[
-                      Text(
-                        'Full Day',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: AppColors.primaryColor.withValues(alpha: 0.65),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      CustomToggle(
-                        label: '',
-                        isToggled: _isTwoShifts,
-                        onToggle: (bool value) {
-                          setState(() {
-                            _isTwoShifts = value;
-                          });
-                          _loadAvailability();
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '2 Shifts',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: _isTwoShifts
-                              ? AppColors.primaryColor
-                              : AppColors.primaryColor.withValues(alpha: 0.65),
-                          fontWeight: _isTwoShifts ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.center,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: BlocBuilder<FutureAvailabilityCubit, FutureAvailabilityState>(
-                      builder: (context, state) {
-                        if (state.isLoading) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
-                            child: Center(child: CircularProgressIndicator()),
-                          );
-                        }
-
-                        final rows = _buildRowsFromGrid(state.grid);
-
-                        if (state.errorMessage != null && rows.isEmpty) {
-                          return _buildMessageCard(
-                            message: state.errorMessage!,
-                            actionLabel: 'Retry',
-                            onTap: _loadAvailability,
-                          );
-                        }
-
-                        if (rows.isEmpty) {
-                          return _buildMessageCard(
-                            message: 'No availability data found for the selected date.',
-                          );
-                        }
-
-                        return _buildTable(rows);
-                      },
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  const Text(
+                    'Availability',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
+                  _buildAvailabilityDateNavigator(),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: AppColors.primaryColor.withValues(alpha: 0.08),
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white,
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color.fromRGBO(246, 244, 248, 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              'Full Day',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: !_isTwoShifts
+                                    ? AppColors.primaryColor
+                                    : AppColors.primaryColor.withValues(alpha: 0.55),
+                                fontWeight:
+                                    !_isTwoShifts ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            GradientToggleButton(
+                              value: _isTwoShifts,
+                              onChanged: (value) {
+                                setState(() => _isTwoShifts = value);
+                                _loadAvailability();
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '2 Shifts',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: _isTwoShifts
+                                    ? AppColors.primaryColor
+                                    : AppColors.primaryColor.withValues(alpha: 0.55),
+                                fontWeight:
+                                    _isTwoShifts ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: BlocBuilder<FutureAvailabilityCubit,
+                                FutureAvailabilityState>(
+                              builder: (context, state) {
+                                if (state.isLoading) {
+                                  return const Center(
+                                    child: PrimaryCircularLoader(),
+                                  );
+                                }
+
+                                final rows = _buildRowsFromGrid(state.grid);
+
+                                if (rows.isEmpty) {
+                                  final msg = (state.errorMessage ?? '')
+                                      .trim()
+                                      .isNotEmpty
+                                      ? state.errorMessage!.trim()
+                                      : 'No availability data found for the selected date.';
+                                  return SizedBox.expand(
+                                    child: _buildStretchedMessage(
+                                      message: msg,
+                                      showRetry: state.errorMessage != null,
+                                    ),
+                                  );
+                                }
+
+                                return _buildTable(rows);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMessageCard({
+  Widget _buildStretchedMessage({
     required String message,
-    String? actionLabel,
-    VoidCallback? onTap,
+    required bool showRetry,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 245, 249, 1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        children: <Widget>[
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.8),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.primaryColor.withValues(alpha: 0.8),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (showRetry) ...[
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _loadAvailability,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ],
           ),
-          if (actionLabel != null && onTap != null) ...<Widget>[
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: onTap,
-              child: Text(actionLabel),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -312,34 +331,36 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: Table(
-        columnWidths: _isTwoShifts
-            ? const <int, TableColumnWidth>{
-                0: FlexColumnWidth(1.7),
-                1: FlexColumnWidth(0.9),
-                2: FlexColumnWidth(0.9),
-              }
-            : const <int, TableColumnWidth>{
-                0: FlexColumnWidth(1.7),
-                1: FlexColumnWidth(1.2),
-              },
-        border: TableBorder(
-          horizontalInside: BorderSide(
-            color: AppColors.primaryColor.withValues(alpha: 0.08),
-            width: 0.8,
+      child: SingleChildScrollView(
+        child: Table(
+          columnWidths: _isTwoShifts
+              ? const <int, TableColumnWidth>{
+                  0: FlexColumnWidth(1.7),
+                  1: FlexColumnWidth(0.9),
+                  2: FlexColumnWidth(0.9),
+                }
+              : const <int, TableColumnWidth>{
+                  0: FlexColumnWidth(1.7),
+                  1: FlexColumnWidth(1.2),
+                },
+          border: TableBorder(
+            horizontalInside: BorderSide(
+              color: AppColors.primaryColor.withValues(alpha: 0.07),
+              width: 0.8,
+            ),
+            verticalInside: BorderSide(
+              color: AppColors.primaryColor.withValues(alpha: 0.07),
+              width: 0.8,
+            ),
           ),
-          verticalInside: BorderSide(
-            color: AppColors.primaryColor.withValues(alpha: 0.08),
-            width: 0.8,
-          ),
+          children: <TableRow>[
+            _buildHeaderRow(),
+            ...List<TableRow>.generate(
+              data.length,
+              (int index) => _buildDataRow(data[index]),
+            ),
+          ],
         ),
-        children: <TableRow>[
-          _buildHeaderRow(),
-          ...List<TableRow>.generate(
-            data.length,
-            (int index) => _buildDataRow(data[index]),
-          ),
-        ],
       ),
     );
   }
@@ -350,16 +371,16 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
         children: <Widget>[
           _buildHeaderCell(
             mainText: 'Classroom',
-            backgroundColor: const Color.fromRGBO(245, 243, 247, 1),
+            backgroundColor: _classroomColumnBg,
             align: TextAlign.left,
           ),
           _buildHeaderCell(
             mainText: 'Morning',
-            backgroundColor: const Color.fromRGBO(237, 230, 244, 1),
+            backgroundColor: _tintHeaderOtherColumns,
           ),
           _buildHeaderCell(
             mainText: 'Afternoon',
-            backgroundColor: const Color.fromRGBO(237, 230, 244, 1),
+            backgroundColor: _tintHeaderOtherColumns,
           ),
         ],
       );
@@ -369,12 +390,12 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
       children: <Widget>[
         _buildHeaderCell(
           mainText: 'Classroom',
-          backgroundColor: const Color.fromRGBO(245, 243, 247, 1),
+          backgroundColor: _classroomColumnBg,
           align: TextAlign.left,
         ),
         _buildHeaderCell(
           mainText: DateFormat('MMM d').format(_selectedAvailabilityDate),
-          backgroundColor: const Color.fromRGBO(237, 230, 244, 1),
+          backgroundColor: _tintHeaderOtherColumns,
         ),
       ],
     );
@@ -386,11 +407,11 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     TextAlign align = TextAlign.center,
   }) {
     return Container(
-      height: 30,
+      height: _headerHeight,
       alignment: Alignment.center,
       color: backgroundColor,
       padding: align == TextAlign.left
-          ? const EdgeInsets.only(left: 12)
+          ? const EdgeInsets.only(left: 14)
           : EdgeInsets.zero,
       child: Text(
         mainText,
@@ -398,8 +419,8 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
         overflow: TextOverflow.ellipsis,
         textAlign: align,
         style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
           color: AppColors.primaryColor.withValues(alpha: 0.8),
         ),
       ),
@@ -428,18 +449,18 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   Widget _buildClassroomCell(String roomName) {
     return Container(
       height: _cellHeightRow,
-      color: const Color.fromRGBO(247, 245, 249, 1),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: _classroomColumnBg,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: <Widget>[
           _buildClassroomAvatar(roomName),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               roomName,
               style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
                 color: AppColors.primaryColor.withValues(alpha: 0.9),
               ),
               maxLines: 1,
@@ -454,13 +475,13 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   Widget _buildValueCell(int value) {
     return Container(
       height: _cellHeightRow,
-      color: const Color.fromRGBO(237, 230, 244, 1),
+      color: _tintOtherColumns,
       alignment: Alignment.center,
       child: Text(
         value.toString(),
         style: TextStyle(
           fontSize: 18,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w700,
           color: _getCountColor(value),
         ),
       ),
@@ -473,13 +494,13 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
 
     return CircleAvatar(
       backgroundColor: color.withValues(alpha: 0.85),
-      radius: 10,
+      radius: _avatarRadius,
       child: Text(
         initials,
         style: TextStyle(
           color: color == Colors.white ? AppColors.primaryColor : Colors.white,
           fontWeight: FontWeight.w700,
-          fontSize: 8,
+          fontSize: 10,
         ),
       ),
     );

@@ -40,6 +40,7 @@ class IndividualMovementValidators {
     required String? student,
     required String? fromClassroom,
     required String? toClassroom,
+    MovementType movementType = MovementType.moveToNextClassroom,
     required DateTime? movementDate,
     required List<MovementItem> existing,
     int? excludeId,
@@ -47,24 +48,33 @@ class IndividualMovementValidators {
     if (student == null || student.trim().isEmpty) {
       return 'Please select a student';
     }
-    if (fromClassroom == null || fromClassroom.trim().isEmpty) {
-      return 'Please select current classroom';
-    }
-    if (toClassroom == null || toClassroom.trim().isEmpty) {
-      return 'Please select next classroom';
+    final fromTrimmed = (fromClassroom ?? '').trim();
+    final toTrimmed = (toClassroom ?? '').trim();
+    switch (movementType) {
+      case MovementType.moveToNextClassroom:
+        if (fromTrimmed.isEmpty) return 'Please select current classroom';
+        if (toTrimmed.isEmpty) return 'Please select next classroom';
+        break;
+      case MovementType.startSchool:
+        if (toTrimmed.isEmpty) return 'Please select classroom';
+        break;
+      case MovementType.leaveSchool:
+        if (fromTrimmed.isEmpty) return 'Please select classroom';
+        break;
     }
     if (movementDate == null) {
       return 'Movement date is required';
     }
-    if (hasIdenticalFromAndTo(fromClassroom, toClassroom)) {
+    if (movementType == MovementType.moveToNextClassroom &&
+        hasIdenticalFromAndTo(fromTrimmed, toTrimmed)) {
       return 'From and to classroom cannot be the same';
     }
     if (isDuplicateMovement(
       existing: existing,
       studentName: student,
       movementDate: movementDate,
-      fromClassroom: fromClassroom,
-      toClassroom: toClassroom,
+      fromClassroom: fromTrimmed,
+      toClassroom: toTrimmed,
       excludeId: excludeId,
     )) {
       return 'This student already has a movement on this date between these classrooms';

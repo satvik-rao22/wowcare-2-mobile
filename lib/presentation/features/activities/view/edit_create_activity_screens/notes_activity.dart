@@ -17,10 +17,12 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -35,7 +37,7 @@ import '../../utils/activity_school_time.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class NotesActivityScreen extends StatefulWidget {
   const NotesActivityScreen({
@@ -78,14 +80,21 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   String _staffType = '';
   bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isApprovingOrRejecting = false;
+  bool _isSavingBeforeApprove = false;
+  bool _lastUpdateSucceeded = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
   List<Map<String, dynamic>> _detailAttachmentRows = [];
   bool _isUploadingMedia = false;
+  int _uploadProgressPercent = 0;
+  int _uploadCompletedCount = 0;
+  int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
   final Map<String, String> _uploadedAssetCodeByPath = {};
   String? _lastUploadContextKey;
@@ -100,10 +109,28 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -116,6 +143,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -128,6 +157,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text =
@@ -158,6 +188,67 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     _loadStaffContext();
   }
 
+  bool get _showAdminApproveRejectActions {
+    if (!widget.isEdit || widget.readOnly) return false;
+    if (!_isAdminDesignation) return false;
+    return canAdminApproveOrRejectActivityItem(
+      _effectiveActivity,
+      isAdminPersona: true,
+    );
+  }
+
+  Future<void> _approvePendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() {
+      _isSavingBeforeApprove = true;
+      _isApprovingOrRejecting = true;
+    });
+    try {
+      await _submitUpdateActivity();
+      if (!_lastUpdateSucceeded) return;
+      final msg = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingBeforeApprove = false;
+          _isApprovingOrRejecting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectPendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      final msg = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
+  }
+
   Future<void> _prefetchActivityForEdit() async {
     if (!_layoutAsEdit || !mounted) return;
     final code = widget.activityData?.activityCode?.trim();
@@ -172,6 +263,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -179,6 +271,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         _descriptionController.text =
             item.whatHappened ?? item.description ?? '';
         _activityTypeCode = item.activityTypeCode;
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
@@ -220,8 +313,6 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
     final staffType =
         (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
@@ -229,12 +320,16 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
+    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+      staffCode: staffCode,
+    );
 
     if (!mounted) return;
     setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
@@ -388,14 +483,6 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
-
     // Ensure the API payload uses the attendance date chosen on student selection.
     final prefilled = widget.selectedStudents != null
         ? resolveSelectedAttendanceDate(_selectedStudentsData)
@@ -443,6 +530,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -451,8 +539,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
       ];
@@ -480,9 +568,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (error) {
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
@@ -503,6 +589,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
+    _lastUpdateSucceeded = false;
 
     final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
@@ -628,13 +715,6 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       return;
     }
 
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
     final activityDateIso = await activityUtcIsoFromSchoolWallClock(
       date: _activityDate!,
       time: _activityTime!,
@@ -681,6 +761,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -689,8 +770,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
           {'parameterCode': descParamCode, 'value': description},
       ];
@@ -754,14 +835,15 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       }
 
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: lastMessage ?? 'Updated',
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      _lastUpdateSucceeded = true;
+      if (!_isSavingBeforeApprove) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: lastMessage ?? 'Updated',
+          isSuccess: true,
+        );
+        CoreUtils.exitActivityFlow(context);
+      }
     } catch (error) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -815,7 +897,12 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         .toList();
 
     if (missing.isNotEmpty) {
-      setState(() => _isUploadingMedia = true);
+      setState(() {
+        _isUploadingMedia = true;
+        _uploadProgressPercent = 0;
+        _uploadCompletedCount = 0;
+        _uploadTotalCount = missing.length;
+      });
       try {
         final uploadSession =
             await _imageUploadService.createActivityUploadSession(
@@ -828,7 +915,10 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
         );
 
         final sessionAssetCodes = <String>[];
-        for (final photo in missing) {
+        for (var i = 0; i < missing.length; i++) {
+          final photo = missing[i];
+          final fileIndex = i + 1;
+          final totalFiles = missing.length;
           final fileName = photo.uri.pathSegments.isNotEmpty
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
@@ -851,12 +941,25 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
             fallbackContentType: 'image/jpeg',
+            onProgress: (_, __, percent) {
+              if (!mounted) return;
+              final overallFraction =
+                  ((fileIndex - 1) + (percent / 100)) / totalFiles;
+              final overallPercent =
+                  (overallFraction * 100).clamp(0, 100).round();
+              final displayPercent =
+                  overallPercent >= 100 ? 99 : overallPercent;
+              setState(() => _uploadProgressPercent = displayPercent);
+            },
           );
           await _imageUploadService.completeAssetUpload(
             sessionCode: uploadSession.sessionCode,
             assetCode: presign.assetCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
           );
+          if (mounted) {
+            setState(() => _uploadCompletedCount = fileIndex);
+          }
           _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
         }
@@ -864,6 +967,9 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           sessionCode: uploadSession.sessionCode,
           expectedAssetCodes: sessionAssetCodes,
         );
+        if (mounted) {
+          setState(() => _uploadProgressPercent = 100);
+        }
       } finally {
         if (mounted) setState(() => _isUploadingMedia = false);
       }
@@ -893,22 +999,28 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
     List<String> remainingExistingPhotoUrls,
     String? remainingExistingVideoUrl,
   ) {
-    final photoCount = photos.length + remainingExistingPhotoUrls.length;
+    final normalizedPhotos = widget.isEdit && photos.length > 1
+        ? <File>[photos.last]
+        : photos;
+    final photoCount =
+        normalizedPhotos.length + remainingExistingPhotoUrls.length;
+    final maxPhotoCount = widget.isEdit ? 1 : 2;
     final videoCount =
         (video != null ? 1 : 0) +
         ((remainingExistingVideoUrl != null &&
                 remainingExistingVideoUrl.trim().isNotEmpty)
             ? 1
             : 0);
-    if (widget.isEdit && photoCount > 1) {
+    if (photoCount > maxPhotoCount) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Maximum 1 photo can be attached.',
+        message:
+            'Maximum $maxPhotoCount photo${maxPhotoCount == 1 ? '' : 's'} can be attached.',
         isError: true,
       );
       return;
     }
-    if (widget.isEdit && videoCount > 1) {
+    if (videoCount > 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Maximum 1 video can be attached.',
@@ -917,9 +1029,11 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       return;
     }
     setState(() {
-      _newPhotos = photos;
+      _newPhotos = normalizedPhotos;
       _remainingExistingPhotoUrls =
-          List<String>.from(remainingExistingPhotoUrls);
+          (widget.isEdit && normalizedPhotos.isNotEmpty)
+          ? const []
+          : List<String>.from(remainingExistingPhotoUrls);
       _uploadedAssetCodeByPath.removeWhere(
         (path, _) => !_newPhotos.any((f) => f.path == path),
       );
@@ -1102,20 +1216,26 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
               builder: (context) {
                 final isAdminPersona =
                     _isAdminDesignation;
-                final lockToLoggedInStaffOnEdit =
-                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaffOnEdit
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy:
-                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                          loggedInDisplayName: _staffName,
-                        ),
-                  isEditable: lockToLoggedInStaffOnEdit
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy: '',
+                    loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _layoutAsEdit
+                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                              ? _staffPresentCode
+                              : _effectiveActivity.staffPresent)
+                        : null,
+                  ),
+                  isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
+                  onStaffChanged: (_, selectedCode) {
+                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                        ? selectedCode!.trim()
+                        : (_staffPresentCode ?? _staffCode);
+                  },
                 );
               },
             ),
@@ -1143,24 +1263,22 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
               ),
             SizedBox(height: responsive.verticalSpacing),
             if (_layoutAsEdit)
-              IgnorePointer(
-                ignoring: !_canInteract,
-                child: MediaUploader(
-                  isRequired: false,
-                  allowVideo: false,
-                  allowPhoto: true,
-                  readOnly: widget.readOnly,
-                  isPictureBox: false,
-                  limit: 10,
-                  label: 'Upload Photo',
-                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
-                      ? List<String>.from(_remainingExistingPhotoUrls)
-                      : (_effectiveActivity.photoUrl != null &&
-                              _effectiveActivity.photoUrl!.trim().isNotEmpty
-                          ? [_effectiveActivity.photoUrl!.trim()]
-                          : const []),
-                  onMediaChanged: _onMediaChanged,
-                ),
+              MediaUploader(
+                isRequired: false,
+                allowVideo: false,
+                allowPhoto: true,
+                readOnly: widget.readOnly,
+                isPictureBox: false,
+                limit: widget.isEdit ? 1 : 2,
+                autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
+                label: 'Upload Photo',
+                initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                    ? List<String>.from(_remainingExistingPhotoUrls)
+                    : (_effectiveActivity.photoUrl != null &&
+                            _effectiveActivity.photoUrl!.trim().isNotEmpty
+                        ? [_effectiveActivity.photoUrl!.trim()]
+                        : const []),
+                onMediaChanged: _onMediaChanged,
               )
             else
               MediaUploader(
@@ -1169,7 +1287,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: 10,
+                limit: 2,
                 label: 'Upload Photo',
                 onMediaChanged: _onMediaChanged,
               ),
@@ -1186,14 +1304,30 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onSaveOrAddPressed,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: _isSubmitting ||
-                      _isUploadingMedia ||
-                      _loadingActivityDetail,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ActivityAdminApproveRejectBar(
+                      visible: _showAdminApproveRejectActions,
+                      isLoading: _isApprovingOrRejecting ||
+                          _isSubmitting ||
+                          _isUploadingMedia ||
+                          _loadingActivityDetail,
+                      onApprove: _approvePendingActivity,
+                      onReject: _rejectPendingActivity,
+                    ),
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
+                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                      onPressedConfirm: _onSaveOrAddPressed,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSubmitting ||
+                          _isApprovingOrRejecting ||
+                          _isUploadingMedia ||
+                          _loadingActivityDetail,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1203,19 +1337,41 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
   Widget _buildUploadStatus() {
     if (_isUploadingMedia) {
       return Row(
-        children: const [
+        children: [
           SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(
+              value: (_uploadProgressPercent / 100).clamp(0.0, 1.0),
+              strokeWidth: 2,
+            ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Uploading photo...',
-            style: TextStyle(
+            'Uploading photo... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_uploadTotalCount > 0 &&
+        _uploadCompletedCount == _uploadTotalCount &&
+        _uploadProgressPercent == 100) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(
+            'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.green,
             ),
           ),
         ],

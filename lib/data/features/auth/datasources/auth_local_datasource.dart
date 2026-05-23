@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
@@ -40,12 +41,22 @@ abstract class AuthLocalDataSource {
     required String userCode,
     required String staffCode,
   });
+
+  /// Clears staff/guardian and session caches without logging out (e.g. same-school persona switch).
+  Future<void> clearPersonaVolatileCaches();
+
+  /// Sets [activeSchoolRole] and rewrites [StorageKeys.roles] so the active org+school uses only this role.
+  Future<void> persistActiveSchoolPersonaRole(String backendRole);
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
-  AuthLocalDataSourceImpl(this._storage);
+  AuthLocalDataSourceImpl(
+    this._storage, {
+    SessionLocalCacheWiper? sessionLocalCacheWiper,
+  }) : _sessionLocalCacheWiper = sessionLocalCacheWiper;
 
   final StorageService _storage;
+  final SessionLocalCacheWiper? _sessionLocalCacheWiper;
 
   @override
   Future<void> cacheLoginResponse(LoginResponseModel response) async {
@@ -128,38 +139,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> clearCache() async {
-    await _storage.remove(StorageKeys.loginCacheKey);
-    await _storage.remove(StorageKeys.loginCacheTimestamp);
-    await _storage.remove(StorageKeys.accessToken);
-    await _storage.remove(StorageKeys.refreshToken);
-    await _storage.remove(StorageKeys.tokenExpiresIn);
-    await _storage.remove(StorageKeys.refreshExpiresIn);
-    await _storage.remove(StorageKeys.tokenType);
-    await _storage.remove(StorageKeys.userCode);
-    await _storage.remove(StorageKeys.email);
-    await _storage.remove(StorageKeys.displayName);
-    await _storage.remove(StorageKeys.firstLogin);
-    await _storage.remove(StorageKeys.roles);
-    await _storage.remove(StorageKeys.organizationCode);
-    await _storage.remove(StorageKeys.schoolCode);
-    await _storage.remove(StorageKeys.selectedSchoolName);
-    await _storage.remove(StorageKeys.organizationsAndSchools);
-    await _storage.remove(StorageKeys.loginCompleted);
-    await _storage.remove(StorageKeys.loginContext);
-    await _storage.remove(StorageKeys.staffCode);
-    await _storage.remove(StorageKeys.staffCodeUser);
-    await _storage.remove(StorageKeys.staffCodeOrganization);
-    await _storage.remove(StorageKeys.staffCodeSchool);
-    await _storage.remove(StorageKeys.staffType);
-    await _storage.remove(StorageKeys.staffAllowedClassroomCodes);
-    await _storage.remove(StorageKeys.userAccessDetails);
-    await _storage.remove(StorageKeys.guardianCode);
-    await _storage.remove(StorageKeys.guardianCodeUser);
-    await _storage.remove(StorageKeys.guardianCodeSchool);
-    await _storage.remove(StorageKeys.guardianCodeOrganization);
-    await _storage.remove(StorageKeys.schoolTimeZone);
-    await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
-    await _storage.remove('selected_role');
+    // Full wipe so every module cache (staff list/profile, activity feed pages,
+    // filters, guardian snapshot, timezone, PIN, credentials keys, legacy keys)
+    // is cleared and never leaks across users. Preserve first-run onboarding only.
+    final seenOnboarding =
+        await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
+    await _storage.clear();
+    if (seenOnboarding) {
+      await _storage.saveBool(StorageKeys.onboardingSeen, true);
+    }
+    try {
+      await _sessionLocalCacheWiper?.wipe();
+    } catch (_) {}
   }
 
   @override
@@ -168,17 +159,26 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String schoolName,
     String? schoolCode,
   }) async {
+    final prevOrg =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final prevSchool =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final orgChanged = prevOrg != orgCode.trim();
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
     if (schoolCode != null && schoolCode.isNotEmpty) {
       final next = schoolCode.trim();
-      if (prevSchool != next) {
+      final schoolChanged = prevSchool != next;
+      if (schoolChanged) {
         await _storage.remove(StorageKeys.schoolTimeZone);
         await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
       }
+      if (orgChanged || schoolChanged) {
+        await _storage.remove(StorageKeys.activeSchoolRole);
+      }
       await _storage.saveString(StorageKeys.schoolCode, next);
+    } else if (orgChanged) {
+      await _storage.remove(StorageKeys.activeSchoolRole);
     }
     await _storage.saveBool(StorageKeys.loginCompleted, true);
   }
@@ -198,11 +198,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       return false;
     }
 
+    final prevOrg =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final prevSchool =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (prevSchool != schoolCode) {
+    final schoolChanged = prevSchool != schoolCode;
+    final orgChanged = prevOrg != orgCode;
+    if (schoolChanged) {
       await _storage.remove(StorageKeys.schoolTimeZone);
       await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
+    }
+    if (schoolChanged || orgChanged) {
+      await _storage.remove(StorageKeys.activeSchoolRole);
     }
 
     // Save selected
@@ -286,6 +293,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String schoolCode,
     String? schoolName,
   }) async {
+    final prevOrg =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final newOrg = organizationCode.trim();
     final prev =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final next = schoolCode.trim();
@@ -293,12 +303,81 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       await _storage.remove(StorageKeys.schoolTimeZone);
       await _storage.remove(StorageKeys.schoolTimeZoneSchoolCode);
     }
+    if (prev != next || prevOrg != newOrg) {
+      await _storage.remove(StorageKeys.activeSchoolRole);
+    }
     await _storage.saveString(StorageKeys.organizationCode, organizationCode);
     await _storage.saveString(StorageKeys.schoolCode, next);
     await _storage.saveString(
       StorageKeys.selectedSchoolName,
       schoolName ?? next,
     );
+  }
+
+  @override
+  Future<void> clearPersonaVolatileCaches() async {
+    await _storage.remove(StorageKeys.staffCode);
+    await _storage.remove(StorageKeys.staffType);
+    await _storage.remove(StorageKeys.staffDesignation);
+    await _storage.remove(StorageKeys.staffAllowedClassroomCodes);
+    await _storage.remove(StorageKeys.staffCodeUser);
+    await _storage.remove(StorageKeys.staffCodeOrganization);
+    await _storage.remove(StorageKeys.staffCodeSchool);
+    await _storage.remove(StorageKeys.staffPin);
+    await _storage.remove(StorageKeys.guardianCode);
+    await _storage.remove(StorageKeys.guardianCodeUser);
+    await _storage.remove(StorageKeys.guardianCodeSchool);
+    await _storage.remove(StorageKeys.guardianCodeOrganization);
+    await _storage.remove(StorageKeys.guardianProfileFirstName);
+    await _storage.remove(StorageKeys.guardianProfileLastName);
+    await _storage.remove(StorageKeys.guardianProfilePhotoUrl);
+    await _storage.remove(StorageKeys.guardianProfileAssetCode);
+    await _storage.remove(StorageKeys.userAccessDetails);
+    try {
+      await _sessionLocalCacheWiper?.wipe();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> persistActiveSchoolPersonaRole(String backendRole) async {
+    final org =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final school =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final normalizedRole = backendRole.trim();
+    if (normalizedRole.isEmpty || org.isEmpty || school.isEmpty) return;
+
+    await _storage.saveString(StorageKeys.activeSchoolRole, normalizedRole);
+
+    final raw = await _storage.getString(StorageKeys.roles);
+    List<dynamic> list;
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        list = decoded is List ? List<dynamic>.from(decoded) : <dynamic>[];
+      } catch (_) {
+        list = <dynamic>[];
+      }
+    } else {
+      list = <dynamic>[];
+    }
+
+    final out = <Map<String, dynamic>>[];
+    for (final e in list) {
+      if (e is! Map) continue;
+      final m = Map<String, dynamic>.from(e);
+      final o = (m['organizationCode'] ?? '').toString().trim();
+      final s = (m['schoolCode'] ?? '').toString().trim();
+      if (o == org && s == school) continue;
+      out.add(m);
+    }
+    // Current school first — several screens still read roles.first for display.
+    out.insert(0, <String, dynamic>{
+      'role': normalizedRole,
+      'organizationCode': org,
+      'schoolCode': school,
+    });
+    await _storage.saveString(StorageKeys.roles, jsonEncode(out));
   }
 
   @override
@@ -336,8 +415,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<void> saveCredentials(String username, String password, bool rememberMe) async {
     if (rememberMe) {
+      final encodedPassword = base64Encode(utf8.encode(password));
       await _storage.saveString(StorageKeys.username, username);
-      await _storage.saveString(StorageKeys.password, password);
+      await _storage.saveString(StorageKeys.password, encodedPassword);
     } else {
       await _storage.remove(StorageKeys.username);
       await _storage.remove(StorageKeys.password);
@@ -348,7 +428,16 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<Map<String, String?>> getSavedCredentials() async {
     final username = await _storage.getString(StorageKeys.username);
-    final password = await _storage.getString(StorageKeys.password);
+    final savedPassword = await _storage.getString(StorageKeys.password);
+    String? password;
+    if (savedPassword != null && savedPassword.isNotEmpty) {
+      try {
+        password = utf8.decode(base64Decode(savedPassword));
+      } catch (_) {
+        // Backward compatibility for previously saved plain-text values.
+        password = savedPassword;
+      }
+    }
     return {
       'username': username,
       'password': password,

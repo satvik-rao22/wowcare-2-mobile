@@ -104,6 +104,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
     final responsive = ResponsiveHelper(context);
     final hasVideo = widget.activity.videoUrl != null && widget.activity.videoUrl!.isNotEmpty;
     final hasPhoto = widget.activity.photoUrl != null && widget.activity.photoUrl!.isNotEmpty;
+    final hasProcessingMedia = _hasProcessingAttachment(widget.activity.snapshotAttachments);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +152,9 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                       errorBuilder: (context, error, _) => _buildErrorPlaceholder(),
                     )
                   else
-                    _buildErrorPlaceholder(),
+                    hasProcessingMedia
+                        ? _buildProcessingPlaceholder()
+                        : _buildErrorPlaceholder(),
 
                 // Tap to play/pause + big play icon overlay
                 if (hasVideo)
@@ -224,6 +227,47 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
             Text(
               'Video preview unavailable',
               style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _hasProcessingAttachment(List<Map<String, dynamic>>? attachments) {
+    if (attachments == null || attachments.isEmpty) return false;
+    for (final row in attachments) {
+      final status = (row['status'] ?? '').toString().trim().toUpperCase();
+      if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildProcessingPlaceholder() {
+    return Container(
+      color: const Color(0xFFF2F8FF),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: Color(0xFF1A73E8),
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Video processing...',
+              style: TextStyle(
+                color: Color(0xFF1F3B64),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

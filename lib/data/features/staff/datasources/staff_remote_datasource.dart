@@ -28,6 +28,17 @@ abstract class StaffRemoteDataSource {
     String? sortBy,
   });
 
+  /// Fetches the entire staff list in one call — no pagination loop — with
+  /// support for multiple `status` values (sent as repeated query keys, e.g.
+  /// `status=ACTIVE&status=UPCOMING`). [size] caps how many records to
+  /// return in the single page (defaults to 200, enough for any school).
+  Future<List<StaffListItemModel>> getAllStaff({
+    required String organizationCode,
+    required String schoolCode,
+    List<String>? statuses,
+    int size = 200,
+  });
+
   Future<StaffDocumentResponseModel> addStaffDocument({
     required String staffCode,
     required StaffDocumentRequestModel request,
@@ -329,6 +340,62 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
 
     return StaffPageModel.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<StaffListItemModel>> getAllStaff({
+    required String organizationCode,
+    required String schoolCode,
+    List<String>? statuses,
+    int size = 200,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'schoolCode': schoolCode,
+      // Single large page so we get every staff member in one round trip.
+      'page': 0,
+      'size': size,
+    };
+    if (organizationCode.isNotEmpty) {
+      queryParameters['organizationCode'] = organizationCode;
+    }
+    final normalizedStatuses = statuses
+        ?.map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (normalizedStatuses != null && normalizedStatuses.isNotEmpty) {
+      queryParameters['status'] = normalizedStatuses;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffList,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      // Repeats keys: `status=ACTIVE&status=UPCOMING`.
+      options: Options(listFormat: ListFormat.multi),
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    // Backend returns either a paged `data.content` array or a flat `data` array
+    // when paging is disabled. Support both shapes.
+    final inner = data['data'];
+    final rawList = inner is List
+        ? inner
+        : (inner is Map<String, dynamic>
+            ? (inner['content'] as List<dynamic>? ?? const [])
+            : const <dynamic>[]);
+
+    return rawList
+        .whereType<Map<String, dynamic>>()
+        .map(StaffListItemModel.fromJson)
+        .toList();
   }
 
   @override

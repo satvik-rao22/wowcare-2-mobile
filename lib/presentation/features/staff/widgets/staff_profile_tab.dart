@@ -11,9 +11,12 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
@@ -43,11 +46,27 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   final Map<String, String> _resolvedClassroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = <String>{};
 
+  /// Days the school is open, sourced from the regular-schedule API. We
+  /// always render every open day so Sat/Sun appear even when the staff
+  /// has no work/break entries for those days.
+  List<String> _schoolOpenDays = const <String>[];
+
+  static const List<String> _weekOrder = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
   @override
   void initState() {
     super.initState();
     _profileCubit = serviceLocator<StaffProfileCubit>()
       ..loadInitial(widget.staffCode);
+    _loadSchoolOpenDays();
   }
 
   @override
@@ -56,7 +75,26 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
     super.dispose();
   }
 
-  static const List<String> _allDays = [
+  Future<void> _loadSchoolOpenDays() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final repo = serviceLocator<StaffRepository>();
+      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final open = <String>{
+        for (final d in days) d.dayOfWeek.toUpperCase(),
+      };
+      final ordered = _weekOrder.where(open.contains).toList(growable: false);
+      if (!mounted) return;
+      setState(() => _schoolOpenDays = ordered);
+    } catch (_) {
+      // Leave _schoolOpenDays empty — UI falls back to Mon-Fri.
+    }
+  }
+
+  static const List<String> _fallbackDays = [
     'MONDAY',
     'TUESDAY',
     'WEDNESDAY',
@@ -162,31 +200,47 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
   String _getStatusLabel(String? status) {
     if (status == null || status.isEmpty) return '-';
-    if (status.toUpperCase() == 'ACTIVE' || status == 'A') return 'Active';
-    if (status.toUpperCase() == 'INACTIVE' || status == 'I') return 'Inactive';
-    return status;
+    final normalized = status.trim().toUpperCase();
+    if (normalized == 'ACTIVE' || normalized == 'A') return 'Active';
+    if (normalized == 'INACTIVE' || normalized == 'I') return 'Inactive';
+    if (normalized == 'UPCOMING' || normalized == 'U') return 'Upcoming';
+    if (normalized == 'ARCHIVE' || normalized == 'ARCHIVED') return 'Archived';
+    if (normalized == 'WAITLIST') return 'Waitlist';
+    return _formatEnumLabel(normalized);
   }
 
   Color _getStatusColor(String? status) {
     if (status == null || status.isEmpty) return Colors.grey;
-    final upperStatus = status.toUpperCase();
-    if (upperStatus == 'ACTIVE' || status == 'A') {
+    final upperStatus = status.trim().toUpperCase();
+    if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
       return const Color.fromRGBO(56, 200, 32, 1);
     }
-    if (upperStatus == 'INACTIVE' || status == 'I') {
+    if (upperStatus == 'INACTIVE' || upperStatus == 'I') {
       return const Color.fromRGBO(250, 65, 65, 1);
+    }
+    if (upperStatus == 'UPCOMING' || upperStatus == 'U') {
+      return const Color.fromRGBO(221, 164, 55, 1);
+    }
+    if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
+      return const Color.fromRGBO(117, 117, 117, 1);
     }
     return const Color.fromARGB(255, 238, 223, 8);
   }
 
   Color _getStatusBgColor(String? status) {
     if (status == null || status.isEmpty) return Colors.grey.withOpacity(0.1);
-    final upperStatus = status.toUpperCase();
-    if (upperStatus == 'ACTIVE' || status == 'A') {
+    final upperStatus = status.trim().toUpperCase();
+    if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
       return const Color.fromRGBO(56, 200, 32, 0.1);
     }
-    if (upperStatus == 'INACTIVE' || status == 'I') {
+    if (upperStatus == 'INACTIVE' || upperStatus == 'I') {
       return const Color.fromRGBO(250, 65, 65, 0.1);
+    }
+    if (upperStatus == 'UPCOMING' || upperStatus == 'U') {
+      return const Color.fromRGBO(221, 164, 55, 0.16);
+    }
+    if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
+      return const Color.fromRGBO(117, 117, 117, 0.14);
     }
     return const Color.fromARGB(255, 242, 238, 176);
   }
@@ -543,7 +597,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                         child: Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _allDays.map((day) {
+                          children: (_schoolOpenDays.isNotEmpty
+                                  ? _schoolOpenDays
+                                  : _fallbackDays)
+                              .map((day) {
                             // Map internal enum-style day to display name (Monday, etc.)
                             String displayDay;
                             switch (day) {
@@ -561,6 +618,12 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                 break;
                               case 'FRIDAY':
                                 displayDay = 'Friday';
+                                break;
+                              case 'SATURDAY':
+                                displayDay = 'Saturday';
+                                break;
+                              case 'SUNDAY':
+                                displayDay = 'Sunday';
                                 break;
                               default:
                                 displayDay = day.toLowerCase();
@@ -635,10 +698,11 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   }
 
   Widget _buildStatusChip(String? status) {
+    final normalized = (status ?? '').trim().toUpperCase();
     final label = _getStatusLabel(status);
     final labelColor = _getStatusColor(status);
     final bgColor = _getStatusBgColor(status);
-    final icon = (status?.toUpperCase() == 'ACTIVE' || status == 'A')
+    final icon = (normalized == 'ACTIVE' || normalized == 'A')
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 

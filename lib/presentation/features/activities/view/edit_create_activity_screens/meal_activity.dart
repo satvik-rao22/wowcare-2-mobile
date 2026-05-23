@@ -16,10 +16,12 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -31,7 +33,7 @@ import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class MealActivityScreen extends StatefulWidget {
   const MealActivityScreen({
@@ -82,9 +84,13 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   String _staffType = '';
   bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isApprovingOrRejecting = false;
+  bool _isSavingBeforeApprove = false;
+  bool _lastUpdateSucceeded = false;
   bool _loadingMealOptions = false;
   bool _loadingActivityDetail = false;
   ActivityItem? _liveActivity;
@@ -95,9 +101,27 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -113,6 +137,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -124,6 +150,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
       _descriptionController.text = activity.description ?? '';
@@ -147,6 +174,67 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     _loadStaffContext();
   }
 
+  bool get _showAdminApproveRejectActions {
+    if (!widget.isEdit || widget.readOnly) return false;
+    if (!_isAdminDesignation) return false;
+    return canAdminApproveOrRejectActivityItem(
+      _effectiveActivity,
+      isAdminPersona: true,
+    );
+  }
+
+  Future<void> _approvePendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() {
+      _isSavingBeforeApprove = true;
+      _isApprovingOrRejecting = true;
+    });
+    try {
+      await _submitUpdateActivity();
+      if (!_lastUpdateSucceeded) return;
+      final msg = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingBeforeApprove = false;
+          _isApprovingOrRejecting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectPendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      final msg = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
+  }
+
   Future<void> _prefetchActivityForEdit() async {
     if (!_layoutAsEdit || !mounted) return;
     final code = widget.activityData?.activityCode?.trim();
@@ -161,6 +249,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
@@ -170,6 +259,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
         final q = item.mealQuantity?.trim();
         _selectedQuantity = (q != null && q.isNotEmpty) ? q : null;
         _activityTypeCode = item.activityTypeCode;
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -189,8 +279,6 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
     final staffType =
         (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
@@ -198,12 +286,16 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
+    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+      staffCode: staffCode,
+    );
 
     if (!mounted) return;
     setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
@@ -568,6 +660,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -576,8 +669,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -609,9 +702,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -631,6 +722,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
+    _lastUpdateSucceeded = false;
 
     final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
@@ -779,6 +871,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
       final localTime =
           '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -787,8 +880,8 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -838,14 +931,15 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
       }
 
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: lastMessage ?? 'Updated',
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      _lastUpdateSucceeded = true;
+      if (!_isSavingBeforeApprove) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: lastMessage ?? 'Updated',
+          isSuccess: true,
+        );
+        CoreUtils.exitActivityFlow(context);
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -1040,20 +1134,26 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
               builder: (context) {
                 final isAdminPersona =
                     _isAdminDesignation;
-                final lockToLoggedInStaffOnEdit =
-                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaffOnEdit
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy:
-                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                          loggedInDisplayName: _staffName,
-                        ),
-                  isEditable: lockToLoggedInStaffOnEdit
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy: '',
+                    loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _layoutAsEdit
+                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                              ? _staffPresentCode
+                              : _effectiveActivity.staffPresent)
+                        : null,
+                  ),
+                  isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
+                  onStaffChanged: (_, selectedCode) {
+                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                        ? selectedCode!.trim()
+                        : (_staffPresentCode ?? _staffCode);
+                  },
                 );
               },
             ),
@@ -1087,14 +1187,30 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onPressedBottom,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: _isSubmitting ||
-                      _loadingActivityDetail ||
-                      _loadingMealOptions,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ActivityAdminApproveRejectBar(
+                      visible: _showAdminApproveRejectActions,
+                      isLoading: _isApprovingOrRejecting ||
+                          _isSubmitting ||
+                          _loadingActivityDetail ||
+                          _loadingMealOptions,
+                      onApprove: _approvePendingActivity,
+                      onReject: _rejectPendingActivity,
+                    ),
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
+                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                      onPressedConfirm: _onPressedBottom,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSubmitting ||
+                          _isApprovingOrRejecting ||
+                          _loadingActivityDetail ||
+                          _loadingMealOptions,
+                    ),
+                  ],
                 ),
               ),
             ),

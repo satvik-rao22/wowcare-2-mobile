@@ -25,6 +25,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   }) async {
@@ -38,6 +39,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       storagePath: storagePath,
       mimeType: mimeType,
       size: size,
+      assetCode: assetCode,
       uploadedBy: uploadedBy,
       notes: notes,
     );
@@ -63,6 +65,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   }) async {
@@ -77,6 +80,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       storagePath: storagePath,
       mimeType: mimeType,
       size: size,
+      assetCode: assetCode,
       uploadedBy: uploadedBy,
       notes: notes,
     );

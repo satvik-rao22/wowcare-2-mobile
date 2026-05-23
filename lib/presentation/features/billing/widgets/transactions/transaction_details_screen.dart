@@ -265,7 +265,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     if (item.id == widget.transaction.id) {
       return;
     }
-    Navigator.of(context).push(
+    // Replace, don't stack — otherwise tapping multiple siblings builds up
+    // a deep navigator stack of TransactionDetailsScreen copies and back
+    // walks through every one.
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => TransactionDetailsScreen(transaction: item),
       ),

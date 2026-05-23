@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -15,8 +16,8 @@ import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.da
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:provider/provider.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -89,21 +90,16 @@ class _SignInScreenState extends State<SignInScreen>
     final orgCode = await storage.getString(StorageKeys.organizationCode);
 
     if (orgCode != null && orgCode.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SchoolSelectionScreen(
-            selectedOrg: orgCode,
-            orgFromLoginContext: true,
-          ),
-        ),
+      context.go(
+        '/school-selection',
+        extra: <String, dynamic>{
+          'selectedOrg': orgCode,
+          'orgFromLoginContext': true,
+        },
       );
     } else {
       // Fallback: go to org selection if orgCode not found
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const OrganizationSelectionScreen()),
-      );
+      context.go('/org-selection');
     }
   }
 
@@ -119,11 +115,31 @@ class _SignInScreenState extends State<SignInScreen>
     }
   }
 
-  void _handleAuthState(BuildContext context, AuthState state) {
+  Future<void> _preloadGuardianChildrenIfNeeded(BuildContext context) async {
+    try {
+      // Ensure RoleProvider resolved from /users/details first.
+      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      if (!context.mounted) return;
+      if (!context.read<RoleProvider>().isParent) return;
+
+      // Guardian only: prefetch children before opening dashboard so AppBar doesn't
+      // have to trigger loading later.
+      context.read<ParentChildProvider>().invalidate();
+      await context.read<ParentChildProvider>().ensureLoaded(force: true);
+    } catch (_) {
+      // Non-blocking: dashboard can still open; AppBar dropdown will show empty.
+    }
+  }
+
+  void _handleAuthState(BuildContext context, AuthState state) async {
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
-      context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      await _preloadGuardianChildrenIfNeeded(context);
+
+      // The await above can outlive this screen (e.g. a duplicate auth event
+      // already navigated away). Bail out before touching context/GoRouter.
+      if (!context.mounted) return;
 
       // Check redirectUrl when schoolCode is null
       if (state.redirectUrl != null && state.redirectUrl!.isNotEmpty) {
@@ -133,29 +149,22 @@ class _SignInScreenState extends State<SignInScreen>
           _navigateToSchoolSelection(context);
           return;
         } else if (url.contains('select-organization')) {
-          // Navigate to org selection
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const OrganizationSelectionScreen(),
-            ),
-          );
+          context.go('/org-selection');
           return;
         } else if (url.contains('select-app')) {
-          // Navigate to dashboard
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          context.go(DashboardScreen.routeName);
           return;
         } else if (url.contains('dashboard')) {
           // Backend may return a dashboard redirect even when LastLoginSchoolCode is null.
           // In that case, do NOT force role selection — go straight to Dashboard.
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          context.go(DashboardScreen.routeName);
           return;
         }
       }
 
       // After login-context, always go straight to Dashboard.
       // Role selection screen is no longer part of the flow.
-      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      context.go(DashboardScreen.routeName);
     } else if (state is AuthError) {
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(

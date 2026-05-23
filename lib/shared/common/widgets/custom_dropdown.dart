@@ -184,11 +184,18 @@ class CustomDropdown extends StatefulWidget {
 
 class _CustomDropdownState extends State<CustomDropdown> {
   String? selectedItem; // Local state for the selected item
+  final ScrollController _menuScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     selectedItem = widget.selectedItem; // Initialize with the selected item
+  }
+
+  @override
+  void dispose() {
+    _menuScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -261,6 +268,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                   child: PopupMenuButton<String>(
                     enabled: widget.isEnabled,
                     padding: EdgeInsets.zero,
+                    position: PopupMenuPosition.under,
                     constraints: BoxConstraints(
                       minWidth: constraints.maxWidth,
                       maxWidth: constraints.maxWidth,
@@ -291,28 +299,58 @@ class _CustomDropdownState extends State<CustomDropdown> {
                       });
                     },
                     itemBuilder: (BuildContext context) {
-                      return displayItems.map((String item) {
-                        return PopupMenuItem<String>(
-                          value: item,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  item,
-                                  style:
-                                      widget.popupItemTextStyle ??
-                                      TextStyle(
-                                        color: AppColors.primaryColor
-                                            .withOpacity(0.9),
-                                        fontSize: widget.isField ? 17 : 15,
-                                        fontWeight: FontWeight.w400,
-                                      ),
+                      return <PopupMenuEntry<String>>[
+                        PopupMenuItem<String>(
+                          enabled: false,
+                          padding: EdgeInsets.zero,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth,
+                              maxHeight: 240,
+                            ),
+                            child: Scrollbar(
+                              controller: _menuScrollController,
+                              thumbVisibility: true,
+                              thickness: 4,
+                              radius: const Radius.circular(4),
+                              child: ListView.builder(
+                                controller: _menuScrollController,
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
                                 ),
+                                itemCount: displayItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = displayItems[index];
+                                  return InkWell(
+                                    onTap: () =>
+                                        Navigator.of(context).pop(item),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        item,
+                                        style:
+                                            widget.popupItemTextStyle ??
+                                            TextStyle(
+                                              color: AppColors.primaryColor
+                                                  .withOpacity(0.9),
+                                              fontSize: widget.isField
+                                                  ? 17
+                                                  : 15,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                            ],
+                            ),
                           ),
-                        );
-                      }).toList();
+                        ),
+                      ];
                     },
                     child: Padding(
                       padding:

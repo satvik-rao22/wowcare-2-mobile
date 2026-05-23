@@ -6,7 +6,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/date_utils.dart';
-import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
@@ -24,9 +23,6 @@ class SendInvoiceScreen extends StatefulWidget {
 class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   // Dummy data for UI
   Map<String, dynamic>? _addressEntity;
-  bool _isAddressLoading = false;
-  bool _isInvoiceLoading = false;
-  bool _isSendingInvoice = false;
   Map<String, dynamic>? _invoiceDetails;
 
   // Form controllers
@@ -37,9 +33,6 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
   // Form data
   String _invoiceNumber = '';
-  DateTime? _dueDate;
-  String _description = '';
-  double _amount = 0.0;
 
   @override
   void initState() {
@@ -48,16 +41,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     _initializeFormData();
   }
 
-  Future<void> _initializeDummyData() async {
-    // Simulate loading
-    setState(() {
-      _isAddressLoading = true;
-      _isInvoiceLoading = true;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
+  void _initializeDummyData() {
     // Load dummy data
     Map<String, dynamic>? invoiceData;
     if (widget.transaction.refTable == 'Invoice' && widget.transaction.refTableId != null) {
@@ -82,8 +66,6 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         'zipcode': '10001',
       };
       _invoiceDetails = invoiceData;
-      _isAddressLoading = false;
-      _isInvoiceLoading = false;
     });
 
     // Update form with invoice data if available
@@ -103,8 +85,6 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     _amountController.text = widget.transaction.amount.toStringAsFixed(2);
 
     // Set form data
-    _description = widget.transaction.displayDescription;
-    _amount = widget.transaction.amount;
   }
 
   void _updateFormWithInvoiceData(Map<String, dynamic> invoiceData) {
@@ -119,7 +99,6 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
       try {
         final dueDateParsed = DateTime.parse(invoiceData['dueDate'].toString());
         _dueDateController.text = DateUtilsNew.formatToReadableDate(dueDateParsed);
-        _dueDate = dueDateParsed;
       } catch (e) {
         // Date parsing failed, keep current value
       }
@@ -129,13 +108,11 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     if (invoiceData['invoiceAmount'] != null) {
       final invoiceAmount = double.tryParse(invoiceData['invoiceAmount'].toString()) ?? 0.0;
       _amountController.text = invoiceAmount.toStringAsFixed(2);
-      _amount = invoiceAmount;
     }
 
     // Update description if available
     if (invoiceData['description'] != null && invoiceData['description'].toString().isNotEmpty) {
       _descriptionController.text = invoiceData['description'].toString();
-      _description = _descriptionController.text;
     }
   }
 
@@ -186,20 +163,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   }
 
   Future<void> _sendInvoice() async {
-    if (_isSendingInvoice) return;
-
-    setState(() {
-      _isSendingInvoice = true;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(seconds: 2));
-
     if (!mounted) return;
-
-    setState(() {
-      _isSendingInvoice = false;
-    });
 
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
@@ -292,27 +256,6 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   Widget _buildInvoiceDetailsSection() {
     return Column(
       children: [
-        if (_isInvoiceLoading)
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Loading invoice details...',
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.billingGrey,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
         Row(
           children: [
             Text(
@@ -630,40 +573,16 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
             ),
             child: TextButton(
-              onPressed: _isSendingInvoice ? null : _sendInvoice,
-              child: _isSendingInvoice
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.billingButtonTextColor),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Sending...',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: responsive.buttonFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.billingCardColor,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      'Send Invoice',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.billingCardColor,
-                      ),
-                    ),
+              onPressed: _sendInvoice,
+              child: Text(
+                'Send Invoice',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.buttonFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.billingCardColor,
+                ),
+              ),
             ),
           ),
         ),

@@ -36,7 +36,10 @@ abstract class ActivityRepository {
     required String classroomCode,
     required String date,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -48,14 +51,19 @@ abstract class ActivityRepository {
     required String startDate,
     required String endDate,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
   });
 
-  /// `GET /api/v1/activities/code/{code}`
-  Future<ActivityDetail> getActivity({required String code});
+  /// `GET /api/v2/activities/{cardGroupCode}`
+  Future<ActivityDetail> getActivity({
+    required String code,
+  });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
@@ -80,6 +88,14 @@ abstract class ActivityRepository {
 
   /// `POST /api/v2/guardian/activities/{cardGroupCode}/acknowledge`.
   Future<String> acknowledgeActivity({required String code});
+
+  /// `PATCH /api/v2/guardian/activities/{cardGroupCode}/parent-signature`.
+  Future<String> guardianParentSignature({
+    required String code,
+    required String parameterCode,
+    required String guardianCode,
+    String? signatureValue,
+  });
 
   /// Creates a new activity via `POST /api/v1/activities`.
   Future<String> createActivity({

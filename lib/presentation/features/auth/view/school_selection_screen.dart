@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
@@ -40,6 +41,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   String? _selectedSchool;
   String? _selectedSchoolCode;
   bool _hasTriggeredLoad = false;
+  bool _isSubmitting = false;
 
   String _formatRole(String role) {
     if (role.isEmpty) return '';
@@ -82,15 +84,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
           lastLoginSchoolCode: null,
         );
         if (!context.mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const OrganizationSelectionScreen(isSwitchFlow: true),
-          ),
+        context.go(
+          '/org-selection',
+          extra: <String, dynamic>{'isSwitchFlow': true},
         );
         return;
       }
       context.read<AuthCubit>().logout();
-      Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      context.go(SignInScreen.routeName);
     }
 
     return PopScope(
@@ -373,52 +374,64 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                         confirmButtonLabel: 'Next',
                         showCancelButton: false,
                         isForm: false,
+                        isLoading: _isSubmitting,
                         onPressedConfirm: isNextEnabled
                             ? () async {
-                                if (_selectedSchool == null) return;
+                                if (_isSubmitting) return;
+                                setState(() => _isSubmitting = true);
+                                if (_selectedSchool == null) {
+                                  if (mounted) {
+                                    setState(() => _isSubmitting = false);
+                                  }
+                                  return;
+                                }
                                 final authCubit = context.read<AuthCubit>();
                                 final schoolCode = _selectedSchoolCode ??
                                     _selectedSchool!;
-                                await authCubit.updateLoginContext(
-                                  lastLoginOrganizationCode: widget.selectedOrg,
-                                  lastLoginSchoolCode: schoolCode,
-                                );
-                                if (widget.isSwitchFlow) {
-                                  await authCubit.setSelectedOrgAndSchool(
+                                try {
+                                  await authCubit.updateLoginContext(
+                                    lastLoginOrganizationCode:
+                                        widget.selectedOrg,
+                                    lastLoginSchoolCode: schoolCode,
+                                  );
+                                  if (widget.isSwitchFlow) {
+                                    await authCubit.setSelectedOrgAndSchool(
+                                      organizationCode: widget.selectedOrg,
+                                      schoolCode: schoolCode,
+                                      schoolName: _selectedSchool,
+                                    );
+                                  } else {
+                                    await authCubit.completeLogin(
+                                      selectedOrgCode: widget.selectedOrg,
+                                      selectedSchoolName: _selectedSchool!,
+                                      selectedSchoolCode: _selectedSchoolCode,
+                                    );
+                                  }
+                                  // Prefetch profile + permissions + parent-child
+                                  // BEFORE opening Dashboard so UI doesn't lazily
+                                  // trigger guardian/children calls.
+                                  await authCubit.prefetchStaffProfileForOrgAndSchool(
                                     organizationCode: widget.selectedOrg,
                                     schoolCode: schoolCode,
-                                    schoolName: _selectedSchool,
                                   );
-                                } else {
-                                  await authCubit.completeLogin(
-                                    selectedOrgCode: widget.selectedOrg,
-                                    selectedSchoolName: _selectedSchool!,
-                                    selectedSchoolCode: _selectedSchoolCode,
-                                  );
+                                  if (!context.mounted) return;
+                                  await context
+                                      .read<RoleProvider>()
+                                      .refreshAccessFromServer(force: true);
+                                  if (!context.mounted) return;
+                                  context
+                                      .read<ParentChildProvider>()
+                                      .invalidate();
+                                  await context
+                                      .read<ParentChildProvider>()
+                                      .ensureLoaded(force: true);
+                                  if (!context.mounted) return;
+                                  context.go(DashboardScreen.routeName);
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => _isSubmitting = false);
+                                  }
                                 }
-                                // After selecting org/school (either during login
-                                // or when switching organisation), prefetch the
-                                // staff profile for this context so that My Profile
-                                // loads instantly from cache.
-                                await authCubit.prefetchStaffProfileForOrgAndSchool(
-                                  organizationCode: widget.selectedOrg,
-                                  schoolCode: schoolCode,
-                                );
-                                if (!context.mounted) return;
-                                await context
-                                    .read<RoleProvider>()
-                                    .refreshAccessFromServer(force: true);
-                                if (!context.mounted) return;
-                                context.read<ParentChildProvider>().invalidate();
-                                await context
-                                    .read<ParentChildProvider>()
-                                    .ensureLoaded(force: true);
-                                if (!context.mounted) return;
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (_) => const DashboardScreen(),
-                                  ),
-                                );
                               }
                             : null,
                       ),

@@ -41,7 +41,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
     this.classroomFilter,
   });
 
-  static const String routeName = '/staff-attendance-tabbed-view';
+  static const String routeName = '/dashboard/staff-attendance-tabbed-view';
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
@@ -198,7 +198,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           ),
           child: Scaffold(
             appBar: CustomAppBar(
-              hasBackButton: true,
+              hasBackButton: false,
               tabController: _tabController,
               tabBarStyle: TabBarStyle(
                 indicator: const UnderlineTabIndicator(
@@ -264,7 +264,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               ),
             ),
             extendBody: true,
-            bottomNavigationBar: const CustomNavigationBar(),
+            // Attendance is the bottom-nav slot at index 1 (a popup slot with
+            // no branch), so highlight it explicitly while on this view.
+            bottomNavigationBar:
+                const CustomNavigationBar(activeTabIndexOverride: 1),
           ),
         ),
         // Floating button above everything - responsive positioning

@@ -25,7 +25,7 @@ class EditImportantDatesScreen extends StatefulWidget {
     this.initialPhysicalCheckupDate,
     this.initialPhysicalCheckupStatus,
   });
-  static const String routeName = '/edit-important-dates-screen';
+  static const String routeName = '/dashboard/edit-important-dates-screen';
 
   final String staffCode;
   final DateTime? initialHireDate;

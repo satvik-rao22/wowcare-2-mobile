@@ -139,7 +139,10 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String classroomCode,
     required String date,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -148,7 +151,10 @@ class ActivityRepositoryImpl implements ActivityRepository {
       classroomCode: classroomCode,
       date: date,
       studentCode: studentCode,
+      classroomCodes: classroomCodes,
+      studentCodes: studentCodes,
       activityTypeCodes: activityTypeCodes,
+      approvalStatuses: approvalStatuses,
       guardianPersona: guardianPersona,
       page: page,
       size: size,
@@ -162,7 +168,10 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String startDate,
     required String endDate,
     String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
     List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
     int size = 100,
@@ -172,7 +181,10 @@ class ActivityRepositoryImpl implements ActivityRepository {
       startDate: startDate,
       endDate: endDate,
       studentCode: studentCode,
+      classroomCodes: classroomCodes,
+      studentCodes: studentCodes,
       activityTypeCodes: activityTypeCodes,
+      approvalStatuses: approvalStatuses,
       guardianPersona: guardianPersona,
       page: page,
       size: size,
@@ -196,7 +208,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
-  Future<ActivityDetail> getActivity({required String code}) async {
+  Future<ActivityDetail> getActivity({
+    required String code,
+  }) async {
     final data = await _remoteDataSource.getActivityByCode(
       cardGroupCode: code,
     );
@@ -257,6 +271,23 @@ class ActivityRepositoryImpl implements ActivityRepository {
   Future<String> acknowledgeActivity({required String code}) async {
     final message = await _remoteDataSource.acknowledgeActivity(
       cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> guardianParentSignature({
+    required String code,
+    required String parameterCode,
+    required String guardianCode,
+    String? signatureValue,
+  }) async {
+    final message = await _remoteDataSource.guardianParentSignature(
+      cardGroupCode: code,
+      parameterCode: parameterCode,
+      guardianCode: guardianCode,
+      signatureValue: signatureValue,
     );
     await ActivityFeedInvalidation.invalidate(_storageService);
     return message;

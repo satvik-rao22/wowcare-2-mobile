@@ -347,6 +347,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
   final double gapHeight;
   final double maxDropdownHeight;
   final bool showSelectAll;
+  final bool enableSearch;
+  final String? searchHintText;
 
   const CustomMultiSelectDropdown({
     Key? key,
@@ -362,6 +364,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
     this.labelBottomSpacing,
     this.gapHeight = 6,
     this.maxDropdownHeight = 250,
+    this.enableSearch = false,
+    this.searchHintText,
   }) : super(key: key);
 
   @override
@@ -372,6 +376,8 @@ class CustomMultiSelectDropdown extends StatefulWidget {
 class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   static const double _dropdownRowHeight = 44;
   late List<String> _localSelectedItems;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   bool isDropdownOpen = false;
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _fieldKey = GlobalKey();
@@ -416,6 +422,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   }
 
   void _openDropdown() {
+    _searchQuery = '';
+    _searchController.clear();
     _overlayEntry = _createOverlayEntry();
     Overlay.of(context).insert(_overlayEntry!);
     setState(() {
@@ -492,112 +500,148 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
-                      final itemCount =
-                          widget.items.length + (widget.showSelectAll ? 1 : 0);
-                      final targetHeight = itemCount * _dropdownRowHeight;
+                      List<String> filteredItems() {
+                        final q = _searchQuery.trim().toLowerCase();
+                        if (q.isEmpty) return widget.items;
+                        return widget.items
+                            .where((item) => item.toLowerCase().contains(q))
+                            .toList();
+                      }
+
+                      final visibleItems = filteredItems();
+                      final itemCount = visibleItems.length + (widget.showSelectAll ? 1 : 0);
+                      final searchBoxHeight = widget.enableSearch ? 52.0 : 0.0;
+                      final targetHeight = (itemCount * _dropdownRowHeight) + searchBoxHeight;
                       final dropdownHeight =
                           targetHeight > widget.maxDropdownHeight
                           ? widget.maxDropdownHeight
                           : targetHeight;
                       return SizedBox(
                         height: dropdownHeight,
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          shrinkWrap: true,
-                          physics: targetHeight > widget.maxDropdownHeight
-                              ? const AlwaysScrollableScrollPhysics()
-                              : const NeverScrollableScrollPhysics(),
-                          itemExtent: _dropdownRowHeight,
-                          itemCount:
-                              widget.items.length +
-                              (widget.showSelectAll ? 1 : 0),
-                          itemBuilder: (context, index) {
-                          /// 🔥 SELECT ALL
-                          if (widget.showSelectAll && index == 0) {
-                            final isAllSelected =
-                                _localSelectedItems.length ==
-                                widget.items.length;
-
-                            return InkWell(
-                              onTap: () {
-                                setOverlayState(() {
-                                  if (isAllSelected) {
-                                    _localSelectedItems.clear();
-                                  } else {
-                                    _localSelectedItems = List.from(
-                                      widget.items,
-                                    );
-                                  }
-                                });
-                                setState(() {});
-                                widget.onChanged(_localSelectedItems);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    _buildCheckbox(isAllSelected),
-                                    const SizedBox(width: 12),
-                                    const Text(
-                                      "Select All",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
+                        child: Column(
+                          children: [
+                            if (widget.enableSearch)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                                child: SizedBox(
+                                  height: 38,
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: (value) {
+                                      setOverlayState(() {
+                                        _searchQuery = value;
+                                      });
+                                    },
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      prefixIcon: const Icon(Icons.search, size: 18),
+                                      hintText: widget.searchHintText ?? 'Search',
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          final actualIndex = widget.showSelectAll
-                              ? index - 1
-                              : index;
-
-                          final item = widget.items[actualIndex];
-                          final isSelected = _localSelectedItems.contains(item);
-
-                          return InkWell(
-                            onTap: () {
-                              setOverlayState(() {
-                                if (isSelected) {
-                                  _localSelectedItems.remove(item);
-                                } else {
-                                  _localSelectedItems.add(item);
-                                }
-                              });
-                              setState(() {});
-                              widget.onChanged(_localSelectedItems);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildCheckbox(isSelected),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      item,
-                                      style: const TextStyle(fontSize: 14),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                      ),
                                     ),
                                   ),
-                                ],
+                                ),
+                              ),
+                            Expanded(
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                physics: targetHeight > widget.maxDropdownHeight
+                                    ? const AlwaysScrollableScrollPhysics()
+                                    : const NeverScrollableScrollPhysics(),
+                                itemExtent: _dropdownRowHeight,
+                                itemCount: itemCount,
+                                itemBuilder: (context, index) {
+                                  if (widget.showSelectAll && index == 0) {
+                                    final isAllSelected =
+                                        _localSelectedItems.length == widget.items.length;
+                                    return InkWell(
+                                      onTap: () {
+                                        setOverlayState(() {
+                                          if (isAllSelected) {
+                                            _localSelectedItems.clear();
+                                          } else {
+                                            _localSelectedItems = List.from(widget.items);
+                                          }
+                                        });
+                                        setState(() {});
+                                        widget.onChanged(List<String>.from(_localSelectedItems));
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            _buildCheckbox(isAllSelected),
+                                            const SizedBox(width: 12),
+                                            const Text(
+                                              'Select All',
+                                              style: TextStyle(fontWeight: FontWeight.w600),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: false,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  final actualIndex =
+                                      widget.showSelectAll ? index - 1 : index;
+                                  final item = visibleItems[actualIndex];
+                                  final isSelected = _localSelectedItems.contains(item);
+
+                                  return InkWell(
+                                    onTap: () {
+                                      setOverlayState(() {
+                                        if (isSelected) {
+                                          _localSelectedItems.remove(item);
+                                        } else {
+                                          _localSelectedItems.add(item);
+                                        }
+                                      });
+                                      setState(() {});
+                                      widget.onChanged(List<String>.from(_localSelectedItems));
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          _buildCheckbox(isSelected),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              item,
+                                              style: const TextStyle(fontSize: 14),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: false,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                          );
-                          },
+                          ],
                         ),
                       );
                     },
@@ -614,6 +658,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
   @override
   void dispose() {
     _closeDropdown(updateState: false);
+    _searchController.dispose();
     super.dispose();
   }
 

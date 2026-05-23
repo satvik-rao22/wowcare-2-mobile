@@ -6,6 +6,8 @@ class StudentListItemModel extends Equatable {
     required this.firstName,
     required this.lastName,
     required this.status,
+    this.profilePhotoUrl,
+    this.profilePhotoAssetCode,
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
@@ -18,6 +20,8 @@ class StudentListItemModel extends Equatable {
   final String firstName;
   final String lastName;
   final String status;
+  final String? profilePhotoUrl;
+  final String? profilePhotoAssetCode;
   final String classroom;
   final String dob;
   final String movementDate;
@@ -36,8 +40,11 @@ class StudentListItemModel extends Equatable {
     if (classroomRaw is String) {
       classroomCodeOrName = classroomRaw;
     } else if (classroomRaw is Map) {
+      final name = classroomRaw['name']?.toString().trim() ?? '';
       final code = classroomRaw['code'];
-      classroomCodeOrName = code?.toString().trim() ?? '';
+      classroomCodeOrName = name.isNotEmpty
+          ? name
+          : (code?.toString().trim() ?? '');
     }
 
     final rawTags = json['tags'];
@@ -135,6 +142,8 @@ class StudentListItemModel extends Equatable {
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      profilePhotoUrl: json['profilePhotoUrl'] as String?,
+      profilePhotoAssetCode: json['profilePhotoAssetCode'] as String?,
       classroom: classroomCodeOrName,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
@@ -150,6 +159,9 @@ class StudentListItemModel extends Equatable {
       'firstName': firstName,
       'lastName': lastName,
       'status': status,
+      if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
+      if (profilePhotoAssetCode != null)
+        'profilePhotoAssetCode': profilePhotoAssetCode,
       'classroom': classroom,
       'dob': dob,
       'movementDate': movementDate,
@@ -165,6 +177,8 @@ class StudentListItemModel extends Equatable {
         firstName,
         lastName,
         status,
+        profilePhotoUrl,
+        profilePhotoAssetCode,
         classroom,
         dob,
         movementDate,
@@ -576,7 +590,10 @@ class StudentProfileModel extends Equatable {
   String get fullName => '$firstName $lastName'.trim();
 
   factory StudentProfileModel.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
+    // Accept both the wire envelope `{success, message, data: {...}}` and the
+    // flat shape produced by [toJson] (used when re-hydrating from cache).
+    final rawData = json['data'];
+    final data = rawData is Map<String, dynamic> ? rawData : json;
     final importantDatesJson = data['importantDates'] as Map<String, dynamic>?;
 
     // Classroom can come as a plain string or as an object { code, name }.

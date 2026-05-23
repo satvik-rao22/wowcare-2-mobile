@@ -74,6 +74,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   /// True when the *logged-in* user has an admin persona (e.g. SCHOOL_ADMIN / ORGANIZATION_ADMIN).
   /// Used to make classroom fields read-only in edit flow for admin persona users.
   bool _isLoggedInAdminPersona = false;
+  Set<String> _loggedInStaffAllowedClassroomCodes = <String>{};
 
   OverlayEntry? _overlayEntry;
   String? _warningMessage;

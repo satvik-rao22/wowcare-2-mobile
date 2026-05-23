@@ -14,6 +14,14 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
+/// Classroom for activity-settings API (parent often passes a new list instance each rebuild).
+String? _classroomCodeForActivityMaps(List<Map<String, dynamic>>? maps) {
+  if (maps == null || maps.isEmpty) return null;
+  final dynamic code = maps.first['classroomCode'] ?? maps.first['classroomcode'];
+  if (code is String && code.trim().isNotEmpty) return code.trim();
+  return null;
+}
+
 class StudentActionPanel extends StatefulWidget {
   const StudentActionPanel({
     super.key,
@@ -25,6 +33,7 @@ class StudentActionPanel extends StatefulWidget {
     this.onClearSelections,
     this.isProfileEnabled = false,
     this.activitiesEnabled = true,
+    this.activitiesDisabledHint,
     this.showAttendanceActions = false,
     this.onSignInTap,
     this.onSignOutTap,
@@ -35,6 +44,9 @@ class StudentActionPanel extends StatefulWidget {
     /// Selected students in the same shape as [ChooseActivity.selectedStudents]
     /// (`classroomCode`, `studentCode`, `name`). Drives class activity list + navigation.
     this.activityStudentMaps,
+    /// Invoked after an activity is successfully recorded from the Activities
+    /// panel, so the host can refresh its roster + caches.
+    this.onActivityRecorded,
   });
 
   final StudentPanelType currentPanel;
@@ -45,6 +57,8 @@ class StudentActionPanel extends StatefulWidget {
   final VoidCallback? onClearSelections;
   final bool isProfileEnabled;
   final bool activitiesEnabled;
+  /// Tooltip when Activities is greyed out (e.g. not all students signed in today).
+  final String? activitiesDisabledHint;
   final bool showAttendanceActions;
   final VoidCallback? onSignInTap;
   final VoidCallback? onSignOutTap;
@@ -53,6 +67,7 @@ class StudentActionPanel extends StatefulWidget {
   final bool isAttendanceActionLoading;
   final StudentAttendanceActionAvailability attendanceAvailability;
   final List<Map<String, dynamic>>? activityStudentMaps;
+  final VoidCallback? onActivityRecorded;
 
   @override
   State<StudentActionPanel> createState() => _StudentActionPanelState();
@@ -73,6 +88,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
   final Map<String, String> _activityDisplayNameByKey = {};
   String? _activitiesLoadClassroomCode;
   String? _pendingNavigationKey;
+  /// Avoid duplicate in-flight GET activity-settings for the same classroom.
+  String? _inflightActivitySettingsClassroom;
 
   void _togglePanel(StudentPanelType panel) {
     setState(() {
@@ -107,21 +124,24 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
         _ensureActivitySettingsLoaded();
       }
     }
+    // Parents rebuild with a fresh [List<Map>] each frame (`!=` is always true).
+    // Only drop cached settings when the *classroom* for those maps actually changes.
     if (widget.activityStudentMaps != oldWidget.activityStudentMaps) {
-      _activitiesLoadClassroomCode = null;
-      if (_currentPanel == StudentPanelType.activities) {
+      final prevCc =
+          _classroomCodeForActivityMaps(oldWidget.activityStudentMaps);
+      final nextCc = _classroomCodeForActivityMaps(widget.activityStudentMaps);
+      if (prevCc != nextCc) {
+        _activitiesLoadClassroomCode = null;
+      }
+      if (_currentPanel == StudentPanelType.activities ||
+          widget.currentPanel == StudentPanelType.activities) {
         _ensureActivitySettingsLoaded();
       }
     }
   }
 
-  String? _classroomCodeFromMaps() {
-    final maps = widget.activityStudentMaps;
-    if (maps == null || maps.isEmpty) return null;
-    final dynamic code = maps.first['classroomCode'] ?? maps.first['classroomcode'];
-    if (code is String && code.trim().isNotEmpty) return code.trim();
-    return null;
-  }
+  String? _classroomCodeFromMaps() =>
+      _classroomCodeForActivityMaps(widget.activityStudentMaps);
 
   String? _getKnownActivityKeyByNormalized(String normalizedName) {
     for (final key in ChooseActivity.activityIcons.keys) {
@@ -146,7 +166,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
         _visibleActivityKeys.isNotEmpty) {
       return;
     }
+    if (_inflightActivitySettingsClassroom == classroomCode) {
+      return;
+    }
 
+    _inflightActivitySettingsClassroom = classroomCode;
     setState(() => _activitiesLoading = true);
     try {
       final List<ActivitySetting> settings =
@@ -213,11 +237,32 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
         _visibleActivityKeys = [];
         _activitiesLoadClassroomCode = null;
       });
+    } finally {
+      if (_inflightActivitySettingsClassroom == classroomCode) {
+        _inflightActivitySettingsClassroom = null;
+      }
     }
   }
 
   bool get _isMultipleStudentsSelected =>
       (widget.activityStudentMaps?.length ?? 0) > 1;
+
+  bool _isStudentCurrentlyNapping(Map<String, dynamic> student) {
+    final dynamic status = student['nappingStatus'] ?? student['isNapping'];
+    if (status == true) return true;
+    if (status is String && status.toLowerCase() == 'true') return true;
+    return false;
+  }
+
+  /// Same rule as [ChooseActivity._hasMixedNappingSelection].
+  bool _hasMixedNappingSelection() {
+    final maps = widget.activityStudentMaps;
+    if (maps == null || maps.isEmpty) return false;
+    final hasNapping = maps.any(_isStudentCurrentlyNapping);
+    final hasNotNapping =
+        maps.any((student) => !_isStudentCurrentlyNapping(student));
+    return hasNapping && hasNotNapping;
+  }
 
   bool _isActivityDisabled(String activityKey, String activityName) {
     final normalized = activityName.toLowerCase();
@@ -233,6 +278,12 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
       }
     }
 
+    if (_isMultipleStudentsSelected &&
+        activityKey.toLowerCase() == 'nap' &&
+        _hasMixedNappingSelection()) {
+      return true;
+    }
+
     if (_enabledActivities == null &&
         activityKey == 'Incident' &&
         _isMultipleStudentsSelected) {
@@ -243,6 +294,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
   }
 
   String _disabledActivityMessage(String activityKey, String activityName) {
+    if (_isMultipleStudentsSelected &&
+        activityKey.toLowerCase() == 'nap' &&
+        _hasMixedNappingSelection()) {
+      return 'Nap is disabled for mixed selection. Select either all currently napping students or all not-napping students.';
+    }
     if (activityKey == 'Incident' && _isMultipleStudentsSelected) {
       return 'Incident can only be recorded for a single student.';
     }
@@ -292,9 +348,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null) {
       final nextScreen = destinationBuilder(maps);
-      Navigator.of(context).push(
+      final recorded = await Navigator.of(context).push<dynamic>(
         MaterialPageRoute(builder: (_) => nextScreen),
       );
+      // Activity screens pop `true` after a successful create/update.
+      if (recorded == true) {
+        widget.onActivityRecorded?.call();
+      }
     }
   }
 
@@ -364,8 +424,12 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                           : null,
                       isSelected: _currentPanel == StudentPanelType.activities,
                       isEnabled: widget.activitiesEnabled,
-                      disabledTooltip:
-                          'Select applicable items to mark an activity',
+                      disabledTooltip: widget.activitiesEnabled
+                          ? ''
+                          : (widget.activitiesDisabledHint ??
+                              'You cannot record activities for absent, not marked, '
+                              'or not signed-in students. Select only students with '
+                              'green signed-in status today.'),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(

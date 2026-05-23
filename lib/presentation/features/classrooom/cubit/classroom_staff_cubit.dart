@@ -17,6 +17,34 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
   final GetStaffClassroomsUseCase _getStaffClassroomsUseCase;
   final StorageService _storageService;
 
+  String? _lastSuccessfulStaffListKey;
+
+  static String staffListRequestKey({
+    required String classroomCode,
+    String? search,
+    List<String>? status,
+    List<String>? designation,
+  }) {
+    final st =
+        List<String>.from(status ?? const <String>[])
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    final des =
+        List<String>.from(designation ?? const <String>[])
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    return [
+      classroomCode.trim(),
+      's=${(search ?? '').trim().toLowerCase()}',
+      'st=${st.join(',')}',
+      'des=${des.join(',')}',
+    ].join('|');
+  }
+
   Future<void> loadInitial({
     required String classroomCode,
     String? search,
@@ -25,9 +53,20 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
   }) async {
     if (state.isLoading) return;
 
+    final key = staffListRequestKey(
+      classroomCode: classroomCode,
+      search: search,
+      status: status,
+      designation: designation,
+    );
+    final preserve =
+        key == _lastSuccessfulStaffListKey && state.staff.isNotEmpty;
+
     emit(
       state.copyWith(
-        isLoading: true,
+        staff: preserve ? state.staff : [],
+        isLoading: !preserve,
+        isRefreshing: false,
         errorMessage: null,
         lastClassroomCode: classroomCode,
       ),
@@ -39,7 +78,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
 
       final items = await _getStaffClassroomsUseCase(
         schoolCode: schoolCode,
-        classCodes: [classroomCode],
+        primaryClassroomCodes: [classroomCode],
         search: search,
         status: status,
         designation: designation,
@@ -47,6 +86,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
       );
 
       if (isClosed) return;
+      _lastSuccessfulStaffListKey = key;
       emit(
         state.copyWith(
           staff: items,
@@ -77,6 +117,13 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
   }) async {
     if (state.isRefreshing) return;
 
+    final key = staffListRequestKey(
+      classroomCode: classroomCode,
+      search: search,
+      status: status,
+      designation: designation,
+    );
+
     emit(
       state.copyWith(
         isRefreshing: true,
@@ -91,7 +138,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
 
       final items = await _getStaffClassroomsUseCase(
         schoolCode: schoolCode,
-        classCodes: [classroomCode],
+        primaryClassroomCodes: [classroomCode],
         search: search,
         status: status,
         designation: designation,
@@ -99,6 +146,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
       );
 
       if (isClosed) return;
+      _lastSuccessfulStaffListKey = key;
       emit(
         state.copyWith(
           staff: items,

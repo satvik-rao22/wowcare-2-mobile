@@ -1,4 +1,14 @@
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<circle cx="12" cy="12" r="12" fill="#B1AFE9" fill-opacity="0.5"/>
-<path d="M16.2 15.6V9.6M12 15.6V6M7.80005 15.6V12" stroke="#F5F5F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="paint0_linear_info_btn" x1="12" y1="0" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5978F7"/>
+      <stop offset="1" stop-color="#9C84FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Enabled look: saturated gradient circle -->
+  <circle cx="12" cy="12" r="12" fill="url(#paint0_linear_info_btn)"/>
+  <!-- Solid white rounded bars -->
+  <rect x="6.35" y="12" width="2.9" height="3.6" rx="1.45" fill="#FFFFFF"/>
+  <rect x="10.55" y="6" width="2.9" height="9.6" rx="1.45" fill="#FFFFFF"/>
+  <rect x="14.75" y="9.6" width="2.9" height="6" rx="1.45" fill="#FFFFFF"/>
 </svg>

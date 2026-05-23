@@ -1,7 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -17,10 +20,7 @@ import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../core/util/staff_code_resolver.dart';
 import '../../../../core/util/storage_keys.dart';
-import '../../../../data/features/attendance/datasources/attendance_remote_datasource.dart';
-import '../../../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
-import '../../../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -71,8 +71,8 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   late final CacheManager _cacheManager;
   late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
   late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
+  late final Dio _dio;
   String? _schoolCode;
   String _schoolTimeZone = SchoolTimezoneResolver.fallbackTimeZone;
   DateTime _selectedAttendanceDate = DateTime.now();
@@ -162,15 +162,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
     _getTagNameCodeMapForSchoolUseCase =
         serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    if (serviceLocator.isRegistered<GetStudentAttendanceCustomUseCase>()) {
-      _getStudentAttendanceCustomUseCase =
-          serviceLocator<GetStudentAttendanceCustomUseCase>();
-    } else {
-      final apiClient = serviceLocator<ApiClient>();
-      final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
-      final repo = AttendanceRepositoryImpl(remote, _storageService, apiClient);
-      _getStudentAttendanceCustomUseCase = GetStudentAttendanceCustomUseCase(repo);
-    }
+    _dio = serviceLocator<ApiClient>().client;
     _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -278,7 +270,11 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       } catch (_) {}
     }
 
-    if (hydratedFromCache && !forceRefresh) {
+    // For unrestricted personas (admin), still refresh from API to avoid stale
+    // staff-scoped cache after account switches.
+    if (hydratedFromCache &&
+        !forceRefresh &&
+        _allowedClassroomCodes.isNotEmpty) {
       return;
     }
 
@@ -314,6 +310,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       });
 
       await _cacheManager.saveCache(classroomCacheKey, {
+        // Persist full school classrooms; role-based filtering is applied per-session.
         'classrooms': classrooms.map((c) => {'name': c.name, 'code': c.code}).toList(),
       });
     } catch (error) {
@@ -439,19 +436,25 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
     try {
       final selectedDate = _formatAttendanceDate(_selectedAttendanceDate);
-      final page = await _getStudentAttendanceCustomUseCase(
-        fromAttendanceDate: selectedDate,
-        toAttendanceDate: selectedDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes.isEmpty ? null : tagCodes,
-        search: _searchController.text.trim().isEmpty
-            ? null
-            : _searchController.text.trim(),
-        page: 0,
-        size: 200,
+      final response = await _dio.get<dynamic>(
+        ApiPaths.urlWithBase(
+          ApiPaths.studentAttendanceMarkActivityStudentList,
+          ApiConstants.attendanceBaseUrl,
+        ),
+        queryParameters: <String, dynamic>{
+          'attendanceDate': selectedDate,
+          if (classroomCodes != null && classroomCodes.isNotEmpty)
+            'classroomCodes': classroomCodes,
+          if (tagCodes.isNotEmpty) 'tagCodes': tagCodes,
+          'page': 0,
+          'size': 200,
+        },
+        options: Options(listFormat: ListFormat.multiCompatible),
       );
-      final students =
-          page.items.where((item) => item.hasSignIn).toList(growable: false);
+      final students = _parseMarkActivityStudentListResponse(
+        response.data,
+        selectedClassroomCode: selectedClassroomCode,
+      );
       var nappingCodes = <String>{};
       if (selectedClassroomCode.isNotEmpty) {
         try {
@@ -492,6 +495,79 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   }
 
   void _applyFilters() => setState(() {});
+
+  List<StudentAttendanceCustomItem> _parseMarkActivityStudentListResponse(
+    dynamic payload, {
+    required String selectedClassroomCode,
+  }) {
+    if (payload is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected mark-activity student list API response format',
+      );
+    }
+    final rootData = payload['data'];
+    if (rootData is! Map<String, dynamic>) {
+      return const <StudentAttendanceCustomItem>[];
+    }
+    final content = rootData['content'];
+    if (content is! List) {
+      return const <StudentAttendanceCustomItem>[];
+    }
+
+    return content
+        .whereType<Map>()
+        .map((raw) => Map<String, dynamic>.from(raw))
+        .map(
+          (student) => _mapMarkActivityStudent(
+            student,
+            selectedClassroomCode: selectedClassroomCode,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  StudentAttendanceCustomItem _mapMarkActivityStudent(
+    Map<String, dynamic> student, {
+    required String selectedClassroomCode,
+  }) {
+    final attendedClassrooms = (student['attendedClassrooms'] as List?)
+            ?.whereType<Map>()
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .toList(growable: false) ??
+        const <Map<String, dynamic>>[];
+
+    final selectedTimelineEntry = attendedClassrooms.firstWhere(
+      (entry) =>
+          (entry['classroomCode'] ?? '').toString().trim() ==
+          selectedClassroomCode,
+      orElse: () => attendedClassrooms.isNotEmpty
+          ? attendedClassrooms.first
+          : <String, dynamic>{},
+    );
+
+    final classroomCode =
+        (selectedTimelineEntry['classroomCode'] ?? '').toString().trim();
+    final classroomName =
+        (selectedTimelineEntry['classroomName'] ?? '').toString().trim();
+
+    return StudentAttendanceCustomItem(
+      studentCode: (student['studentCode'] ?? '').toString().trim(),
+      studentName: (student['studentName'] ?? '').toString().trim(),
+      isExpectedToday: false,
+      classroomName: classroomName,
+      classroomCode: classroomCode,
+      attendedDays: 1,
+      attendedTime: '',
+      attendedHours: 0,
+      attendedMinutes: 0,
+      signedInBy: null,
+      signedInTime: '00:00:00',
+      signedOutBy: null,
+      signedOutTime: null,
+      tagCodes: const <String>[],
+      tagNames: const <String>[],
+    );
+  }
 
   String _classroomLabelForStudent(StudentAttendanceCustomItem student) {
     final fromApi = student.classroomName.trim();
@@ -836,6 +912,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(
+                    name: CoreUtils.chooseActivityRouteName,
+                  ),
                   builder: (_) => ChooseActivity(
                     selectedStudents: normalizedSelectedStudents,
                   ),

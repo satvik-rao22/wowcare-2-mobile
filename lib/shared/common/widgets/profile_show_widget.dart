@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 
 class DocumentImageWidget extends StatefulWidget {
+  static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
   final String fileUuid;
+  final String? imageUrl;
+  final String? mediaAssetCode;
   final String? name;
 
   /// Optional staff code for attendance status dot.
@@ -38,9 +44,19 @@ class DocumentImageWidget extends StatefulWidget {
   /// (E.g. sign-in selection screens want to highlight absences only.)
   final bool showOnlyAbsentAttendanceDot;
 
+  /// If true, widget does not call profile/asset-code endpoints as a fallback
+  /// when both [imageUrl] and [mediaAssetCode] are empty.
+  final bool disableProfileLookupFallback;
+
+  /// If true, widget will NOT call attendance APIs for status dot.
+  /// You can provide [statusColor] + [statusTooltip] instead (e.g. from a cached map).
+  final bool disableAttendanceStatusLookup;
+
   const DocumentImageWidget({
     Key? key,
     required this.fileUuid,
+    this.imageUrl,
+    this.mediaAssetCode,
     this.name,
     this.staffCode,
     this.staffEmploymentStatus,
@@ -57,16 +73,51 @@ class DocumentImageWidget extends StatefulWidget {
     this.statusColor,
     this.statusTooltip,
     this.showOnlyAbsentAttendanceDot = false,
+    this.disableProfileLookupFallback = false,
+    this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
+
+  static void clearProfilePhotoCache({
+    String? studentCode,
+    String? staffCode,
+  }) {
+    final student = (studentCode ?? '').trim();
+    final staff = (staffCode ?? '').trim();
+    if (student.isEmpty && staff.isEmpty) {
+      _DocumentImageWidgetState._profilePhotoUrlCache.clear();
+      _DocumentImageWidgetState._profilePhotoFetchedAt.clear();
+      _DocumentImageWidgetState._profilePhotoInFlight.clear();
+      return;
+    }
+    if (student.isNotEmpty) {
+      final key = 'student:$student';
+      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
+      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+      _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
+    }
+    if (staff.isNotEmpty) {
+      final key = 'staff:$staff';
+      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
+      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+      _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
+    }
+  }
 
   @override
   State<DocumentImageWidget> createState() => _DocumentImageWidgetState();
 }
 
 class _DocumentImageWidgetState extends State<DocumentImageWidget> {
+  static final Map<String, String> _profilePhotoUrlCache = <String, String>{};
+  static final Map<String, DateTime> _profilePhotoFetchedAt =
+      <String, DateTime>{};
+  static final Map<String, Future<String?>> _profilePhotoInFlight =
+      <String, Future<String?>>{};
+
   Color? _avatarColor;
   Color? _statusDotColor;
   String? _statusLabel; // SIGNED_IN / ABSENT / null
+  String? _resolvedImageUrl;
   bool _isLoadingStatus = false;
 
   @override
@@ -77,6 +128,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           ? widget.name!.trim()
           : widget.fileUuid,
     );
+    _resolvedImageUrl = _seedImageUrl();
+    _resolveProfilePhotoIfNeeded();
     _loadAttendanceStatusIfNeeded();
   }
 
@@ -92,6 +145,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       );
     }
 
+    if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.mediaAssetCode != widget.mediaAssetCode ||
+        oldWidget.studentCode != widget.studentCode ||
+        oldWidget.staffCode != widget.staffCode) {
+      _resolvedImageUrl = _seedImageUrl();
+      _resolveProfilePhotoIfNeeded();
+    }
+
     if (oldWidget.staffCode != widget.staffCode ||
         oldWidget.staffEmploymentStatus != widget.staffEmploymentStatus ||
         oldWidget.studentEnrollmentStatus != widget.studentEnrollmentStatus ||
@@ -100,7 +161,328 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     }
   }
 
+  String? _seedImageUrl() {
+    final explicit = widget.imageUrl?.trim() ?? '';
+    if (explicit.isNotEmpty) return explicit;
+    final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
+    if (mediaAssetCode.isNotEmpty) {
+      final key = 'asset:$mediaAssetCode';
+      final cached = _cachedUrlIfFresh(key);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
+    final studentCode = widget.studentCode?.trim() ?? '';
+    if (studentCode.isNotEmpty) {
+      final key = 'student:$studentCode';
+      final cached = _cachedUrlIfFresh(key);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
+    final staffCode = widget.staffCode?.trim() ?? '';
+    if (staffCode.isNotEmpty) {
+      final key = 'staff:$staffCode';
+      final cached = _cachedUrlIfFresh(key);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
+    return null;
+  }
+
+  String? _cachedUrlIfFresh(String key) {
+    final cached = _profilePhotoUrlCache[key];
+    final fetchedAt = _profilePhotoFetchedAt[key];
+    if (cached == null || fetchedAt == null) return null;
+    if (DateTime.now().difference(fetchedAt) > DocumentImageWidget._profilePhotoCacheTtl) {
+      _profilePhotoUrlCache.remove(key);
+      _profilePhotoFetchedAt.remove(key);
+      return null;
+    }
+    return cached;
+  }
+
+  Future<void> _resolveProfilePhotoIfNeeded() async {
+    if ((widget.imageUrl ?? '').trim().isNotEmpty) return;
+
+    final studentCode = widget.studentCode?.trim() ?? '';
+    final staffCode = widget.staffCode?.trim() ?? '';
+    final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
+    if (studentCode.isEmpty && staffCode.isEmpty && mediaAssetCode.isEmpty) {
+      return;
+    }
+
+    if (widget.disableProfileLookupFallback && mediaAssetCode.isEmpty) {
+      return;
+    }
+
+    final cacheKey = mediaAssetCode.isNotEmpty
+        ? 'asset:$mediaAssetCode'
+        : (studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode');
+    final cached = _cachedUrlIfFresh(cacheKey);
+    if (cached != null && cached.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _resolvedImageUrl = cached);
+      return;
+    }
+
+    final inFlight = _profilePhotoInFlight[cacheKey];
+    if (inFlight != null) {
+      final resolved = await inFlight;
+      if (!mounted) return;
+      if ((resolved ?? '').trim().isNotEmpty) {
+        setState(() => _resolvedImageUrl = resolved!.trim());
+      }
+      return;
+    }
+
+    final future = _fetchProfilePhotoUrl(
+      studentCode: studentCode,
+      staffCode: staffCode,
+      mediaAssetCode: mediaAssetCode,
+    );
+    _profilePhotoInFlight[cacheKey] = future;
+    try {
+      final resolved = await future;
+      if ((resolved ?? '').trim().isNotEmpty) {
+        _profilePhotoUrlCache[cacheKey] = resolved!.trim();
+        _profilePhotoFetchedAt[cacheKey] = DateTime.now();
+      }
+      if (!mounted) return;
+      if ((resolved ?? '').trim().isNotEmpty) {
+        setState(() => _resolvedImageUrl = resolved!.trim());
+      }
+    } finally {
+      _profilePhotoInFlight.remove(cacheKey);
+    }
+  }
+
+  Future<String?> _fetchProfilePhotoUrl({
+    required String studentCode,
+    required String staffCode,
+    required String mediaAssetCode,
+  }) async {
+    final apiClient = serviceLocator<ApiClient>();
+    if (mediaAssetCode.isNotEmpty) {
+      // Try document service first (when caller provides an asset code),
+      // but fall back to profile endpoints if the document lookup fails.
+      final documentUrl = await _fetchDocumentAssetUrl(mediaAssetCode);
+      if (documentUrl.isNotEmpty) return documentUrl;
+    }
+    if (studentCode.isNotEmpty) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.studentProfile(studentCode),
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await apiClient.client.get<dynamic>(endpoint);
+      final data = _extractDataMap(response.data);
+      final directUrl = _extractPhotoUrl(data);
+      if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
+
+      String assetCode = _extractAssetCode(data);
+      if (assetCode.isEmpty) {
+        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        assetCode = await _fetchStudentProfilePhotoAssetCode(
+          studentCode: studentCode,
+          schoolCode: schoolCode,
+        );
+      }
+      if (assetCode.isEmpty) return null;
+      final documentUrl = await _fetchDocumentAssetUrl(assetCode);
+      return documentUrl.isEmpty ? null : documentUrl;
+    }
+    if (staffCode.isNotEmpty) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffProfileByCodePath(staffCode),
+        ApiConstants.staffBaseUrl,
+      );
+      final response = await apiClient.client.get<dynamic>(endpoint);
+      final data = _extractDataMap(response.data);
+      final directUrl = _extractPhotoUrl(data);
+      if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
+
+      String assetCode = _extractAssetCode(data);
+      if (assetCode.isEmpty) {
+        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        assetCode = await _fetchStaffProfilePhotoAssetCode(
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+        );
+      }
+      if (assetCode.isEmpty) return null;
+      final documentUrl = await _fetchDocumentAssetUrl(assetCode);
+      return documentUrl.isEmpty ? null : documentUrl;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _extractDataMap(dynamic body) {
+    if (body is! Map) return null;
+    final data = body['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return null;
+  }
+
+  String? _extractPhotoUrl(Map<String, dynamic>? data) {
+    if (data == null) return null;
+    final candidates = <dynamic>[
+      data['profilePhotoUrl'],
+      data['photoUrl'],
+      data['profileImageUrl'],
+      data['imageUrl'],
+      data['url'],
+    ];
+    for (final raw in candidates) {
+      final value = (raw ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  String _extractAssetCode(Map<String, dynamic>? data) {
+    if (data == null) return '';
+    final candidates = <dynamic>[
+      data['profilePhotoAssetCode'],
+      data['photoAssetCode'],
+      data['assetCode'],
+    ];
+    for (final raw in candidates) {
+      final value = (raw ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  Future<String> _fetchStaffProfilePhotoAssetCode({
+    required String staffCode,
+    required String schoolCode,
+  }) async {
+    final normalizedStaff = staffCode.trim();
+    final normalizedSchool = schoolCode.trim();
+    if (normalizedStaff.isEmpty || normalizedSchool.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffProfilePhotoAssetCodes,
+        ApiConstants.staffBaseUrl,
+      );
+      final response = await apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'schoolCode': normalizedSchool,
+          'staffCode': normalizedStaff,
+        },
+      );
+      final body = response.data;
+      if (body is! Map) return '';
+      final data = body['data'];
+      if (data is! List) return '';
+      final match = data.whereType<Map>().firstWhere(
+        (row) =>
+            (row['staffCode'] ?? '').toString().trim().toUpperCase() ==
+            normalizedStaff.toUpperCase(),
+        orElse: () => <String, dynamic>{},
+      );
+      return (match['profilePhotoAssetCode'] ?? match['assetCode'] ?? '')
+          .toString()
+          .trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<String> _fetchStudentProfilePhotoAssetCode({
+    required String studentCode,
+    required String schoolCode,
+  }) async {
+    final normalizedStudent = studentCode.trim();
+    final normalizedSchool = schoolCode.trim();
+    if (normalizedStudent.isEmpty || normalizedSchool.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.studentProfilePhotoAssetCodes,
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'schoolCode': normalizedSchool,
+          'studentCode': normalizedStudent,
+        },
+      );
+      final body = response.data;
+      if (body is! Map) return '';
+      final data = body['data'];
+      if (data is! List) return '';
+      final match = data.whereType<Map>().firstWhere(
+        (row) =>
+            (row['studentCode'] ?? '').toString().trim().toUpperCase() ==
+            normalizedStudent.toUpperCase(),
+        orElse: () => <String, dynamic>{},
+      );
+      return (match['assetCode'] ?? '').toString().trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<String> _fetchDocumentAssetUrl(String assetCode) async {
+    final normalizedAssetCode = assetCode.trim();
+    if (normalizedAssetCode.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint =
+          '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
+          '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
+      final response = await apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      return _extractDocumentAssetUrl(body);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _extractDocumentAssetUrl(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+
+    String pickUrl(Map map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+        map['thumbnailUrl'],
+        map['originalDownloadUrl'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final direct = pickUrl(data);
+    if (direct.isNotEmpty) return direct;
+
+    final variants = data['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final defaultVariant =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!defaultVariant) continue;
+        final url = pickUrl(row);
+        if (url.isNotEmpty) return url;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final url = pickUrl(row);
+        if (url.isNotEmpty) return url;
+      }
+    }
+    return '';
+  }
+
   Future<void> _loadAttendanceStatusIfNeeded() async {
+    // Employment / enrollment "upcoming" must apply even when attendance API
+    // lookups are disabled (e.g. classroom roster rows pass today's status via
+    // [statusColor] and set [disableAttendanceStatusLookup] to avoid N+1 calls).
     final employment = widget.staffEmploymentStatus?.trim().toUpperCase() ?? '';
     if (employment == 'UPCOMING') {
       if (!mounted) return;
@@ -118,6 +500,15 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       setState(() {
         _statusDotColor = AppColors.mustardProgressBar;
         _statusLabel = 'Upcoming';
+      });
+      return;
+    }
+
+    if (widget.disableAttendanceStatusLookup) {
+      if (!mounted) return;
+      setState(() {
+        _statusDotColor = null;
+        _statusLabel = null;
       });
       return;
     }
@@ -189,9 +580,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrlToShow =
+        (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
+    final hasImageUrl = imageUrlToShow.isNotEmpty;
     return GestureDetector(
       onTap: widget.onTap,
-      child: (widget.name != null && widget.name!.isNotEmpty)
+      child: hasImageUrl
+          ? _buildAvatarWithStatus(_buildNetworkAvatar(imageUrlToShow))
+          : (widget.name != null && widget.name!.isNotEmpty)
           ? _buildAvatarWithStatus(_buildInitialsAvatar())
           : _buildAvatarWithStatus(_buildPlaceholder()),
     );
@@ -347,6 +743,26 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         ),
       );
     }
+  }
+
+  Widget _buildNetworkAvatar(String imageUrl) {
+    final image = Image.network(
+      imageUrl,
+      width: widget.size,
+      height: widget.size,
+      fit: widget.fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return _buildShimmer();
+      },
+      errorBuilder: (context, error, stackTrace) {
+        if (widget.name != null && widget.name!.trim().isNotEmpty) {
+          return _buildInitialsAvatar();
+        }
+        return _buildPlaceholder();
+      },
+    );
+    return _buildImageContainer(child: image);
   }
 
   Widget _buildShimmer() {

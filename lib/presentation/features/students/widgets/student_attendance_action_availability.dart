@@ -17,15 +17,14 @@ class StudentAttendanceGate {
 
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day
+  /// - SIGNED_OUT -> enable Sign-In only (student can be re-signed-in)
   /// - ABSENT     -> enable Sign-In only
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
-    if (hasSignedOutToday) return false; // once signed out, no actions allowed
     if (isSignedInToday) return false;
-    // Absent can be "recovered" by signing in.
+    // SIGNED_OUT / ABSENT / NOT_MARKED can all be "recovered" by signing in.
     return true;
   }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -68,6 +69,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   bool _isParentRole = false;
   bool? _isTeacherStaffPersona; // When true: skip staff selection and use self forms.
   String _loggedInStaffCode = '';
+  String? _lastSeenRole;
 
   @override
   void initState() {
@@ -80,6 +82,19 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     );
     _tabController.addListener(_onTabChanged);
     _syncPersonaFlags();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final role = context.watch<RoleProvider>().role;
+    if (_lastSeenRole != role) {
+      _lastSeenRole = role;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncPersonaFlags();
+      });
+    }
   }
 
   Future<void> _syncPersonaFlags() async {
@@ -121,62 +136,24 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
-
     try {
       final storage = serviceLocator<StorageService>();
-      final orgCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final detailsRaw =
-          (await storage.getString(StorageKeys.userAccessDetails) ?? '').trim();
-      if (detailsRaw.isNotEmpty) {
-        final decoded = jsonDecode(detailsRaw);
-        if (decoded is List) {
-          for (final user in decoded) {
-            if (user is! Map) continue;
-            final userOrg = (user['organizationCode'] ?? '').toString().trim();
-            if (orgCode.isNotEmpty && userOrg != orgCode) continue;
-            final schools = user['schools'];
-            if (schools is! List) continue;
-            for (final s in schools) {
-              if (s is! Map) continue;
-              final school = Map<String, dynamic>.from(s);
-              final sc = (school['schoolCode'] ?? '').toString().trim();
-              if (schoolCode.isNotEmpty && sc != schoolCode) continue;
-              final role = (school['role'] ?? '').toString().toUpperCase().trim();
-              if (role.contains('PARENT') || role.contains('GUARDIAN')) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '').toString().toUpperCase().trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final raw = jsonEncode(loginContext ?? const <String, dynamic>{}).toUpperCase();
-      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
-        return true;
+      // IMPORTANT:
+      // For multi-role users (e.g. ADMIN + GUARDIAN), we must respect the
+      // *active* persona selected via switch-profile, not just the presence of
+      // any guardian role in the account.
+      final activeRole =
+          (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+      if (activeRole.isNotEmpty) {
+        final upper = activeRole.toUpperCase();
+        return upper.contains('PARENT') || upper.contains('GUARDIAN');
       }
     } catch (_) {
       // Keep default false when session metadata is unavailable.
     }
 
-    return false;
+    // Fallback to provider role (already reflects active persona).
+    return context.read<RoleProvider>().isParent;
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -234,7 +211,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final roleProvider = Provider.of<RoleProvider>(context, listen: false);
+    final roleProvider = context.watch<RoleProvider>();
     final isAdmin = roleProvider.isAdmin && !_isParentRole;
     final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;
@@ -1007,6 +984,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     return InkWell(
       onTap: () async {
         final navigator = Navigator.of(context, rootNavigator: true);
+        // Captured before popping the popup — the popup's own context is
+        // defunct once it's removed.
+        final router = GoRouter.of(context);
         navigator.pop();
         if (isStaffTab) {
           if (_isTeacherStaffPersona == true) {
@@ -1029,24 +1009,20 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
               ),
             );
           } else {
-            // Admin: Navigate to staff attendance tabbed view
-            navigator.push(
-              MaterialPageRoute(
-                builder: (_) => const StaffAttendanceTabbedView(),
-              ),
-            );
+            // Admin: open the staff attendance tabbed view inside the app
+            // shell (via the router) so the bottom navigation bar stays
+            // functional, instead of pushing a detached new screen.
+            router.go(StaffAttendanceTabbedView.routeName);
           }
         } else {
           if (_isParentRole) {
             await _openParentStudentAttendanceProfile(navigator.context);
             return;
           }
-          // Navigate to student attendance tabbed view
-          navigator.push(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-          );
+          // Open the student attendance tabbed view inside the app shell
+          // (via the router) so the bottom navigation bar stays functional,
+          // instead of pushing a detached new screen.
+          router.go(StudentAttendanceTabbedView.routeName);
         }
       },
       borderRadius: BorderRadius.circular(8),

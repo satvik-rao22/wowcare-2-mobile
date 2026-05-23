@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class EventsCard extends StatefulWidget {
   const EventsCard({super.key});
@@ -9,6 +11,8 @@ class EventsCard extends StatefulWidget {
 }
 
 class _EventsCardState extends State<EventsCard> {
+  bool _minimized = false;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -21,38 +25,15 @@ class _EventsCardState extends State<EventsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Events',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color.fromRGBO(254, 241, 195, 1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'Coming Soon',
-                  style: TextStyle(
-                    color: Color.fromRGBO(137, 108, 2, 1),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+          DashboardCardHeader(
+            title: 'Events',
+            showRedirect: true,
+            onRedirect: () {},
+            minimized: _minimized,
+            onToggle: () => setState(() => _minimized = !_minimized),
           ),
-          const SizedBox(height: 16),
+          if (!_minimized) ...[
+            const SizedBox(height: 16),
           // UI-only: simplified horizontal calendar header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -113,22 +94,20 @@ class _EventsCardState extends State<EventsCard> {
             month: 'Nov',
             title: 'Erica’s Birthday',
             borderColor: Colors.orange,
-            imageUrl: 'https://picsum.photos/100',
           ),
           EventItem(
             date: '26',
             month: 'Nov',
             title: 'Thanksgiving Party',
             borderColor: Colors.yellow,
-            imageUrl: 'https://picsum.photos/105',
           ),
           EventItem(
             date: '30',
             month: 'Nov',
             title: 'Parent Teacher Conference',
             borderColor: Colors.pink,
-            imageUrl: 'https://picsum.photos/104',
           ),
+          ],
         ],
       ),
     );
@@ -140,14 +119,13 @@ class EventItem extends StatelessWidget {
   final String month;
   final String title;
   final Color borderColor;
-  final String imageUrl;
 
-  EventItem({
+  const EventItem({
+    super.key,
     required this.date,
     required this.month,
     required this.title,
     required this.borderColor,
-    required this.imageUrl,
   });
 
   @override
@@ -197,9 +175,13 @@ class EventItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          CircleAvatar(
-            radius: 20,
-            backgroundImage: NetworkImage(imageUrl),
+          DocumentImageWidget(
+            fileUuid: '',
+            name: title,
+            size: 40,
+            fontSize: 16,
+            disableProfileLookupFallback: true,
+            disableAttendanceStatusLookup: true,
           ),
         ],
       ),

@@ -14,6 +14,9 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
@@ -50,9 +53,61 @@ class StudentAboutTabCard extends StatefulWidget {
 }
 
 class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
+  /// Full day labels for days the school is open, sourced from the
+  /// regular-schedule API. Empty until the API loads — UI falls back to
+  /// Mon-Fri in the meantime.
+  List<String> _schoolOpenDayLabels = const <String>[];
+
+  static const Map<String, String> _enumToLabel = <String, String>{
+    'MONDAY': 'Monday',
+    'TUESDAY': 'Tuesday',
+    'WEDNESDAY': 'Wednesday',
+    'THURSDAY': 'Thursday',
+    'FRIDAY': 'Friday',
+    'SATURDAY': 'Saturday',
+    'SUNDAY': 'Sunday',
+  };
+
+  static const List<String> _weekOrder = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
   @override
   void initState() {
     super.initState();
+    _loadSchoolOpenDays();
+  }
+
+  Future<void> _loadSchoolOpenDays() async {
+    try {
+      final profileSchoolCode = widget.studentProfile?.schoolCode.trim();
+      String schoolCode = profileSchoolCode ?? '';
+      if (schoolCode.isEmpty) {
+        final storage = serviceLocator<StorageService>();
+        schoolCode =
+            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      }
+      if (schoolCode.isEmpty) return;
+      final repo = serviceLocator<StaffRepository>();
+      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final open = <String>{
+        for (final d in days) d.dayOfWeek.toUpperCase(),
+      };
+      final ordered = _weekOrder
+          .where(open.contains)
+          .map((k) => _enumToLabel[k]!)
+          .toList(growable: false);
+      if (!mounted) return;
+      setState(() => _schoolOpenDayLabels = ordered);
+    } catch (_) {
+      // Leave _schoolOpenDayLabels empty — fallback path covers display.
+    }
   }
 
   String _formatDate(String? dateString) {
@@ -179,9 +234,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleProvider>();
-    final isGuardianPersona = role.isParent;
     final canStudentWrite =
-        !isGuardianPersona &&
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
@@ -658,13 +711,16 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        'Monday',
-                        'Tuesday',
-                        'Wednesday',
-                        'Thursday',
-                        'Friday',
-                      ].map((fullDay) {
+                      children: (_schoolOpenDayLabels.isNotEmpty
+                              ? _schoolOpenDayLabels
+                              : const <String>[
+                                  'Monday',
+                                  'Tuesday',
+                                  'Wednesday',
+                                  'Thursday',
+                                  'Friday',
+                                ])
+                          .map((fullDay) {
                       // Build a lookup of time ranges from regularSchedules.
                       String? _findTimeRangeForDay(String dayLabel) {
                         final profile = widget.studentProfile;
@@ -683,6 +739,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                               return 'THURSDAY';
                             case 'Friday':
                               return 'FRIDAY';
+                            case 'Saturday':
+                              return 'SATURDAY';
+                            case 'Sunday':
+                              return 'SUNDAY';
                             default:
                               return full.toUpperCase();
                           }
@@ -1016,24 +1076,42 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
   Widget _buildStatusChip(String status) {
     final upperStatus = status.toUpperCase();
-    final label = upperStatus == 'ACTIVE' || status == 'A'
-        ? 'Active'
-        : upperStatus == 'INACTIVE' || status == 'I'
-        ? 'Inactive'
-        : status == 'Upcoming'
-        ? 'Upcoming'
-        : 'Active';
-    final labelColor = upperStatus == 'ACTIVE' || status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 1)
-        : status == 'Upcoming'
-        ? const Color.fromARGB(255, 238, 223, 8)
-        : const Color.fromRGBO(250, 65, 65, 1);
-    final bgColor = upperStatus == 'ACTIVE' || status == 'A'
-        ? const Color.fromRGBO(56, 200, 32, 0.1)
-        : status == 'Upcoming'
-        ? const Color.fromARGB(255, 242, 238, 176)
-        : const Color.fromRGBO(250, 65, 65, 0.1);
-    final icon = upperStatus == 'ACTIVE' || status == 'A'
+    final isActive = upperStatus == 'ACTIVE' || upperStatus == 'A';
+    final isInactive = upperStatus == 'INACTIVE' || upperStatus == 'I';
+    final isUpcoming = upperStatus == 'UPCOMING';
+    final isWaitlist = upperStatus == 'WAITLIST';
+    final isGraduated = upperStatus == 'GRADUATED';
+
+    final String label;
+    final Color labelColor;
+    final Color bgColor;
+    if (isActive) {
+      label = 'Active';
+      labelColor = const Color.fromRGBO(56, 200, 32, 1);
+      bgColor = const Color.fromRGBO(56, 200, 32, 0.1);
+    } else if (isUpcoming) {
+      label = 'Upcoming';
+      labelColor = const Color.fromARGB(255, 138, 110, 0);
+      bgColor = const Color.fromARGB(255, 242, 238, 176);
+    } else if (isWaitlist) {
+      label = 'Waitlist';
+      labelColor = const Color.fromRGBO(27, 35, 126, 1);
+      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+    } else if (isGraduated) {
+      label = 'Graduated';
+      labelColor = const Color.fromRGBO(27, 35, 126, 1);
+      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+    } else if (isInactive) {
+      label = 'Inactive';
+      labelColor = const Color.fromRGBO(250, 65, 65, 1);
+      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+    } else {
+      label = status.isEmpty ? '-' : status;
+      labelColor = const Color.fromRGBO(250, 65, 65, 1);
+      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+    }
+
+    final icon = isActive
         ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
         : null;
 

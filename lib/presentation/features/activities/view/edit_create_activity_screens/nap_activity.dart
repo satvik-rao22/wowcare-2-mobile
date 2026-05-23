@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/activities/widgets/staff_present_w
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
@@ -15,11 +16,13 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
+import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../utils/activity_description_limits.dart';
@@ -31,7 +34,7 @@ import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
 class NapActivityScreen extends StatefulWidget {
   const NapActivityScreen({
@@ -75,10 +78,16 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   String _staffType = '';
   bool _requireAdminApproval = false;
   String? _staffCode;
+  String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
   bool _isSubmitting = false;
+  bool _isApprovingOrRejecting = false;
+  bool _isSavingBeforeApprove = false;
+  bool _lastUpdateSucceeded = false;
   bool _loadingActivityDetail = false;
+  /// Nap start only — persisted when activity type defines a matching BOOLEAN param.
+  bool _remindCheckNapEvery15Minutes = true;
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
 
@@ -88,9 +97,27 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   late final CreateActivityUseCase _createActivityUseCase;
   late final GetActivityUseCase _getActivityUseCase;
   late final UpdateActivityUseCase _updateActivityUseCase;
+  late final ApproveActivityUseCase _approveActivityUseCase;
+  late final RejectActivityUseCase _rejectActivityUseCase;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
+  bool _isAdminApprovalRequired(ActivityItem activity) {
+    final status = (activity.approvalStatus ?? '').trim().toUpperCase();
+    return status.isNotEmpty && status != 'NOT_REQUIRED';
+  }
+
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
+    for (final p in rows) {
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
+      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+          .toString()
+          .trim();
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -105,10 +132,13 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
     _getActivityUseCase = serviceLocator<GetActivityUseCase>();
     _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
+    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
+    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
 
     if (_layoutAsEdit && widget.activityData != null) {
       final activity = widget.activityData!;
       _liveActivity = activity;
+      _requireAdminApproval = _isAdminApprovalRequired(activity);
       _selectedStudents = List<String>.from(activity.studentList);
       _selectedStudentsData = studentDataMapsForActivityEdit(activity);
 
@@ -126,16 +156,21 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         await _prefetchActivityForEdit();
       });
     } else {
-      final now = DateTime.now();
-      _activityDate = DateTime(now.year, now.month, now.day);
-      _activityTime = TimeOfDay.fromDateTime(now);
+      // Create flow: do not seed from [lastKnownTimeZone] before async bootstrap
+      // finishes (same as Meal). Let [DateWidget]/[TimeWidget] apply school zone,
+      // or use [attendanceDate] from student maps when present.
+      _activityDate = null;
+      _activityTime = null;
       if (widget.selectedStudents != null) {
         _selectedStudentsData = List.from(widget.selectedStudents!);
         _selectedStudents = _selectedStudentsData
             .map((s) => s['name'] as String)
             .toList();
-        _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
-      _loadActivityContextForCreate();
+        _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+        _loadActivityContextForCreate();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _syncSchoolAttendanceDateForCreate();
+        });
       } else {
         _selectedStudentsData = [];
         _selectedStudents = [];
@@ -143,6 +178,77 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     }
 
     _loadStaffContext();
+  }
+
+  Future<void> _syncSchoolAttendanceDateForCreate() async {
+    if (!mounted || _layoutAsEdit) return;
+    if (_selectedStudentsData.isEmpty) return;
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
+    if (!mounted) return;
+    setState(() {
+      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
+    });
+  }
+
+  bool get _showAdminApproveRejectActions {
+    if (!widget.isEdit || widget.readOnly) return false;
+    if (!_isAdminDesignation) return false;
+    return canAdminApproveOrRejectActivityItem(
+      _effectiveActivity,
+      isAdminPersona: true,
+    );
+  }
+
+  Future<void> _approvePendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() {
+      _isSavingBeforeApprove = true;
+      _isApprovingOrRejecting = true;
+    });
+    try {
+      await _submitUpdateActivity();
+      if (!_lastUpdateSucceeded) return;
+      final msg = await _approveActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingBeforeApprove = false;
+          _isApprovingOrRejecting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectPendingActivity() async {
+    final code = _effectiveActivity.activityCode?.trim();
+    if (code == null || code.isEmpty) return;
+    setState(() => _isApprovingOrRejecting = true);
+    try {
+      final msg = await _rejectActivityUseCase(code: code);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.logApiError(
+        ApiErrorHandler.extractErrorMessage(e),
+        showOnScreen: true,
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isApprovingOrRejecting = false);
+    }
   }
 
   Future<void> _prefetchActivityForEdit() async {
@@ -153,18 +259,28 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     try {
       final detail = await _getActivityUseCase(code: code);
       if (!mounted) return;
+      ActivityTypeDetails? typeDetailsForRemind;
+      final tc = detail.activityTypeCode.trim();
+      if (tc.isNotEmpty) {
+        try {
+          typeDetailsForRemind =
+              await _getActivityTypeDetailsUseCase(code: tc);
+        } catch (_) {}
+      }
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
       );
       setState(() {
         _liveActivity = item;
+        _requireAdminApproval = _isAdminApprovalRequired(item);
         if ((widget.activityData?.studentList.length ?? 0) <= 1) {
           _selectedStudents = List<String>.from(item.studentList);
           _selectedStudentsData = studentDataMapsForActivityEdit(item);
         }
         _descriptionController.text = item.description ?? '';
         _activityTypeCode = item.activityTypeCode;
+        _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
         final nextIso = item.activityDateIso;
         if (nextIso != null && nextIso.trim().isNotEmpty) {
           try {
@@ -172,6 +288,27 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
           } catch (_) {}
+        }
+        if (typeDetailsForRemind != null &&
+            !_napEventIsEnd(detail.activityTypeName)) {
+          final remindCode = _resolveRemindNap15ParamCode(typeDetailsForRemind);
+          if (remindCode != null && remindCode.isNotEmpty) {
+            for (final pv in detail.parameterValues) {
+              final pc = (pv['parameterCode'] ?? '').toString().trim();
+              if (pc != remindCode) continue;
+              final v = pv['value'];
+              if (v is bool) {
+                _remindCheckNapEvery15Minutes = v;
+              } else if (v is num) {
+                _remindCheckNapEvery15Minutes = v != 0;
+              } else {
+                final s = v?.toString().toLowerCase() ?? '';
+                _remindCheckNapEvery15Minutes =
+                    s == 'true' || s == '1' || s == 'yes';
+              }
+              break;
+            }
+          }
         }
       });
     } catch (e) {
@@ -183,8 +320,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
     final staffType =
         (await storage.getString(StorageKeys.staffType) ?? '').trim();
     final schoolCode =
@@ -192,12 +327,16 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
+    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+      staffCode: staffCode,
+    );
 
     if (!mounted) return;
     setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
+      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode =
           organizationCode.isNotEmpty ? organizationCode : null;
@@ -315,6 +454,41 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     }
   }
 
+  /// BOOLEAN parameter for “remind / 15 min / check nap” style fields from activity settings.
+  String? _resolveRemindNap15ParamCode(ActivityTypeDetails details) {
+    for (final p in details.parameters) {
+      final dt = (p.dataType ?? '').toUpperCase();
+      if (dt != 'BOOLEAN' && dt != 'BOOL') continue;
+      final n = p.parameterName.toLowerCase();
+      final matches = (n.contains('remind') &&
+              (n.contains('15') ||
+                  n.contains('minute') ||
+                  n.contains('min'))) ||
+          (n.contains('check') &&
+              n.contains('nap') &&
+              (n.contains('15') || n.contains('remind') || n.contains('minute')));
+      if (matches) {
+        final c = p.code.trim();
+        if (c.isNotEmpty) return c;
+      }
+    }
+    return null;
+  }
+
+  void _appendRemindNap15IfNapStart(
+    ActivityTypeDetails details,
+    List<Map<String, dynamic>> parameterValues,
+    bool isNapEnd,
+  ) {
+    if (isNapEnd) return;
+    final code = _resolveRemindNap15ParamCode(details);
+    if (code == null || code.isEmpty) return;
+    parameterValues.add({
+      'parameterCode': code,
+      'value': _remindCheckNapEvery15Minutes,
+    });
+  }
+
   Future<bool?> _resolveNapEndFromCurrentStatus({
     required String classroomCode,
     required List<String> studentCodes,
@@ -340,15 +514,20 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     return nappingSelectedCount == selectedSet.length;
   }
 
+  static bool _isStudentMapNapping(Map<String, dynamic> student) {
+    final dynamic raw = student['nappingStatus'] ?? student['isNapping'];
+    if (raw == true) return true;
+    if (raw is String && raw.toLowerCase() == 'true') return true;
+    return false;
+  }
+
   bool? _resolveNapEndFromSelectedStudentsData() {
     if (_selectedStudentsData.isEmpty) return null;
     var hasNapping = false;
     var hasNotNapping = false;
 
     for (final student in _selectedStudentsData) {
-      final raw = student['nappingStatus'];
-      final isNapping = raw == true;
-      if (isNapping) {
+      if (_isStudentMapNapping(student)) {
         hasNapping = true;
       } else {
         hasNotNapping = true;
@@ -533,6 +712,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       final localDate =
           '${_activityDate!.year}-${_two(_activityDate!.month)}-${_two(_activityDate!.day)}';
       final localTime = '${_two(t.hour)}:${_two(t.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       // Ensure the API payload uses the attendance date chosen on student selection.
       final prefilled = widget.selectedStudents != null
@@ -553,8 +733,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -570,6 +750,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         description = isNapEnd ? 'Nap Ended' : 'Nap Started';
       }
       _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
+      _appendRemindNap15IfNapStart(details, parameterValues, isNapEnd);
 
       final message = await _createActivityUseCase(
         activityTypeCode: activityTypeCode,
@@ -596,9 +777,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         isSuccess: true,
       );
 
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      CoreUtils.exitActivityFlow(context);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -618,6 +797,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   Future<void> _submitUpdateActivity() async {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
+    _lastUpdateSucceeded = false;
 
     final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
 
@@ -715,6 +895,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       final localDate =
           '${_activityDate!.year}-${_two(_activityDate!.month)}-${_two(_activityDate!.day)}';
       final localTime = '${_two(t.hour)}:${_two(t.minute)}:00';
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -723,8 +904,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           {'parameterCode': timeParamCode, 'value': localTime},
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+            staffPresentCode.isNotEmpty)
+          {'parameterCode': staffParamCode, 'value': staffPresentCode},
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
@@ -732,6 +913,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       ];
 
       _appendNapStartEndBooleans(
+        details,
+        parameterValues,
+        _napEventIsEnd(_effectiveActivity.name),
+      );
+      _appendRemindNap15IfNapStart(
         details,
         parameterValues,
         _napEventIsEnd(_effectiveActivity.name),
@@ -778,14 +964,15 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       }
 
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: lastMessage ?? 'Updated',
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
+      _lastUpdateSucceeded = true;
+      if (!_isSavingBeforeApprove) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: lastMessage ?? 'Updated',
+          isSuccess: true,
+        );
+        CoreUtils.exitActivityFlow(context);
+      }
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -923,6 +1110,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                           },
                         )
                       : DateWidget(
+                          key: ValueKey<String>(
+                            formatSelectedDateForDateWidget(_activityDate) ?? 'school_date',
+                          ),
                           isEditable: false,
                           isRequired: true,
                           initialDate: formatSelectedDateForDateWidget(_activityDate),
@@ -960,25 +1150,57 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                 ),
               ],
             ),
+            const ActivitySchoolTimeZoneHint(),
+            if (!_isNapEndContextForUi()) ...[
+              SizedBox(height: responsive.verticalSpacing * 0.6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: CustomCheckbox(
+                    value: _remindCheckNapEvery15Minutes,
+                    onChanged: !_canInteract
+                        ? null
+                        : (v) {
+                            setState(() {
+                              _remindCheckNapEvery15Minutes = v ?? false;
+                            });
+                          },
+                    label: 'Remind to check nap every 15 minutes',
+                    labelStyle: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             SizedBox(height: responsive.verticalSpacing),
             Builder(
               builder: (context) {
                 final isAdminPersona =
                     _isAdminDesignation;
-                final lockToLoggedInStaffOnEdit =
-                    widget.isEdit && !widget.readOnly && !isAdminPersona;
+                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
                 return StaffPresentWidget(
-                  staffName: lockToLoggedInStaffOnEdit
-                      ? _staffName
-                      : staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy:
-                              _layoutAsEdit ? _effectiveActivity.createdBy : '',
-                          loggedInDisplayName: _staffName,
-                        ),
-                  isEditable: lockToLoggedInStaffOnEdit
+                  staffName: staffPresentLabelForActivity(
+                    layoutAsEdit: _layoutAsEdit,
+                    activityCreatedBy: '',
+                    loggedInDisplayName: _staffName,
+                    staffLabelFromParameters: _layoutAsEdit
+                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                              ? _staffPresentCode
+                              : _effectiveActivity.staffPresent)
+                        : null,
+                  ),
+                  isEditable: lockToLoggedInStaff
                       ? false
-                      : (_layoutAsEdit ? _canInteract : false),
+                      : _canInteract,
+                  onStaffChanged: (_, selectedCode) {
+                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                        ? selectedCode!.trim()
+                        : (_staffPresentCode ?? _staffCode);
+                  },
                 );
               },
             ),
@@ -1014,12 +1236,28 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onPressedBottom,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: _isSubmitting || _loadingActivityDetail,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ActivityAdminApproveRejectBar(
+                      visible: _showAdminApproveRejectActions,
+                      isLoading: _isApprovingOrRejecting ||
+                          _isSubmitting ||
+                          _loadingActivityDetail,
+                      onApprove: _approvePendingActivity,
+                      onReject: _rejectPendingActivity,
+                    ),
+                    if (!_showAdminApproveRejectActions)
+                      CustomButtonLayout(
+                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                      onPressedConfirm: _onPressedBottom,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSubmitting ||
+                          _isApprovingOrRejecting ||
+                          _loadingActivityDetail,
+                    ),
+                  ],
                 ),
               ),
             ),

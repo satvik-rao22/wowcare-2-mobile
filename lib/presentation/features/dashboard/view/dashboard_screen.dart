@@ -1,29 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard.dart';
+import 'package:wowcare/presentation/features/dashboard/view/parent_dashboard.dart';
+import 'package:wowcare/presentation/features/dashboard/view/staff_dashboard.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 
-class DashboardScreen extends StatefulWidget {
+/// Entry point for the `/dashboard` route.
+///
+/// Dispatches to the role-appropriate dashboard:
+/// - staff (Lead/Associate/Assistant teacher, Floater, …) → [StaffDashboard]
+/// - admin / director → [AdminDashboard]
+/// - parent/guardian → placeholder until the parent dashboard is built
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   static const String routeName = '/dashboard';
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  @override
   Widget build(BuildContext context) {
-    return GlobalScaffold(
-      body: Center(
-        child: const Text(
-          'Dashboard module goes here',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
-        ),
-      ),
-      showCustomNavigationBar: true,
-    );
+    final role = context.watch<RoleProvider>();
+
+    if (role.isParent) {
+      return const ParentDashboard();
+    }
+
+    if (role.isStaff) {
+      return const StaffDashboard();
+    }
+
+    return const AdminDashboard();
   }
 }
-
-

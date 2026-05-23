@@ -13,6 +13,44 @@ class CoreUtils {
   static final GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>();
 
+  /// [RouteSettings.name] tag applied to the `ChooseActivity` screen so the
+  /// activity create/edit screens can pop it off when [exitActivityFlow] runs.
+  static const String chooseActivityRouteName = 'chooseActivity';
+
+  /// [RouteSettings.name] tag applied to the `ActivityStudentSelection` screen
+  /// so [exitActivityFlow] can pop it off and land back on the activity feed
+  /// (Daily tab) after an activity is created through the activity screen.
+  static const String activityStudentSelectionRouteName =
+      'activityStudentSelection';
+
+  /// Closes the activity create/edit flow, returning to whatever screen
+  /// launched it (activity feed, student selection, classroom, etc.).
+  ///
+  /// Pops the current activity screen plus any `ChooseActivity` and
+  /// `ActivityStudentSelection` routes above the launching screen — so an
+  /// activity created through the activity screen lands back on the activity
+  /// feed (Daily tab). Replaces the old
+  /// `popUntil(name == ActivityFeedScreen.routeName)`, which emptied the whole
+  /// navigator stack — causing a black screen — whenever the flow was opened
+  /// from a screen other than the activity feed (e.g. a classroom).
+  static void exitActivityFlow(BuildContext context) {
+    final navigator = Navigator.of(context);
+    // Pop the activity screen itself with `true`. A launcher that awaits the
+    // push result (e.g. the classroom / student Activities panel) relies on
+    // this to learn an activity was recorded and refresh its roster — a plain
+    // `popUntil` removes routes without delivering any result value.
+    if (navigator.canPop()) {
+      navigator.pop(true);
+    }
+    // Drop any `ChooseActivity` / `ActivityStudentSelection` wrapper routes
+    // now left on top so the flow lands back on the screen that launched it.
+    navigator.popUntil(
+      (route) =>
+          route.settings.name != chooseActivityRouteName &&
+          route.settings.name != activityStudentSelectionRouteName,
+    );
+  }
+
   static String? _lastOnScreenErrorMessage;
   static DateTime? _lastOnScreenErrorAt;
   static OverlayEntry? _activeTopBannerEntry;
@@ -333,5 +371,27 @@ class CoreUtils {
       return phoneNumber;
     }
     return '(${phoneNumber.substring(0, 3)}) ${phoneNumber.substring(3, 6)}-${phoneNumber.substring(6)}';
+  }
+
+  /// Reusable inline field-error text widget for form inputs.
+  static Widget buildInlineFieldError(
+    String? message, {
+    EdgeInsetsGeometry padding = const EdgeInsets.only(top: 6),
+  }) {
+    if (message == null || message.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: padding,
+      child: Text(
+        message,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          color: Colors.red,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }

@@ -64,11 +64,16 @@ class StudentSignOutForm extends StatefulWidget {
   const StudentSignOutForm({
     required this.students,
     this.refreshCallback,
+    this.popOnSuccess = false,
     super.key,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
+  // When true, pops back to the caller after a successful submission instead of
+  // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
+  // outside the Attendance tab (e.g. the Classroom Students card).
+  final bool popOnSuccess;
 
   static const String routeName = '/student-sign-out-form';
 
@@ -398,7 +403,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       );
 
       if (success) {
-        if (isParent) {
+        if (widget.popOnSuccess) {
+          widget.refreshCallback?.call();
+          Navigator.of(context).pop();
+        } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
             context.read<ParentChildProvider>().selectByCode(s.studentCode);

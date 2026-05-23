@@ -16,6 +16,7 @@ class ApiPathsUat {
     ApiMicroservices.classroom,
     ApiMicroservices.attendance,
     ApiMicroservices.activity,
+    'activities',
     ApiMicroservices.document,
   };
 
@@ -40,6 +41,7 @@ class ApiPathsUat {
       'staff-dates',
       'staff-address',
       'staff-schedules',
+      'staff-shifts',
     },
     ApiMicroservices.student: {
       'student',
@@ -62,6 +64,8 @@ class ApiPathsUat {
     },
     ApiMicroservices.classroom: {
       'classroom',
+      'individual-movements',
+      'future-availability',
     },
     ApiMicroservices.activity: {
       'classrooms',
@@ -71,6 +75,12 @@ class ApiPathsUat {
     // Document endpoints in this app are handled separately via `/document-ms/...`.
     ApiMicroservices.document: {},
   };
+
+  static String _uatSegmentForMicroservice(String microserviceKey) {
+    // UAT gateway expects plural `activities` as the microservice segment.
+    if (microserviceKey == ApiMicroservices.activity) return 'activities';
+    return microserviceKey;
+  }
 
   static String microserviceKeyFromPath(String path) {
     final p = path.startsWith('/') ? path : '/$path';
@@ -87,7 +97,10 @@ class ApiPathsUat {
 
     // If the UAT path already includes the microservice segment
     // (/api/v1/<ms>/...), use it as-is.
-    if (_microservicePathSegments.contains(seg)) return seg;
+    if (_microservicePathSegments.contains(seg)) {
+      if (seg == 'activities') return ApiMicroservices.activity;
+      return seg;
+    }
 
     switch (seg) {
       case 'auth':
@@ -106,6 +119,7 @@ class ApiPathsUat {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
@@ -129,11 +143,20 @@ class ApiPathsUat {
       case 'staff-attendance-records':
         return ApiMicroservices.attendance;
       case 'classroom':
+      case 'individual-movements':
+      case 'future-availability':
         return ApiMicroservices.classroom;
       case 'classrooms':
       case 'activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      case 'admin':
+        // v2 activity moderation endpoints:
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
       default:
         return ApiMicroservices.user;
     }
@@ -169,21 +192,24 @@ class ApiPathsUat {
     if (version != 'v1' && version != 'v2') return p;
 
     final seg = parts[2];
+
     if (_microservicePathSegments.contains(seg)) {
       // Ambiguous case: some endpoints use the same word for both MS and resource
       // (e.g. local `/api/v1/staff/code` should become `/api/v1/staff/staff/code` in UAT).
-      final ms = seg;
+      final ms = seg == 'activities' ? ApiMicroservices.activity : seg;
       final roots = _resourceRootsByMicroservice[ms];
       if (parts.length >= 4 && roots != null && roots.contains(parts[3])) {
         return p; // already `/api/<version>/<ms>/<resource>/...`
       }
       final rest = parts.sublist(2).join('/');
-      return '/api/$version/$ms/$rest';
+      final uatSegment = _uatSegmentForMicroservice(ms);
+      return '/api/$version/$uatSegment/$rest';
     }
 
     final ms = microserviceKeyFromPath(p);
     final rest = parts.sublist(2).join('/');
-    return '/api/$version/$ms/$rest';
+    final uatSegment = _uatSegmentForMicroservice(ms);
+    return '/api/$version/$uatSegment/$rest';
   }
 
   static String url(String path) {
@@ -205,7 +231,7 @@ class ApiPathsUat {
 
   static String urlWithBase(String path, String baseUrl) => url(path);
 
-  /// Document endpoints are special-cased under `/document-ms/...` in this app.
+  /// Document endpoints in UAT are rooted under `/api/v1/document`.
   /// This helper is added for parity with local [ApiPaths].
   static String documentAssetCompletePath({
     required String documentApiBasePath,
@@ -213,7 +239,7 @@ class ApiPathsUat {
     required String assetCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/document-ms/api/v1';
+    if (base.isEmpty) base = '/api/v1/document';
     if (!base.startsWith('/')) base = '/$base';
     base = base.replaceAll(RegExp(r'/+$'), '');
     final s = sessionCode.trim();

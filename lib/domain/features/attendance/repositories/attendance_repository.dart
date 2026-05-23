@@ -22,8 +22,12 @@ abstract class AttendanceRepository {
   });
 
   /// Expected attendance summary for the daily "Expected Students" card.
+  ///
+  /// [classroomCode] is sent as `classroomCode` on the summary/card API.
+  /// When null or empty, the repository may fall back to the first allowed
+  /// classroom for the current user.
   Future<StudentAttendanceExpectedSummary>
-  getStudentAttendanceExpectedSummary();
+  getStudentAttendanceExpectedSummary({String? classroomCode});
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
     required String fromAttendanceDate,
@@ -74,6 +78,22 @@ abstract class AttendanceRepository {
     required String toAbsenceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
+    String? search,
+    int page,
+    int size,
+  });
+
+  /// Student Absent records for activities feed (daily/custom tabs).
+  ///
+  /// Backend endpoint:
+  /// `/api/v1/student-attendance/view/absent/records/activity`.
+  /// Response shape matches [StudentAttendanceAbsentFormPage].
+  Future<StudentAttendanceAbsentFormPage> getStudentAbsentRecordsActivity({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? studentCodes,
     String? search,
     int page,
     int size,
@@ -156,7 +176,11 @@ abstract class AttendanceRepository {
   });
 
   /// Staff expected attendance summary for the daily "Expected Staff" card.
-  Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary();
+  ///
+  /// [classroomCode] is sent as `classroomCode` on the summary/card API.
+  Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary({
+    String? classroomCode,
+  });
 
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({
     required String fromAttendanceDate,

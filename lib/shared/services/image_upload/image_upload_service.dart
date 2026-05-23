@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -77,7 +78,7 @@ class ImageUploadService {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
-    required String checksumSha256,
+    String? checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
@@ -89,18 +90,31 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    final response = await _apiClient.client.post<dynamic>(
-      endpoint,
-      data: <String, dynamic>{
-        'fileName': fileName,
-        'contentType': contentType,
-        'contentLengthBytes': contentLengthBytes,
-        'checksumSha256': checksumSha256,
-        'mediaType': mediaType,
-        'ownerType': ownerType,
-        'ownerCode': ownerCode,
-      },
-    );
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assets': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'fileName': fileName,
+                'contentType': contentType,
+                'contentLengthBytes': contentLengthBytes,
+                if ((checksumSha256 ?? '').trim().isNotEmpty)
+                  'checksumSha256': checksumSha256!.trim(),
+                'mediaType': mediaType,
+                'ownerType': ownerType,
+                'ownerCode': ownerCode,
+              },
+            ],
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            final message = _extractErrorMessageFromDio(error);
+            throw Exception(message);
+          }
+          throw error;
+        });
 
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -116,13 +130,23 @@ class ImageUploadService {
       throw Exception('Unexpected assets presign API data format');
     }
 
-    final assetCode = (data['assetCode'] ?? '').toString().trim();
-    final presignedPutUrl = (data['presignedPutUrl'] ?? '').toString().trim();
+    final uploads = data['uploads'];
+    if (uploads is! List || uploads.isEmpty) {
+      throw Exception('Unexpected assets presign uploads format');
+    }
+    final firstUpload = uploads.first;
+    if (firstUpload is! Map) {
+      throw Exception('Unexpected assets presign upload item format');
+    }
+
+    final assetCode = (firstUpload['assetCode'] ?? '').toString().trim();
+    final presignedPutUrl =
+        (firstUpload['presignedPutUrl'] ?? '').toString().trim();
     if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
       throw Exception('Missing assetCode or presignedPutUrl in presign response');
     }
 
-    final rawHeaders = data['requiredHeaders'];
+    final rawHeaders = firstUpload['requiredHeaders'];
     final requiredHeaders = <String, String>{};
     if (rawHeaders is Map) {
       rawHeaders.forEach((key, value) {
@@ -141,9 +165,25 @@ class ImageUploadService {
     );
   }
 
+  String _extractErrorMessageFromDio(DioException error) {
+    final data = error.response?.data;
+    if (data is Map) {
+      final message = (data['message'] ?? '').toString().trim();
+      if (message.isNotEmpty) return message;
+      final errorMessage = (data['error'] ?? '').toString().trim();
+      if (errorMessage.isNotEmpty) return errorMessage;
+    }
+    final raw = error.message?.trim() ?? error.toString();
+    if (raw.startsWith('Exception:')) {
+      return raw.replaceFirst('Exception:', '').trim();
+    }
+    return raw;
+  }
+
   Future<String> computeFileChecksumSha256(File file) async {
     final bytes = await file.readAsBytes();
-    return sha256.convert(bytes).toString();
+    // S3 `x-amz-checksum-sha256` must be base64-encoded raw SHA-256 bytes.
+    return base64Encode(sha256.convert(bytes).bytes);
   }
 
   Future<void> completeAssetUpload({
@@ -167,10 +207,19 @@ class ImageUploadService {
     required String presignedPutUrl,
     Map<String, String> requiredHeaders = const {},
     String fallbackContentType = 'image/jpeg',
+    void Function(int sent, int total)? onSendProgress,
+    void Function(int sentBytes, int totalBytes, int percent)? onProgress,
   }) async {
     final uploadClient = Dio();
     final bytes = await file.readAsBytes();
-    final headers = <String, dynamic>{...requiredHeaders};
+    final headers = <String, dynamic>{};
+    requiredHeaders.forEach((key, value) {
+      final k = key.trim();
+      final v = value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) {
+        headers[k] = v;
+      }
+    });
     headers.putIfAbsent('Content-Type', () => fallbackContentType);
 
     final putUri = Uri.parse(presignedPutUrl);
@@ -192,6 +241,14 @@ class ImageUploadService {
           validateStatus: (status) =>
               status != null && status >= 200 && status < 300,
         ),
+        onSendProgress: (sent, total) {
+          final effectiveTotal =
+              (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+          if (effectiveTotal <= 0) return;
+          final fraction = sent / effectiveTotal;
+          final percent = (fraction * 100).clamp(0, 100).round();
+          onProgress?.call(sent, effectiveTotal, percent);
+        },
       );
       ApiLogger.logResponse(
         url: logUrl,
@@ -245,6 +302,24 @@ class ImageUploadService {
     }
   }
 
+  Future<Map<String, String>> getUploadAssetStatuses({
+    required String sessionCode,
+    required List<String> expectedAssetCodes,
+  }) async {
+    final expectedSet = expectedAssetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (expectedSet.isEmpty) return const <String, String>{};
+    final endpoint =
+        '${ApiConstants.documentMsBaseUrl}${ApiPaths.documentUploadSessionPath(sessionCode)}';
+    final response = await _apiClient.client.get<dynamic>(endpoint);
+    return _extractUploadAssetStatuses(
+      body: response.data,
+      expectedAssetCodes: expectedSet,
+    );
+  }
+
   Future<_UploadSessionStatusResult> _getUploadSessionStatus({
     required String sessionCode,
     required Set<String> expectedAssetCodes,
@@ -253,43 +328,653 @@ class ImageUploadService {
         '${ApiConstants.documentMsBaseUrl}${ApiPaths.documentUploadSessionPath(sessionCode)}';
     final response = await _apiClient.client.get<dynamic>(endpoint);
     final body = response.data;
-    if (body is! Map<String, dynamic>) {
+    final statuses = _extractUploadAssetStatuses(
+      body: body,
+      expectedAssetCodes: expectedAssetCodes,
+    );
+    if (statuses.isEmpty) {
       return const _UploadSessionStatusResult(isReady: false);
     }
-    final data = body['data'];
-    if (data is! Map<String, dynamic>) {
-      return const _UploadSessionStatusResult(isReady: false);
-    }
-    final assets = data['assets'];
-    if (assets is! List) {
-      return const _UploadSessionStatusResult(isReady: false);
-    }
-
     var readyCount = 0;
-    for (final item in assets) {
-      if (item is! Map) continue;
-      final assetCode = (item['assetCode'] ?? '').toString().trim();
-      if (!expectedAssetCodes.contains(assetCode)) continue;
-      final status = (item['status'] ?? '').toString().trim().toUpperCase();
-      if (status == 'READY') readyCount++;
-      if (status == 'FAILED') {
-        final failureMessage =
-            (item['failureMessage'] ?? '').toString().trim();
-        final failureCode = (item['failureCode'] ?? '').toString().trim();
-        final message = failureMessage.isNotEmpty
-            ? failureMessage
-            : (failureCode.isNotEmpty
-                ? 'Upload processing failed: $failureCode'
-                : 'Upload processing failed');
-        return _UploadSessionStatusResult(
+    for (final status in statuses.values) {
+      final normalized = status.trim().toUpperCase();
+      if (normalized == 'READY') readyCount++;
+      if (normalized == 'FAILED') {
+        return const _UploadSessionStatusResult(
           isReady: false,
-          failureMessage: message,
+          failureMessage: 'Upload processing failed',
         );
       }
     }
     return _UploadSessionStatusResult(
       isReady: readyCount == expectedAssetCodes.length,
     );
+  }
+
+  Map<String, String> _extractUploadAssetStatuses({
+    required dynamic body,
+    required Set<String> expectedAssetCodes,
+  }) {
+    if (body is! Map<String, dynamic>) {
+      return const <String, String>{};
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      return const <String, String>{};
+    }
+    final assets = data['assets'];
+    if (assets is! List) {
+      return const <String, String>{};
+    }
+
+    final statuses = <String, String>{};
+    for (final item in assets) {
+      if (item is! Map) continue;
+      final assetCode = (item['assetCode'] ?? '').toString().trim();
+      if (!expectedAssetCodes.contains(assetCode)) continue;
+      final status = (item['status'] ?? '').toString().trim();
+      statuses[assetCode] = status.toUpperCase();
+    }
+    return statuses;
+  }
+
+  Future<String> createStaffProfilePhotoUploadSession({
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffProfilePhotoUploadSessionPath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create profile photo session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    return sessionCode;
+  }
+
+  Future<String> finalizeStaffProfilePhoto({
+    required String staffCode,
+    required String assetCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffProfilePhotoFinalizePath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'assetCode': assetCode.trim(),
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected finalize response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to finalize profile photo',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing finalize response data');
+    }
+    final finalizedAssetCode =
+        (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
+            .toString()
+            .trim();
+    final effectiveAssetCode =
+        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final directUrl = (data['url'] ?? '').toString().trim();
+    final thumbnailUrl = (data['thumbnailUrl'] ?? '').toString().trim();
+    if (directUrl.isNotEmpty) return directUrl;
+    if (thumbnailUrl.isNotEmpty) return thumbnailUrl;
+
+    final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
+      assetCode: effectiveAssetCode,
+    );
+    if (mediaAssetUrl.isNotEmpty) return mediaAssetUrl;
+
+    final profileUrl = await _waitForStaffProfilePhotoUrl(
+      staffCode: staffCode,
+    );
+    if (profileUrl.isNotEmpty) return profileUrl;
+    throw Exception('Profile photo URL missing after finalize');
+  }
+
+  Future<String> createStudentProfilePhotoUploadSession({
+    required String studentCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentProfilePhotoUploadSessionPath(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create profile photo session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    return sessionCode;
+  }
+
+  Future<UploadSessionResult> createStudentDocumentUploadSession({
+    required String studentCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/student-documents/${studentCode.trim()}/upload-session',
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'organizationCode': organizationCode.trim(),
+      },
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  Future<UploadSessionResult> createStaffDocumentUploadSession({
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/staff-documents/${staffCode.trim()}/upload-session',
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode.trim(),
+        'organizationCode': organizationCode.trim(),
+      },
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  Future<String> createGuardianProfilePhotoUploadSession({
+    required String guardianCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianProfilePhotoUploadSessionPath(guardianCode),
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'organizationCode': organizationCode,
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create profile photo session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    return sessionCode;
+  }
+
+  Future<String> finalizeStudentProfilePhoto({
+    required String studentCode,
+    required String sessionCode,
+    required String assetCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentProfilePhotoFinalizePath(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'sessionCode': sessionCode,
+        'assetCode': assetCode,
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected finalize response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to finalize profile photo',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing finalize response data');
+    }
+    final finalizedAssetCode =
+        (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
+            .toString()
+            .trim();
+    final effectiveAssetCode =
+        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final url = (data['url'] ?? '').toString().trim();
+    if (url.isEmpty) {
+      final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
+        assetCode: effectiveAssetCode,
+      );
+      if (mediaAssetUrl.isNotEmpty) {
+        return mediaAssetUrl;
+      }
+      await _waitForStudentAssetMappingAfterFinalize(
+        studentCode: studentCode,
+        schoolCode: schoolCode,
+        expectedAssetCode: effectiveAssetCode,
+      );
+      final resolvedUrl = await _waitForStudentProfilePhotoUrl(
+        studentCode: studentCode,
+      );
+      if (resolvedUrl.isEmpty) {
+        throw Exception('Profile photo URL missing after finalize');
+      }
+      return resolvedUrl;
+    }
+    return url;
+  }
+
+  Future<String> finalizeGuardianProfilePhoto({
+    required String guardianCode,
+    required String assetCode,
+    required String schoolCode,
+    required String userCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianProfilePhotoFinalizePath(guardianCode),
+      ApiConstants.studentBaseUrl,
+    );
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'assetCode': assetCode.trim(),
+      },
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected finalize response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to finalize profile photo',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing finalize response data');
+    }
+    final finalizedAssetCode =
+        (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
+            .toString()
+            .trim();
+    final effectiveAssetCode =
+        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final directUrl = (data['url'] ?? '').toString().trim();
+    if (directUrl.isNotEmpty) return directUrl;
+
+    final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
+      assetCode: effectiveAssetCode,
+    );
+    if (mediaAssetUrl.isNotEmpty) return mediaAssetUrl;
+
+    final profileUrl = await _waitForGuardianProfilePhotoUrl(
+      schoolCode: schoolCode,
+      userCode: userCode,
+    );
+    if (profileUrl.isNotEmpty) return profileUrl;
+    throw Exception('Profile photo URL missing after finalize');
+  }
+
+  Future<String> _waitForDocumentAssetUrlByCode({
+    required String assetCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final normalizedAssetCode = assetCode.trim();
+    if (normalizedAssetCode.isEmpty) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      try {
+        final endpoint =
+            '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
+            '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
+        final response = await _apiClient.client.get<dynamic>(endpoint);
+        final body = response.data;
+        final resolved = _extractDocumentAssetUrl(body);
+        if (resolved.isNotEmpty) return resolved;
+      } catch (_) {
+        // Keep retrying for eventual consistency after finalize.
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> getMediaAssetUrlByCode({
+    required String assetCode,
+  }) async {
+    return _waitForDocumentAssetUrlByCode(assetCode: assetCode);
+  }
+
+  UploadSessionResult _parseUploadSessionResponse(dynamic body) {
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected upload session response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to create upload session',
+      );
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing upload session data');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Upload session code is missing');
+    }
+    final documentApiBasePath = (data['documentApiBasePath'] ?? '/api/v1')
+        .toString()
+        .trim();
+    return UploadSessionResult(
+      sessionCode: sessionCode,
+      documentApiBasePath:
+          documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+    );
+  }
+
+  String _extractDocumentAssetUrl(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+
+    String pickFromMap(Map map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+        map['thumbnailUrl'],
+        map['originalDownloadUrl'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final direct = pickFromMap(data);
+    if (direct.isNotEmpty) return direct;
+
+    final variants = data['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final defaultVariant =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!defaultVariant) continue;
+        final fromDefault = pickFromMap(row);
+        if (fromDefault.isNotEmpty) return fromDefault;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final any = pickFromMap(row);
+        if (any.isNotEmpty) return any;
+      }
+    }
+    return '';
+  }
+
+  Future<void> _waitForStudentAssetMappingAfterFinalize({
+    required String studentCode,
+    required String schoolCode,
+    required String expectedAssetCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentProfilePhotoAssetCodes,
+      ApiConstants.studentBaseUrl,
+    );
+    final deadline = DateTime.now().add(timeout);
+    final normalizedStudent = studentCode.trim().toUpperCase();
+    final normalizedExpectedAsset = expectedAssetCode.trim().toUpperCase();
+    while (true) {
+      try {
+        final response = await _apiClient.client.get<dynamic>(
+          endpoint,
+          queryParameters: <String, dynamic>{
+            'schoolCode': schoolCode.trim(),
+            'studentCode': studentCode.trim(),
+          },
+        );
+        final body = response.data;
+        if (body is Map<String, dynamic> && body['success'] != false) {
+          final data = body['data'];
+          if (data is List) {
+            final matched = data.cast<dynamic>().whereType<Map>().firstWhere(
+              (row) =>
+                  (row['studentCode'] ?? '').toString().trim().toUpperCase() ==
+                  normalizedStudent,
+              orElse: () => <String, dynamic>{},
+            );
+            final mappedAssetCode =
+                (matched['assetCode'] ?? '').toString().trim().toUpperCase();
+            if (mappedAssetCode.isNotEmpty &&
+                (normalizedExpectedAsset.isEmpty ||
+                    mappedAssetCode == normalizedExpectedAsset)) {
+              return;
+            }
+          }
+        }
+      } catch (_) {
+        // Do not fail fast on transient read-after-write lag or temporary fetch issues.
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        // Mapping can be eventually consistent; continue and let profile URL polling decide readiness.
+        return;
+      }
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> _waitForStudentProfilePhotoUrl({
+    required String studentCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.studentProfile(studentCode),
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await _apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          final candidates = <dynamic>[
+            data['profilePhotoUrl'],
+            data['photoUrl'],
+            data['profileImageUrl'],
+            data['imageUrl'],
+            data['url'],
+          ];
+          for (final raw in candidates) {
+            final value = (raw ?? '').toString().trim();
+            if (value.isNotEmpty) return value;
+          }
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> _waitForGuardianProfilePhotoUrl({
+    required String schoolCode,
+    required String userCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final normalizedSchoolCode = schoolCode.trim();
+    final normalizedUserCode = userCode.trim();
+    if (normalizedSchoolCode.isEmpty || normalizedUserCode.isEmpty) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.guardianProfile,
+        ApiConstants.studentBaseUrl,
+      );
+      final response = await _apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'schoolCode': normalizedSchoolCode,
+          'userCode': normalizedUserCode,
+        },
+      );
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          final candidates = <dynamic>[
+            data['profilePhotoUrl'],
+            data['photoUrl'],
+            data['profileImageUrl'],
+            data['imageUrl'],
+            data['url'],
+          ];
+          for (final raw in candidates) {
+            final value = (raw ?? '').toString().trim();
+            if (value.isNotEmpty) return value;
+          }
+          final profilePhotoAssetCode =
+              (data['profilePhotoAssetCode'] ?? '').toString().trim();
+          if (profilePhotoAssetCode.isNotEmpty) {
+            final resolved = await _waitForDocumentAssetUrlByCode(
+              assetCode: profilePhotoAssetCode,
+              timeout: const Duration(seconds: 6),
+            );
+            if (resolved.isNotEmpty) return resolved;
+          }
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
+  }
+
+  Future<String> _waitForStaffProfilePhotoUrl({
+    required String staffCode,
+    Duration pollEvery = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final normalized = staffCode.trim();
+    if (normalized.isEmpty) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final endpoint = ApiPaths.urlWithBase(
+        ApiPaths.staffProfileByCodePath(normalized),
+        ApiConstants.staffBaseUrl,
+      );
+      final response = await _apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          final candidates = <dynamic>[
+            data['profilePhotoUrl'],
+            data['photoUrl'],
+            data['profileImageUrl'],
+            data['imageUrl'],
+            data['url'],
+          ];
+          for (final raw in candidates) {
+            final value = (raw ?? '').toString().trim();
+            if (value.isNotEmpty) return value;
+          }
+          final profilePhotoAssetCode =
+              (data['profilePhotoAssetCode'] ?? data['photoAssetCode'] ?? '')
+                  .toString()
+                  .trim();
+          if (profilePhotoAssetCode.isNotEmpty) {
+            final resolved = await _waitForDocumentAssetUrlByCode(
+              assetCode: profilePhotoAssetCode,
+              timeout: const Duration(seconds: 6),
+            );
+            if (resolved.isNotEmpty) return resolved;
+          }
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) return '';
+      await Future.delayed(pollEvery);
+    }
   }
 }
 

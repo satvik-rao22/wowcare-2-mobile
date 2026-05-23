@@ -95,6 +95,7 @@ class ActivityFeedPageCacheCodec {
           .map((e) => Map<String, String>.from(e))
           .toList(),
       'createdBy': r.createdBy,
+      'staffCode': r.staffCode,
       'parameterValues':
           r.parameterValues.map((e) => Map<String, dynamic>.from(e)).toList(),
       'attachments':
@@ -160,6 +161,7 @@ class ActivityFeedPageCacheCodec {
                 .toList()
             : const [],
         createdBy: (j['createdBy'] ?? '').toString(),
+        staffCode: _optionalNonEmptyString(j['staffCode']),
         parameterValues: pv is List
             ? pv
                 .whereType<Map>()

@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.d
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -41,7 +42,7 @@ class EditProfileDetailsScreen extends StatefulWidget {
     this.initialClassroomNames,
     this.initialClassroomCodeByName,
   });
-  static const String routeName = '/edit-profile-details-screen';
+  static const String routeName = '/dashboard/edit-profile-details-screen';
 
   final String staffCode;
   final String? initialFirstName;
@@ -645,6 +646,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       setState(() {
         _isSubmitting = false;
       });
+
+      // Profile mutation — poke the scheduling screens so they silently
+      // re-pull the staff list on the next visit.
+      SchedulingCacheGate.invalidate();
 
       CoreUtils.showTopSnackBar(
         context: context,

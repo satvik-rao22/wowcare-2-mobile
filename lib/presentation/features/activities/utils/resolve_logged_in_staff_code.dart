@@ -75,3 +75,38 @@ Future<String?> resolveLoggedInStaffCode() async {
     return null;
   }
 }
+
+/// Resolves staff display name from staff APIs.
+/// Prefers `/api/v1/staff/my-profile/{staffCode}`, then
+/// `/api/v1/staff/{staffCode}/profile`.
+Future<String> resolveLoggedInStaffDisplayNameFromApi({
+  String? staffCode,
+}) async {
+  try {
+    final code = (staffCode ?? await resolveLoggedInStaffCode() ?? '').trim();
+    if (code.isEmpty) return '';
+    final staffRepo = serviceLocator<StaffRepository>();
+    try {
+      final myProfile = await staffRepo.getStaffProfile(staffCode: code);
+      final full = myProfile.fullName.trim();
+      final composed = '${myProfile.firstName} ${myProfile.lastName}'.trim();
+      final resolved = full.isNotEmpty ? full : composed;
+      if (resolved.isNotEmpty) return resolved;
+    } catch (_) {}
+    try {
+      final profileByCode = await staffRepo.getStaffProfile(
+        staffCode: code,
+        forEditStaff: true,
+      );
+      final full = profileByCode.fullName.trim();
+      final composed = '${profileByCode.firstName} ${profileByCode.lastName}'
+          .trim();
+      final resolved = full.isNotEmpty ? full : composed;
+      if (resolved.isNotEmpty) return resolved;
+    } catch (_) {}
+    return '';
+  } catch (e) {
+    CoreUtils.logApiError('resolveLoggedInStaffDisplayNameFromApi failed: $e');
+    return '';
+  }
+}

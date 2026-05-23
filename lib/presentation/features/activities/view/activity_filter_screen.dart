@@ -13,8 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-/// Activity feed filters: **Tags** (school-wide) + **Activity Type** (per classroom).
-/// Loads tag name/code map and classroom activity settings with disk cache.
+/// Activity feed filters (tags + activity types), school-wide via
+/// [ActivityFilterMetadataCache] and disk cache.
 class ActivityFilterScreen extends StatefulWidget {
   const ActivityFilterScreen({
     super.key,
@@ -34,6 +34,14 @@ class ActivityFilterScreen extends StatefulWidget {
 }
 
 class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
+  static const List<String> _approvalStatusOptions = <String>[
+    'Pending Admin Approval',
+    'Approved',
+    'Rejected',
+    'Parent Acknowledgement Pending',
+    'Acknowledged',
+  ];
+
   late final GetTagNameCodeMapForSchoolUseCase _tagMapUseCase;
   late final GetActiveActivityTypesForSchoolUseCase _activityTypesUseCase;
   late final CacheManager _cacheManager;
@@ -43,6 +51,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
 
   List<String> _selectedTags = [];
   List<String> _selectedActivityTypes = [];
+  List<String> _selectedStatuses = [];
 
   bool _loading = true;
   String? _loadError;
@@ -59,6 +68,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     _selectedTags = List<String>.from(initial['Tags'] ?? const []);
     _selectedActivityTypes =
         List<String>.from(initial['Activity Type'] ?? const []);
+    _selectedStatuses = List<String>.from(initial['Status'] ?? const []);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMetadata());
   }
@@ -101,6 +111,8 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
         _selectedTags.removeWhere((t) => !_tagOptions.contains(t));
         _selectedActivityTypes
             .removeWhere((t) => !_activityTypeOptions.contains(t));
+        _selectedStatuses
+            .removeWhere((s) => !_approvalStatusOptions.contains(s));
         _loading = false;
       });
     } catch (e) {
@@ -116,6 +128,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     Navigator.pop<Map<String, List<String>>>(context, {
       'Tags': List<String>.from(_selectedTags),
       'Activity Type': List<String>.from(_selectedActivityTypes),
+      'Status': List<String>.from(_selectedStatuses),
     });
   }
 
@@ -154,7 +167,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     if (_loading) {
       return GridView.builder(
         padding: EdgeInsets.zero,
-        itemCount: 2,
+        itemCount: 3,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 16,
@@ -162,7 +175,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
           childAspectRatio: 1.6,
         ),
         itemBuilder: (context, index) {
-          final label = index == 0 ? 'Tags' : 'Activity Type';
+          final label = index == 0
+              ? 'Tags'
+              : (index == 1 ? 'Activity Type' : 'Status');
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -211,7 +226,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     return GridView.builder(
       padding: EdgeInsets.zero,
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: 2,
+      itemCount: 3,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 16,
@@ -231,14 +246,26 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             },
           );
         }
+        if (index == 1) {
+          return CustomMultiSelectDropdown(
+            label: 'Activity Type',
+            hintText: 'Select activity',
+            items: _activityTypeOptions,
+            selectedItems: _selectedActivityTypes,
+            labelBottomSpacing: 4,
+            onChanged: (values) {
+              setState(() => _selectedActivityTypes = List<String>.from(values));
+            },
+          );
+        }
         return CustomMultiSelectDropdown(
-          label: 'Activity Type',
-          hintText: 'Select activity',
-          items: _activityTypeOptions,
-          selectedItems: _selectedActivityTypes,
+          label: 'Status',
+          hintText: 'Select status',
+          items: _approvalStatusOptions,
+          selectedItems: _selectedStatuses,
           labelBottomSpacing: 4,
           onChanged: (values) {
-            setState(() => _selectedActivityTypes = List<String>.from(values));
+            setState(() => _selectedStatuses = List<String>.from(values));
           },
         );
       },

@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
+import 'package:wowcare/presentation/features/billing/widgets/analytics/analytics_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
@@ -16,7 +17,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
 
-  static const String routeName = '/billing';
+  static const String routeName = '/dashboard/billing';
 
   @override
   State<BillingScreen> createState() => _BillingScreenState();
@@ -30,7 +31,7 @@ class _BillingScreenState extends State<BillingScreen>
     // 'Recurring Plans',
     'General Ledger',
     'Subsidies',
-    // 'Analytics',
+    'Analytics',
     // 'Billing Settings',
   ];
   final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
@@ -225,6 +226,8 @@ class _BillingScreenState extends State<BillingScreen>
                                 );
                               } else if (current == 3) {
                                 content = const SubsidiesSection();
+                              } else if (current == 4) {
+                                content = const AnalyticsSection();
                               } else {
                                 final String t = _tabs[current];
                                 content = Align(
