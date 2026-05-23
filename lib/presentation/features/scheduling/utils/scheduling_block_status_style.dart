@@ -359,7 +359,7 @@ class SchedulingBlockStatusStyle {
 
       case SchedulingBlockStatusKind.underRatio:
 
-        return 'Under Ratio';
+        return 'Not In Ratio';
 
       case SchedulingBlockStatusKind.extraStaff:
 

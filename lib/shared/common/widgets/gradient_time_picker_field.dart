@@ -122,6 +122,7 @@ class GradientTimePickerField extends StatelessWidget {
     required this.onTimeSelected,
     this.errorText,
     this.isRequired = false,
+    this.onClear,
   });
 
   final String label;
@@ -129,6 +130,12 @@ class GradientTimePickerField extends StatelessWidget {
   final TimeOfDay? time;
   final ValueChanged<TimeOfDay> onTimeSelected;
   final bool isRequired;
+
+  /// Optional clear callback. When non-null and [time] is set, a small
+  /// close (×) button is rendered next to the clock icon — gives mobile users
+  /// the same affordance the web build gets from pressing backspace inside
+  /// the input.
+  final VoidCallback? onClear;
 
   String _formatHourMinute(TimeOfDay? t) {
     if (t == null) return 'hh:mm AM';
@@ -285,6 +292,24 @@ class GradientTimePickerField extends StatelessWidget {
                   ),
                 ),
 
+                if (onClear != null && time != null) ...[
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onClear,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        size: responsive.isTablet ? 20.0 : 18.0,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 SvgPicture.asset(
                   MediaRes.clock_icon,
 

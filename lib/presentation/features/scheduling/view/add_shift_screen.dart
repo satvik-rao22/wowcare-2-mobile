@@ -7,6 +7,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/repositories/staff_shift_repository.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
@@ -14,6 +16,7 @@ import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_use
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_school_time.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
@@ -167,10 +170,26 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   /// new combo.
   String? _lastPrefilledKey;
 
+  /// Classrooms returned by `/classroom/classroom/all?...&type=ADMIN`. Merged
+  /// into the Classroom dropdown when the selected staff has one of the
+  /// teacher designations ([_teacherDesignationCodes]) so e.g. Floaters can be
+  /// scheduled into admin-type locations alongside their regular classrooms.
+  List<Classroom> _adminClassrooms = const <Classroom>[];
+
+  /// Designation codes (uppercase, snake_case — the wire format used in
+  /// `StaffMember.designation`) that should see ADMIN-type locations merged
+  /// into the Classroom dropdown.
+  static const Set<String> _teacherDesignationCodes = <String>{
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+  };
+
   @override
   void initState() {
     super.initState();
-    _date = widget.initialDate ?? DateTime.now();
+    _date = widget.initialDate ?? schedulingSchoolToday();
     _selectedClassroomCode = widget.initialClassroomCode;
     _selectedStaffCode =
         widget.prefillStaff ? widget.initialStaffCode : null;
@@ -179,6 +198,42 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     // anymore — they get prefilled from the selected staff's work/break
     // schedule for the selected weekday (PRD: staff default work hours).
     _loadSchoolHours();
+    _bootstrapSchoolZone();
+    _loadAdminClassrooms();
+  }
+
+  Future<void> _loadAdminClassrooms() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final classrooms =
+          await serviceLocator<GetActiveClassroomsUseCase>()(
+        schoolCode: schoolCode,
+        typeOverride: 'ADMIN',
+      );
+      if (!mounted) return;
+      setState(() => _adminClassrooms = classrooms);
+    } catch (_) {
+      // Best-effort: missing admin locations just keeps the dropdown to the
+      // existing CLASSROOM-type list.
+    }
+  }
+
+  Future<void> _bootstrapSchoolZone() async {
+    try {
+      await bootstrapSchedulingSchoolTimezone();
+      if (!mounted) return;
+      // Refresh the default date once the school zone resolves, but only when
+      // the caller didn't pass a specific [initialDate] — that one is explicit
+      // and shouldn't be overridden by the school-zone "today".
+      if (widget.initialDate == null) {
+        setState(() {
+          _date = schedulingSchoolToday();
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadSchoolHours() async {
@@ -236,7 +291,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   /// forward up to 7 days starting from [_date] (or today) to find a real
   /// matching weekday — purely a lookup helper for recurring validation.
   (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {
-    final anchor = _date ?? DateTime.now();
+    final anchor = _date ?? schedulingSchoolToday();
     for (var i = 0; i < 7; i++) {
       final probe = anchor.add(Duration(days: i));
       if (probe.weekday == weekday) {
@@ -590,9 +645,22 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     return null;
   }
 
+  /// True when [staff]'s designation is one of the four teacher roles that
+  /// should see ADMIN-type locations in the Classroom dropdown.
+  bool _isTeacherDesignation(StaffMember? staff) {
+    if (staff == null) return false;
+    final designation = staff.designation.trim().toUpperCase();
+    if (designation.isEmpty) return false;
+    return _teacherDesignationCodes.contains(designation);
+  }
+
   /// Returns `code → name` for the classroom dropdown.
   /// If a staff is selected, restrict to their allowed classrooms (per PRD).
-  /// Otherwise fall back to the full classroom cubit list.
+  /// Otherwise fall back to the full classroom cubit list. For teacher
+  /// designations, ADMIN-type locations from
+  /// [_loadAdminClassrooms] are merged in regardless of the staff's allowed
+  /// list — teachers may need to clock shifts in admin locations that aren't
+  /// part of their regular classroom roster.
   Map<String, String> _classroomOptions({
     required ClassroomState classroomState,
     required StaffMember? selectedStaff,
@@ -602,28 +670,42 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     };
     if (selectedStaff == null) return fullList;
 
+    final isTeacher = _isTeacherDesignation(selectedStaff);
     final allowed = selectedStaff.allowedClassroomCodes;
-    if (allowed.isEmpty) return fullList;
 
-    final result = <String, String>{};
-    for (final code in allowed) {
-      final trimmed = code.trim();
-      if (trimmed.isEmpty) continue;
-      // Prefer the human-readable name from the classroom cubit, then fall back
-      // to the name embedded in the staff list response.
-      final name = (fullList[trimmed] ??
-              selectedStaff.allowedClassroomNameByCode[trimmed] ??
-              '')
-          .trim();
-      result[trimmed] = name.isNotEmpty ? name : trimmed;
+    final Map<String, String> result;
+    if (allowed.isEmpty) {
+      result = Map<String, String>.from(fullList);
+    } else {
+      result = <String, String>{};
+      for (final code in allowed) {
+        final trimmed = code.trim();
+        if (trimmed.isEmpty) continue;
+        // Prefer the human-readable name from the classroom cubit, then fall
+        // back to the name embedded in the staff list response.
+        final name = (fullList[trimmed] ??
+                selectedStaff.allowedClassroomNameByCode[trimmed] ??
+                '')
+            .trim();
+        result[trimmed] = name.isNotEmpty ? name : trimmed;
+      }
+      // Make sure the primary classroom is represented even if the allowed
+      // list came back empty for it.
+      final primary = selectedStaff.primaryClassroomCode.trim();
+      if (primary.isNotEmpty && !result.containsKey(primary)) {
+        final primaryName = (fullList[primary] ??
+                selectedStaff.primaryClassroomName.trim());
+        result[primary] = primaryName.isNotEmpty ? primaryName : primary;
+      }
     }
-    // Make sure the primary classroom is represented even if the allowed list
-    // came back empty for it.
-    final primary = selectedStaff.primaryClassroomCode.trim();
-    if (primary.isNotEmpty && !result.containsKey(primary)) {
-      final primaryName = (fullList[primary] ??
-              selectedStaff.primaryClassroomName.trim());
-      result[primary] = primaryName.isNotEmpty ? primaryName : primary;
+
+    if (isTeacher) {
+      for (final c in _adminClassrooms) {
+        final code = c.code.trim();
+        if (code.isEmpty) continue;
+        final name = c.name.trim();
+        result.putIfAbsent(code, () => name.isNotEmpty ? name : code);
+      }
     }
     return result;
   }
@@ -1073,6 +1155,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                             _breakStartError = null;
                             _schoolHoursError = null;
                           }),
+                          onClear: () => setState(() {
+                            _breakStart = null;
+                            _breakStartError = null;
+                            _schoolHoursError = null;
+                          }),
                         ),
                       ),
                       SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -1083,6 +1170,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                           errorText: _breakEndError,
                           onTimeSelected: (t) => setState(() {
                             _breakEnd = t;
+                            _breakEndError = null;
+                            _schoolHoursError = null;
+                          }),
+                          onClear: () => setState(() {
+                            _breakEnd = null;
                             _breakEndError = null;
                             _schoolHoursError = null;
                           }),

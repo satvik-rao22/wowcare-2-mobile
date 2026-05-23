@@ -304,6 +304,42 @@ class StaffShiftRepositoryImpl
   }
 
   @override
+  Future<void> publishStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime dateRangeStart,
+    required bool publishAll,
+    required bool publishAllStaff,
+    DateTime? publishUntilDate,
+    List<String> selectedStaffCodes = const <String>[],
+  }) async {
+    final body = <String, dynamic>{
+      'schoolCode': schoolCode,
+      'organizationCode': organizationCode,
+      'publishAll': publishAll,
+      'publishAllStaff': publishAllStaff,
+      'dateRangeStart': _formatDate(dateRangeStart),
+    };
+    if (!publishAll && publishUntilDate != null) {
+      body['publishUntilDate'] = _formatDate(publishUntilDate);
+    }
+    if (!publishAllStaff) {
+      body['selectedStaffCodes'] = selectedStaffCodes;
+    }
+    await _remote.publishStaffShifts(body: body);
+
+    // Publish changes the isPublished flag on shifts — drop every per-staff
+    // cached list so the next read picks up the updated state.
+    final allKeys = _registeredKeysByStaff.values
+        .expand((s) => s)
+        .toList(growable: false);
+    if (allKeys.isNotEmpty) {
+      await _cacheManager.invalidateCaches(allKeys);
+      _registeredKeysByStaff.clear();
+    }
+  }
+
+  @override
   Future<int> markStaffShiftAbsentDays({
     required String staffCode,
     required String schoolCode,
