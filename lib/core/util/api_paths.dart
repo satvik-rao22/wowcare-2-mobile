@@ -341,6 +341,20 @@ class ApiPaths {
   static const String staffShiftClassroomForecastRange =
       '/api/v1/staff-shifts/schedule/classroom/forecast/range';
 
+  /// POST `/api/v1/staff-shifts/absent-days` — deletes shifts that fall on
+  /// the supplied absent dates after a recurring shift series is created.
+  static const String staffShiftsAbsentDays =
+      '/api/v1/staff-shifts/absent-days';
+
+  /// PUT `/api/v1/staff-shifts/{shiftCode}` — update one shift occurrence.
+  static String staffShiftByCode(String shiftCode) =>
+      '$staffShifts/${Uri.encodeComponent(shiftCode)}';
+
+  /// PUT `/api/v1/staff-shifts/series/{seriesCode}` — update an entire
+  /// recurring shift series.
+  static String staffShiftSeriesByCode(String seriesCode) =>
+      '$staffShifts/series/${Uri.encodeComponent(seriesCode)}';
+
   /// Builds a full URL on the staff microservice host.
   static String staffMicroserviceUrl(String path) =>
       urlWithBase(path, ApiConstants.staffBaseUrl);

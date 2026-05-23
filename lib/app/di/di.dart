@@ -30,6 +30,10 @@ import '../../data/features/scheduling/repositories/staff_shift_repository_impl.
 import '../../core/util/cache_manager.dart';
 import '../../domain/features/scheduling/repositories/staff_shift_repository.dart';
 import '../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
+import '../../domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
+import '../../domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
+import '../../domain/features/scheduling/usecases/update_staff_shift_series_usecase.dart';
+import '../../domain/features/scheduling/usecases/update_staff_shift_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
@@ -492,7 +496,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => GetStaffAbsentFormListUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<MarkStaffAbsentUseCase>(
-    () => MarkStaffAbsentUseCase(serviceLocator()),
+    () => MarkStaffAbsentUseCase(
+      serviceLocator(),
+      serviceLocator<StaffShiftRepository>(),
+      serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerFactory<GetStaffTodaySignInStatusUseCase>(
     () => GetStaffTodaySignInStatusUseCase(serviceLocator()),
@@ -628,6 +636,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateStaffShiftUseCase>(
     () => CreateStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateStaffShiftUseCase>(
+    () => UpdateStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateStaffShiftSeriesUseCase>(
+    () =>
+        UpdateStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteStaffShiftUseCase>(
+    () => DeleteStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteStaffShiftSeriesUseCase>(
+    () =>
+        DeleteStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<GetStaffShiftByCodeUseCase>(
     () => GetStaffShiftByCodeUseCase(serviceLocator<StaffShiftRepository>()),

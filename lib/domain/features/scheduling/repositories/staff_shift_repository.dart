@@ -57,6 +57,7 @@ abstract class StaffShiftRepository {
     required String organizationCode,
     required DateTime dateFrom,
     required DateTime dateTo,
+    String? classroomCode,
   });
 
   /// `GET /api/v1/staff-shifts/{shiftCode}` — full detail for one shift.
@@ -87,6 +88,46 @@ abstract class StaffShiftRepository {
     required DateTime startDate,
     required DateTime endDate,
     List<String> staffCodes = const <String>[],
+  });
+
+  /// Returns dates the staff is marked absent within [from]..[to] (inclusive).
+  /// Backed by `GET /api/v1/staff-attendance/profile/absent/toggle` so the
+  /// add-shift flow can block / strip absent days before creation.
+  Future<List<DateTime>> getStaffAbsentDatesInRange({
+    required String staffCode,
+    required DateTime from,
+    required DateTime to,
+  });
+
+  /// `POST /api/v1/staff-shifts/absent-days` — deletes shifts the just-created
+  /// recurring series produced on the supplied absent dates. Returns the
+  /// number of shifts the backend deleted.
+  Future<int> markStaffShiftAbsentDays({
+    required String staffCode,
+    required String schoolCode,
+    required List<DateTime> absentDates,
+  });
+
+  /// `PUT /api/v1/staff-shifts/{shiftCode}` — update one shift occurrence.
+  Future<StaffShift> updateStaffShift(StaffShiftUpdateRequest request);
+
+  /// `PUT /api/v1/staff-shifts/series/{seriesCode}` — update every occurrence
+  /// of a recurring series. Returns the same create-result envelope.
+  Future<StaffShiftCreateResult> updateStaffShiftSeries(
+    StaffShiftSeriesUpdateRequest request,
+  );
+
+  /// `DELETE /api/v1/staff-shifts/{shiftCode}` — remove one shift occurrence.
+  Future<void> deleteStaffShift({
+    required String shiftCode,
+    String? staffCode,
+  });
+
+  /// `DELETE /api/v1/staff-shifts/series/{seriesCode}` — remove every shift
+  /// in a recurring series.
+  Future<void> deleteStaffShiftSeries({
+    required String seriesCode,
+    String? staffCode,
   });
 }
 

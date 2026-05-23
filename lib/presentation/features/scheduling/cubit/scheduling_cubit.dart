@@ -90,6 +90,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       }
 
       final day = state.selectedDay;
+      final classroomCode = _resolveClassroomCodeFromFilter();
 
       final results = await Future.wait<dynamic>([
         _getSchoolStaffShiftsUseCase(
@@ -97,6 +98,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           organizationCode: organizationCode,
           dateFrom: day,
           dateTo: day,
+          classroomCode: classroomCode,
         ),
         _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode),
       ]);
@@ -177,13 +179,16 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     required Map<String, StaffHoursTotals> hoursByStaff,
     required Map<String, String?> profilePhotoByStaff,
   }) async {
-    var codes = _allClassroomCodes.isNotEmpty
-        ? List<String>.from(_allClassroomCodes)
-        : shifts
-            .map((s) => s.classroomCode.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList(growable: false);
+    final filteredCode = _resolveClassroomCodeFromFilter();
+    var codes = filteredCode != null
+        ? <String>[filteredCode]
+        : _allClassroomCodes.isNotEmpty
+            ? List<String>.from(_allClassroomCodes)
+            : shifts
+                .map((s) => s.classroomCode.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList(growable: false);
 
     var base = _mergeClassroomSchedules(
       _groupShiftsByClassroom(
@@ -453,7 +458,24 @@ class SchedulingCubit extends Cubit<SchedulingState> {
   }
 
   void setClassroomFilter(String? name) {
-    emit(state.copyWith(classroomFilter: name));
+    final trimmed = name?.trim();
+    final next =
+        trimmed == null || trimmed.isEmpty ? null : trimmed;
+    if (next == state.classroomFilter) return;
+    emit(state.copyWith(classroomFilter: next));
+    load();
+  }
+
+  /// Maps the week-view filter (classroom display name) to API `classroomCode`.
+  String? _resolveClassroomCodeFromFilter() {
+    final name = state.classroomFilter?.trim();
+    if (name == null || name.isEmpty) return null;
+    for (final entry in _classroomNamesByCode.entries) {
+      if (entry.value.trim().toLowerCase() == name.toLowerCase()) {
+        return entry.key.trim();
+      }
+    }
+    return null;
   }
 
   void setClassroomNames(Map<String, String> namesByCode) {

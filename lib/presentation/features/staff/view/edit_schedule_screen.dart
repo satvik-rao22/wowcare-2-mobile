@@ -29,13 +29,34 @@ class EditScheduleScreen extends StatefulWidget {
 }
 
 class _EditScheduleScreenState extends State<EditScheduleScreen> {
-  final List<String> _allDays = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-  ];
+  static const Map<String, String> _dayNameByApiKey = <String, String>{
+    'MONDAY': 'Monday',
+    'TUESDAY': 'Tuesday',
+    'WEDNESDAY': 'Wednesday',
+    'THURSDAY': 'Thursday',
+    'FRIDAY': 'Friday',
+    'SATURDAY': 'Saturday',
+    'SUNDAY': 'Sunday',
+  };
+
+  /// Days the school is open, derived strictly from the regular-schedule API
+  /// response (`_schoolMinutesByDay`). Empty until the API loads — the UI
+  /// fills in once the resolver is populated.
+  List<String> get _allDays {
+    const order = <String>[
+      'MONDAY',
+      'TUESDAY',
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
+      'SATURDAY',
+      'SUNDAY',
+    ];
+    return order
+        .where(_schoolMinutesByDay.containsKey)
+        .map((k) => _dayNameByApiKey[k]!)
+        .toList(growable: false);
+  }
 
   // Store schedule data for each day
   final Map<String, DaySchedule> _schedules = {};
@@ -51,7 +72,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeSchedules();
+    // School schedule must load before we can derive _allDays — _initializeSchedules
+    // is invoked from the resolver completion handler.
     _loadSchoolRegularSchedules();
   }
 
@@ -81,6 +103,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       setState(() {
         _schoolMinutesByDay = map;
         _schoolHoursLoadError = null;
+        _initializeSchedules();
       });
     } catch (e) {
       if (!mounted) return;
