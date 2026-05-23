@@ -150,12 +150,14 @@ class StaffShiftRepositoryImpl
     required String organizationCode,
     required DateTime dateFrom,
     required DateTime dateTo,
+    String? classroomCode,
   }) async {
     final models = await _remote.getSchoolStaffShifts(
       schoolCode: schoolCode,
       organizationCode: organizationCode,
       dateFrom: _formatDate(dateFrom),
       dateTo: _formatDate(dateTo),
+      classroomCode: classroomCode,
     );
     return models.map((m) => m.toEntity()).toList(growable: false);
   }
@@ -236,5 +238,86 @@ class StaffShiftRepositoryImpl
     // Wipe cached shift lists for this staff so the next read is fresh.
     await invalidateCachedStaffShifts(staffCode: request.staffCode);
     return model.toEntity();
+  }
+
+  @override
+  Future<List<DateTime>> getStaffAbsentDatesInRange({
+    required String staffCode,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    return _remote.getStaffAbsentDatesInRange(
+      staffCode: staffCode,
+      fromAbsenceDate: _formatDate(from),
+      toAbsenceDate: _formatDate(to),
+    );
+  }
+
+  @override
+  Future<StaffShift> updateStaffShift(StaffShiftUpdateRequest request) async {
+    final body = StaffShiftUpdateRequestModel(request).toJson();
+    final model = await _remote.updateStaffShift(
+      shiftCode: request.shiftCode,
+      body: body,
+    );
+    final staffCode = model.staffCode.trim();
+    if (staffCode.isNotEmpty) {
+      await invalidateCachedStaffShifts(staffCode: staffCode);
+    }
+    return model.toEntity();
+  }
+
+  @override
+  Future<StaffShiftCreateResult> updateStaffShiftSeries(
+    StaffShiftSeriesUpdateRequest request,
+  ) async {
+    final body = StaffShiftSeriesUpdateRequestModel(request).toJson();
+    final model = await _remote.updateStaffShiftSeries(
+      seriesCode: request.seriesCode,
+      body: body,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<void> deleteStaffShift({
+    required String shiftCode,
+    String? staffCode,
+  }) async {
+    await _remote.deleteStaffShift(shiftCode: shiftCode);
+    final code = staffCode?.trim();
+    if (code != null && code.isNotEmpty) {
+      await invalidateCachedStaffShifts(staffCode: code);
+    }
+  }
+
+  @override
+  Future<void> deleteStaffShiftSeries({
+    required String seriesCode,
+    String? staffCode,
+  }) async {
+    await _remote.deleteStaffShiftSeries(seriesCode: seriesCode);
+    final code = staffCode?.trim();
+    if (code != null && code.isNotEmpty) {
+      await invalidateCachedStaffShifts(staffCode: code);
+    }
+  }
+
+  @override
+  Future<int> markStaffShiftAbsentDays({
+    required String staffCode,
+    required String schoolCode,
+    required List<DateTime> absentDates,
+  }) async {
+    if (absentDates.isEmpty) return 0;
+    final deleted = await _remote.markStaffShiftAbsentDays(
+      staffCode: staffCode,
+      schoolCode: schoolCode,
+      absentDates: absentDates.map(_formatDate).toList(growable: false),
+    );
+    if (deleted > 0) {
+      await invalidateCachedStaffShifts(staffCode: staffCode);
+    }
+    return deleted;
   }
 }

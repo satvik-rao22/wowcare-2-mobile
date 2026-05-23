@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
+import 'package:wowcare/domain/features/scheduling/repositories/staff_shift_repository.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
@@ -16,6 +17,8 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/staff_absent_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/staff_no_availability_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -32,6 +35,8 @@ class AddShiftScreen extends StatefulWidget {
     this.initialDate,
     this.initialClassroomCode,
     this.initialStaffCode,
+    this.initialPublish = false,
+    this.prefillStaff = true,
   });
 
   static const String routeName = '/add-shift-screen';
@@ -40,28 +45,53 @@ class AddShiftScreen extends StatefulWidget {
   final String? initialClassroomCode;
   final String? initialStaffCode;
 
+  /// When true, the "Publish shift" checkbox starts checked.
+  final bool initialPublish;
+
+  /// When false, staff is not pre-selected and work/break times are not
+  /// auto-filled until the user picks a staff member (staff scheduling flow).
+  final bool prefillStaff;
+
   @override
   State<AddShiftScreen> createState() => _AddShiftScreenState();
 }
 
 class _AddShiftScreenState extends State<AddShiftScreen> {
-  static const List<String> _weekDays = <String>[
+  /// Canonical Mon→Sun ordering. The actual day grid is filtered down to the
+  /// days the school is open (sourced from regular-schedule API) via
+  /// [_availableWeekDays].
+  static const List<String> _weekDaysOrder = <String>[
     'Monday',
     'Tuesday',
     'Wednesday',
     'Thursday',
     'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
-  /// 1-based DayOfWeek index expected by the backend (Java).
+  /// Map `day name → DateTime.weekday` (1..7). The wire format expected by the
+  /// backend is 0-indexed (Mon=0 .. Sun=6); conversion happens at the request
+  /// boundary in [_onConfirm].
   static const Map<String, int> _weekDayIndex = <String, int>{
-    'Monday': 1,
-    'Tuesday': 2,
-    'Wednesday': 3,
-    'Thursday': 4,
-    'Friday': 5,
-    'Saturday': 6,
-    'Sunday': 7,
+    'Monday': DateTime.monday,
+    'Tuesday': DateTime.tuesday,
+    'Wednesday': DateTime.wednesday,
+    'Thursday': DateTime.thursday,
+    'Friday': DateTime.friday,
+    'Saturday': DateTime.saturday,
+    'Sunday': DateTime.sunday,
+  };
+
+  /// Inverse of [_weekDayIndex] — `DateTime.weekday` (1..7) → display name.
+  static const Map<int, String> _weekdayName = <int, String>{
+    DateTime.monday: 'Monday',
+    DateTime.tuesday: 'Tuesday',
+    DateTime.wednesday: 'Wednesday',
+    DateTime.thursday: 'Thursday',
+    DateTime.friday: 'Friday',
+    DateTime.saturday: 'Saturday',
+    DateTime.sunday: 'Sunday',
   };
 
   /// Maps `DateTime.weekday` (1..7) to the uppercase key used in
@@ -75,6 +105,23 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     DateTime.saturday: 'SATURDAY',
     DateTime.sunday: 'SUNDAY',
   };
+
+  /// School's open days for the repeat-days grid — strictly the days the
+  /// regular-schedule API returned. Empty while the API is still in flight
+  /// (the grid fills in once the resolver loads).
+  List<String> get _availableWeekDays {
+    final resolver = _schoolHoursResolver;
+    if (resolver == null) return const <String>[];
+    final result = <String>[];
+    for (final name in _weekDaysOrder) {
+      final weekday = _weekDayIndex[name];
+      if (weekday == null) continue;
+      if (_schoolHoursForWeekday(weekday) != null) {
+        result.add(name);
+      }
+    }
+    return result;
+  }
 
   DateTime? _date;
   DateTime? _untilDate;
@@ -108,6 +155,10 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   SchoolHoursResolver? _schoolHoursResolver;
   String? _schoolHoursError;
 
+  /// Whether to publish the new shift (or series). Off by default so shifts
+  /// land as DRAFT unless the user opts in.
+  bool _publish = false;
+
   bool _saving = false;
 
   /// Tracks the (staffCode|yyyy-MM-dd) combo we've already prefilled times for,
@@ -121,7 +172,9 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     super.initState();
     _date = widget.initialDate ?? DateTime.now();
     _selectedClassroomCode = widget.initialClassroomCode;
-    _selectedStaffCode = widget.initialStaffCode;
+    _selectedStaffCode =
+        widget.prefillStaff ? widget.initialStaffCode : null;
+    _publish = widget.initialPublish;
     // Shift/break times are intentionally not seeded with hardcoded defaults
     // anymore — they get prefilled from the selected staff's work/break
     // schedule for the selected weekday (PRD: staff default work hours).
@@ -213,7 +266,18 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   void _toggleRepeat(bool value) {
     setState(() {
       _repeatOn = value;
-      if (!_repeatOn) {
+      if (_repeatOn) {
+        // Pre-select the weekday of the currently chosen date so the user
+        // doesn't have to tap it again — matches the natural "repeat from
+        // today's day onwards" expectation. Only auto-select when the day is
+        // actually in the school's open-days set.
+        if (_date != null) {
+          final dayName = _weekdayName[_date!.weekday];
+          if (dayName != null && _availableWeekDays.contains(dayName)) {
+            _selectedDays.add(dayName);
+          }
+        }
+      } else {
         _selectedDays.clear();
         _untilDate = null;
         _daysError = null;
@@ -224,12 +288,13 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
 
   void _toggleSelectAll() {
     setState(() {
-      if (_selectedDays.length == _weekDays.length) {
+      final available = _availableWeekDays;
+      if (_selectedDays.length == available.length) {
         _selectedDays.clear();
       } else {
         _selectedDays
           ..clear()
-          ..addAll(_weekDays);
+          ..addAll(available);
       }
       _daysError = null;
     });
@@ -335,6 +400,52 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
       }
     }
 
+    // Single-day staff-availability check is informational only: the red
+    // hint rendered from [_staffAvailabilityErrorMessage] is just a warning
+    // to the user — the submit is still allowed through (the backend handles
+    // the create). Recurring shifts handle the same check as a hard-block
+    // bottom sheet in [_onConfirm].
+
+    return true;
+  }
+
+  /// Live (build-time) view of whether the currently picked shift time falls
+  /// outside the selected staff's work-schedule window for the selected date.
+  /// Returns null when the rule doesn't apply (recurring, missing fields, no
+  /// staff selected, staff has no schedule entry for the day, or time fits).
+  String? get _staffAvailabilityErrorMessage {
+    if (_repeatOn) return null;
+    if (_date == null) return null;
+    if (_shiftStart == null || _shiftEnd == null) return null;
+    final code = _selectedStaffCode;
+    if (code == null || code.isEmpty) return null;
+    final staffList = context.read<SchedulingStaffListCubit>().state.staff;
+    final selectedStaff = _findStaff(code, staffList);
+    if (selectedStaff == null) return null;
+    if (_shiftFitsStaffSchedule(selectedStaff, _date!.weekday)) return null;
+    return 'Selected shift time is outside this staff availability.';
+  }
+
+  /// Returns true iff the current shift + break (if any) sit entirely within
+  /// the staff's work-schedule window for [weekday]. Returns true when the
+  /// staff has no entry for that day — the upstream "no schedule" gate in
+  /// [_onConfirm] handles the missing-entry case explicitly.
+  bool _shiftFitsStaffSchedule(StaffMember staff, int weekday) {
+    if (_shiftStart == null || _shiftEnd == null) return true;
+    final dayKey = _weekdayDayKey[weekday] ?? '';
+    if (dayKey.isEmpty) return true;
+    final window = _parseTimeRange(staff.workScheduleByDay[dayKey]);
+    if (window == null) return true;
+    final shiftStartMin = _minutesOf(_shiftStart!);
+    final shiftEndMin = _minutesOf(_shiftEnd!);
+    final winStartMin = _minutesOf(window.$1);
+    final winEndMin = _minutesOf(window.$2);
+    if (shiftStartMin < winStartMin || shiftEndMin > winEndMin) return false;
+    if (_breakStart != null && _breakEnd != null) {
+      final bStart = _minutesOf(_breakStart!);
+      final bEnd = _minutesOf(_breakEnd!);
+      if (bStart < winStartMin || bEnd > winEndMin) return false;
+    }
     return true;
   }
 
@@ -523,19 +634,95 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
     if (!_validate()) return;
     if (_saving) return;
 
+    // Absence pre-check: GET the staff's absent days across the targeted
+    // window. Single-day → hard-block with a warning sheet. Recurring → carry
+    // the series-relevant absent dates forward and strip them from the just-
+    // created series via the absent-days endpoint after POST succeeds.
+    setState(() => _saving = true);
+    final shiftRepo = serviceLocator<StaffShiftRepository>();
+    final absentRangeTo =
+        _repeatOn && _untilDate != null ? _untilDate! : _date!;
+    List<DateTime> absentDates;
+    try {
+      absentDates = await shiftRepo.getStaffAbsentDatesInRange(
+        staffCode: _selectedStaffCode!,
+        from: _date!,
+        to: absentRangeTo,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(e),
+          isError: true,
+        );
+      }
+      return;
+    }
+
+    if (!_repeatOn) {
+      final blocking = absentDates.where((d) => _isSameDay(d, _date!));
+      if (blocking.isNotEmpty) {
+        if (mounted) setState(() => _saving = false);
+        if (!mounted) return;
+        await StaffAbsentBottomSheet.show(context, blocking.first);
+        return;
+      }
+    }
+
+    // For recurring shifts, only absent dates on a selected weekday will have
+    // produced a shift in the series; everything else is irrelevant.
+    var seriesAbsentDates = const <DateTime>[];
+    if (_repeatOn) {
+      final selectedDayIndices =
+          _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
+      seriesAbsentDates = absentDates.where((d) {
+        if (selectedDayIndices.isEmpty) return true;
+        return selectedDayIndices.contains(d.weekday);
+      }).toList(growable: false);
+    }
+
+    if (mounted) setState(() => _saving = false);
+    if (!mounted) return;
+
     // If the selected staff has no work schedule defined for the targeted
-    // day(s), prompt the user. Tapping Yes routes through the API with
-    // `forceAdd: true` so the backend skips the schedule-required check.
+    // day(s), the flow forks:
+    //   - Recurring shift → hard block. There's no override; the user must
+    //     edit the staff's profile to add availability before a recurring
+    //     series can be created.
+    //   - Single-day shift → soft prompt that, on confirm, sends `forceAdd:
+    //     true` so the backend skips its schedule-required check.
     var forceAdd = false;
     final staffList =
         context.read<SchedulingStaffListCubit>().state.staff;
     final selectedStaff = _findStaff(_selectedStaffCode, staffList);
     if (selectedStaff != null &&
         _staffHasNoScheduleForSelection(selectedStaff)) {
+      if (_repeatOn) {
+        if (!mounted) return;
+        await StaffNoAvailabilityBottomSheet.show(context);
+        return;
+      }
       final confirmed = await NoScheduleBottomSheet.show(context);
       if (!confirmed) return;
       if (!mounted) return;
       forceAdd = true;
+    }
+
+    // Recurring shift: time-vs-staff-window check. Each selected weekday must
+    // fit inside the staff's work-schedule window for that day. (Single-day
+    // variant is surfaced inline in [_validate] as `_staffAvailabilityError`.)
+    if (_repeatOn && selectedStaff != null) {
+      final selectedDayIndices =
+          _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
+      final anyOutside = selectedDayIndices
+          .any((wd) => !_shiftFitsStaffSchedule(selectedStaff, wd));
+      if (anyOutside) {
+        if (!mounted) return;
+        await StaffNoAvailabilityBottomSheet.show(context);
+        return;
+      }
     }
 
     setState(() => _saving = true);
@@ -550,8 +737,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         throw Exception('Missing school/organization context');
       }
 
-      // PRD: GET existing shifts in the chosen date range, prompt to override
-      // if any conflict, then POST with overrideConflicts flag accordingly.
+      // PRD: GET existing shifts in the chosen date range and prompt the user
+      // to confirm if any conflict — the bottom sheet is a UX courtesy. The
+      // POST itself always sends `overrideConflicts: true`, so the backend
+      // overwrites whichever side wins; the prompt is only a "are you sure?"
+      // gate the user can still cancel from.
       final dateTo = _repeatOn && _untilDate != null ? _untilDate! : _date!;
       final getShiftsUseCase = serviceLocator<GetStaffShiftsUseCase>();
       final existing = await getShiftsUseCase(
@@ -562,13 +752,24 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         dateTo: dateTo,
       );
 
-      // For non-recurring: any shift on the chosen day is a conflict.
+      // For non-recurring: any shift on the chosen day whose time window
+      // overlaps the new shift is a conflict.
       // For recurring: any shift in the [_date, _untilDate] range whose
-      // weekday is selected is a conflict.
+      // weekday is selected AND whose time window overlaps the new shift is
+      // a conflict.
+      // Two same-day shifts whose times don't overlap (e.g. 9–3 vs 4–6) are
+      // not in conflict — they coexist on the same day.
       final selectedDayIndices =
           _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
+      final newStartMin = _minutesOf(_shiftStart!);
+      final newEndMin = _minutesOf(_shiftEnd!);
       final conflicts = <DateTime>[];
       for (final shift in existing) {
+        final existingStartMin = _minutesOf(shift.startTime);
+        final existingEndMin = _minutesOf(shift.endTime);
+        final overlaps =
+            newStartMin < existingEndMin && existingStartMin < newEndMin;
+        if (!overlaps) continue;
         if (_repeatOn) {
           if (selectedDayIndices.isEmpty ||
               selectedDayIndices.contains(shift.shiftDate.weekday)) {
@@ -581,7 +782,6 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         }
       }
 
-      var overrideConflicts = false;
       if (conflicts.isNotEmpty) {
         if (!mounted) return;
         final confirmed = await ShiftOverrideBottomSheet.show(
@@ -592,8 +792,14 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
           setState(() => _saving = false);
           return;
         }
-        overrideConflicts = true;
       }
+
+      // Backend expects 0-indexed weekdays (Mon=0..Sun=6), while internally we
+      // track DateTime.weekday (1..7) for comparison with `shift.shiftDate.
+      // weekday`. Convert at the wire boundary.
+      final repeatDaysWire = _repeatOn
+          ? selectedDayIndices.map((d) => d - 1).toList(growable: false)
+          : const <int>[];
 
       final request = StaffShiftCreateRequest(
         staffCode: _selectedStaffCode!,
@@ -605,13 +811,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         endTime: _shiftEnd!,
         breakStartTime: _breakStart,
         breakEndTime: _breakEnd,
-        publish: false,
+        publish: _publish,
         repeat: _repeatOn,
-        repeatDays: _repeatOn
-            ? selectedDayIndices.toList(growable: false)
-            : const <int>[],
+        repeatDays: repeatDaysWire,
         repeatUntilDate: _repeatOn ? _untilDate : null,
-        overrideConflicts: overrideConflicts,
+        overrideConflicts: true,
         forceAdd: forceAdd,
         notes: _noteController.text.trim().isEmpty
             ? null
@@ -620,6 +824,22 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
 
       final createUseCase = serviceLocator<CreateStaffShiftUseCase>();
       final result = await createUseCase(request);
+
+      // For a recurring series, strip the shifts that landed on dates the
+      // staff is marked absent. Best-effort: the primary create has already
+      // succeeded, so a failure here just leaves the absent-day shifts in
+      // place — surface it but don't fail the whole flow.
+      if (_repeatOn && seriesAbsentDates.isNotEmpty) {
+        try {
+          await shiftRepo.markStaffShiftAbsentDays(
+            staffCode: _selectedStaffCode!,
+            schoolCode: schoolCode,
+            absentDates: seriesAbsentDates,
+          );
+        } catch (e) {
+          debugPrint('markStaffShiftAbsentDays failed: $e');
+        }
+      }
 
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -662,7 +882,9 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
             // its data yet at initState time. Once staff data shows up we
             // prefill once per (staffCode + date) combo so the times reflect
             // the staff's work / break schedule for the selected day.
-            if (selectedStaff != null && _date != null) {
+            if (widget.prefillStaff &&
+                selectedStaff != null &&
+                _date != null) {
               final key =
                   '${selectedStaff.code}|${_date!.toIso8601String().substring(0, 10)}';
               if (_lastPrefilledKey != key) {
@@ -874,6 +1096,10 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                     ),
                   if (_schoolHoursError != null)
                     CoreUtils.buildInlineFieldError(_schoolHoursError),
+                  if (_staffAvailabilityErrorMessage != null)
+                    CoreUtils.buildInlineFieldError(
+                      _staffAvailabilityErrorMessage,
+                    ),
                   SizedBox(height: responsive.verticalSpacing),
                   _buildRepeatHeader(responsive),
                   SizedBox(height: responsive.isTablet ? 16.0 : 12.0),
@@ -905,6 +1131,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                     ),
                     SizedBox(height: responsive.verticalSpacing),
                   ],
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildPublishCheckbox(responsive),
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
                   _buildNoteField(responsive),
                   const SizedBox(height: 12),
                 ],
@@ -991,7 +1222,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
                 colors: AppColors.primaryGradientColors,
               ).createShader(bounds),
               child: Text(
-                _selectedDays.length == _weekDays.length
+                _selectedDays.length == _availableWeekDays.length
                     ? 'Clear All'
                     : 'Select All',
                 style: TextStyle(
@@ -1008,10 +1239,11 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
   }
 
   Widget _buildDaysGrid(ResponsiveHelper responsive) {
+    final days = _availableWeekDays;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _weekDays.length,
+      itemCount: days.length,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: responsive.isTablet ? 16.0 : 8.0,
@@ -1019,7 +1251,7 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
         childAspectRatio: responsive.isTablet ? 4.0 : 3.2,
       ),
       itemBuilder: (context, index) {
-        final day = _weekDays[index];
+        final day = days[index];
         final isSelected = _selectedDays.contains(day);
         return Container(
           decoration: BoxDecoration(
@@ -1052,6 +1284,21 @@ class _AddShiftScreenState extends State<AddShiftScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPublishCheckbox(ResponsiveHelper responsive) {
+    return CustomCheckbox(
+      value: _publish,
+      label: 'Publish shift',
+      scale: 1.0,
+      labelStyle: TextStyle(
+        fontSize: responsive.labelFontSize,
+        fontFamily: 'Manrope',
+        fontWeight: FontWeight.w500,
+        color: const Color(0xff573353),
+      ),
+      onChanged: (val) => setState(() => _publish = val ?? false),
     );
   }
 

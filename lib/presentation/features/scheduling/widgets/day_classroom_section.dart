@@ -136,6 +136,8 @@ class DayClassroomSection extends StatefulWidget {
     required this.day,
     this.initiallyExpanded = true,
     this.isLast = false,
+    this.onStaffShiftTap,
+    this.onStaffSlotTap,
   });
 
   final ClassroomDaySchedule classroom;
@@ -143,6 +145,13 @@ class DayClassroomSection extends StatefulWidget {
   final DateTime day;
   final bool initiallyExpanded;
   final bool isLast;
+
+  /// Week view — tap on the time-range pill.
+  final void Function(StaffScheduleEntry entry)? onStaffShiftTap;
+
+  /// Day view — tap on a staff Gantt work/break block.
+  final void Function(StaffScheduleEntry entry, StaffShiftSlotDetail detail)?
+      onStaffSlotTap;
 
   @override
   State<DayClassroomSection> createState() => _DayClassroomSectionState();
@@ -224,6 +233,9 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
                 dayEndMinutes: entry.timelineEndMinutes,
                 slotMinutes: entry.slotMinutes,
                 staffName: entry.staffName,
+                onShiftSlotTap: widget.onStaffSlotTap == null
+                    ? null
+                    : (detail) => widget.onStaffSlotTap!(entry, detail),
               ),
             ),
       ],
@@ -278,6 +290,9 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
                 startTime: staff[i].startTime,
                 endTime: staff[i].endTime,
                 isPublished: staff[i].isPublished,
+                onTap: widget.onStaffShiftTap == null
+                    ? null
+                    : () => widget.onStaffShiftTap!(staff[i]),
               ),
             ),
       ],

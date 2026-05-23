@@ -471,6 +471,7 @@ class SchedulingStaffDayTimeline extends StatefulWidget {
     required this.dayEndMinutes,
     required this.slotMinutes,
     required this.staffName,
+    this.onShiftSlotTap,
   });
 
   final List<StaffShiftSlotStatus> slots;
@@ -481,6 +482,10 @@ class SchedulingStaffDayTimeline extends StatefulWidget {
   final int dayEndMinutes;
   final int slotMinutes;
   final String staffName;
+
+  /// When set, work/break slots with shift data open the full view form
+  /// instead of the lightweight slot dialog.
+  final void Function(StaffShiftSlotDetail detail)? onShiftSlotTap;
 
   @override
   State<SchedulingStaffDayTimeline> createState() =>
@@ -508,12 +513,21 @@ class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline>
             isSelected: _selectedIndex == i,
             onTap: () {
               setState(() => _selectedIndex = i);
+              final detail = i < widget.slotDetails.length
+                  ? widget.slotDetails[i]
+                  : null;
+              final onShiftTap = widget.onShiftSlotTap;
+              if (onShiftTap != null &&
+                  detail != null &&
+                  detail.hasShiftData) {
+                onShiftTap(detail);
+                setState(() => _selectedIndex = null);
+                return;
+              }
               _showStaffSlotDetails(
                 context,
                 slotIndex: i,
-                detail: i < widget.slotDetails.length
-                    ? widget.slotDetails[i]
-                    : null,
+                detail: detail,
               );
             },
           ),

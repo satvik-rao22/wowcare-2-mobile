@@ -318,36 +318,34 @@ class ViewShiftScreen extends StatelessWidget {
     required VoidCallback? onSeries,
   }) async {
     final isDelete = actionLabel == 'Delete';
-    _SeriesScope? scope;
-
-    if (isRecurring) {
-      final lower = actionLabel.toLowerCase();
-      scope = await showModalBottomSheet<_SeriesScope>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _ShiftScopeBottomSheet(
-          title: '$actionLabel shift',
-          subtitle: 'This shift is part of a recurring series.',
-          options: [
-            _SeriesOption(
-              scope: _SeriesScope.thisShift,
-              label: '$actionLabel this shift',
-              description: 'Only the occurrence on this day will be ${lower}d.',
-            ),
-            _SeriesOption(
-              scope: _SeriesScope.entireSeries,
-              label: '$actionLabel entire series',
-              description:
-                  'Every occurrence in the recurring series will be ${lower}d.',
-            ),
-          ],
-        ),
-      );
-      if (scope == null) return;
-    } else {
-      scope = _SeriesScope.thisShift;
-    }
+    final lower = actionLabel.toLowerCase();
+    // Always offer the scope choice — backend models every shift as part of
+    // a series (even single-occurrence ones), so the user should be able to
+    // pick "this shift" vs "entire series" on every edit / delete.
+    final scope = await showModalBottomSheet<_SeriesScope>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ShiftScopeBottomSheet(
+        title: '$actionLabel shift',
+        subtitle: 'Choose what to $lower.',
+        options: [
+          _SeriesOption(
+            scope: _SeriesScope.thisShift,
+            label: '$actionLabel this shift',
+            description:
+                'Only the occurrence on this day will be ${lower}d.',
+          ),
+          _SeriesOption(
+            scope: _SeriesScope.entireSeries,
+            label: '$actionLabel entire series',
+            description:
+                'Every occurrence in the recurring series will be ${lower}d.',
+          ),
+        ],
+      ),
+    );
+    if (scope == null) return;
 
     final chosen = scope;
     final onAction = chosen == _SeriesScope.thisShift ? onThis : onSeries;

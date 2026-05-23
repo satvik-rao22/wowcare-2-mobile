@@ -9,6 +9,7 @@ import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../scheduling/utils/scheduling_cache_gate.dart';
 
 part 'staff_state.dart';
 
@@ -90,6 +91,11 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> refresh({bool ignoreRefreshingGuard = false}) async {
     if (state.isRefreshing && !ignoreRefreshingGuard) return;
+
+    // Staff-side data may have just changed (profile edit, status toggle,
+    // delete). Bump the scheduling cache gate so the classroom + staff
+    // scheduling screens silently re-pull the staff list on their next view.
+    SchedulingCacheGate.invalidate();
 
     final schoolCode = await _resolveSchoolCode();
 

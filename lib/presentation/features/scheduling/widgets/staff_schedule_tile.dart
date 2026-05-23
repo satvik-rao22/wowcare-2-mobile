@@ -226,11 +226,13 @@ class StaffTimeRangePill extends StatelessWidget {
     required this.startTime,
     required this.endTime,
     this.isPublished = false,
+    this.onTap,
   });
 
   final String startTime;
   final String endTime;
   final bool isPublished;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -258,17 +260,28 @@ class StaffTimeRangePill extends StatelessWidget {
       ),
     );
 
+    final pill = isPublished
+        ? inner
+        : CustomPaint(
+            foregroundPainter: _DashedRRectPainter(
+              color: borderColor,
+              strokeWidth: 1.2,
+              radius: radius,
+            ),
+            child: inner,
+          );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      child: isPublished
-          ? inner
-          : CustomPaint(
-              foregroundPainter: _DashedRRectPainter(
-                color: borderColor,
-                strokeWidth: 1.2,
-                radius: radius,
+      child: onTap == null
+          ? pill
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(radius),
+                child: pill,
               ),
-              child: inner,
             ),
     );
   }

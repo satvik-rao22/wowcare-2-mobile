@@ -115,6 +115,88 @@ class StaffShiftRequestModel {
   }
 }
 
+/// Request body for `PUT /api/v1/staff-shifts/{shiftCode}` — single shift.
+class StaffShiftUpdateRequestModel {
+  StaffShiftUpdateRequestModel(this._request);
+
+  final StaffShiftUpdateRequest _request;
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'shiftCode': _request.shiftCode,
+      'staffCode': _request.staffCode,
+      'classroomCode': _request.classroomCode,
+      'schoolCode': _request.schoolCode,
+      'organizationCode': _request.organizationCode,
+      'shiftDate': StaffShiftRequestModel._formatDate(_request.shiftDate),
+      'startTime': StaffShiftRequestModel._formatTime(_request.startTime),
+      'endTime': StaffShiftRequestModel._formatTime(_request.endTime),
+      'publish': _request.publish,
+      'repeat': false,
+      'overrideConflicts': _request.overrideConflicts,
+      'forceAdd': _request.forceAdd,
+    };
+    if (_request.breakStartTime != null) {
+      json['breakStartTime'] =
+          StaffShiftRequestModel._formatTime(_request.breakStartTime!);
+    }
+    if (_request.breakEndTime != null) {
+      json['breakEndTime'] =
+          StaffShiftRequestModel._formatTime(_request.breakEndTime!);
+    }
+    final notes = _request.notes?.trim();
+    if (notes != null && notes.isNotEmpty) {
+      json['notes'] = notes;
+    }
+    return json;
+  }
+}
+
+/// Request body for `PUT /api/v1/staff-shifts/series/{seriesCode}` — recurring
+/// series. The series PUT swagger has no shiftDate / publish — the recurrence
+/// pattern fields take their place.
+class StaffShiftSeriesUpdateRequestModel {
+  StaffShiftSeriesUpdateRequestModel(this._request);
+
+  final StaffShiftSeriesUpdateRequest _request;
+
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'shiftCode': _request.shiftCode,
+      'staffCode': _request.staffCode,
+      'classroomCode': _request.classroomCode,
+      'schoolCode': _request.schoolCode,
+      'organizationCode': _request.organizationCode,
+      'shiftDate': StaffShiftRequestModel._formatDate(_request.shiftDate),
+      'startTime': StaffShiftRequestModel._formatTime(_request.startTime),
+      'endTime': StaffShiftRequestModel._formatTime(_request.endTime),
+      'publish': _request.publish,
+      'repeat': _request.repeat,
+      'overrideConflicts': _request.overrideConflicts,
+    };
+    if (_request.breakStartTime != null) {
+      json['breakStartTime'] =
+          StaffShiftRequestModel._formatTime(_request.breakStartTime!);
+    }
+    if (_request.breakEndTime != null) {
+      json['breakEndTime'] =
+          StaffShiftRequestModel._formatTime(_request.breakEndTime!);
+    }
+    final notes = _request.notes?.trim();
+    if (notes != null && notes.isNotEmpty) {
+      json['notes'] = notes;
+    }
+    if (_request.repeat) {
+      json['repeatDays'] = _request.repeatDays;
+      if (_request.repeatUntilDate != null) {
+        json['repeatUntilDate'] =
+            StaffShiftRequestModel._formatDate(_request.repeatUntilDate!);
+      }
+    }
+    return json;
+  }
+}
+
 /// Wire model for a shift row returned by either GET or POST endpoints.
 class StaffShiftModel {
   const StaffShiftModel({

@@ -39,7 +39,34 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   bool _copyToAllDays = false;
 
   // School working days and hours
-  final List<String> _workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  static const Map<String, String> _dayNameByApiKey = <String, String>{
+    'MONDAY': 'Monday',
+    'TUESDAY': 'Tuesday',
+    'WEDNESDAY': 'Wednesday',
+    'THURSDAY': 'Thursday',
+    'FRIDAY': 'Friday',
+    'SATURDAY': 'Saturday',
+    'SUNDAY': 'Sunday',
+  };
+
+  /// Days the school is open, derived strictly from the regular-schedule API
+  /// (`_schoolMinutesByDay`). Empty until the API loads — UI fills in then.
+  List<String> get _workingDays {
+    const order = <String>[
+      'MONDAY',
+      'TUESDAY',
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
+      'SATURDAY',
+      'SUNDAY',
+    ];
+    return order
+        .where(_schoolMinutesByDay.containsKey)
+        .map((k) => _dayNameByApiKey[k]!)
+        .toList(growable: false);
+  }
+
   final TimeOfDay _schoolStartTime = const TimeOfDay(hour: 7, minute: 0);
   final TimeOfDay _schoolEndTime = const TimeOfDay(hour: 18, minute: 0);
   Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};

@@ -10,10 +10,12 @@ import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
+import '../../../../shared/common/widgets/custom_shimmer_loader.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../cubit/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
+import '../utils/scheduling_cache_gate.dart';
+import '../utils/scheduling_shift_navigator.dart';
 import '../widgets/day_classroom_section.dart';
 import '../widgets/scheduling_filter_bar.dart';
 import '../widgets/week_classroom_row.dart';
@@ -44,6 +46,11 @@ class _SchedulingScreenContent extends StatefulWidget {
 class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   bool _expandAll = false;
 
+  /// Persists across screen instances so an edit that happened while this
+  /// screen was off-stack still triggers a silent staff-list refresh on
+  /// the next visit.
+  static int _lastConsumedRevision = 0;
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +61,32 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
       context.read<ClassroomCubit>().loadActiveClassrooms(
             onlyTypeClassroom: false,
           );
+      _silentlyRefreshStaffIfDirty();
     });
+    SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
+  }
+
+  @override
+  void dispose() {
+    SchedulingCacheGate.revision.removeListener(_onCacheInvalidated);
+    super.dispose();
+  }
+
+  void _onCacheInvalidated() {
+    if (!mounted) return;
+    _silentlyRefreshStaffIfDirty();
+  }
+
+  /// Force-reload the staff list cache silently — no shimmer, no full
+  /// scheduling reload. The classroom view doesn't watch
+  /// [SchedulingStaffListCubit]'s loading state, so the refresh is
+  /// invisible to the user.
+  void _silentlyRefreshStaffIfDirty() {
+    final current = SchedulingCacheGate.revision.value;
+    if (current == _lastConsumedRevision) return;
+    _lastConsumedRevision = current;
+    // ignore: discarded_futures
+    context.read<SchedulingStaffListCubit>().load(force: true);
   }
 
   Future<void> _onRefresh() async {
@@ -71,6 +103,53 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
         onlyTypeClassroom: false,
       ),
     ]);
+  }
+
+  Map<String, String> _classroomNamesByCode(BuildContext context) {
+    return {
+      for (final c in context.read<ClassroomCubit>().state.classrooms)
+        if (c.code.trim().isNotEmpty && c.name.trim().isNotEmpty)
+          c.code.trim(): c.name.trim(),
+    };
+  }
+
+  SchedulingShiftNavigator _shiftNavigator(
+    BuildContext context,
+    DateTime selectedDay,
+  ) {
+    return SchedulingShiftNavigator(
+      classroomNamesByCode: _classroomNamesByCode(context),
+      selectedDay: selectedDay,
+      onDataMutated: () => context.read<SchedulingCubit>().load(),
+    );
+  }
+
+  void _openStaffShiftFromEntry(
+    BuildContext context,
+    StaffScheduleEntry entry,
+    String classroomName,
+    DateTime selectedDay,
+  ) {
+    _shiftNavigator(context, selectedDay).openFromStaffEntry(
+      context,
+      entry: entry,
+      classroomName: classroomName,
+    );
+  }
+
+  void _openStaffShiftFromSlot(
+    BuildContext context,
+    StaffScheduleEntry entry,
+    StaffShiftSlotDetail detail,
+    String classroomName,
+    DateTime selectedDay,
+  ) {
+    _shiftNavigator(context, selectedDay).openFromSlotDetail(
+      context,
+      detail: detail,
+      staffName: entry.staffName,
+      classroomName: classroomName,
+    );
   }
 
   void _openAddShiftScreen(DateTime selectedDay) {
@@ -171,9 +250,9 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                     const SizedBox(height: 12),
                   ],
                   if (state.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 60),
-                      child: Center(child: PrimaryCircularLoader()),
+                    ClassroomSchedulingShimmer(
+                      showDayTimelineBlocks:
+                          state.viewMode == SchedulingViewMode.day,
                     )
                   else if (state.filteredClassrooms.isEmpty)
                     const Padding(
@@ -197,6 +276,13 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       expandAll: _expandAll,
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
+                      onStaffShiftTap: (entry, classroomName) =>
+                          _openStaffShiftFromEntry(
+                        context,
+                        entry,
+                        classroomName,
+                        state.selectedDay,
+                      ),
                     )
                   else
                     _DailyClassroomListCard(
@@ -205,6 +291,21 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       expandAll: _expandAll,
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
+                      onStaffShiftTap: (entry, classroomName) =>
+                          _openStaffShiftFromEntry(
+                        context,
+                        entry,
+                        classroomName,
+                        state.selectedDay,
+                      ),
+                      onStaffSlotTap: (entry, detail, classroomName) =>
+                          _openStaffShiftFromSlot(
+                        context,
+                        entry,
+                        detail,
+                        classroomName,
+                        state.selectedDay,
+                      ),
                     ),
                 ],
               ),
@@ -285,6 +386,7 @@ class _ClassroomListCard extends StatelessWidget {
     required this.dayLabel,
     required this.expandAll,
     required this.onToggleExpandAll,
+    required this.onStaffShiftTap,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -292,6 +394,8 @@ class _ClassroomListCard extends StatelessWidget {
   final String dayLabel;
   final bool expandAll;
   final VoidCallback onToggleExpandAll;
+  final void Function(StaffScheduleEntry entry, String classroomName)
+      onStaffShiftTap;
 
   @override
   Widget build(BuildContext context) {
@@ -319,6 +423,8 @@ class _ClassroomListCard extends StatelessWidget {
                 day: day,
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
+                onStaffShiftTap: (entry) =>
+                    onStaffShiftTap(entry, classrooms[i].classroomName),
               ),
           ],
         ),
@@ -333,12 +439,21 @@ class _DailyClassroomListCard extends StatelessWidget {
     required this.day,
     required this.expandAll,
     required this.onToggleExpandAll,
+    required this.onStaffShiftTap,
+    required this.onStaffSlotTap,
   });
 
   final List<ClassroomDaySchedule> classrooms;
   final DateTime day;
   final bool expandAll;
   final VoidCallback onToggleExpandAll;
+  final void Function(StaffScheduleEntry entry, String classroomName)
+      onStaffShiftTap;
+  final void Function(
+    StaffScheduleEntry entry,
+    StaffShiftSlotDetail detail,
+    String classroomName,
+  ) onStaffSlotTap;
 
   @override
   Widget build(BuildContext context) {
@@ -365,6 +480,10 @@ class _DailyClassroomListCard extends StatelessWidget {
                 day: day,
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
+                onStaffShiftTap: (entry) =>
+                    onStaffShiftTap(entry, classrooms[i].classroomName),
+                onStaffSlotTap: (entry, detail) =>
+                    onStaffSlotTap(entry, detail, classrooms[i].classroomName),
               ),
           ],
         ),

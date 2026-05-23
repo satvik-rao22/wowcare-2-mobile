@@ -87,6 +87,32 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     await _loadShiftsForSelection();
   }
 
+  /// Background refresh of just the staff roster — no loading flags, no
+  /// shimmer, no shift refetch. Used when the cache gate fires after a
+  /// staff-side edit. The dropdown updates in place once the API returns.
+  Future<void> silentRefreshStaff() async {
+    try {
+      final allStaff = await _schedulingStaffListCubit.load(force: true);
+      if (isClosed) return;
+      String? nextCode = state.selectedStaffCode;
+      if (nextCode != null && !allStaff.any((s) => s.code == nextCode)) {
+        // The previously-selected staff was deleted/deactivated — fall back
+        // to the first remaining one (or clear if the list is now empty).
+        nextCode = allStaff.isNotEmpty ? allStaff.first.code : null;
+      }
+      emit(
+        state.copyWith(
+          staffList: allStaff,
+          selectedStaffCode: nextCode,
+          clearSelectedStaffCode: nextCode == null,
+        ),
+      );
+      _mergeClassroomNamesFromStaff(allStaff);
+    } catch (_) {
+      // Silent: don't surface errors to the UI for a background refresh.
+    }
+  }
+
   Future<void> _loadClassroomNames() async {
     try {
       final schoolCode = await _resolveSchoolCode();
