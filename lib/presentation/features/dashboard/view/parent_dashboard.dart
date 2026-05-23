@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
@@ -42,7 +45,10 @@ class _ParentDashboardState extends State<ParentDashboard> {
   Widget _cardFor(ParentDashboardCard card) {
     switch (card) {
       case ParentDashboardCard.myChildsDay:
-        return const MyChildsDayCard();
+        return BlocProvider<MyChildsDayCubit>(
+          create: (_) => serviceLocator<MyChildsDayCubit>(),
+          child: const MyChildsDayCard(),
+        );
       case ParentDashboardCard.studentAttendance:
         return const StudentAttendanceCard();
       case ParentDashboardCard.studentBilling:
@@ -101,15 +107,12 @@ class _ParentDashboardState extends State<ParentDashboard> {
                         slivers: [
                           // Fixed (non-reorderable) header section.
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
-                            sliver:
-                                SliverToBoxAdapter(child: _buildHeader()),
+                            padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
+                            sliver: SliverToBoxAdapter(child: _buildHeader()),
                           ),
                           // Reorderable cards — long-press a card to drag it.
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(
                               itemCount: cards.length,
                               onReorder: _viewModel.reorderCard,
@@ -119,8 +122,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                                   key: ValueKey(card),
                                   index: index,
                                   child: Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 16),
+                                    padding: const EdgeInsets.only(bottom: 16),
                                     // Transparent Material so InkWell ripples
                                     // in the card have an ancestor.
                                     child: Material(
