@@ -58,6 +58,8 @@ import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -70,6 +72,7 @@ import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../domain/features/student/usecases/get_student_counts_usecase.dart';
+import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
 import '../../domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import '../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../../domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
@@ -245,9 +248,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Staff Scheduling (staff MS — `/api/v1/staff-shifts`)
   serviceLocator.registerLazySingleton<StaffSchedulingRemoteDataSource>(
-    () => StaffSchedulingRemoteDataSourceImpl(
-      serviceLocator<ApiClient>().client,
-    ),
+    () =>
+        StaffSchedulingRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
   // Classroom Data Sources
@@ -416,6 +418,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentProfileUseCase>(
+    () => GetStudentProfileUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentAttendanceDailyUseCase>(
     () => GetStudentAttendanceDailyUseCase(serviceLocator()),
@@ -661,11 +666,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => GetClassroomForecastUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<GetClassroomForecastRangeUseCase>(
-    () =>
-        GetClassroomForecastRangeUseCase(serviceLocator<StaffShiftRepository>()),
+    () => GetClassroomForecastRangeUseCase(
+      serviceLocator<StaffShiftRepository>(),
+    ),
   );
   serviceLocator.registerFactory<GetStaffShiftHoursRangeUseCase>(
-    () => GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
+    () =>
+        GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
   );
 
   // Cubits (factory - new instance each time for UI)
@@ -735,6 +742,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyChildsDayCubit>(
+    () => MyChildsDayCubit(
+      getStudentProfileUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentAttendanceProfileCubit>(
+    () => StudentAttendanceProfileCubit(
+      getStudentAttendanceCustomUseCase: serviceLocator(),
+      getStudentAttendanceAbsentToggleViewUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(

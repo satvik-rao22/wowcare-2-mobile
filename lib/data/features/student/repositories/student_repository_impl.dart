@@ -4,6 +4,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
+import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_important_dates.dart';
@@ -29,6 +30,68 @@ class StudentRepositoryImpl
     required String schoolCode,
   }) {
     return _remoteDataSource.getGuardiansBySchool(schoolCode: schoolCode);
+  }
+
+  String _timeToLabel(dynamic raw) {
+    if (raw == null) return '';
+    if (raw is String) {
+      final s = raw.trim();
+      if (s.isEmpty) return '';
+      // Common backend formats:
+      // - "HH:mm:ss"
+      // - "HH:mm"
+      final parts = s.split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0]) ?? 0;
+        final m = int.tryParse(parts[1]) ?? 0;
+        final dt = DateTime(2000, 1, 1, h, m);
+        final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+        final minute = dt.minute.toString().padLeft(2, '0');
+        final period = dt.hour >= 12 ? 'PM' : 'AM';
+        return '$hour12:$minute $period';
+      }
+      return s;
+    }
+    if (raw is Map) {
+      final h = int.tryParse('${raw['hour'] ?? 0}') ?? 0;
+      final m = int.tryParse('${raw['minute'] ?? 0}') ?? 0;
+      final dt = DateTime(2000, 1, 1, h, m);
+      final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final minute = dt.minute.toString().padLeft(2, '0');
+      final period = dt.hour >= 12 ? 'PM' : 'AM';
+      return '$hour12:$minute $period';
+    }
+    return '';
+  }
+
+  Map<String, String> _scheduleByDayFromRegularSchedules(
+    List<dynamic> regularSchedules,
+  ) {
+    final scheduleByDay = <String, String>{};
+    for (final item in regularSchedules) {
+      if (item is! Map) continue;
+      final dow = (item['dayOfWeek'] ?? '').toString().toUpperCase().trim();
+      final startLabel = _timeToLabel(item['startTime']);
+      final endLabel = _timeToLabel(item['endTime']);
+      if (dow.isNotEmpty && startLabel.isNotEmpty && endLabel.isNotEmpty) {
+        scheduleByDay[dow] = '$startLabel - $endLabel';
+      }
+    }
+    return scheduleByDay;
+  }
+
+  @override
+  Future<StudentProfile> getStudentProfile({required String code}) async {
+    final model = await _remoteDataSource.getStudentProfile(code);
+    return StudentProfile(
+      code: model.code.trim(),
+      schoolCode: model.schoolCode.trim(),
+      fullName: model.fullName.trim().isNotEmpty
+          ? model.fullName.trim()
+          : model.code.trim(),
+      classroomName: model.classroom?.trim(),
+      scheduleByDay: _scheduleByDayFromRegularSchedules(model.regularSchedules),
+    );
   }
 
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
@@ -209,7 +272,9 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<Map<String, int>> getStudentCounts({required String schoolCode}) async {
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
+  }) async {
     final key = _studentCountsCacheKey(schoolCode);
     final cached = await _cacheManager.loadCache(key);
     if (cached != null) {
@@ -219,7 +284,9 @@ class StudentRepositoryImpl
         'enrolledCount': (cached['enrolledCount'] as num?)?.toInt() ?? 0,
       };
     }
-    final fresh = await _remoteDataSource.getStudentCounts(schoolCode: schoolCode);
+    final fresh = await _remoteDataSource.getStudentCounts(
+      schoolCode: schoolCode,
+    );
     await _cacheManager.saveCache(key, {
       'activeCount': fresh['activeCount'] ?? 0,
       'upcomingCount': fresh['upcomingCount'] ?? 0,
@@ -287,10 +354,7 @@ class StudentRepositoryImpl
         lastName: lastName,
       );
       _registerStudentListCacheKey(schoolCode, cacheKey);
-      await _cacheManager.saveCache(
-        cacheKey,
-        studentPageModel.toJson(),
-      );
+      await _cacheManager.saveCache(cacheKey, studentPageModel.toJson());
     }
 
     return _mapPageModelToEntity(studentPageModel);
@@ -822,9 +886,7 @@ class StudentRepositoryImpl
     if (cached != null) {
       final raw = cached['map'] as Map<String, dynamic>?;
       if (raw != null && raw.isNotEmpty) {
-        return raw.map(
-          (k, v) => MapEntry(k.toString(), v.toString()),
-        );
+        return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
       }
     }
 
@@ -841,9 +903,7 @@ class StudentRepositoryImpl
       }
     }
 
-    await _cacheManager.saveCache(key, {
-      'map': map,
-    });
+    await _cacheManager.saveCache(key, {'map': map});
     return map;
   }
 

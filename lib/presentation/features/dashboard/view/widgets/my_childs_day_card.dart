@@ -1,26 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Local mock model classes – plain Dart, no imports from domain/data layers.
 // ---------------------------------------------------------------------------
-
-class _MockScheduleEntry {
-  const _MockScheduleEntry({
-    required this.day,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  final String day; // e.g. 'Monday'
-  final String startTime; // e.g. '08:30 AM'
-  final String endTime; // e.g. '03:00 PM'
-}
 
 class _MockStudent {
   const _MockStudent({
@@ -41,10 +34,7 @@ class _MockStudent {
 }
 
 class _MockMessage {
-  const _MockMessage({
-    required this.senderName,
-    required this.text,
-  });
+  const _MockMessage({required this.senderName, required this.text});
 
   final String senderName;
   final String text;
@@ -55,24 +45,13 @@ class _MockMessage {
 // ---------------------------------------------------------------------------
 
 const _MockStudent _mockStudent = _MockStudent(
-  fullName: 'Emma Johnson',
+  fullName: 'Sairam Patil',
   roomName: 'Sunflower Room',
   isSignedIn: true,
   isAbsent: false,
   profileStatus: 'Active',
   signInPin: '4829',
 );
-
-const List<_MockScheduleEntry> _mockSchedule = [
-  _MockScheduleEntry(day: 'Monday', startTime: '08:30 AM', endTime: '03:00 PM'),
-  _MockScheduleEntry(
-      day: 'Tuesday', startTime: '08:30 AM', endTime: '03:00 PM'),
-  _MockScheduleEntry(
-      day: 'Wednesday', startTime: '08:30 AM', endTime: '03:00 PM'),
-  _MockScheduleEntry(
-      day: 'Thursday', startTime: '08:30 AM', endTime: '03:00 PM'),
-  _MockScheduleEntry(day: 'Friday', startTime: '08:30 AM', endTime: '02:00 PM'),
-];
 
 const _MockMessage _mockLastMessage = _MockMessage(
   senderName: 'Ms. Laura (Teacher)',
@@ -84,33 +63,6 @@ const _MockMessage _mockLastMessage = _MockMessage(
 // ---------------------------------------------------------------------------
 
 String _twoDigits(int n) => n.toString().padLeft(2, '0');
-
-/// Returns today's schedule entry if available, else the next upcoming one.
-_MockScheduleEntry? _resolveCurrentSchedule() {
-  final now = DateTime.now();
-  final dayNames = [
-    '',
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-  final todayName = dayNames[now.weekday];
-  for (final entry in _mockSchedule) {
-    if (entry.day.toLowerCase() == todayName.toLowerCase()) return entry;
-  }
-  // Fallback: return the first entry if today is weekend
-  return _mockSchedule.isNotEmpty ? _mockSchedule.first : null;
-}
-
-String _currentSchoolHours() {
-  final entry = _resolveCurrentSchedule();
-  if (entry == null) return 'No schedule';
-  return '${entry.startTime} – ${entry.endTime}';
-}
 
 TimeOfDay? _parseTime(String timeStr) {
   try {
@@ -131,43 +83,55 @@ TimeOfDay? _parseTime(String timeStr) {
 
 /// Compute the mock countdown status and duration based on current time vs
 /// today's (or tomorrow's) schedule.
-({String statusText, Duration duration}) _computeCountdown() {
-  final entry = _resolveCurrentSchedule();
-  if (entry == null) {
+({String statusText, Duration duration}) _computeCountdown({
+  required DateTime schoolNow,
+  required String scheduleRange,
+}) {
+  final range = scheduleRange.trim();
+  if (range.isEmpty) {
     return (statusText: 'No schedule available', duration: Duration.zero);
   }
-  final now = DateTime.now();
-  final start = _parseTime(entry.startTime);
-  final end = _parseTime(entry.endTime);
+  final parts = range.split('-');
+  if (parts.length < 2) {
+    return (statusText: 'No schedule available', duration: Duration.zero);
+  }
+  final startLabel = parts.first.trim();
+  final endLabel = parts.sublist(1).join('-').trim();
+  final start = _parseTime(startLabel);
+  final end = _parseTime(endLabel);
   if (start == null || end == null) {
     return (statusText: 'No schedule available', duration: Duration.zero);
   }
-  final todayStr = '${now.year}-${_twoDigits(now.month)}-${_twoDigits(now.day)}';
+  final todayStr =
+      '${schoolNow.year}-${_twoDigits(schoolNow.month)}-${_twoDigits(schoolNow.day)}';
   final schoolStart = DateTime.parse(
-      '$todayStr ${_twoDigits(start.hour)}:${_twoDigits(start.minute)}:00');
+    '$todayStr ${_twoDigits(start.hour)}:${_twoDigits(start.minute)}:00',
+  );
   final schoolEnd = DateTime.parse(
-      '$todayStr ${_twoDigits(end.hour)}:${_twoDigits(end.minute)}:00');
+    '$todayStr ${_twoDigits(end.hour)}:${_twoDigits(end.minute)}:00',
+  );
 
-  if (now.isBefore(schoolStart)) {
+  if (schoolNow.isBefore(schoolStart)) {
     return (
       statusText: 'School starts in',
-      duration: schoolStart.difference(now),
+      duration: schoolStart.difference(schoolNow),
     );
-  } else if (now.isBefore(schoolEnd)) {
+  } else if (schoolNow.isBefore(schoolEnd)) {
     return (
       statusText: 'School ends in',
-      duration: schoolEnd.difference(now),
+      duration: schoolEnd.difference(schoolNow),
     );
   } else {
     // School done for today – show tomorrow
-    final tomorrow = now.add(const Duration(days: 1));
+    final tomorrow = schoolNow.add(const Duration(days: 1));
     final tomorrowStr =
         '${tomorrow.year}-${_twoDigits(tomorrow.month)}-${_twoDigits(tomorrow.day)}';
     final nextStart = DateTime.parse(
-        '$tomorrowStr ${_twoDigits(start.hour)}:${_twoDigits(start.minute)}:00');
+      '$tomorrowStr ${_twoDigits(start.hour)}:${_twoDigits(start.minute)}:00',
+    );
     return (
       statusText: "Tomorrow's school starts in",
-      duration: nextStart.difference(now),
+      duration: nextStart.difference(schoolNow),
     );
   }
 }
@@ -187,6 +151,7 @@ class MyChildsDayCard extends StatefulWidget {
 
 class _MyChildsDayCardState extends State<MyChildsDayCard> {
   bool _isMinimized = false;
+  String _selectedChildCode = '';
 
   // Countdown timer state
   String _statusText = 'Loading schedule...';
@@ -202,15 +167,40 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
   @override
   void initState() {
     super.initState();
-    _refreshCountdown();
   }
 
-  void _refreshCountdown() {
-    final result = _computeCountdown();
+  void _refreshCountdown({
+    required DateTime schoolNow,
+    required String scheduleRange,
+  }) {
+    final result = _computeCountdown(
+      schoolNow: schoolNow,
+      scheduleRange: scheduleRange,
+    );
     setState(() {
       _statusText = result.statusText;
       _duration = result.duration;
     });
+  }
+
+  String _formatDayOfWeek(String raw) {
+    switch (raw.trim().toUpperCase()) {
+      case 'MONDAY':
+        return 'Monday';
+      case 'TUESDAY':
+        return 'Tuesday';
+      case 'WEDNESDAY':
+        return 'Wednesday';
+      case 'THURSDAY':
+        return 'Thursday';
+      case 'FRIDAY':
+        return 'Friday';
+      case 'SATURDAY':
+        return 'Saturday';
+      case 'SUNDAY':
+        return 'Sunday';
+    }
+    return raw.trim();
   }
 
   // ----- Timer display -----
@@ -261,29 +251,37 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
           _buildTimeUnit(duration.inDays.toString(), 'DD'),
           _buildTimeSeparator(),
         ],
-        _buildTimeUnit(
-            _twoDigits(duration.inHours.remainder(24)), 'HH'),
+        _buildTimeUnit(_twoDigits(duration.inHours.remainder(24)), 'HH'),
         _buildTimeSeparator(),
-        _buildTimeUnit(
-            _twoDigits(duration.inMinutes.remainder(60)), 'MM'),
+        _buildTimeUnit(_twoDigits(duration.inMinutes.remainder(60)), 'MM'),
         _buildTimeSeparator(),
-        _buildTimeUnit(
-            _twoDigits(duration.inSeconds.remainder(60)), 'SS'),
+        _buildTimeUnit(_twoDigits(duration.inSeconds.remainder(60)), 'SS'),
       ],
     );
   }
 
   // ----- Student detail row -----
 
-  Widget _buildStudentDetailContainer() {
-    final student = _mockStudent;
+  Widget _buildStudentDetailContainer({
+    required String studentName,
+    required String classroomName,
+    required String dayOfWeek,
+    required String todayScheduleRange,
+    required String schoolTimeZone,
+    required DateTime? schoolNow,
+  }) {
+    final student =
+        _mockStudent; // keep mock status/pin until wired to real APIs
     final statusColor = student.profileStatus == 'Upcoming'
         ? const Color.fromARGB(255, 253, 205, 22)
         : student.isSignedIn
-            ? const Color.fromRGBO(0, 177, 21, 1)
-            : student.isAbsent
-                ? const Color.fromRGBO(200, 32, 32, 1)
-                : null;
+        ? const Color.fromRGBO(0, 177, 21, 1)
+        : student.isAbsent
+        ? const Color.fromRGBO(200, 32, 32, 1)
+        : null;
+    final scheduleLabel = todayScheduleRange.trim().isNotEmpty
+        ? todayScheduleRange.trim()
+        : 'No schedule';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -293,7 +291,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
           children: [
             DocumentImageWidget(
               fileUuid: '',
-              name: student.fullName,
+              name: studentName,
               size: 90,
               fontSize: 28,
               disableProfileLookupFallback: true,
@@ -324,7 +322,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                student.fullName,
+                studentName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -337,13 +335,15 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
               // School hours chip
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color.fromRGBO(177, 175, 233, 0.3),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  _currentSchoolHours(),
+                  scheduleLabel.replaceAll(' - ', ' – '),
                   style: const TextStyle(
                     color: AppColors.secondaryColor,
                     fontWeight: FontWeight.w500,
@@ -352,15 +352,28 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
                 ),
               ),
               const SizedBox(height: 8),
+              if (schoolTimeZone.trim().isNotEmpty && schoolNow != null)
+                Text(
+                  'School Day: ${_formatDayOfWeek(dayOfWeek)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.65),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              const SizedBox(height: 8),
               // Room row
               Row(
                 children: [
                   // Room avatar (non-person image → Container + icon)
-                  
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      student.roomName,
+                      classroomName.trim().isNotEmpty
+                          ? classroomName.trim()
+                          : '-',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -388,15 +401,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
         message: !_isLocationEnabled
             ? 'Location permission is not granted.'
             : !_isWithinGeofence
-                ? 'You are not within the geofencing range.'
-                : '',
+            ? 'You are not within the geofencing range.'
+            : '',
         triggerMode: TooltipTriggerMode.tap,
         preferBelow: false,
         child: CustomButtonLayout(
           isForm: false,
           showCancelButton: false,
-          confirmButtonLabel:
-              _mockStudent.isSignedIn ? 'Sign-Out' : 'Sign-In',
+          confirmButtonLabel: _mockStudent.isSignedIn ? 'Sign-Out' : 'Sign-In',
           onPressedConfirm: enabled ? () {} : null,
         ),
       ),
@@ -427,13 +439,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
           SvgPicture.asset(MediaRes.notificationsGradientIcon),
           const SizedBox(width: 8),
           ShaderMask(
-            shaderCallback: (bounds) =>
-                AppColors.buildPrimaryGradient(
+            shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-            ).createShader(
-              Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-            ),
+            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
             child: Text(
               _isReminder ? 'Turn off reminder' : 'Send reminder',
               style: const TextStyle(color: Colors.white),
@@ -451,13 +460,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ShaderMask(
-          shaderCallback: (bounds) =>
-              AppColors.buildPrimaryGradient(
+          shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-          ).createShader(
-            Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-          ),
+          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
           child: Text(
             'Your Sign-In Pin:  ${_mockStudent.signInPin}',
             style: const TextStyle(
@@ -502,64 +508,164 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
           // ---- Header + collapsible body ----
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             decoration: const BoxDecoration(
-              borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               color: Colors.white,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DashboardCardHeader(
-                  title: "My Child's Day",
-                  minimized: _isMinimized,
-                  onToggle: () =>
-                      setState(() => _isMinimized = !_isMinimized),
-                ),
-                if (!_isMinimized) ...[
-                  const SizedBox(height: 12),
-                  Center(
-                    child: Text(
-                      _statusText,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 17,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildAlignedTimerDisplay(_duration),
-                  const SizedBox(height: 16),
-                  _buildReminderRow(),
-                  const SizedBox(height: 8),
-                  _buildLocationRow(),
-                  const SizedBox(height: 20),
-                  _buildStudentDetailContainer(),
-                  const SizedBox(height: 16),
-                  _buildSignInPinRow(),
-                  const SizedBox(height: 16),
-                  _buildSignInOutButton(),
-                ],
-              ],
+            child: Consumer<ParentChildProvider>(
+              builder: (context, parentChildProvider, _) {
+                final selectedChild = parentChildProvider.selectedChild;
+                final nextChildCode = (selectedChild?.code ?? '').trim();
+                if (_selectedChildCode != nextChildCode) {
+                  _selectedChildCode = nextChildCode;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    context.read<MyChildsDayCubit>().loadForChild(
+                      studentCode: nextChildCode,
+                    );
+                  });
+                }
+
+                return BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
+                  builder: (context, myChildsDayState) {
+                    final isLoading =
+                        myChildsDayState.status == MyChildsDayStatus.loading;
+                    final isLoaded =
+                        myChildsDayState.status == MyChildsDayStatus.loaded;
+                    final isError =
+                        myChildsDayState.status == MyChildsDayStatus.error;
+
+                    if (isLoaded && myChildsDayState.schoolNow != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _refreshCountdown(
+                          schoolNow: myChildsDayState.schoolNow!,
+                          scheduleRange: myChildsDayState.todayScheduleRange,
+                        );
+                      });
+                    }
+
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DashboardCardHeader(
+                          title: "My Child's Day",
+                          minimized: _isMinimized,
+                          onToggle: () =>
+                              setState(() => _isMinimized = !_isMinimized),
+                        ),
+                        if (!_isMinimized) ...[
+                          const SizedBox(height: 12),
+                          if ((parentChildProvider.isLoading &&
+                                  parentChildProvider.children.isEmpty) ||
+                              isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: PrimaryCircularLoader(
+                                  size: 32,
+                                  strokeWidth: 3,
+                                ),
+                              ),
+                            )
+                          else if (selectedChild == null)
+                            Center(
+                              child: Text(
+                                'No children linked',
+                                style: TextStyle(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          else if (isError)
+                            Center(
+                              child: Text(
+                                'Failed to load student details',
+                                style: TextStyle(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          else ...[
+                            Center(
+                              child: Text(
+                                _statusText,
+                                style: const TextStyle(
+                                  color: AppColors.primaryColor,
+                                  fontSize: 17,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            _buildAlignedTimerDisplay(_duration),
+                            const SizedBox(height: 16),
+                            _buildReminderRow(),
+                            const SizedBox(height: 8),
+                            _buildLocationRow(),
+                            const SizedBox(height: 20),
+                            _buildStudentDetailContainer(
+                              studentName: isLoaded
+                                  ? myChildsDayState.fullName
+                                  : selectedChild.name,
+                              classroomName: isLoaded
+                                  ? myChildsDayState.classroomName
+                                  : (selectedChild.primaryClassroomName ??
+                                            selectedChild.classroom)
+                                        .trim(),
+                              dayOfWeek: isLoaded
+                                  ? myChildsDayState.todayDayOfWeek
+                                  : '',
+                              todayScheduleRange: isLoaded
+                                  ? myChildsDayState.todayScheduleRange
+                                  : '',
+                              schoolTimeZone: isLoaded
+                                  ? myChildsDayState.schoolTimeZone
+                                  : '',
+                              schoolNow: isLoaded
+                                  ? myChildsDayState.schoolNow
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildSignInPinRow(),
+                            const SizedBox(height: 16),
+                            _buildSignInOutButton(),
+                          ],
+                        ],
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ),
           // ---- Communication row (always shown when not minimized) ----
           if (!_isMinimized)
-            _CommunicationRowWidget(
-              studentName: _mockStudent.fullName,
-              lastMessage: _mockLastMessage,
+            Consumer<ParentChildProvider>(
+              builder: (context, parentChildProvider, _) {
+                final selectedChild = parentChildProvider.selectedChild;
+                if (selectedChild == null) return const SizedBox.shrink();
+                return _CommunicationRowWidget(
+                  studentName: selectedChild.name,
+                  lastMessage: _mockLastMessage,
+                );
+              },
             ),
         ],
       ),
@@ -618,8 +724,7 @@ class _CommunicationRowWidget extends StatelessWidget {
                 Text(
                   lastMessage.text,
                   style: TextStyle(
-                    color:
-                        AppColors.primaryColor.withValues(alpha: 0.5),
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
