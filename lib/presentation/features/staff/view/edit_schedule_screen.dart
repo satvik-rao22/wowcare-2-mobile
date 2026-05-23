@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 
 class EditScheduleScreen extends StatefulWidget {
   const EditScheduleScreen({
@@ -486,6 +487,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       );
 
       if (!mounted) return;
+
+      // Schedule mutation — poke the scheduling screens so they silently
+      // re-pull the staff list on the next visit.
+      SchedulingCacheGate.invalidate();
 
       CoreUtils.showTopSnackBar(
         context: context,

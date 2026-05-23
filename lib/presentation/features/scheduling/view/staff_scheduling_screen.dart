@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_scheduling_staff_dropdown.dart';
@@ -44,8 +45,50 @@ class StaffSchedulingScreen extends StatelessWidget {
   }
 }
 
-class _StaffSchedulingView extends StatelessWidget {
+class _StaffSchedulingView extends StatefulWidget {
   const _StaffSchedulingView();
+
+  @override
+  State<_StaffSchedulingView> createState() => _StaffSchedulingViewState();
+}
+
+class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
+  /// Persists across screen instances so an edit that happened while this
+  /// screen was off-stack still triggers a silent staff-list refresh on
+  /// the next visit.
+  static int _lastConsumedRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _silentlyRefreshStaffIfDirty();
+    });
+  }
+
+  @override
+  void dispose() {
+    SchedulingCacheGate.revision.removeListener(_onCacheInvalidated);
+    super.dispose();
+  }
+
+  void _onCacheInvalidated() {
+    if (!mounted) return;
+    _silentlyRefreshStaffIfDirty();
+  }
+
+  /// Background staff-list refresh — no shimmer, no shift refetch.
+  /// [StaffSchedulingCubit.silentRefreshStaff] updates the dropdown in place
+  /// without ever flipping the `isLoadingStaff` flag the UI watches.
+  void _silentlyRefreshStaffIfDirty() {
+    final current = SchedulingCacheGate.revision.value;
+    if (current == _lastConsumedRevision) return;
+    _lastConsumedRevision = current;
+    // ignore: discarded_futures
+    context.read<StaffSchedulingCubit>().silentRefreshStaff();
+  }
 
   void _openAddShiftScreen(
     BuildContext context,

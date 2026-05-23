@@ -14,6 +14,7 @@ import '../../../../shared/common/widgets/custom_shimmer_loader.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../cubit/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
+import '../utils/scheduling_cache_gate.dart';
 import '../utils/scheduling_shift_navigator.dart';
 import '../widgets/day_classroom_section.dart';
 import '../widgets/scheduling_filter_bar.dart';
@@ -45,6 +46,11 @@ class _SchedulingScreenContent extends StatefulWidget {
 class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   bool _expandAll = false;
 
+  /// Persists across screen instances so an edit that happened while this
+  /// screen was off-stack still triggers a silent staff-list refresh on
+  /// the next visit.
+  static int _lastConsumedRevision = 0;
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +61,32 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
       context.read<ClassroomCubit>().loadActiveClassrooms(
             onlyTypeClassroom: false,
           );
+      _silentlyRefreshStaffIfDirty();
     });
+    SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
+  }
+
+  @override
+  void dispose() {
+    SchedulingCacheGate.revision.removeListener(_onCacheInvalidated);
+    super.dispose();
+  }
+
+  void _onCacheInvalidated() {
+    if (!mounted) return;
+    _silentlyRefreshStaffIfDirty();
+  }
+
+  /// Force-reload the staff list cache silently — no shimmer, no full
+  /// scheduling reload. The classroom view doesn't watch
+  /// [SchedulingStaffListCubit]'s loading state, so the refresh is
+  /// invisible to the user.
+  void _silentlyRefreshStaffIfDirty() {
+    final current = SchedulingCacheGate.revision.value;
+    if (current == _lastConsumedRevision) return;
+    _lastConsumedRevision = current;
+    // ignore: discarded_futures
+    context.read<SchedulingStaffListCubit>().load(force: true);
   }
 
   Future<void> _onRefresh() async {
