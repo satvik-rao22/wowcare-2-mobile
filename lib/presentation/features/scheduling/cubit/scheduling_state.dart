@@ -1,5 +1,7 @@
 part of 'scheduling_cubit.dart';
 
+// `schedulingSchoolToday()` is imported via `scheduling_cubit.dart`.
+
 @immutable
 class SchedulingState extends Equatable {
   const SchedulingState({
@@ -12,10 +14,8 @@ class SchedulingState extends Equatable {
   });
 
   factory SchedulingState.initial() {
-    final DateTime now = DateTime.now();
-    final DateTime today = DateTime(now.year, now.month, now.day);
     return SchedulingState(
-      selectedDay: today,
+      selectedDay: schedulingSchoolToday(),
       classroomFilter: null,
       viewMode: SchedulingViewMode.week,
       classrooms: const <ClassroomDaySchedule>[],

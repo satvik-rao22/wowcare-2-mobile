@@ -79,6 +79,12 @@ abstract class StaffShiftRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// `POST /api/v1/staff-shifts/publish` — publishes draft shifts. The backend
+  /// supports two orthogonal axes: which staff (all vs. an explicit list) and
+  /// which dates (everything from [dateRangeStart] forward vs. up to
+  /// [publishUntilDate]).
+  Future<void> publishStaffShifts({required Map<String, dynamic> body});
+
   /// `DELETE /api/v1/staff-shifts/{shiftCode}` — remove one shift occurrence.
   Future<void> deleteStaffShift({required String shiftCode});
 
@@ -333,6 +339,17 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
       throw Exception('Missing data payload in staff-shift update response');
     }
     return StaffShiftModel.fromJson(data);
+  }
+
+  @override
+  Future<void> publishStaffShifts({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffShiftsPublish,
+      ApiConstants.staffBaseUrl,
+    );
+    await _client.post<dynamic>(endpoint, data: body);
   }
 
   @override

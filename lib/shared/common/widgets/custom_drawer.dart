@@ -888,24 +888,27 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.staffs_drawer_icon,
                             isExpansionEnabled: true,
                             children: [
-                              DrawerListTile(
-                                title: 'Classroom Scheduling',
-                                leading: SvgPicture.asset(
-                                  MediaRes.classroom_drawer_icon,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor,
-                                    BlendMode.srcIn,
+                              // Staff persona only ever sees their own schedule —
+                              // hide the school-wide Classroom Scheduling entry.
+                              if (!isStaff)
+                                DrawerListTile(
+                                  title: 'Classroom Scheduling',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.classroom_drawer_icon,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
                                   ),
+                                  onTap: () {
+                                    final captured = _currentRoute;
+                                    Navigator.pop(context);
+                                    if (captured !=
+                                        SchedulingScreen.routeName) {
+                                      context.go(SchedulingScreen.routeName);
+                                    }
+                                  },
                                 ),
-                                onTap: () {
-                                  final captured = _currentRoute;
-                                  Navigator.pop(context);
-                                  if (captured !=
-                                      SchedulingScreen.routeName) {
-                                    context.go(SchedulingScreen.routeName);
-                                  }
-                                },
-                              ),
                               DrawerListTile(
                                 title: 'Staff Scheduling',
                                 leading: SvgPicture.asset(

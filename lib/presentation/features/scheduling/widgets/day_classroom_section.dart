@@ -138,6 +138,7 @@ class DayClassroomSection extends StatefulWidget {
     this.isLast = false,
     this.onStaffShiftTap,
     this.onStaffSlotTap,
+    this.staffAttendanceStatusByCode,
   });
 
   final ClassroomDaySchedule classroom;
@@ -152,6 +153,19 @@ class DayClassroomSection extends StatefulWidget {
   /// Day view — tap on a staff Gantt work/break block.
   final void Function(StaffScheduleEntry entry, StaffShiftSlotDetail detail)?
       onStaffSlotTap;
+
+  /// Today's sign-in status keyed by staffCode, resolved at the screen level
+  /// via the bulk `/staff-attendance/sign-in/status` POST. Used to color the
+  /// avatar dot on each staff row (SIGNED_IN → green, ABSENT → red).
+  final Map<String, String>? staffAttendanceStatusByCode;
+
+  String? _attendanceStatusForStaff(String staffCode) {
+    final map = staffAttendanceStatusByCode;
+    if (map == null) return null;
+    final key = staffCode.trim();
+    if (key.isEmpty) return null;
+    return map[key];
+  }
 
   @override
   State<DayClassroomSection> createState() => _DayClassroomSectionState();
@@ -223,7 +237,11 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
         if (_expanded)
           for (final entry in staff)
             SchedulingDayGanttRow(
-              left: StaffRowLeft(entry: entry),
+              left: StaffRowLeft(
+                entry: entry,
+                attendanceStatus:
+                    widget._attendanceStatusForStaff(entry.staffCode),
+              ),
               right: SchedulingStaffDayTimeline(
                 slots: entry.staffDaySlots,
                 slotDetails: entry.staffSlotDetails,
@@ -285,7 +303,11 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
           for (int i = 0; i < staff.length; i++)
             SchedulingTableRow(
               isLast: widget.isLast && i == staff.length - 1,
-              left: StaffRowLeft(entry: staff[i]),
+              left: StaffRowLeft(
+                entry: staff[i],
+                attendanceStatus:
+                    widget._attendanceStatusForStaff(staff[i].staffCode),
+              ),
               right: StaffTimeRangePill(
                 startTime: staff[i].startTime,
                 endTime: staff[i].endTime,

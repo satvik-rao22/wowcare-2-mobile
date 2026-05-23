@@ -297,15 +297,14 @@ final GoRouter appRouter = GoRouter(
                         BlocProvider<SchedulingStaffListCubit>.value(
                           value: serviceLocator<SchedulingStaffListCubit>(),
                         ),
-                        // lazy:false so loadInitial() (which triggers the
-                        // no-pagination staff fetch via
-                        // [SchedulingStaffListCubit]) fires immediately on
-                        // route entry instead of waiting for the first read.
-                        BlocProvider<StaffSchedulingCubit>(
-                          lazy: false,
-                          create: (_) =>
-                              serviceLocator<StaffSchedulingCubit>()
-                                ..loadInitial(),
+                        // `.value` because the cubit is a lazy singleton —
+                        // we don't want BlocProvider to close it when the
+                        // route is popped. `loadIfNeeded()` runs the visible
+                        // load on first entry and a silent background
+                        // refresh on subsequent entries (no shimmer flash).
+                        BlocProvider<StaffSchedulingCubit>.value(
+                          value: serviceLocator<StaffSchedulingCubit>()
+                            ..loadIfNeeded(),
                         ),
                         BlocProvider<ClassroomCubit>(
                           create: (_) => serviceLocator<ClassroomCubit>()

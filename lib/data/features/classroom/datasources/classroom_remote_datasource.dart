@@ -12,6 +12,9 @@ abstract class ClassroomRemoteDataSource {
     /// When false, omits the type filter so the backend
     /// can return all active locations (e.g. Office, etc.).
     bool onlyTypeClassroom,
+    /// Overrides [onlyTypeClassroom] when non-null. Sets `type=<value>` on
+    /// the request, used to fetch a specific non-CLASSROOM type (e.g. ADMIN).
+    String? typeOverride,
   });
 
   Future<ClassroomDetailsResponseModel> getClassroomByCode({
@@ -28,6 +31,7 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   Future<ClassroomAllResponseModel> getActiveClassrooms({
     required String schoolCode,
     bool onlyTypeClassroom = true,
+    String? typeOverride,
   }) async {
     // Full [Uri] so Dio does not merge this with [BaseOptions.baseUrl]
     // (which would incorrectly produce …/classroom/classroom/all).
@@ -35,7 +39,10 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
       'school': schoolCode,
       'status': 'ACTIVE',
     };
-    if (onlyTypeClassroom) {
+    final overrideType = (typeOverride ?? '').trim();
+    if (overrideType.isNotEmpty) {
+      qp['type'] = overrideType;
+    } else if (onlyTypeClassroom) {
       qp['type'] = 'CLASSROOM';
     }
     final uri = Uri.parse(ApiPaths.url(ApiPaths.classroomAll)).replace(

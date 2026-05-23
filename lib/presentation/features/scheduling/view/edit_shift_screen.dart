@@ -8,6 +8,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/repositories/staff_shift_repository.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
@@ -17,6 +19,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_school_time.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
@@ -166,6 +169,21 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
   /// shift / break times must fall inside school hours.
   SchoolHoursResolver? _schoolHoursResolver;
 
+  /// Classrooms returned by `/classroom/classroom/all?...&type=ADMIN`. Merged
+  /// into the Classroom dropdown when the edited shift's staff has one of the
+  /// teacher designations ([_teacherDesignationCodes]).
+  List<Classroom> _adminClassrooms = const <Classroom>[];
+
+  /// Designation codes (uppercase, snake_case — the wire format used in
+  /// `StaffMember.designation`) that should see ADMIN-type locations merged
+  /// into the Classroom dropdown.
+  static const Set<String> _teacherDesignationCodes = <String>{
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+  };
+
   bool _saving = false;
 
   bool get _isSeriesMode => widget.mode == EditShiftMode.entireSeries;
@@ -191,6 +209,28 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
   void initState() {
     super.initState();
     _loadSchoolHours();
+    _loadAdminClassrooms();
+    // ignore: discarded_futures
+    bootstrapSchedulingSchoolTimezone();
+  }
+
+  Future<void> _loadAdminClassrooms() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final classrooms =
+          await serviceLocator<GetActiveClassroomsUseCase>()(
+        schoolCode: schoolCode,
+        typeOverride: 'ADMIN',
+      );
+      if (!mounted) return;
+      setState(() => _adminClassrooms = classrooms);
+    } catch (_) {
+      // Best-effort: missing admin locations just keeps the dropdown to the
+      // existing CLASSROOM-type list.
+    }
   }
 
   @override
@@ -241,7 +281,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
   }
 
   (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {
-    final anchor = _date ?? DateTime.now();
+    final anchor = _date ?? schedulingSchoolToday();
     for (var i = 0; i < 7; i++) {
       final probe = anchor.add(Duration(days: i));
       if (probe.weekday == weekday) {
@@ -293,6 +333,20 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
       if (s.code == code) return s;
     }
     return null;
+  }
+
+  /// True when [staffCode]'s designation in [list] is one of the four
+  /// teacher roles that should see ADMIN-type locations in the Classroom
+  /// dropdown.
+  bool _isTeacherDesignationByCode(
+    String staffCode,
+    List<StaffMember> list,
+  ) {
+    final staff = _findStaff(staffCode, list);
+    if (staff == null) return false;
+    final designation = staff.designation.trim().toUpperCase();
+    if (designation.isEmpty) return false;
+    return _teacherDesignationCodes.contains(designation);
   }
 
   /// Returns true iff the current shift + break (if any) sit entirely within
@@ -729,6 +783,24 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
         final classroomCodeToName = <String, String>{
           for (final c in classroomState.classrooms) c.code: c.name,
         };
+        // Teachers may need to clock shifts in admin-type locations that
+        // aren't part of the CLASSROOM type list — merge the
+        // `type=ADMIN` payload (loaded once in [_loadAdminClassrooms]) into
+        // the dropdown for those four designations.
+        if (_isTeacherDesignationByCode(
+          widget.staffCode,
+          context.read<SchedulingStaffListCubit>().state.staff,
+        )) {
+          for (final c in _adminClassrooms) {
+            final code = c.code.trim();
+            if (code.isEmpty) continue;
+            final name = c.name.trim();
+            classroomCodeToName.putIfAbsent(
+              code,
+              () => name.isNotEmpty ? name : code,
+            );
+          }
+        }
         final classroomNames =
             classroomCodeToName.values.toList(growable: false);
         final selectedClassroomName =
@@ -878,6 +950,11 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                         _breakStartError = null;
                         _schoolHoursError = null;
                       }),
+                      onClear: () => setState(() {
+                        _breakStart = null;
+                        _breakStartError = null;
+                        _schoolHoursError = null;
+                      }),
                     ),
                   ),
                   SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -888,6 +965,11 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
                       errorText: _breakEndError,
                       onTimeSelected: (t) => setState(() {
                         _breakEnd = t;
+                        _breakEndError = null;
+                        _schoolHoursError = null;
+                      }),
+                      onClear: () => setState(() {
+                        _breakEnd = null;
                         _breakEndError = null;
                         _schoolHoursError = null;
                       }),

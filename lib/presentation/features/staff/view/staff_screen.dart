@@ -73,7 +73,6 @@ class _StaffScreenState extends State<StaffScreen> {
   int _expectedAbsent = 0;
   int _expectedSignedOut = 0;
   int _expectedNotMarked = 0;
-  bool _expectedStaffSummaryLoading = true;
 
   @override
   void initState() {
@@ -272,9 +271,6 @@ class _StaffScreenState extends State<StaffScreen> {
 
   Future<void> _loadExpectedStaffSummary() async {
     if (!mounted) return;
-    setState(() {
-      _expectedStaffSummaryLoading = true;
-    });
     try {
       final useCase =
           serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
@@ -292,7 +288,6 @@ class _StaffScreenState extends State<StaffScreen> {
         _expectedAbsent = summary.absent;
         _expectedSignedOut = summary.signOut;
         _expectedNotMarked = summary.notMarked;
-        _expectedStaffSummaryLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -302,7 +297,6 @@ class _StaffScreenState extends State<StaffScreen> {
         _expectedAbsent = 0;
         _expectedSignedOut = 0;
         _expectedNotMarked = 0;
-        _expectedStaffSummaryLoading = false;
       });
     }
   }
@@ -817,56 +811,33 @@ class _StaffScreenState extends State<StaffScreen> {
                                 top: isTablet ? 8 : 8,
                                 bottom: isTablet ? 8 : 8,
                               ),
-                              child: Stack(
-                                children: [
-                                  CustomStatBarCard(
-                                    title: 'Expected\nStaff',
-                                    number: '$_expectedStaffTotal',
-                                    items: items,
-                                    fullWidthBar: false,
-                                    normalizeBarByItemSum: true,
-                                    onLegendTap: (String label, String? filterValue) {
-                                      final status = label.split(' ').first;
-                                      if (status == 'Signed-In' ||
-                                          status == 'Absent' ||
-                                          status == 'Signed' ||
-                                          status == 'Not') {
-                                        if (status == 'Signed') {
-                                          _openStaffAttendanceWithLegendFilter(
-                                            'Signed Out',
-                                          );
-                                        } else if (status == 'Not') {
-                                          _openStaffAttendanceWithLegendFilter(
-                                            'Not Marked',
-                                          );
-                                        } else {
-                                          _openStaffAttendanceWithLegendFilter(
-                                            status,
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                  if (_expectedStaffSummaryLoading)
-                                    Positioned.fill(
-                                      child: Container(
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.65,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: const SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: PrimaryCircularLoader(),
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                              child: CustomStatBarCard(
+                                title: 'Expected\nStaff',
+                                number: '$_expectedStaffTotal',
+                                items: items,
+                                fullWidthBar: false,
+                                normalizeBarByItemSum: true,
+                                onLegendTap: (String label, String? filterValue) {
+                                  final status = label.split(' ').first;
+                                  if (status == 'Signed-In' ||
+                                      status == 'Absent' ||
+                                      status == 'Signed' ||
+                                      status == 'Not') {
+                                    if (status == 'Signed') {
+                                      _openStaffAttendanceWithLegendFilter(
+                                        'Signed Out',
+                                      );
+                                    } else if (status == 'Not') {
+                                      _openStaffAttendanceWithLegendFilter(
+                                        'Not Marked',
+                                      );
+                                    } else {
+                                      _openStaffAttendanceWithLegendFilter(
+                                        status,
+                                      );
+                                    }
+                                  }
+                                },
                               ),
                             );
                           },

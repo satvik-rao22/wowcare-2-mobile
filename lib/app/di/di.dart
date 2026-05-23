@@ -40,6 +40,7 @@ import '../../domain/features/scheduling/usecases/get_classroom_forecast_range_u
 import '../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../domain/features/scheduling/usecases/publish_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -58,6 +59,7 @@ import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -667,6 +669,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffShiftHoursRangeUseCase>(
     () => GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
   );
+  serviceLocator.registerFactory<PublishStaffShiftsUseCase>(
+    () => PublishStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -834,7 +839,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<StaffSchedulingCubit>(
+  // Singleton so state survives across screen entries — entering the route
+  // a second time uses cached classrooms/shifts/staff and refreshes silently
+  // in the background instead of flashing the full-page shimmer.
+  serviceLocator.registerLazySingleton<StaffSchedulingCubit>(
     () => StaffSchedulingCubit(
       schedulingStaffListCubit: serviceLocator(),
       getSchoolStaffShiftsUseCase:
@@ -846,7 +854,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<SchedulingCubit>(
+  serviceLocator.registerFactory<PublishShiftsCubit>(
+    () => PublishShiftsCubit(
+      publishStaffShiftsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<SchedulingCubit>(
     () => SchedulingCubit(
       getSchoolStaffShiftsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
