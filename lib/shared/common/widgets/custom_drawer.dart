@@ -881,57 +881,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             },
                           ),
 
-                        // Scheduling
-                        if (showAdminAttendanceMenu)
-                          _CustomExpansionTile(
-                            title: 'Scheduling',
-                            icon: MediaRes.staffs_drawer_icon,
-                            isExpansionEnabled: true,
-                            children: [
-                              // Staff persona only ever sees their own schedule —
-                              // hide the school-wide Classroom Scheduling entry.
-                              if (!isStaff)
-                                DrawerListTile(
-                                  title: 'Classroom Scheduling',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.classroom_drawer_icon,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    final captured = _currentRoute;
-                                    Navigator.pop(context);
-                                    if (captured !=
-                                        SchedulingScreen.routeName) {
-                                      context.go(SchedulingScreen.routeName);
-                                    }
-                                  },
-                                ),
-                              DrawerListTile(
-                                title: 'Staff Scheduling',
-                                leading: SvgPicture.asset(
-                                  MediaRes.staffs_drawer_icon,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                onTap: () {
-                                  final captured = _currentRoute;
-                                  Navigator.pop(context);
-                                  if (captured !=
-                                      StaffSchedulingScreen.routeName) {
-                                    context.go(
-                                      StaffSchedulingScreen.routeName,
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-
                         if (showAdminAttendanceMenu)
                           _CustomExpansionTile(
                             title: 'Attendance',
@@ -1104,6 +1053,48 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     context.go(MessagingScreen.routeName);
                                   },
                                 ),
+                            ],
+                          ),
+                        // Scheduling
+                        if (showAdminAttendanceMenu)
+                          _CustomExpansionTile(
+                            title: 'Scheduling',
+                            icon: MediaRes.calenderClockIcon,
+                            isExpansionEnabled: true,
+                            children: [
+                              // Staff persona only ever sees their own schedule —
+                              // hide the school-wide Classroom Scheduling entry.
+                              if (!isStaff)
+                                DrawerListTile(
+                                  title: 'Classroom Scheduling',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.classroom_Schedule_drawer_icon,
+                                  ),
+                                  onTap: () {
+                                    final captured = _currentRoute;
+                                    Navigator.pop(context);
+                                    if (captured !=
+                                        SchedulingScreen.routeName) {
+                                      context.go(SchedulingScreen.routeName);
+                                    }
+                                  },
+                                ),
+                              DrawerListTile(
+                                title: 'Staff Scheduling',
+                                leading: SvgPicture.asset(
+                                  MediaRes.staff_Schedule_drawer_icon,
+                                ),
+                                onTap: () {
+                                  final captured = _currentRoute;
+                                  Navigator.pop(context);
+                                  if (captured !=
+                                      StaffSchedulingScreen.routeName) {
+                                    context.go(
+                                      StaffSchedulingScreen.routeName,
+                                    );
+                                  }
+                                },
+                              ),
                             ],
                           ),
                         if (canViewBilling)
