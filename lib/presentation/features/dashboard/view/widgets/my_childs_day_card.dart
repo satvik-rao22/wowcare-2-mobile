@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -98,12 +97,18 @@ TimeOfDay? _parseTime(String timeStr) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Widget
-// ---------------------------------------------------------------------------
+class _MockMessage {
+  const _MockMessage({required this.senderName, required this.text});
 
-/// A dashboard card showing a child's daily status and quick actions.
-/// All data is hardcoded mock data (UI-only, no state management / API calls).
+  final String senderName;
+  final String text;
+}
+
+const _MockMessage _mockLastMessage = _MockMessage(
+  senderName: 'Ms. Laura (Teacher)',
+  text: 'Emma had a wonderful painting session today!',
+);
+
 class MyChildsDayCard extends StatefulWidget {
   const MyChildsDayCard({super.key});
 
@@ -787,7 +792,103 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               },
             ),
           ),
-          if (!_isMinimized) _buildCommunicationSection(),
+
+          // if (!_isMinimized) _buildCommunicationSection(),
+          if (!_isMinimized)
+            _CommunicationRowWidget(
+              studentName: '_mockStudent.fullName',
+              lastMessage: _mockLastMessage,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Communication row (inline, no Firestore / bloc)
+// ---------------------------------------------------------------------------
+
+class _CommunicationRowWidget extends StatelessWidget {
+  const _CommunicationRowWidget({
+    required this.studentName,
+    required this.lastMessage,
+  });
+
+  final String studentName;
+  final _MockMessage lastMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+        color: Color.fromRGBO(44, 99, 226, 0.05),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Sender profile avatar (profile photo → DocumentImageWidget)
+          DocumentImageWidget(
+            fileUuid: '',
+            name: lastMessage.senderName,
+            size: 40,
+            fontSize: 16,
+            disableProfileLookupFallback: true,
+            disableAttendanceStatusLookup: true,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lastMessage.senderName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  lastMessage.text,
+                  style: TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Chat navigation button (empty stub – no screen import)
+          GestureDetector(
+            onTap: () {}, // navigation to StudentConversationScreen is stubbed
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: SvgPicture.asset(
+                  MediaRes.communicationIcon,
+                  width: 22,
+                  height: 22,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -17,6 +17,7 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../model/scheduling_models.dart';
 import '../utils/forecast_slot_mapper.dart';
 import '../utils/school_hours_resolver.dart';
+import '../utils/scheduling_school_time.dart';
 import '../utils/staff_hours_aggregator.dart';
 import '../utils/staff_shift_slot_mapper.dart';
 import 'scheduling_staff_list_cubit.dart';
@@ -57,6 +58,11 @@ class SchedulingCubit extends Cubit<SchedulingState> {
   List<String> _allClassroomCodes = const [];
   List<StaffShift> _lastShifts = const [];
 
+  /// True once a first successful (or attempted) load has populated state.
+  /// Used by [loadIfNeeded] to decide whether a route entry should trigger
+  /// the visible loading flow or fall through to a silent background refresh.
+  bool _hasLoadedOnce = false;
+
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
     _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
@@ -68,6 +74,31 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     _organizationCode =
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     return _organizationCode!;
+  }
+
+  /// Called on every route entry. First call runs a normal [load] with the
+  /// loading flag (shimmer); subsequent entries fall through to a silent
+  /// background refresh — the cached classroom/shift data stays on screen
+  /// and the new data swaps in once it arrives.
+  Future<void> loadIfNeeded() async {
+    if (!_hasLoadedOnce) {
+      await load();
+      return;
+    }
+    await _silentRefresh();
+  }
+
+  /// Re-pulls ONLY the no-pagination staff roster
+  /// (`/staff/staff?...status=ACTIVE&status=UPCOMING`) — no school regular
+  /// schedule, no shifts, no forecasts. Never flips `isLoading`, so the
+  /// classroom view stays visually stable; the refreshed staff cache is
+  /// picked up next time the cubit rebuilds its classroom rows.
+  Future<void> _silentRefresh() async {
+    try {
+      await _schedulingStaffListCubit.load(force: true);
+    } catch (_) {
+      // Silent: keep showing the cached state.
+    }
   }
 
   /// Loads regular-schedule, shifts, and forecast data for [selectedDay].
@@ -160,6 +191,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           classrooms: classrooms,
         ),
       );
+      _hasLoadedOnce = true;
     } catch (e) {
       if (isClosed) return;
       emit(
@@ -168,6 +200,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
+      _hasLoadedOnce = true;
     }
   }
 
@@ -479,6 +512,13 @@ class SchedulingCubit extends Cubit<SchedulingState> {
   }
 
   void setClassroomNames(Map<String, String> namesByCode) {
+    // Ignore transient empty calls — the classroom cubit is a factory, so on
+    // every screen re-entry its state momentarily starts empty before the
+    // disk-cache hydration / API call settles. Treating that as a real
+    // change wipes the cached `_classroomNamesByCode` and triggers a full
+    // `load()` (refiring every scheduling API). The genuine "no classrooms"
+    // case is rare and self-corrects on the next non-empty update.
+    if (namesByCode.isEmpty) return;
     final codes = namesByCode.keys
         .map((c) => c.trim())
         .where((c) => c.isNotEmpty)

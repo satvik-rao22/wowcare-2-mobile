@@ -37,16 +37,16 @@ class StudentAttendanceProfileState extends Equatable {
     required int absentDays,
     required DateTime fromDate,
     required DateTime toDate,
-  })  : status = _Status.loaded,
-        studentCode = studentCode,
-        attendedDays = attendedDays,
-        attendedHours = attendedHours,
-        attendedMinutes = attendedMinutes,
-        totalAttendedTime = totalAttendedTime,
-        absentDays = absentDays,
-        fromDate = fromDate,
-        toDate = toDate,
-        errorMessage = null;
+  }) : status = _Status.loaded,
+       studentCode = studentCode,
+       attendedDays = attendedDays,
+       attendedHours = attendedHours,
+       attendedMinutes = attendedMinutes,
+       totalAttendedTime = totalAttendedTime,
+       absentDays = absentDays,
+       fromDate = fromDate,
+       toDate = toDate,
+       errorMessage = null;
 
   final _Status status;
   final String studentCode;

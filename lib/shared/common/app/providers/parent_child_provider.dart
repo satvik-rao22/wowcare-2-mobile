@@ -41,7 +41,9 @@ class ParentChildRef {
           ? student.fullName.trim()
           : student.code,
       classroom: student.classroom,
-      status: student.status.trim().isNotEmpty ? student.status.trim() : 'Active',
+      status: student.status.trim().isNotEmpty
+          ? student.status.trim()
+          : 'Active',
       tags: student.tags,
       schedule: student.schedule,
       scheduleByDay: student.scheduleByDay,

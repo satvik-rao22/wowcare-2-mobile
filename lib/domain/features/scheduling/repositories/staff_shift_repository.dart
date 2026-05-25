@@ -117,6 +117,20 @@ abstract class StaffShiftRepository {
     StaffShiftSeriesUpdateRequest request,
   );
 
+  /// `POST /api/v1/staff-shifts/publish` — publishes draft shifts for the
+  /// selected staff (or all staff when [publishAllStaff] = true), either across
+  /// all unpublished shifts from [dateRangeStart] forward ([publishAll] = true)
+  /// or up to [publishUntilDate] inclusive.
+  Future<void> publishStaffShifts({
+    required String schoolCode,
+    required String organizationCode,
+    required DateTime dateRangeStart,
+    required bool publishAll,
+    required bool publishAllStaff,
+    DateTime? publishUntilDate,
+    List<String> selectedStaffCodes = const <String>[],
+  });
+
   /// `DELETE /api/v1/staff-shifts/{shiftCode}` — remove one shift occurrence.
   Future<void> deleteStaffShift({
     required String shiftCode,

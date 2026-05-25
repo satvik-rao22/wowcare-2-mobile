@@ -40,6 +40,7 @@ import '../../domain/features/scheduling/usecases/get_classroom_forecast_range_u
 import '../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../domain/features/scheduling/usecases/publish_staff_shifts_usecase.dart';
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
@@ -62,6 +63,7 @@ import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
+import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -74,7 +76,6 @@ import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../domain/features/student/usecases/get_student_counts_usecase.dart';
-import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
 import '../../domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import '../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import '../../domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
@@ -190,6 +191,7 @@ import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.da
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
+import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -653,15 +655,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => UpdateStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<UpdateStaffShiftSeriesUseCase>(
-    () =>
-        UpdateStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
+    () => UpdateStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<DeleteStaffShiftUseCase>(
     () => DeleteStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<DeleteStaffShiftSeriesUseCase>(
-    () =>
-        DeleteStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
+    () => DeleteStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<GetStaffShiftByCodeUseCase>(
     () => GetStaffShiftByCodeUseCase(serviceLocator<StaffShiftRepository>()),
@@ -680,6 +680,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffShiftHoursRangeUseCase>(
     () =>
         GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
+  );
+  serviceLocator.registerFactory<PublishStaffShiftsUseCase>(
+    () => PublishStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
 
   // Cubits (factory - new instance each time for UI)
@@ -751,6 +754,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+
   serviceLocator.registerFactory<MyChildsDayCubit>(
     () => MyChildsDayCubit(
       getStudentProfileUseCase: serviceLocator(),
@@ -766,7 +770,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerFactory<StudentNewslettersCubit>(
-    () => StudentNewslettersCubit(getStudentNewslettersUseCase: serviceLocator()),
+    () =>
+        StudentNewslettersCubit(getStudentNewslettersUseCase: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ValidateQrCodeUseCase>(
     () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
@@ -774,6 +779,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<QrValidationCubit>(
     () => QrValidationCubit(validateQrCodeUseCase: serviceLocator()),
   );
+
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
     () => StudentAttendanceDailyCubit(
       getStudentAttendanceDailyUseCase: serviceLocator(),
@@ -881,7 +887,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<StaffSchedulingCubit>(
+  // Singleton so state survives across screen entries — entering the route
+  // a second time uses cached classrooms/shifts/staff and refreshes silently
+  // in the background instead of flashing the full-page shimmer.
+  serviceLocator.registerLazySingleton<StaffSchedulingCubit>(
     () => StaffSchedulingCubit(
       schedulingStaffListCubit: serviceLocator(),
       getSchoolStaffShiftsUseCase:
@@ -893,7 +902,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<SchedulingCubit>(
+  serviceLocator.registerFactory<PublishShiftsCubit>(
+    () => PublishShiftsCubit(
+      publishStaffShiftsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<SchedulingCubit>(
     () => SchedulingCubit(
       getSchoolStaffShiftsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),

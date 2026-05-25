@@ -16,6 +16,7 @@ import '../../../../domain/features/staff/entities/staff_shift.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../utils/classroom_name_resolver.dart';
 import '../utils/school_hours_resolver.dart';
+import '../utils/scheduling_school_time.dart';
 import '../utils/staff_hours_aggregator.dart';
 import 'scheduling_staff_list_cubit.dart';
 
@@ -51,6 +52,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   String? _organizationCode;
   SchoolHoursResolver? _schoolHoursResolver;
 
+  /// When true, the screen only shows the logged-in staff member (no roster).
+  /// Resolved from active-school role + cached staffCode in storage.
+  bool _isStaffPersonaScope = false;
+  String? _loggedInStaffCode;
+
+  bool get isStaffPersonaScope => _isStaffPersonaScope;
+
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
     _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
@@ -62,6 +70,96 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     _organizationCode =
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     return _organizationCode!;
+  }
+
+  /// Caller-driven persona scope. The screen reads [RoleProvider.isStaff] (the
+  /// single source of truth used across the app) and feeds it in here, plus
+  /// the logged-in user's `staffCode`. Re-filters the roster + re-emits state
+  /// whenever the scope flips so the UI reacts even if scope is set after the
+  /// initial load.
+  Future<void> applyPersonaScope({
+    required bool isStaffPersona,
+    String? loggedInStaffCode,
+  }) async {
+    final code = (loggedInStaffCode ?? '').trim();
+    final nextLoggedInStaffCode = code.isNotEmpty ? code : null;
+    final scopeChanged = _isStaffPersonaScope != isStaffPersona ||
+        _loggedInStaffCode != nextLoggedInStaffCode;
+
+    _isStaffPersonaScope = isStaffPersona;
+    _loggedInStaffCode = nextLoggedInStaffCode;
+
+    if (!scopeChanged || isClosed) return;
+
+    if (state.staffList.isEmpty) {
+      // Nothing loaded yet — just publish the flag so the UI hides the right
+      // controls; [_loadAllStaff] will apply the filter on the next load.
+      emit(state.copyWith(isStaffPersonaScope: _isStaffPersonaScope));
+      return;
+    }
+
+    // Roster already loaded under a different scope (e.g. cubit is a singleton
+    // and persona resolved after the route's eager loadIfNeeded). Re-derive
+    // the visible list synchronously so the dropdown updates without a refetch.
+    final allStaff = _schedulingStaffListCubit.state.staff;
+    List<StaffMember> visibleStaff = allStaff;
+    if (_isStaffPersonaScope) {
+      visibleStaff = (_loggedInStaffCode == null)
+          ? const <StaffMember>[]
+          : allStaff
+              .where((s) => s.code == _loggedInStaffCode)
+              .toList(growable: false);
+    }
+
+    final previousCode = state.selectedStaffCode;
+    String? nextCode = previousCode;
+    if (_isStaffPersonaScope) {
+      nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
+    } else if (nextCode != null &&
+        !visibleStaff.any((s) => s.code == nextCode)) {
+      nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
+    }
+
+    emit(state.copyWith(
+      isStaffPersonaScope: _isStaffPersonaScope,
+      staffList: visibleStaff,
+      selectedStaffCode: nextCode,
+      clearSelectedStaffCode: nextCode == null,
+    ));
+
+    if (nextCode != null && nextCode != previousCode) {
+      await _loadShiftsForSelection();
+    }
+  }
+
+  /// Called on every route entry. First call runs the full visible
+  /// load (shimmer); subsequent entries do a silent background refresh —
+  /// the previously-loaded staff / school hours / classrooms stay on screen
+  /// and the new data swaps in once it arrives.
+  Future<void> loadIfNeeded() async {
+    if (!state.hasAttemptedInitialLoad) {
+      await loadInitial();
+      return;
+    }
+    await _silentRefresh();
+  }
+
+  /// Public entry point for the screen-level cache-gate listener — same
+  /// behavior as [_silentRefresh] (staff API only, no loader, no rebuild).
+  Future<void> silentRefreshStaff() => _silentRefresh();
+
+  /// Re-pulls ONLY the no-pagination staff roster
+  /// (`/staff/staff?...status=ACTIVE&status=UPCOMING`) into the singleton
+  /// cache. Does NOT emit on this cubit — so the screen's BlocBuilder
+  /// doesn't rebuild and the user sees no refresh. The fresh roster is
+  /// picked up the next time `_loadAllStaff` runs (e.g. pull-to-refresh
+  /// or a future entry that genuinely needs a reload).
+  Future<void> _silentRefresh() async {
+    try {
+      await _schedulingStaffListCubit.load(force: true);
+    } catch (_) {
+      // Silent: ignore — the cached state stays on screen.
+    }
   }
 
   Future<void> loadInitial() async {
@@ -87,31 +185,6 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     await _loadShiftsForSelection();
   }
 
-  /// Background refresh of just the staff roster — no loading flags, no
-  /// shimmer, no shift refetch. Used when the cache gate fires after a
-  /// staff-side edit. The dropdown updates in place once the API returns.
-  Future<void> silentRefreshStaff() async {
-    try {
-      final allStaff = await _schedulingStaffListCubit.load(force: true);
-      if (isClosed) return;
-      String? nextCode = state.selectedStaffCode;
-      if (nextCode != null && !allStaff.any((s) => s.code == nextCode)) {
-        // The previously-selected staff was deleted/deactivated — fall back
-        // to the first remaining one (or clear if the list is now empty).
-        nextCode = allStaff.isNotEmpty ? allStaff.first.code : null;
-      }
-      emit(
-        state.copyWith(
-          staffList: allStaff,
-          selectedStaffCode: nextCode,
-          clearSelectedStaffCode: nextCode == null,
-        ),
-      );
-      _mergeClassroomNamesFromStaff(allStaff);
-    } catch (_) {
-      // Silent: don't surface errors to the UI for a background refresh.
-    }
-  }
 
   Future<void> _loadClassroomNames() async {
     try {
@@ -195,8 +268,10 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     emit(state.copyWith(shiftSummary: labeled));
   }
 
-  Future<void> _loadSchoolHours() async {
-    emit(state.copyWith(isLoadingSchoolHours: true, clearError: true));
+  Future<void> _loadSchoolHours({bool silent = false}) async {
+    if (!silent) {
+      emit(state.copyWith(isLoadingSchoolHours: true, clearError: true));
+    }
 
     try {
       final schoolCode = await _resolveSchoolCode();
@@ -261,13 +336,16 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   Future<void> _loadAllStaff({
     required bool selectFirst,
     bool force = false,
+    bool silent = false,
   }) async {
-    emit(
-      state.copyWith(
-        isLoadingStaff: true,
-        clearError: true,
-      ),
-    );
+    if (!silent) {
+      emit(
+        state.copyWith(
+          isLoadingStaff: true,
+          clearError: true,
+        ),
+      );
+    }
 
     try {
       // Delegated to SchedulingStaffListCubit which calls the staff API once
@@ -289,31 +367,47 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         return;
       }
 
+      // STAFF persona only ever sees their own row — narrow the roster here so
+      // the dropdown can't reveal coworkers and the rest of the cubit doesn't
+      // need to special-case the persona.
+      List<StaffMember> visibleStaff = allStaff;
+      if (_isStaffPersonaScope) {
+        final code = _loggedInStaffCode;
+        visibleStaff = (code == null || code.isEmpty)
+            ? const <StaffMember>[]
+            : allStaff.where((s) => s.code == code).toList(growable: false);
+      }
+
       String? nextCode = state.selectedStaffCode;
-      if (selectFirst && allStaff.isNotEmpty) {
-        nextCode = allStaff.first.code;
+      if (_isStaffPersonaScope) {
+        nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
+      } else if (selectFirst && visibleStaff.isNotEmpty) {
+        nextCode = visibleStaff.first.code;
       } else if (nextCode != null &&
-          !allStaff.any((s) => s.code == nextCode)) {
-        nextCode = allStaff.isNotEmpty ? allStaff.first.code : null;
+          !visibleStaff.any((s) => s.code == nextCode)) {
+        nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
       }
 
       emit(
         state.copyWith(
-          staffList: allStaff,
+          staffList: visibleStaff,
           selectedStaffCode: nextCode,
           clearSelectedStaffCode: nextCode == null,
           isLoadingStaff: false,
           // Pre-flip so the inner body shimmer stays solid through the
           // handoff into _loadShiftsForSelection without a one-frame flash
-          // of the actual (empty) summary tiles.
-          isLoadingShifts: nextCode != null ? true : state.isLoadingShifts,
+          // of the actual (empty) summary tiles. Skip when silent so a
+          // background refresh doesn't briefly hide the existing tiles.
+          isLoadingShifts: (!silent && nextCode != null)
+              ? true
+              : state.isLoadingShifts,
         ),
       );
 
-      _mergeClassroomNamesFromStaff(allStaff);
+      _mergeClassroomNamesFromStaff(visibleStaff);
 
       if (nextCode != null) {
-        await _loadShiftsForSelection();
+        await _loadShiftsForSelection(silent: silent);
       } else {
         emit(
           state.copyWith(
@@ -324,6 +418,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       }
     } catch (e) {
       if (isClosed) return;
+      if (silent) return;
       emit(
         state.copyWith(
           isLoadingStaff: false,
@@ -333,7 +428,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     }
   }
 
-  Future<void> _loadShiftsForSelection() async {
+  Future<void> _loadShiftsForSelection({bool silent = false}) async {
     final staffCode = state.selectedStaffCode;
     if (staffCode == null || staffCode.isEmpty) {
       emit(
@@ -345,7 +440,9 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       return;
     }
 
-    emit(state.copyWith(isLoadingShifts: true, clearError: true));
+    if (!silent) {
+      emit(state.copyWith(isLoadingShifts: true, clearError: true));
+    }
 
     try {
       final organizationCode = await _resolveOrganizationCode();
@@ -396,6 +493,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       );
     } catch (e) {
       if (isClosed) return;
+      if (silent) return;
       emit(
         state.copyWith(
           isLoadingShifts: false,

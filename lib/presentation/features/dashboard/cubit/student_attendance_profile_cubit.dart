@@ -3,25 +3,23 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
-
 part 'student_attendance_profile_state.dart';
 
 class StudentAttendanceProfileCubit
     extends Cubit<StudentAttendanceProfileState> {
   StudentAttendanceProfileCubit({
     required GetStudentAttendanceCustomUseCase
-        getStudentAttendanceCustomUseCase,
+    getStudentAttendanceCustomUseCase,
     required GetStudentAttendanceAbsentToggleViewUseCase
-        getStudentAttendanceAbsentToggleViewUseCase,
-  })  : _getStudentAttendanceCustomUseCase =
-            getStudentAttendanceCustomUseCase,
-        _getStudentAttendanceAbsentToggleViewUseCase =
-            getStudentAttendanceAbsentToggleViewUseCase,
-        super(const StudentAttendanceProfileState.initial());
+    getStudentAttendanceAbsentToggleViewUseCase,
+  }) : _getStudentAttendanceCustomUseCase = getStudentAttendanceCustomUseCase,
+       _getStudentAttendanceAbsentToggleViewUseCase =
+           getStudentAttendanceAbsentToggleViewUseCase,
+       super(const StudentAttendanceProfileState.initial());
 
   final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
   final GetStudentAttendanceAbsentToggleViewUseCase
-      _getStudentAttendanceAbsentToggleViewUseCase;
+  _getStudentAttendanceAbsentToggleViewUseCase;
 
   bool _isFetching = false;
   DateTime? _cachedAt;
@@ -58,11 +56,13 @@ class StudentAttendanceProfileCubit
     }
 
     _isFetching = true;
-    emit(state.copyWith(
-      status: _Status.loading,
-      studentCode: code,
-      errorMessage: null,
-    ));
+    emit(
+      state.copyWith(
+        status: _Status.loading,
+        studentCode: code,
+        errorMessage: null,
+      ),
+    );
 
     try {
       final fromDateString = _formatDate(fromDate);
@@ -113,24 +113,28 @@ class StudentAttendanceProfileCubit
 
       if (!isClosed) {
         _cachedAt = DateTime.now();
-        emit(StudentAttendanceProfileState.loaded(
-          studentCode: code,
-          attendedDays: attendedDays,
-          attendedHours: attendedHours,
-          attendedMinutes: attendedMinutes,
-          totalAttendedTime: totalAttendedTime,
-          absentDays: absentDays,
-          fromDate: fromDate,
-          toDate: toDate,
-        ));
+        emit(
+          StudentAttendanceProfileState.loaded(
+            studentCode: code,
+            attendedDays: attendedDays,
+            attendedHours: attendedHours,
+            attendedMinutes: attendedMinutes,
+            totalAttendedTime: totalAttendedTime,
+            absentDays: absentDays,
+            fromDate: fromDate,
+            toDate: toDate,
+          ),
+        );
       }
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(
-          status: _Status.error,
-          studentCode: code,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e),
-        ));
+        emit(
+          state.copyWith(
+            status: _Status.error,
+            studentCode: code,
+            errorMessage: ApiErrorHandler.extractErrorMessage(e),
+          ),
+        );
       }
     } finally {
       _isFetching = false;

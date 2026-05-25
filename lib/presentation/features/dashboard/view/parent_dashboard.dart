@@ -137,7 +137,12 @@ class _ParentDashboardState extends State<ParentDashboard> {
                             ),
                             // Reorderable cards — long-press a card to drag it.
                             SliverPadding(
-                              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                              padding: EdgeInsets.fromLTRB(
+                                gutter,
+                                0,
+                                gutter,
+                                28,
+                              ),
                               sliver: SliverReorderableList(
                                 itemCount: cards.length,
                                 onReorder: _viewModel.reorderCard,
@@ -147,7 +152,9 @@ class _ParentDashboardState extends State<ParentDashboard> {
                                     key: ValueKey(card),
                                     index: index,
                                     child: Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
+                                      ),
                                       // Transparent Material so InkWell ripples
                                       // in the card have an ancestor.
                                       child: Material(

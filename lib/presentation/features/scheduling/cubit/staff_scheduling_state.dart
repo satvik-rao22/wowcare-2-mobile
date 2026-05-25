@@ -14,6 +14,7 @@ class StaffSchedulingState extends Equatable {
     this.isLoadingShifts = false,
     this.isLoadingSchoolHours = false,
     this.hasAttemptedInitialLoad = false,
+    this.isStaffPersonaScope = false,
     this.errorMessage,
   });
 
@@ -40,6 +41,10 @@ class StaffSchedulingState extends Equatable {
   /// first emission flips the loading flags on.
   final bool hasAttemptedInitialLoad;
 
+  /// True when the logged-in user is a STAFF persona — the screen narrows the
+  /// roster to their own row and hides add/publish/edit/delete actions.
+  final bool isStaffPersonaScope;
+
   final String? errorMessage;
 
   StaffMember? get selectedStaff {
@@ -60,9 +65,8 @@ class StaffSchedulingState extends Equatable {
       ClassroomNameResolver.fromMap(classroomNamesByCode);
 
   factory StaffSchedulingState.initial() {
-    final now = DateTime.now();
     return StaffSchedulingState(
-      selectedDay: DateTime(now.year, now.month, now.day),
+      selectedDay: schedulingSchoolToday(),
     );
   }
 
@@ -80,6 +84,7 @@ class StaffSchedulingState extends Equatable {
     bool? isLoadingShifts,
     bool? isLoadingSchoolHours,
     bool? hasAttemptedInitialLoad,
+    bool? isStaffPersonaScope,
     String? errorMessage,
     bool clearError = false,
     bool clearSchoolHours = false,
@@ -105,6 +110,8 @@ class StaffSchedulingState extends Equatable {
           isLoadingSchoolHours ?? this.isLoadingSchoolHours,
       hasAttemptedInitialLoad:
           hasAttemptedInitialLoad ?? this.hasAttemptedInitialLoad,
+      isStaffPersonaScope:
+          isStaffPersonaScope ?? this.isStaffPersonaScope,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -123,6 +130,7 @@ class StaffSchedulingState extends Equatable {
         isLoadingShifts,
         isLoadingSchoolHours,
         hasAttemptedInitialLoad,
+        isStaffPersonaScope,
         errorMessage,
       ];
 }

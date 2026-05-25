@@ -348,6 +348,12 @@ class ApiPaths {
   static const String staffShiftsAbsentDays =
       '/api/v1/staff-shifts/absent-days';
 
+  /// POST `/api/v1/staff-shifts/publish` — publishes draft shifts either for
+  /// the whole roster ([publishAllStaff] = true) or a subset
+  /// ([selectedStaffCodes]), and either all unpublished shifts going forward
+  /// ([publishAll] = true) or up to [publishUntilDate].
+  static const String staffShiftsPublish = '/api/v1/staff-shifts/publish';
+
   /// PUT `/api/v1/staff-shifts/{shiftCode}` — update one shift occurrence.
   static String staffShiftByCode(String shiftCode) =>
       '$staffShifts/${Uri.encodeComponent(shiftCode)}';

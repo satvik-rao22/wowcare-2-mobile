@@ -1,12 +1,11 @@
 import '../entities/student.dart';
-import '../entities/student_profile.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_important_dates.dart';
+import '../entities/student_profile.dart';
 
 abstract class StudentRepository {
   /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
   Future<StudentProfile> getStudentProfile({required String code});
-
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,

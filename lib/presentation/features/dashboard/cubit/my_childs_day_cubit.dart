@@ -68,10 +68,12 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
         try {
           final guardians = await repo.getStudentGuardians(studentCode: code);
           final primary = guardians.where((g) => g.primaryContact).firstOrNull;
-          final withPin =
-              guardians.where((g) => (g.clockPin ?? '').trim().isNotEmpty).toList();
+          final withPin = guardians
+              .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
+              .toList();
           guardianClockPin =
-              (primary?.clockPin ?? (withPin.firstOrNull?.clockPin ?? '')).trim();
+              (primary?.clockPin ?? (withPin.firstOrNull?.clockPin ?? ''))
+                  .trim();
         } catch (_) {
           // Non-blocking: pin is optional for dashboard display.
         }

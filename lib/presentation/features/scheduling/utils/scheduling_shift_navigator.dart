@@ -102,6 +102,7 @@ class SchedulingShiftNavigator {
           : fallbackStaffName;
       final mutated = await navigator.push<bool>(
         MaterialPageRoute<bool>(
+          settings: const RouteSettings(name: ViewShiftScreen.routeName),
           builder: (_) => ViewShiftScreen(
             date: shift.shiftDate,
             staff: staffName,
@@ -156,7 +157,10 @@ class SchedulingShiftNavigator {
     }
   }
 
-  Future<void> _openEditShiftScreen(
+  /// Returns `true` when the user saved their edit; the View screen pops
+  /// itself in response so the source classroom-scheduling screen receives
+  /// the mutation signal and refreshes.
+  Future<bool> _openEditShiftScreen(
     BuildContext context, {
     required String shiftCode,
     required String fallbackStaffName,
@@ -168,7 +172,7 @@ class SchedulingShiftNavigator {
     try {
       final shift =
           await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
           : (classroomNamesByCode[shift.classroomCode] ??
@@ -206,6 +210,7 @@ class SchedulingShiftNavigator {
               : <String>{if (actualDay != null) actualDay};
       final saved = await navigator.push<bool>(
         MaterialPageRoute<bool>(
+          settings: const RouteSettings(name: EditShiftScreen.routeName),
           builder: (_) => MultiBlocProvider(
             providers: [
               BlocProvider<SchedulingStaffListCubit>.value(
@@ -237,29 +242,28 @@ class SchedulingShiftNavigator {
           ),
         ),
       );
-      if (saved == true) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (navigator.canPop()) navigator.pop(true);
-        });
-      }
+      return saved == true;
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
       CoreUtils.showTopSnackBar(
         context: context,
         message: ApiErrorHandler.extractErrorMessage(e),
         isError: true,
       );
+      return false;
     }
   }
 
-  Future<void> _deleteStaffShift(
+  /// Returns `true` on successful delete; the View screen pops itself in
+  /// response, resolving the await in [openByShiftCode] which then runs
+  /// [onDataMutated] (the source classroom-scheduling refresh).
+  Future<bool> _deleteStaffShift(
     BuildContext context, {
     required String shiftCode,
     required String staffCode,
     String? seriesCode,
     required bool isSeries,
   }) async {
-    final navigator = Navigator.of(context);
     try {
       if (isSeries) {
         final code = (seriesCode ?? '').trim();
@@ -276,7 +280,7 @@ class SchedulingShiftNavigator {
           staffCode: staffCode,
         );
       }
-      if (!context.mounted) return;
+      if (!context.mounted) return true;
       CoreUtils.showTopSnackBar(
         context: context,
         message: isSeries
@@ -284,14 +288,15 @@ class SchedulingShiftNavigator {
             : 'Shift deleted successfully',
         isSuccess: true,
       );
-      if (navigator.canPop()) navigator.pop(true);
+      return true;
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
       CoreUtils.showTopSnackBar(
         context: context,
         message: ApiErrorHandler.extractErrorMessage(e),
         isError: true,
       );
+      return false;
     }
   }
 

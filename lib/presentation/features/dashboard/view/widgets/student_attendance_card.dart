@@ -354,8 +354,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                   onRangeSelected: _onDateRangeSelected,
                 ),
                 const SizedBox(height: 20),
-                BlocBuilder<StudentAttendanceProfileCubit,
-                    StudentAttendanceProfileState>(
+                BlocBuilder<
+                  StudentAttendanceProfileCubit,
+                  StudentAttendanceProfileState
+                >(
                   buildWhen: (prev, curr) =>
                       prev.status != curr.status ||
                       prev.attendedDays != curr.attendedDays ||
