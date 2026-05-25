@@ -24,6 +24,7 @@ class ApiConstantsUat {
   static const String baseUrl = _host;
   static const String staffBaseUrl = _host;
   static const String studentBaseUrl = _host;
+  static const String newsLatterBaseUrl = _host;
   static const String classroomBaseUrl = _host;
   static const String schoolMs = _host;
 
@@ -34,6 +35,7 @@ class ApiConstantsUat {
 
   /// Activity APIs are on the shared UAT host.
   static const String activityBaseUrl = _host;
+
   /// Document APIs in UAT are rooted under `/api/v1/document`.
   static const String documentMsBaseUrl = '$_host/api/v1/document';
   static const String communicationBaseUrl = _host;

@@ -4,6 +4,7 @@ import '../entities/staff_attendance_daily.dart';
 import '../entities/staff_attendance_absent.dart';
 import '../entities/student_attendance_absent_form.dart';
 import '../entities/student_attendance_expected_summary.dart';
+import '../entities/qr_validation_result.dart';
 
 abstract class AttendanceRepository {
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
@@ -320,6 +321,12 @@ abstract class AttendanceRepository {
     bool withinGeofence = false,
     String? timeZone,
     DateTime? occurredAt,
+  });
+
+  Future<QrValidationResult> validateQrCode({
+    required String schoolCode,
+    required String qrToken,
+    required String useCase,
   });
 }
 

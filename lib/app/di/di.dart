@@ -59,6 +59,10 @@ import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
+import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
+import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
@@ -178,10 +182,16 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
+import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
+import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
+import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
+import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
+import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -247,9 +257,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Staff Scheduling (staff MS — `/api/v1/staff-shifts`)
   serviceLocator.registerLazySingleton<StaffSchedulingRemoteDataSource>(
-    () => StaffSchedulingRemoteDataSourceImpl(
-      serviceLocator<ApiClient>().client,
-    ),
+    () =>
+        StaffSchedulingRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
   // Classroom Data Sources
@@ -418,6 +427,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentProfileUseCase>(
+    () => GetStudentProfileUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentAttendanceDailyUseCase>(
     () => GetStudentAttendanceDailyUseCase(serviceLocator()),
@@ -643,15 +655,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => UpdateStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<UpdateStaffShiftSeriesUseCase>(
-    () =>
-        UpdateStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
+    () => UpdateStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<DeleteStaffShiftUseCase>(
     () => DeleteStaffShiftUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<DeleteStaffShiftSeriesUseCase>(
-    () =>
-        DeleteStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
+    () => DeleteStaffShiftSeriesUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<GetStaffShiftByCodeUseCase>(
     () => GetStaffShiftByCodeUseCase(serviceLocator<StaffShiftRepository>()),
@@ -663,11 +673,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => GetClassroomForecastUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<GetClassroomForecastRangeUseCase>(
-    () =>
-        GetClassroomForecastRangeUseCase(serviceLocator<StaffShiftRepository>()),
+    () => GetClassroomForecastRangeUseCase(
+      serviceLocator<StaffShiftRepository>(),
+    ),
   );
   serviceLocator.registerFactory<GetStaffShiftHoursRangeUseCase>(
-    () => GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
+    () =>
+        GetStaffShiftHoursRangeUseCase(serviceLocator<StaffShiftRepository>()),
   );
   serviceLocator.registerFactory<PublishStaffShiftsUseCase>(
     () => PublishStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
@@ -742,6 +754,32 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+
+  serviceLocator.registerFactory<MyChildsDayCubit>(
+    () => MyChildsDayCubit(
+      getStudentProfileUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+      studentRepository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentAttendanceProfileCubit>(
+    () => StudentAttendanceProfileCubit(
+      getStudentAttendanceCustomUseCase: serviceLocator(),
+      getStudentAttendanceAbsentToggleViewUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentNewslettersCubit>(
+    () =>
+        StudentNewslettersCubit(getStudentNewslettersUseCase: serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<ValidateQrCodeUseCase>(
+    () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
+  );
+  serviceLocator.registerFactory<QrValidationCubit>(
+    () => QrValidationCubit(validateQrCodeUseCase: serviceLocator()),
+  );
+
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
     () => StudentAttendanceDailyCubit(
       getStudentAttendanceDailyUseCase: serviceLocator(),
@@ -828,6 +866,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
     () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
+  );
+
+  serviceLocator.registerLazySingleton<StudentNewslettersRemoteDataSource>(
+    () => StudentNewslettersRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<StudentNewslettersRepository>(
+    () => StudentNewslettersRepositoryImpl(remoteDataSource: serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<GetStudentNewslettersUseCase>(
+    () => GetStudentNewslettersUseCase(serviceLocator()),
   );
   // Singleton so the scheduling staff list is loaded once per session and
   // shared between [StaffSchedulingCubit] (injected via DI) and the widget

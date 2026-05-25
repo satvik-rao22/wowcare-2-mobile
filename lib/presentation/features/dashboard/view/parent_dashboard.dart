@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
@@ -8,15 +14,6 @@ import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashbo
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
-/// Parent / guardian dashboard screen.
-///
-/// Composes the welcome header and the reusable dashboard cards into a single
-/// vertically scrolling, pull-to-refresh feed. Cards can be drag-and-drop
-/// reordered (long-press a card to drag it).
-///
-/// The card list and ordering come from [ParentDashboardViewModel] (MVVM): the
-/// view only maps card identifiers to widgets and never owns dashboard state
-/// itself.
 class ParentDashboard extends StatefulWidget {
   const ParentDashboard({super.key});
 
@@ -28,13 +25,31 @@ class ParentDashboard extends StatefulWidget {
 
 class _ParentDashboardState extends State<ParentDashboard> {
   final ParentDashboardViewModel _viewModel = ParentDashboardViewModel();
+  late final MyChildsDayCubit _myChildsDayCubit;
+  late final StudentAttendanceProfileCubit _studentAttendanceProfileCubit;
+  late final CommunicationCubit _communicationCubit;
+  late final StudentNewslettersCubit _studentNewslettersCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens.
   static const double _maxContentWidth = 640;
 
   @override
+  void initState() {
+    super.initState();
+    _myChildsDayCubit = serviceLocator<MyChildsDayCubit>();
+    _studentAttendanceProfileCubit =
+        serviceLocator<StudentAttendanceProfileCubit>();
+    _communicationCubit = serviceLocator<CommunicationCubit>();
+    _studentNewslettersCubit = serviceLocator<StudentNewslettersCubit>();
+  }
+
+  @override
   void dispose() {
     _viewModel.dispose();
+    _myChildsDayCubit.close();
+    _studentAttendanceProfileCubit.close();
+    _communicationCubit.close();
+    _studentNewslettersCubit.close();
     super.dispose();
   }
 
@@ -78,68 +93,88 @@ class _ParentDashboardState extends State<ParentDashboard> {
       bodyPadding: EdgeInsets.zero,
       body: Material(
         type: MaterialType.transparency,
-        child: ListenableBuilder(
-          listenable: _viewModel,
-          builder: (context, _) {
-            final cards = _viewModel.visibleCards;
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<MyChildsDayCubit>.value(value: _myChildsDayCubit),
+            BlocProvider<StudentAttendanceProfileCubit>.value(
+              value: _studentAttendanceProfileCubit,
+            ),
+            BlocProvider<CommunicationCubit>.value(value: _communicationCubit),
+            BlocProvider<StudentNewslettersCubit>.value(
+              value: _studentNewslettersCubit,
+            ),
+          ],
+          child: ListenableBuilder(
+            listenable: _viewModel,
+            builder: (context, _) {
+              final cards = _viewModel.visibleCards;
 
-            return CustomRefreshIndicator(
-              onRefresh: _viewModel.refresh,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Page gutter scales down a little on narrow phones.
-                  final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+              return CustomRefreshIndicator(
+                onRefresh: _viewModel.refresh,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Page gutter scales down a little on narrow phones.
+                    final double gutter = constraints.maxWidth < 360 ? 12 : 16;
 
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _maxContentWidth,
-                      ),
-                      child: CustomScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          // Fixed (non-reorderable) header section.
-                          SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
-                            sliver:
-                                SliverToBoxAdapter(child: _buildHeader()),
-                          ),
-                          // Reorderable cards — long-press a card to drag it.
-                          SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
-                            sliver: SliverReorderableList(
-                              itemCount: cards.length,
-                              onReorder: _viewModel.reorderCard,
-                              itemBuilder: (context, index) {
-                                final card = cards[index];
-                                return ReorderableDelayedDragStartListener(
-                                  key: ValueKey(card),
-                                  index: index,
-                                  child: Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 16),
-                                    // Transparent Material so InkWell ripples
-                                    // in the card have an ancestor.
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: _cardFor(card),
-                                    ),
-                                  ),
-                                );
-                              },
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: _maxContentWidth,
+                        ),
+                        child: CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            // Fixed (non-reorderable) header section.
+                            SliverPadding(
+                              padding: EdgeInsets.fromLTRB(
+                                gutter,
+                                24,
+                                gutter,
+                                0,
+                              ),
+                              sliver: SliverToBoxAdapter(child: _buildHeader()),
                             ),
-                          ),
-                        ],
+                            // Reorderable cards — long-press a card to drag it.
+                            SliverPadding(
+                              padding: EdgeInsets.fromLTRB(
+                                gutter,
+                                0,
+                                gutter,
+                                28,
+                              ),
+                              sliver: SliverReorderableList(
+                                itemCount: cards.length,
+                                onReorder: _viewModel.reorderCard,
+                                itemBuilder: (context, index) {
+                                  final card = cards[index];
+                                  return ReorderableDelayedDragStartListener(
+                                    key: ValueKey(card),
+                                    index: index,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
+                                      ),
+                                      // Transparent Material so InkWell ripples
+                                      // in the card have an ancestor.
+                                      child: Material(
+                                        type: MaterialType.transparency,
+                                        child: _cardFor(card),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+                    );
+                  },
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
