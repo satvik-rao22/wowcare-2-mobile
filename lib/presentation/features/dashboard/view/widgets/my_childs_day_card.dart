@@ -1,62 +1,24 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
+import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-
-// ---------------------------------------------------------------------------
-// Local mock model classes – plain Dart, no imports from domain/data layers.
-// ---------------------------------------------------------------------------
-
-class _MockStudent {
-  const _MockStudent({
-    required this.fullName,
-    required this.roomName,
-    required this.isSignedIn,
-    required this.isAbsent,
-    this.profileStatus = 'Active',
-    this.signInPin = '4829',
-  });
-
-  final String fullName;
-  final String roomName;
-  final bool isSignedIn;
-  final bool isAbsent;
-  final String profileStatus;
-  final String signInPin;
-}
-
-class _MockMessage {
-  const _MockMessage({required this.senderName, required this.text});
-
-  final String senderName;
-  final String text;
-}
-
-// ---------------------------------------------------------------------------
-// Hardcoded mock data
-// ---------------------------------------------------------------------------
-
-const _MockStudent _mockStudent = _MockStudent(
-  fullName: 'Sairam Patil',
-  roomName: 'Sunflower Room',
-  isSignedIn: true,
-  isAbsent: false,
-  profileStatus: 'Active',
-  signInPin: '4829',
-);
-
-const _MockMessage _mockLastMessage = _MockMessage(
-  senderName: 'Ms. Laura (Teacher)',
-  text: 'Emma had a wonderful painting session today!',
-);
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -149,13 +111,19 @@ class MyChildsDayCard extends StatefulWidget {
   State<MyChildsDayCard> createState() => _MyChildsDayCardState();
 }
 
-class _MyChildsDayCardState extends State<MyChildsDayCard> {
+class _MyChildsDayCardState extends State<MyChildsDayCard>
+    with AutomaticKeepAliveClientMixin {
   bool _isMinimized = false;
   String _selectedChildCode = '';
+  bool _didLoadCommunication = false;
 
-  // Countdown timer state
-  String _statusText = 'Loading schedule...';
-  Duration _duration = Duration.zero;
+  Timer? _countdownTimer;
+  final ValueNotifier<String> _statusText = ValueNotifier<String>(
+    'Loading schedule...',
+  );
+  final ValueNotifier<Duration> _duration = ValueNotifier<Duration>(
+    Duration.zero,
+  );
 
   // Mock location / geofence state
   bool _isWithinGeofence = false;
@@ -169,19 +137,61 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
     super.initState();
   }
 
-  void _refreshCountdown({
-    required DateTime schoolNow,
-    required String scheduleRange,
-  }) {
-    final result = _computeCountdown(
-      schoolNow: schoolNow,
-      scheduleRange: scheduleRange,
-    );
-    setState(() {
-      _statusText = result.statusText;
-      _duration = result.duration;
-    });
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final parentChildProvider = Provider.of<ParentChildProvider>(context);
+    final selectedChild = parentChildProvider.selectedChild;
+    final nextChildCode = (selectedChild?.code ?? '').trim();
+    if (nextChildCode != _selectedChildCode) {
+      _selectedChildCode = nextChildCode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<MyChildsDayCubit>().loadForChild(
+          studentCode: nextChildCode,
+        );
+      });
+    }
   }
+
+  void _stopCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+  }
+
+  void _startCountdownTimer({
+    required String schoolTimeZone,
+    required String todayScheduleRange,
+  }) {
+    _stopCountdownTimer();
+
+    void tick() {
+      final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+        DateTime.now().toUtc(),
+        schoolTimeZone,
+      );
+      final result = _computeCountdown(
+        schoolNow: schoolNow,
+        scheduleRange: todayScheduleRange,
+      );
+      _statusText.value = result.statusText;
+      _duration.value = result.duration;
+    }
+
+    tick();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+  }
+
+  @override
+  void dispose() {
+    _stopCountdownTimer();
+    _statusText.dispose();
+    _duration.dispose();
+    super.dispose();
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 
   String _formatDayOfWeek(String raw) {
     switch (raw.trim().toUpperCase()) {
@@ -208,12 +218,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
   Widget _buildTimeUnit(String value, String label) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 48,
-            fontWeight: FontWeight.w600,
+        SizedBox(
+          width: 64,
+          child: Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: 48,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
           ),
         ),
         Text(
@@ -269,15 +284,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
     required String todayScheduleRange,
     required String schoolTimeZone,
     required DateTime? schoolNow,
+    required String studentStatus,
   }) {
-    final student =
-        _mockStudent; // keep mock status/pin until wired to real APIs
-    final statusColor = student.profileStatus == 'Upcoming'
+    final statusColor = studentStatus == 'Upcoming'
         ? const Color.fromARGB(255, 253, 205, 22)
-        : student.isSignedIn
+        : studentStatus == 'Active'
         ? const Color.fromRGBO(0, 177, 21, 1)
-        : student.isAbsent
-        ? const Color.fromRGBO(200, 32, 32, 1)
         : null;
     final scheduleLabel = todayScheduleRange.trim().isNotEmpty
         ? todayScheduleRange.trim()
@@ -408,7 +420,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
         child: CustomButtonLayout(
           isForm: false,
           showCancelButton: false,
-          confirmButtonLabel: _mockStudent.isSignedIn ? 'Sign-Out' : 'Sign-In',
+          confirmButtonLabel: 'Sign-In/Out',
           onPressedConfirm: enabled ? () {} : null,
         ),
       ),
@@ -455,47 +467,147 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
 
   // ----- Sign-In PIN row -----
 
-  Widget _buildSignInPinRow() {
+  Widget _buildSignInPinRow({required ParentChildRef selectedChild}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ShaderMask(
           shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-          child: Text(
-            'Your Sign-In Pin:  ${_mockStudent.signInPin}',
-            style: const TextStyle(
+          child: const Text(
+            'Student Sign In/Out Pin : ',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        IconButton(
-          onPressed: () {
-            // QR scan navigation – empty stub (no screen import).
+        const SizedBox(height: 10),
+        BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
+          buildWhen: (prev, curr) =>
+              prev.guardianClockPin != curr.guardianClockPin ||
+              prev.status != curr.status,
+          builder: (context, state) {
+            final pin = state.guardianClockPin.trim();
+            return Text(
+              pin.isEmpty ? '—' : pin,
+              style: TextStyle(
+                color: AppColors.primaryColor.withValues(alpha: 0.75),
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              textAlign: TextAlign.center,
+            );
           },
-          icon: SvgPicture.asset(MediaRes.scannerGradientIcon),
+        ),
+        const SizedBox(height: 12),
+        QrScanButton(
+          args: QrScannerArgs(useCase: QrAttendanceUseCase.guardianSignIn),
         ),
       ],
     );
   }
 
-  // ----- Location name row -----
+  Widget _buildCommunicationSection() {
+    return BlocBuilder<CommunicationCubit, CommunicationState>(
+      buildWhen: (prev, curr) =>
+          curr is CommunicationConversationsLoaded ||
+          curr is CommunicationConversationsLoading ||
+          curr is CommunicationError,
+      builder: (context, state) {
+        if (state is CommunicationConversationsLoading ||
+            state is CommunicationInitial) {
+          return const SizedBox.shrink();
+        }
+        if (state is CommunicationError) {
+          return const SizedBox.shrink();
+        }
+        if (state is! CommunicationConversationsLoaded) {
+          return const SizedBox.shrink();
+        }
 
-  Widget _buildLocationRow() {
-    return Center(
-      child: Text(
-        'Current Location: Riverside Elementary School, Springfield',
-        style: TextStyle(
-          color: AppColors.primaryColor.withValues(alpha: 0.7),
-          fontSize: 14,
-        ),
-        textAlign: TextAlign.center,
-      ),
+        final conversations = state.conversationsByType[null] ?? const [];
+        if (conversations.isEmpty) return const SizedBox.shrink();
+
+        final convo = conversations.first;
+        final sender = (convo.lastMessageBy ?? convo.title).trim();
+        final preview = convo.lastMessagePreview.trim();
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+            color: Color.fromRGBO(44, 99, 226, 0.05),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              DocumentImageWidget(
+                fileUuid: '',
+                name: sender.isEmpty ? '—' : sender,
+                size: 40,
+                fontSize: 16,
+                disableProfileLookupFallback: true,
+                disableAttendanceStatusLookup: true,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sender.isEmpty ? '—' : sender,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      preview.isEmpty ? '—' : preview,
+                      style: TextStyle(
+                        color: AppColors.primaryColor.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {},
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buildPrimaryGradient(),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: SvgPicture.asset(
+                      MediaRes.communicationIcon,
+                      width: 22,
+                      height: 22,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -503,6 +615,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -522,241 +635,159 @@ class _MyChildsDayCardState extends State<MyChildsDayCard> {
             child: Consumer<ParentChildProvider>(
               builder: (context, parentChildProvider, _) {
                 final selectedChild = parentChildProvider.selectedChild;
-                final nextChildCode = (selectedChild?.code ?? '').trim();
-                if (_selectedChildCode != nextChildCode) {
-                  _selectedChildCode = nextChildCode;
+                if (!_didLoadCommunication) {
+                  _didLoadCommunication = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!mounted) return;
-                    context.read<MyChildsDayCubit>().loadForChild(
-                      studentCode: nextChildCode,
-                    );
+                    context.read<CommunicationCubit>().loadConversations();
                   });
                 }
 
-                return BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
-                  builder: (context, myChildsDayState) {
-                    final isLoading =
-                        myChildsDayState.status == MyChildsDayStatus.loading;
-                    final isLoaded =
-                        myChildsDayState.status == MyChildsDayStatus.loaded;
-                    final isError =
-                        myChildsDayState.status == MyChildsDayStatus.error;
-
-                    if (isLoaded && myChildsDayState.schoolNow != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        _refreshCountdown(
-                          schoolNow: myChildsDayState.schoolNow!,
-                          scheduleRange: myChildsDayState.todayScheduleRange,
-                        );
-                      });
+                return BlocListener<MyChildsDayCubit, MyChildsDayState>(
+                  listenWhen: (prev, curr) =>
+                      prev.status != curr.status ||
+                      prev.studentCode != curr.studentCode ||
+                      prev.todayScheduleRange != curr.todayScheduleRange ||
+                      prev.schoolTimeZone != curr.schoolTimeZone,
+                  listener: (context, state) {
+                    if (state.status == MyChildsDayStatus.loaded &&
+                        state.schoolTimeZone.trim().isNotEmpty) {
+                      _startCountdownTimer(
+                        schoolTimeZone: state.schoolTimeZone,
+                        todayScheduleRange: state.todayScheduleRange,
+                      );
+                    } else {
+                      _stopCountdownTimer();
+                      _statusText.value = 'Loading schedule...';
+                      _duration.value = Duration.zero;
                     }
+                  },
+                  child: BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
+                    buildWhen: (prev, curr) =>
+                        prev.status != curr.status ||
+                        prev.studentCode != curr.studentCode ||
+                        prev.fullName != curr.fullName ||
+                        prev.classroomName != curr.classroomName ||
+                        prev.todayDayOfWeek != curr.todayDayOfWeek ||
+                        prev.todayScheduleRange != curr.todayScheduleRange ||
+                        prev.schoolTimeZone != curr.schoolTimeZone,
+                    builder: (context, myChildsDayState) {
+                      final isLoading =
+                          myChildsDayState.status == MyChildsDayStatus.loading;
+                      final isLoaded =
+                          myChildsDayState.status == MyChildsDayStatus.loaded;
+                      final isError =
+                          myChildsDayState.status == MyChildsDayStatus.error;
 
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DashboardCardHeader(
-                          title: "My Child's Day",
-                          minimized: _isMinimized,
-                          onToggle: () =>
-                              setState(() => _isMinimized = !_isMinimized),
-                        ),
-                        if (!_isMinimized) ...[
-                          const SizedBox(height: 12),
-                          if ((parentChildProvider.isLoading &&
-                                  parentChildProvider.children.isEmpty) ||
-                              isLoading)
-                            const Center(
-                              child: Padding(
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DashboardCardHeader(
+                            title: "My Child's Day",
+                            minimized: _isMinimized,
+                            onToggle: () =>
+                                setState(() => _isMinimized = !_isMinimized),
+                          ),
+                          if (!_isMinimized) ...[
+                            const SizedBox(height: 12),
+                            if ((parentChildProvider.isLoading &&
+                                    parentChildProvider.children.isEmpty) ||
+                                isLoading)
+                              const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 16),
-                                child: PrimaryCircularLoader(
-                                  size: 32,
-                                  strokeWidth: 3,
-                                ),
-                              ),
-                            )
-                          else if (selectedChild == null)
-                            Center(
-                              child: Text(
-                                'No children linked',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.7,
+                                child: MyChildsDayCardShimmer(),
+                              )
+                            else if (selectedChild == null)
+                              Center(
+                                child: Text(
+                                  'No children linked',
+                                  style: TextStyle(
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontSize: 14,
                                   ),
-                                  fontSize: 14,
+                                  textAlign: TextAlign.center,
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                          else if (isError)
-                            Center(
-                              child: Text(
-                                'Failed to load student details',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.7,
+                              )
+                            else if (isError)
+                              Center(
+                                child: Text(
+                                  'Failed to load student details',
+                                  style: TextStyle(
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontSize: 14,
                                   ),
-                                  fontSize: 14,
+                                  textAlign: TextAlign.center,
                                 ),
-                                textAlign: TextAlign.center,
+                              )
+                            else ...[
+                              ValueListenableBuilder<String>(
+                                valueListenable: _statusText,
+                                builder: (context, statusText, _) {
+                                  return Center(
+                                    child: Text(
+                                      statusText,
+                                      style: const TextStyle(
+                                        color: AppColors.primaryColor,
+                                        fontSize: 17,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  );
+                                },
                               ),
-                            )
-                          else ...[
-                            Center(
-                              child: Text(
-                                _statusText,
-                                style: const TextStyle(
-                                  color: AppColors.primaryColor,
-                                  fontSize: 17,
-                                ),
-                                textAlign: TextAlign.center,
+                              const SizedBox(height: 4),
+                              ValueListenableBuilder<Duration>(
+                                valueListenable: _duration,
+                                builder: (context, duration, _) {
+                                  return _buildAlignedTimerDisplay(duration);
+                                },
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            _buildAlignedTimerDisplay(_duration),
-                            const SizedBox(height: 16),
-                            _buildReminderRow(),
-                            const SizedBox(height: 8),
-                            _buildLocationRow(),
-                            const SizedBox(height: 20),
-                            _buildStudentDetailContainer(
-                              studentName: isLoaded
-                                  ? myChildsDayState.fullName
-                                  : selectedChild.name,
-                              classroomName: isLoaded
-                                  ? myChildsDayState.classroomName
-                                  : (selectedChild.primaryClassroomName ??
-                                            selectedChild.classroom)
-                                        .trim(),
-                              dayOfWeek: isLoaded
-                                  ? myChildsDayState.todayDayOfWeek
-                                  : '',
-                              todayScheduleRange: isLoaded
-                                  ? myChildsDayState.todayScheduleRange
-                                  : '',
-                              schoolTimeZone: isLoaded
-                                  ? myChildsDayState.schoolTimeZone
-                                  : '',
-                              schoolNow: isLoaded
-                                  ? myChildsDayState.schoolNow
-                                  : null,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildSignInPinRow(),
-                            const SizedBox(height: 16),
-                            _buildSignInOutButton(),
+                              const SizedBox(height: 16),
+                              _buildReminderRow(),
+                              const SizedBox(height: 20),
+                              _buildStudentDetailContainer(
+                                studentName: isLoaded
+                                    ? myChildsDayState.fullName
+                                    : selectedChild.name,
+                                classroomName: isLoaded
+                                    ? myChildsDayState.classroomName
+                                    : (selectedChild.primaryClassroomName ??
+                                              selectedChild.classroom)
+                                          .trim(),
+                                dayOfWeek: isLoaded
+                                    ? myChildsDayState.todayDayOfWeek
+                                    : '',
+                                todayScheduleRange: isLoaded
+                                    ? myChildsDayState.todayScheduleRange
+                                    : '',
+                                schoolTimeZone: isLoaded
+                                    ? myChildsDayState.schoolTimeZone
+                                    : '',
+                                schoolNow: isLoaded
+                                    ? myChildsDayState.schoolNow
+                                    : null,
+                                studentStatus: selectedChild.status,
+                              ),
+                              const SizedBox(height: 16),
+                              _buildSignInPinRow(selectedChild: selectedChild),
+                              const SizedBox(height: 16),
+                              _buildSignInOutButton(),
+                            ],
                           ],
                         ],
-                      ],
-                    );
-                  },
+                      );
+                    },
+                  ),
                 );
               },
             ),
           ),
-          // ---- Communication row (always shown when not minimized) ----
-          if (!_isMinimized)
-            Consumer<ParentChildProvider>(
-              builder: (context, parentChildProvider, _) {
-                final selectedChild = parentChildProvider.selectedChild;
-                if (selectedChild == null) return const SizedBox.shrink();
-                return _CommunicationRowWidget(
-                  studentName: selectedChild.name,
-                  lastMessage: _mockLastMessage,
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Communication row (inline, no Firestore / bloc)
-// ---------------------------------------------------------------------------
-
-class _CommunicationRowWidget extends StatelessWidget {
-  const _CommunicationRowWidget({
-    required this.studentName,
-    required this.lastMessage,
-  });
-
-  final String studentName;
-  final _MockMessage lastMessage;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Sender profile avatar (profile photo → DocumentImageWidget)
-          DocumentImageWidget(
-            fileUuid: '',
-            name: lastMessage.senderName,
-            size: 40,
-            fontSize: 16,
-            disableProfileLookupFallback: true,
-            disableAttendanceStatusLookup: true,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  lastMessage.senderName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  lastMessage.text,
-                  style: TextStyle(
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Chat navigation button (empty stub – no screen import)
-          GestureDetector(
-            onTap: () {}, // navigation to StudentConversationScreen is stubbed
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: SvgPicture.asset(
-                  MediaRes.communicationIcon,
-                  width: 22,
-                  height: 22,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          if (!_isMinimized) _buildCommunicationSection(),
         ],
       ),
     );

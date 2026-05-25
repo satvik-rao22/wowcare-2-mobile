@@ -4,6 +4,7 @@ import '../../../../core/util/api_paths.dart';
 import '../models/student_attendance_models.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/staff_absence_record_models.dart';
+import '../models/qr_validation_model.dart';
 
 abstract class AttendanceRemoteDataSource {
   Future<StudentAttendanceDailyPageModel> getStudentAttendanceDaily({
@@ -322,6 +323,12 @@ abstract class AttendanceRemoteDataSource {
   Future<String> createStudentSignInRecords({
     required Map<String, dynamic> payload,
     required List<String> allowedClassroomCodes,
+  });
+
+  Future<QrValidationResponseModel> validateQrCode({
+    required String schoolCode,
+    required String qrToken,
+    required String useCase,
   });
 }
 
@@ -1628,5 +1635,28 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       throw Exception('Empty response from student sign-in API');
     }
     return (data['message'] ?? 'Signed in successfully').toString();
+  }
+
+  @override
+  Future<QrValidationResponseModel> validateQrCode({
+    required String schoolCode,
+    required String qrToken,
+    required String useCase,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.qrCodeValidate(schoolCode),
+      ApiConstants.attendanceBaseUrl,
+    );
+    final body = QrValidationRequestModel(
+      qrToken: qrToken,
+      useCase: useCase,
+    ).toJson();
+    final response = await _client.post<dynamic>(endpoint, data: body);
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Invalid QR validation response');
+    }
+    return QrValidationResponseModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
   }
 }

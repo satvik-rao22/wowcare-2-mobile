@@ -225,6 +225,8 @@ class ApiPaths {
         return ApiMicroservices.user;
       case 'conversations':
         return ApiMicroservices.communication;
+      case 'newsletters':
+        return ApiMicroservices.newsLatter;
       default:
         return ApiMicroservices.user;
     }
@@ -393,6 +395,7 @@ class ApiPaths {
   static String studentSiblings(String code) =>
       '$studentList/student/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
+
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
   static const String studentTagsActivityFilter =
       '/api/v1/student-tags/activity-filter';
@@ -549,6 +552,9 @@ class ApiPaths {
   static const String staffAttendanceRecordsTransfer =
       '/api/v1/staff-attendance-records/transfer';
 
+  static String qrCodeValidate(String schoolCode) =>
+      '/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
+
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';
@@ -593,9 +599,8 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
-  static String get documentUploadSessionsRoot => ApiConstants.isUat
-      ? '/upload-sessions'
-      : '/api/v1/upload-sessions';
+  static String get documentUploadSessionsRoot =>
+      ApiConstants.isUat ? '/upload-sessions' : '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
@@ -658,10 +663,13 @@ class ApiPaths {
       '$documentUploadSessionsRoot/$sessionCode';
   static String documentMediaAssetByCodePath(String assetCode) =>
       ApiConstants.isUat
-          ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
-          : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
+      ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
+      : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
   static const String messagingCreateMessage = '/api/v1/conversations';
   static String messagingMessages(String conversationCode) =>
       '/api/v1/messages/conversation/$conversationCode';
+  // static String studentnewsLatter = 'api/v1/newsletters/student/';
+  static String studentNewslettersByStudentCode(String studentCode) =>
+      '/api/v1/newsletters/student/${Uri.encodeComponent(studentCode.trim())}';
 }

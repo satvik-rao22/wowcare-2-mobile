@@ -23,10 +23,18 @@ class StudentAttendanceProfileCubit
   final GetStudentAttendanceAbsentToggleViewUseCase
       _getStudentAttendanceAbsentToggleViewUseCase;
 
+  bool _isFetching = false;
+  DateTime? _cachedAt;
+  static const _cacheTtl = Duration(minutes: 5);
+
+  bool _isCacheValid() =>
+      _cachedAt != null && DateTime.now().difference(_cachedAt!) < _cacheTtl;
+
   Future<void> loadAttendanceProfile({
     required String studentCode,
     required DateTime fromDate,
     required DateTime toDate,
+    bool forceRefresh = false,
   }) async {
     final code = studentCode.trim();
     if (code.isEmpty) {
@@ -34,10 +42,22 @@ class StudentAttendanceProfileCubit
       return;
     }
 
-    if (state.studentCode == code && state.status == _Status.loaded) {
+    // Prevent concurrent requests
+    if (_isFetching) {
       return;
     }
 
+    // Guard: same data already loaded, within TTL, no force refresh
+    if (!forceRefresh &&
+        state.studentCode == code &&
+        state.status == _Status.loaded &&
+        state.fromDate?.isAtSameMomentAs(fromDate) == true &&
+        state.toDate?.isAtSameMomentAs(toDate) == true &&
+        _isCacheValid()) {
+      return;
+    }
+
+    _isFetching = true;
     emit(state.copyWith(
       status: _Status.loading,
       studentCode: code,
@@ -52,7 +72,7 @@ class StudentAttendanceProfileCubit
         fromAttendanceDate: fromDateString,
         toAttendanceDate: toDateString,
         page: 0,
-        size: 1,
+        size: 200,
       );
 
       int attendedDays = 0;
@@ -60,27 +80,39 @@ class StudentAttendanceProfileCubit
       int attendedMinutes = 0;
       String totalAttendedTime = '';
 
-      if (attendancePage.items.isNotEmpty) {
-        final item = attendancePage.items.first;
-        attendedDays = item.attendedDays;
-        attendedHours = item.attendedHours;
-        attendedMinutes = item.attendedMinutes;
-        totalAttendedTime = item.attendedTime;
+      // Filter by studentCode instead of taking first item
+      final attendedItem = attendancePage.items
+          .where((item) => item.studentCode == code)
+          .cast<dynamic>()
+          .firstOrNull;
+
+      if (attendedItem != null) {
+        attendedDays = attendedItem.attendedDays;
+        attendedHours = attendedItem.attendedHours;
+        attendedMinutes = attendedItem.attendedMinutes;
+        totalAttendedTime = attendedItem.attendedTime;
       }
 
       final absentPage = await _getStudentAttendanceAbsentToggleViewUseCase(
         fromAbsenceDate: fromDateString,
         toAbsenceDate: toDateString,
         page: 0,
-        size: 1,
+        size: 200,
       );
 
       int absentDays = 0;
-      if (absentPage.items.isNotEmpty) {
-        absentDays = absentPage.items.first.absentDays;
+      // Filter by studentCode to find matching absence record
+      final absentItem = absentPage.items
+          .where((item) => item.studentCode == code)
+          .cast<dynamic>()
+          .firstOrNull;
+
+      if (absentItem != null) {
+        absentDays = absentItem.absentDays;
       }
 
       if (!isClosed) {
+        _cachedAt = DateTime.now();
         emit(StudentAttendanceProfileState.loaded(
           studentCode: code,
           attendedDays: attendedDays,
@@ -100,6 +132,8 @@ class StudentAttendanceProfileCubit
           errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ));
       }
+    } finally {
+      _isFetching = false;
     }
   }
 

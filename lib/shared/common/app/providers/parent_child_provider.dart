@@ -15,6 +15,7 @@ class ParentChildRef {
     required this.code,
     required this.name,
     required this.classroom,
+    this.status = 'Active',
     this.tags = const <String>[],
     this.schedule = const <String>[],
     Map<String, String>? scheduleByDay,
@@ -24,6 +25,7 @@ class ParentChildRef {
   final String code;
   final String name;
   final String classroom;
+  final String status;
   final List<String> tags;
   final List<String> schedule;
   final Map<String, String>? _scheduleByDay;
@@ -39,6 +41,7 @@ class ParentChildRef {
           ? student.fullName.trim()
           : student.code,
       classroom: student.classroom,
+      status: student.status.trim().isNotEmpty ? student.status.trim() : 'Active',
       tags: student.tags,
       schedule: student.schedule,
       scheduleByDay: student.scheduleByDay,

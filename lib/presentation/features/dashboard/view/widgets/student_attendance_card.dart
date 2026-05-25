@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentAttendanceCard extends StatefulWidget {
@@ -18,10 +18,12 @@ class StudentAttendanceCard extends StatefulWidget {
   State<StudentAttendanceCard> createState() => _StudentAttendanceCardState();
 }
 
-class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
+class _StudentAttendanceCardState extends State<StudentAttendanceCard>
+    with AutomaticKeepAliveClientMixin {
   bool _minimized = false;
   late DateTime _fromDate;
   late DateTime _toDate;
+  String _selectedChildCode = '';
 
   @override
   void initState() {
@@ -38,10 +40,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         _toDate = end;
       }
     });
-    _loadAttendanceData(context);
+    _loadAttendanceData(context, forceRefresh: true);
   }
 
-  void _loadAttendanceData(BuildContext context) {
+  void _loadAttendanceData(BuildContext context, {bool forceRefresh = false}) {
     final parentChildProvider = Provider.of<ParentChildProvider>(
       context,
       listen: false,
@@ -52,6 +54,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         studentCode: selectedChild.code,
         fromDate: _fromDate,
         toDate: _toDate,
+        forceRefresh: forceRefresh,
       );
     }
   }
@@ -160,19 +163,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
 
   Widget _buildStats(StudentAttendanceProfileState state) {
     if (state.isLoading) {
-      return SizedBox(
-        height: 150,
-        child: Center(
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ),
-      );
+      return const StudentAttendanceCardShimmer();
     }
 
     if (state.isError) {
@@ -182,9 +173,19 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
           border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          state.errorMessage ?? 'Error loading attendance data',
-          style: const TextStyle(fontSize: 14, color: Colors.red),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              state.errorMessage ?? 'Error loading attendance data',
+              style: const TextStyle(fontSize: 14, color: Colors.red),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => _loadAttendanceData(context),
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       );
     }
@@ -281,12 +282,15 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ),
-          Row(
-            children: [
-              buildCircle('${hours}H'),
-              const SizedBox(width: 8),
-              buildCircle('${minutes}M'),
-            ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              children: [
+                buildCircle('${hours}H'),
+                const SizedBox(width: 8),
+                buildCircle('${minutes}M'),
+              ],
+            ),
           ),
         ],
       ),
@@ -294,76 +298,82 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final parentChildProvider = Provider.of<ParentChildProvider>(context);
+    final selectedChild = parentChildProvider.selectedChild;
+    final nextCode = (selectedChild?.code ?? '').trim();
+    if (nextCode != _selectedChildCode) {
+      _selectedChildCode = nextCode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _loadAttendanceData(context);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider<StudentAttendanceProfileCubit>(
-      create: (_) => serviceLocator<StudentAttendanceProfileCubit>(),
-      child: Consumer<ParentChildProvider>(
-        builder: (context, parentChildProvider, _) {
-          final selectedChild = parentChildProvider.selectedChild;
-
-          if (selectedChild != null) {
-            context.read<StudentAttendanceProfileCubit>().loadAttendanceProfile(
-              studentCode: selectedChild.code,
-              fromDate: _fromDate,
-              toDate: _toDate,
-            );
-          }
-
-          return Card(
-            margin: EdgeInsets.zero,
-            elevation: 0,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: AppColors.primaryColor.withValues(alpha: 0.2),
-                width: 0.5,
+    super.build(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
+          width: 0.5,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(16),
+        splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
+        highlightColor: AppColors.primaryColor.withValues(alpha: 0.05),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DashboardCardHeader(
+                title: 'Attendance',
+                minimized: _minimized,
+                onToggle: () => setState(() => _minimized = !_minimized),
+                showRedirect: true,
+                onRedirect: () {},
+                trailing: Expanded(child: _buildSelectedChildName()),
               ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: InkWell(
-              onTap: () {},
-              borderRadius: BorderRadius.circular(16),
-              splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
-              highlightColor: AppColors.primaryColor.withValues(alpha: 0.05),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DashboardCardHeader(
-                      title: 'Attendance',
-                      minimized: _minimized,
-                      onToggle: () => setState(() => _minimized = !_minimized),
-                      showRedirect: true,
-                      onRedirect: () {},
-                      trailing: Expanded(child: _buildSelectedChildName()),
-                    ),
-                    if (!_minimized) ...[
-                      const SizedBox(height: 16),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: true,
-                        initialDate: _fromDate,
-                        label: 'Date Range',
-                        onRangeSelected: _onDateRangeSelected,
-                      ),
-                      const SizedBox(height: 20),
-                      BlocBuilder<
-                        StudentAttendanceProfileCubit,
-                        StudentAttendanceProfileState
-                      >(
-                        builder: (context, state) {
-                          return _buildStats(state);
-                        },
-                      ),
-                    ],
-                  ],
+              if (!_minimized) ...[
+                const SizedBox(height: 16),
+                CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: true,
+                  initialDate: _fromDate,
+                  label: 'Date Range',
+                  onRangeSelected: _onDateRangeSelected,
                 ),
-              ),
-            ),
-          );
-        },
+                const SizedBox(height: 20),
+                BlocBuilder<StudentAttendanceProfileCubit,
+                    StudentAttendanceProfileState>(
+                  buildWhen: (prev, curr) =>
+                      prev.status != curr.status ||
+                      prev.attendedDays != curr.attendedDays ||
+                      prev.absentDays != curr.absentDays ||
+                      prev.attendedHours != curr.attendedHours ||
+                      prev.attendedMinutes != curr.attendedMinutes,
+                  builder: (context, state) {
+                    return _buildStats(state);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }

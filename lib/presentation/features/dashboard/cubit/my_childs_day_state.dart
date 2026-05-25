@@ -13,6 +13,7 @@ class MyChildsDayState extends Equatable {
     required this.todayDayOfWeek,
     required this.todayScheduleRange,
     required this.schoolNow,
+    required this.guardianClockPin,
     required this.errorMessage,
   });
 
@@ -26,6 +27,7 @@ class MyChildsDayState extends Equatable {
       todayDayOfWeek = '',
       todayScheduleRange = '',
       schoolNow = null,
+      guardianClockPin = '',
       errorMessage = '';
 
   final MyChildsDayStatus status;
@@ -39,6 +41,7 @@ class MyChildsDayState extends Equatable {
   final String todayDayOfWeek;
   final String todayScheduleRange;
   final DateTime? schoolNow;
+  final String guardianClockPin;
   final String errorMessage;
 
   MyChildsDayState copyWith({
@@ -51,6 +54,7 @@ class MyChildsDayState extends Equatable {
     String? todayDayOfWeek,
     String? todayScheduleRange,
     DateTime? schoolNow,
+    String? guardianClockPin,
     String? errorMessage,
   }) {
     return MyChildsDayState(
@@ -63,6 +67,7 @@ class MyChildsDayState extends Equatable {
       todayDayOfWeek: todayDayOfWeek ?? this.todayDayOfWeek,
       todayScheduleRange: todayScheduleRange ?? this.todayScheduleRange,
       schoolNow: schoolNow ?? this.schoolNow,
+      guardianClockPin: guardianClockPin ?? this.guardianClockPin,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -78,6 +83,7 @@ class MyChildsDayState extends Equatable {
     todayDayOfWeek,
     todayScheduleRange,
     schoolNow,
+    guardianClockPin,
     errorMessage,
   ];
 }
