@@ -127,71 +127,73 @@ class _NewsletterPreviewBody extends StatelessWidget {
     return newsletter.classroomCodes.join(', ');
   }
 
-  String get _sentDateLabel {
-    final DateTime? date = newsletter.sentAt ?? newsletter.createdAt;
-    if (date == null) return '';
-    return DateFormat('MMM dd, yyyy').format(date);
-  }
-
   @override
   Widget build(BuildContext context) {
     final String bodyHtml = newsletter.bodyHtml.trim();
     final bool hasHtmlBody = bodyHtml.isNotEmpty;
 
     return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Text(
+            newsletter.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(16),
-              color: Colors.white,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  newsletter.title,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (newsletter.subtitle.trim().isNotEmpty &&
-                    newsletter.subtitle.trim() != newsletter.title.trim()) ...[
-                  const SizedBox(height: 6),
+                if (newsletter.subtitle.trim().isNotEmpty) ...[
                   Text(
                     newsletter.subtitle,
                     style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.75),
-                      fontSize: 14,
+                      color: AppColors.primaryColor.withValues(alpha: 0.9),
+                      fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  const SizedBox(height: 10),
                 ],
+                _PreviewMetaRow(
+                  label: 'Created by',
+                  value: newsletter.createdByName.trim().isNotEmpty
+                      ? newsletter.createdByName
+                      : 'Demo Test',
+                ),
+                const SizedBox(height: 4),
+                _PreviewMetaRow(
+                  label: 'Date',
+                  value: DateFormat('MMM dd, yyyy').format(
+                    newsletter.sentAt ?? newsletter.createdAt ?? DateTime.now(),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _PreviewMetaRow(
+                  label: 'Classroom',
+                  value: _classroomLabel,
+                ),
                 const SizedBox(height: 12),
-                _MetaRow(
-                  icon: Icons.calendar_today_outlined,
-                  label: _sentDateLabel.isEmpty ? 'Sent date unavailable' : _sentDateLabel,
-                ),
-                const SizedBox(height: 8),
-                _MetaRow(
-                  icon: Icons.meeting_room_outlined,
-                  label: _classroomLabel,
-                ),
-                const SizedBox(height: 8),
-                _MetaRow(
-                  icon: Icons.people_outline,
-                  label: '${newsletter.recipientCount} recipients',
-                ),
-                if (newsletter.status.trim().isNotEmpty) ...[
+                if (newsletter.attachments.isNotEmpty) ...[
+                  NewsletterAttachmentGrid(
+                    newsletterId: newsletter.id,
+                    attachments: newsletter.attachments,
+                  ),
                   const SizedBox(height: 12),
-                  _StatusChip(status: newsletter.status),
                 ],
-                const SizedBox(height: 16),
                 if (hasHtmlBody)
                   Html(
                     data: bodyHtml,
@@ -200,11 +202,15 @@ class _NewsletterPreviewBody extends StatelessWidget {
                         margin: Margins.zero,
                         padding: HtmlPaddings.zero,
                         fontSize: FontSize(14),
-                        color: AppColors.primaryColor,
-                        lineHeight: const LineHeight(1.4),
+                        color: AppColors.primaryColor.withValues(alpha: 0.88),
+                        lineHeight: const LineHeight(1.45),
                       ),
                       'p': Style(
-                        margin: Margins.only(bottom: 8),
+                        margin: Margins.only(bottom: 10),
+                      ),
+                      'img': Style(
+                        width: Width(100, Unit.percent),
+                        margin: Margins.only(bottom: 12),
                       ),
                     },
                   )
@@ -216,78 +222,52 @@ class _NewsletterPreviewBody extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
-                const SizedBox(height: 16),
-                NewsletterAttachmentGrid(
-                  newsletterId: newsletter.id,
-                  attachments: newsletter.attachments,
-                ),
               ],
             ),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 }
 
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({
-    required this.icon,
+class _PreviewMetaRow extends StatelessWidget {
+  const _PreviewMetaRow({
     required this.label,
+    required this.value,
   });
 
-  final IconData icon;
   final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: AppColors.primaryColor.withValues(alpha: 0.65),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
+        SizedBox(
+          width: 74,
           child: Text(
             label,
             style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.8),
+              color: AppColors.primaryColor.withValues(alpha: 0.58),
               fontSize: 13,
             ),
           ),
         ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.82),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
       ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.classroomStudentTabColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.themeColor.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Text(
-        status,
-        style: const TextStyle(
-          color: AppColors.primaryColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

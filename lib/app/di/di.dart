@@ -196,6 +196,8 @@ import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase
 import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
 
+import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
+import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
@@ -721,8 +723,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PublishStaffShiftsUseCase>(
     () => PublishStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
-    // serviceLocator.registerFactory<GetSentNewslettersUseCase>(
-    //   () => GetSentNewslettersUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetSentNewslettersUseCase>(
+    () => GetSentNewslettersUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetNewsletterByCodeUseCase>(
     () => GetNewsletterByCodeUseCase(serviceLocator()),

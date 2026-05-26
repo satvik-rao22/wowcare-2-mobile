@@ -12,6 +12,7 @@ class Newsletter {
     required this.createdAt,
     required this.recipientCount,
     required this.classroomCodes,
+    this.createdByName = '',
     this.bodyHtml = '',
     this.attachments = const <NewsletterAttachment>[],
   });
@@ -26,6 +27,7 @@ class Newsletter {
   final DateTime? createdAt;
   final int recipientCount;
   final List<String> classroomCodes;
+  final String createdByName;
   final String bodyHtml;
   final List<NewsletterAttachment> attachments;
 }

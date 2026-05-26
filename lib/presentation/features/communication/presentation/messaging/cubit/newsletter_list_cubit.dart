@@ -60,6 +60,26 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
     await refresh();
   }
 
+  Future<void> applyFilters({
+    String? search,
+    List<String>? classroomCodes,
+  }) async {
+    final String normalizedSearch = (search ?? state.search).trim();
+    final List<String> normalizedClassroomCodes = (classroomCodes ??
+            state.classroomCodes)
+        .map((String code) => code.trim())
+        .where((String code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+    emit(
+      state.copyWith(
+        search: normalizedSearch,
+        classroomCodes: normalizedClassroomCodes,
+      ),
+    );
+    await refresh();
+  }
+
   Future<void> refresh() async {
     if (state.isRefreshing) return;
     final schoolCode = state.schoolCode.isNotEmpty
@@ -89,6 +109,8 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
     try {
       final page = await _getSentNewslettersUseCase(
         schoolCode: schoolCode,
+        search: state.search,
+        classroomCodes: state.classroomCodes,
         page: 0,
         size: 50,
       );
@@ -98,6 +120,8 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
           newsletters: page.items,
           isFromCache: false,
           schoolCode: schoolCode,
+          search: state.search,
+          classroomCodes: state.classroomCodes,
         ),
       );
     } catch (e) {
@@ -120,6 +144,8 @@ class NewsletterListState extends Equatable {
     required this.isRefreshing,
     required this.isFromCache,
     required this.schoolCode,
+    required this.search,
+    required this.classroomCodes,
     this.errorMessage,
   });
 
@@ -129,17 +155,23 @@ class NewsletterListState extends Equatable {
         isRefreshing = false,
         isFromCache = false,
         schoolCode = '',
+        search = '',
+        classroomCodes = const <String>[],
         errorMessage = null;
 
   const NewsletterListState.loaded({
     required List<Newsletter> newsletters,
     required bool isFromCache,
     required String schoolCode,
+    String search = '',
+    List<String> classroomCodes = const <String>[],
   })  : newsletters = newsletters,
         isLoading = false,
         isRefreshing = false,
         isFromCache = isFromCache,
         schoolCode = schoolCode,
+        search = search,
+        classroomCodes = classroomCodes,
         errorMessage = null;
 
   final List<Newsletter> newsletters;
@@ -147,6 +179,8 @@ class NewsletterListState extends Equatable {
   final bool isRefreshing;
   final bool isFromCache;
   final String schoolCode;
+  final String search;
+  final List<String> classroomCodes;
   final String? errorMessage;
 
   NewsletterListState copyWith({
@@ -155,6 +189,8 @@ class NewsletterListState extends Equatable {
     bool? isRefreshing,
     bool? isFromCache,
     String? schoolCode,
+    String? search,
+    List<String>? classroomCodes,
     String? errorMessage,
   }) {
     return NewsletterListState(
@@ -163,6 +199,8 @@ class NewsletterListState extends Equatable {
       isRefreshing: isRefreshing ?? this.isRefreshing,
       isFromCache: isFromCache ?? this.isFromCache,
       schoolCode: schoolCode ?? this.schoolCode,
+      search: search ?? this.search,
+      classroomCodes: classroomCodes ?? this.classroomCodes,
       errorMessage: errorMessage,
     );
   }
@@ -174,6 +212,8 @@ class NewsletterListState extends Equatable {
         isRefreshing,
         isFromCache,
         schoolCode,
+        search,
+        classroomCodes,
         errorMessage,
       ];
 }

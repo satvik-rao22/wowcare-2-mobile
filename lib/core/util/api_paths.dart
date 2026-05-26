@@ -688,4 +688,7 @@ class ApiPaths {
   /// GET /api/v1/newsletters/{code}
   static String newsletterByCode(String code) =>
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
+  // static String studentnewsLatter = 'api/v1/newsletters/student/';
+  static String studentNewslettersByStudentCode(String studentCode) =>
+      '/api/v1/newsletters/student/${Uri.encodeComponent(studentCode.trim())}';
 }
