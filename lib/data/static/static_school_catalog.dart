@@ -17,7 +17,7 @@ const List<Map<String, String>> kStaticSchoolCatalog = <Map<String, String>>[
   // },
 ];
 
-List<Map<String, String>> staticSchoolSelectionEntriesForOrg({
+List<Map<String, dynamic>> staticSchoolSelectionEntriesForOrg({
   required String organizationCode,
   List<String> restrictToSchoolCodes = const <String>[],
 }) {
@@ -40,9 +40,11 @@ List<Map<String, String>> staticSchoolSelectionEntriesForOrg({
   // Return in the shape the School Selection UI expects.
   return filtered
       .map(
-        (e) => <String, String>{
+        (e) => <String, dynamic>{
           'schoolCode': (e['schoolCode'] ?? '').trim(),
           'schoolName': (e['schoolName'] ?? e['schoolCode'] ?? '').trim(),
+          'latitude': e['latitude'],
+          'longitude': e['longitude'],
         },
       )
       .where((e) => e['schoolCode']!.isNotEmpty)

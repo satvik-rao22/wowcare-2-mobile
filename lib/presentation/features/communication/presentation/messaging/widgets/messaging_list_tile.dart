@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -115,12 +116,12 @@ class MessagingListTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: CustomTextWidget(
-                    text: conversation.title.isNotEmpty 
-                        ? conversation.title 
+                    text: conversation.title.isNotEmpty
+                        ? conversation.title
                         : 'Unnamed Conversation',
                     fontWeight: FontWeight.w700,
                     fontSize: 17,
-                    fontColor: const Color(0xFF2D3436),
+                    fontColor: AppColors.primaryColor,
                   ),
                 ),
                 Text(
@@ -153,7 +154,10 @@ class MessagingListTile extends StatelessWidget {
               if (conversation.unreadCount > 0)
                 Container(
                   margin: const EdgeInsets.only(left: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6C5CE7), // Theme color
                     borderRadius: BorderRadius.circular(12),

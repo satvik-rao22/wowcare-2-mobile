@@ -23,6 +23,7 @@ abstract class CommunicationRemoteDataSource {
     int page = 0,
     int size = 20,
   });
+  Future<void> addReaction(String messageId, String emoji);
 }
 
 class CommunicationRemoteDataSourceImpl
@@ -98,8 +99,12 @@ class CommunicationRemoteDataSourceImpl
     final apiResponse = CreateConversationResponse.fromJson(response.data);
 
     if (apiResponse.success && apiResponse.data != null) {
-      ApiLogger.logResponse(url: endpoint, method: 'POST');
-      ApiLogger.logResponse(url: response.data, method: 'POST');
+      ApiLogger.logResponse(
+        url: endpoint,
+        method: 'POST',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
       return apiResponse.data!;
     } else {
       throw Exception(apiResponse.message);
@@ -127,5 +132,25 @@ class CommunicationRemoteDataSourceImpl
     ApiLogger.logResponse(url: endpoint, method: 'GET');
 
     return GetConversationsResponse.fromJson(response.data);
+  }
+
+  @override
+  Future<void> addReaction(String messageId, String emoji) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.messagingMessages}/$messageId/react',
+      ApiConstants.communicationBaseUrl,
+    );
+
+    final response = await apiClient.client.post(
+      endpoint,
+      data: {'emoji': emoji},
+    );
+
+    ApiLogger.logResponse(
+      url: endpoint,
+      method: 'POST',
+      statusCode: response.statusCode,
+      data: response.data,
+    );
   }
 }

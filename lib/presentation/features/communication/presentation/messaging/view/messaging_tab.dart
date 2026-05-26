@@ -159,7 +159,7 @@ class _MessagingTabState extends State<MessagingTab>
                       );
                       if (context.mounted) {
                         context.read<CommunicationCubit>().loadConversations(
-                          type: 'DIRECT',
+                          type: 'STAFF_DIRECT',
                           size: _conversationPageSize,
                         );
                       }
@@ -186,7 +186,7 @@ class _MessagingTabState extends State<MessagingTab>
                       );
                       if (context.mounted) {
                         context.read<CommunicationCubit>().loadConversations(
-                          type: 'DIRECT',
+                          type: 'STAFF_DIRECT',
                           size: _conversationPageSize,
                         );
                       }

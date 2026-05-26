@@ -7,6 +7,13 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    let controller = window?.rootViewController as! FlutterViewController
+    let geofenceChannel = FlutterMethodChannel(
+      name: GeofencePlugin.methodChannelName,
+      binaryMessenger: controller.binaryMessenger
+    )
+    GeofencePlugin.initializeWithChannel(geofenceChannel)
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

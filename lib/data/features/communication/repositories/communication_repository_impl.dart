@@ -165,7 +165,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       final cachedItems = await cacheService.getAll<ConversationCollection>();
       if (cachedItems.isNotEmpty && page == 0) {
         // Return cached entities immediately for a fast initial UI load
-        final entities = cachedItems.map((e) => e.toEntity()).toList();
+        // final entities = cachedItems.map((e) => e.toEntity()).toList();
         // Since this is a repository method returning a Future, we can't 'stream' results yet.
         // However, the Cubit already calls loadCachedConversations before calling this.
         // So this fallback is more of a safety measure.
@@ -213,6 +213,61 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       return Right(cachedItems.map((e) => e.toEntity()).toList());
     } catch (e) {
       return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId) async {
+    try {
+      final cachedCollections = await cacheService.getByField<MessageCollection>(
+        'threadId',
+        threadId,
+      );
+      final cachedMessages = cachedCollections
+          .map((c) => c.toEntity())
+          .toList();
+      return Right(cachedMessages);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> addReaction(
+    String threadId,
+    String messageId,
+    String emoji,
+  ) async {
+    try {
+      await remoteDataSource.addReaction(messageId, emoji);
+
+      // Update local Isar cache
+      final results = await cacheService.getByField<MessageCollection>(
+        'id',
+        messageId,
+      );
+      if (results.isNotEmpty) {
+        final messageCollection = results.first;
+        final list = List<MessageReactionCollection>.from(
+          messageCollection.reactions ?? [],
+        );
+        final idx = list.indexWhere((r) => r.userId == 'me');
+        if (idx != -1) {
+          list[idx].emoji = emoji;
+        } else {
+          list.add(
+            MessageReactionCollection()
+              ..userId = 'me'
+              ..emoji = emoji,
+          );
+        }
+        messageCollection.reactions = list;
+        await cacheService.put(messageCollection);
+      }
+
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
     }
   }
 }

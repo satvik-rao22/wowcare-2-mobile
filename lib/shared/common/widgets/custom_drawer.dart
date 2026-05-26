@@ -23,7 +23,6 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
@@ -731,8 +730,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             final nav = Navigator.of(context);
                             final parentChild = context
                                 .read<ParentChildProvider>();
-                            final alreadyHere = _currentRoute ==
-                                StudentProfileScreen.routeName;
+                            final alreadyHere =
+                                _currentRoute == StudentProfileScreen.routeName;
                             Navigator.pop(context);
                             if (alreadyHere) return;
                             _openParentStudentProfile(nav, parentChild);
@@ -742,13 +741,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Attendance',
                             icon: MediaRes.attendanceIcon,
-                            isCurrentRoute: _currentRoute ==
+                            isCurrentRoute:
+                                _currentRoute ==
                                 StudentAttendanceProfile.routeName,
                             onTap: () {
                               final nav = Navigator.of(context);
                               final parentChild = context
                                   .read<ParentChildProvider>();
-                              final alreadyHere = _currentRoute ==
+                              final alreadyHere =
+                                  _currentRoute ==
                                   StudentAttendanceProfile.routeName;
                               Navigator.pop(context);
                               if (alreadyHere) return;
@@ -858,8 +859,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Staff',
                             icon: MediaRes.staffs_drawer_icon,
-                            isCurrentRoute: _currentRoute ==
-                                    StaffScreen.routeName ||
+                            isCurrentRoute:
+                                _currentRoute == StaffScreen.routeName ||
                                 (isStaff &&
                                     _currentRoute ==
                                         StaffProfileScreen.routeName),
@@ -868,8 +869,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               final captured = _currentRoute;
                               Navigator.pop(context);
                               if (isStaff) {
-                                if (captured ==
-                                    StaffProfileScreen.routeName) {
+                                if (captured == StaffProfileScreen.routeName) {
                                   return;
                                 }
                                 await _openLoggedInStaffProfile(navigator);
@@ -900,8 +900,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   onTap: () {
                                     Navigator.pop(context);
                                     if (_currentRoute !=
-                                        StudentAttendanceTabbedView
-                                            .routeName) {
+                                        StudentAttendanceTabbedView.routeName) {
                                       context.go(
                                         StudentAttendanceTabbedView.routeName,
                                       );
@@ -1089,9 +1088,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   Navigator.pop(context);
                                   if (captured !=
                                       StaffSchedulingScreen.routeName) {
-                                    context.go(
-                                      StaffSchedulingScreen.routeName,
-                                    );
+                                    context.go(StaffSchedulingScreen.routeName);
                                   }
                                 },
                               ),

@@ -5,6 +5,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubi
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
@@ -29,6 +30,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
   late final StudentAttendanceProfileCubit _studentAttendanceProfileCubit;
   late final CommunicationCubit _communicationCubit;
   late final StudentNewslettersCubit _studentNewslettersCubit;
+  late final GeofenceCubit _geofenceCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens.
   static const double _maxContentWidth = 640;
@@ -41,6 +43,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
         serviceLocator<StudentAttendanceProfileCubit>();
     _communicationCubit = serviceLocator<CommunicationCubit>();
     _studentNewslettersCubit = serviceLocator<StudentNewslettersCubit>();
+    _geofenceCubit = serviceLocator<GeofenceCubit>();
   }
 
   @override
@@ -50,6 +53,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
     _studentAttendanceProfileCubit.close();
     _communicationCubit.close();
     _studentNewslettersCubit.close();
+    _geofenceCubit.close();
     super.dispose();
   }
 
@@ -103,6 +107,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
             BlocProvider<StudentNewslettersCubit>.value(
               value: _studentNewslettersCubit,
             ),
+            BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
           ],
           child: ListenableBuilder(
             listenable: _viewModel,

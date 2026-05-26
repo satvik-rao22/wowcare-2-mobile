@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -526,22 +529,86 @@ class _MyDayCardState extends State<MyDayCard> {
             ),
             const SizedBox(height: 16),
 
-            // ── Attendance action buttons ─────────────────────────────────
-            // Reuses the shared confirm/cancel pair: cancel = "Mark Absent" /
-            // "Transfer", confirm = "Sign-In" / "Sign-out".
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: CustomButtonLayout(
-                isForm: false,
-                cancelButtonLabel: _mockIsSignedIn ? 'Transfer' : 'Mark Absent',
-                onPressedCancel: () {
-                  // Form navigation removed — no-op in UI-only port
-                },
-                confirmButtonLabel: _mockIsSignedIn ? 'Sign-out' : 'Sign-In',
-                onPressedConfirm: () {
-                  // Sign in/out navigation removed — no-op in UI-only port
-                },
-              ),
+            // ── GPS-gated attendance action button ────────────────────────
+            BlocBuilder<GeofenceCubit, GeofenceState>(
+              builder: (context, geofenceState) {
+                final bool enabled = geofenceState.isWithinGeofence &&
+                    geofenceState.isLocationEnabled;
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: CustomButtonLayout(
+                        isForm: false,
+                        showCancelButton: false,
+                        confirmButtonLabel: _mockIsSignedIn ? 'Sign-Out' : 'Sign-In',
+                        onPressedConfirm: enabled
+                            ? () {
+                                if (_mockIsSignedIn) {
+                                  context.go('/dashboard/student-selection-sign-out-form');
+                                } else {
+                                  context.go('/dashboard/student-selection-sign-in-form');
+                                }
+                              }
+                            : null,
+                      ),
+                    ),
+                    if (geofenceState.status == GeofenceCubitStatus.permissionDenied)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
+                        child: GestureDetector(
+                          onTap: () => context.read<GeofenceCubit>().retryPermission(),
+                          child: Text(
+                            'Location permission required. Tap to enable.',
+                            style: TextStyle(
+                              color: AppColors.primaryColor.withValues(alpha: 0.65),
+                              fontSize: 12,
+                              decoration: TextDecoration.underline,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else if (geofenceState.status == GeofenceCubitStatus.locationDisabled)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
+                        child: Text(
+                          'Location services are disabled.',
+                          style: TextStyle(
+                            color: AppColors.primaryColor.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else if (geofenceState.status == GeofenceCubitStatus.outsideRange)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
+                        child: Text(
+                          'You are not within the school sign-in zone.',
+                          style: TextStyle(
+                            color: AppColors.primaryColor.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else if (geofenceState.status == GeofenceCubitStatus.checkingPermission ||
+                        geofenceState.status == GeofenceCubitStatus.fetchingSchoolLocation)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
+                        child: Text(
+                          'Checking location...',
+                          style: TextStyle(
+                            color: AppColors.primaryColor.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ],
 
