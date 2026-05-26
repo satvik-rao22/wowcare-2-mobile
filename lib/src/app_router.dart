@@ -29,12 +29,10 @@ import 'package:wowcare/presentation/features/staff/view/edit_important_dates_sc
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/add-schedule.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/classroom/classroom-view.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/edit-schedule.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/edit-shift-permission.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/publish-shift-schedule.dart';
-import 'package:wowcare/presentation/features/staff-scheduling/view/staff-scheduling.dart';
+import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -264,9 +262,60 @@ final GoRouter appRouter = GoRouter(
                       _fastPage(state, const BillingScreen()),
                 ),
                 GoRoute(
+                  path: 'scheduling',
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    MultiBlocProvider(
+                      providers: [
+                        // No-pagination staff fetch for the scheduling
+                        // feature (status=ACTIVE&status=UPCOMING). Singleton
+                        // so AddShift shares the same cached list.
+                        BlocProvider<SchedulingStaffListCubit>.value(
+                          value: serviceLocator<SchedulingStaffListCubit>()
+                            ..load(),
+                        ),
+                        BlocProvider<ClassroomCubit>(
+                          create: (_) => serviceLocator<ClassroomCubit>()
+                            ..loadActiveClassrooms(
+                              onlyTypeClassroom: false,
+                            ),
+                        ),
+                      ],
+                      child: const SchedulingScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
                   path: 'staff-scheduling',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StaffSchedulingScreen()),
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    MultiBlocProvider(
+                      providers: [
+                        // Singleton scheduling staff list (no pagination).
+                        // Provided here so AddShift can read it from context
+                        // without triggering another API call.
+                        BlocProvider<SchedulingStaffListCubit>.value(
+                          value: serviceLocator<SchedulingStaffListCubit>(),
+                        ),
+                        // `.value` because the cubit is a lazy singleton —
+                        // we don't want BlocProvider to close it when the
+                        // route is popped. `loadIfNeeded()` runs the visible
+                        // load on first entry and a silent background
+                        // refresh on subsequent entries (no shimmer flash).
+                        BlocProvider<StaffSchedulingCubit>.value(
+                          value: serviceLocator<StaffSchedulingCubit>()
+                            ..loadIfNeeded(),
+                        ),
+                        BlocProvider<ClassroomCubit>(
+                          create: (_) => serviceLocator<ClassroomCubit>()
+                            ..loadActiveClassrooms(
+                              onlyTypeClassroom: false,
+                            ),
+                        ),
+                      ],
+                      child: const StaffSchedulingScreen(),
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'future-availability',
@@ -295,31 +344,6 @@ final GoRouter appRouter = GoRouter(
                     state,
                     _editProfileDetailsScreen(state.extra),
                   ),
-                ),
-                GoRoute(
-                  path: 'add-shift',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const AddShiftScreen()),
-                ),
-                GoRoute(
-                  path: 'edit-shift',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const EditShiftScreen()),
-                ),
-                GoRoute(
-                  path: 'edit-shift-schedule',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const EditShiftScheduleScreen()),
-                ),
-                GoRoute(
-                  path: 'publish-shift-schedule',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const PublishShiftScheduleScreen()),
-                ),
-                GoRoute(
-                  path: 'classroom-view',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const ClassroomViewScreen()),
                 ),
                 GoRoute(
                   path: 'student-attendance-tabbed-view',

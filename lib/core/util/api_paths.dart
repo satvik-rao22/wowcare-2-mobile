@@ -184,6 +184,7 @@ class ApiPaths {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
@@ -327,6 +328,44 @@ class ApiPaths {
       '$staffClassrooms/$staffCode/primary-classroom';
 
   static const String staffSchedules = '/api/v1/staff-schedules';
+
+  /// Staff MS — staff scheduling shifts (`GET` with query filters).
+  static const String staffShifts = '/api/v1/staff-shifts';
+
+  /// POST per-staff available / scheduled / unscheduled hours for a date range.
+  static const String staffShiftHoursRange = '/api/v1/staff-shifts/hours/range';
+
+  /// POST classroom ratio forecast for a single day.
+  static const String staffShiftClassroomForecast =
+      '/api/v1/staff-shifts/schedule/classroom/forecast';
+
+  /// POST classroom ratio forecast across a date range.
+  static const String staffShiftClassroomForecastRange =
+      '/api/v1/staff-shifts/schedule/classroom/forecast/range';
+
+  /// POST `/api/v1/staff-shifts/absent-days` — deletes shifts that fall on
+  /// the supplied absent dates after a recurring shift series is created.
+  static const String staffShiftsAbsentDays =
+      '/api/v1/staff-shifts/absent-days';
+
+  /// POST `/api/v1/staff-shifts/publish` — publishes draft shifts either for
+  /// the whole roster ([publishAllStaff] = true) or a subset
+  /// ([selectedStaffCodes]), and either all unpublished shifts going forward
+  /// ([publishAll] = true) or up to [publishUntilDate].
+  static const String staffShiftsPublish = '/api/v1/staff-shifts/publish';
+
+  /// PUT `/api/v1/staff-shifts/{shiftCode}` — update one shift occurrence.
+  static String staffShiftByCode(String shiftCode) =>
+      '$staffShifts/${Uri.encodeComponent(shiftCode)}';
+
+  /// PUT `/api/v1/staff-shifts/series/{seriesCode}` — update an entire
+  /// recurring shift series.
+  static String staffShiftSeriesByCode(String seriesCode) =>
+      '$staffShifts/series/${Uri.encodeComponent(seriesCode)}';
+
+  /// Builds a full URL on the staff microservice host.
+  static String staffMicroserviceUrl(String path) =>
+      urlWithBase(path, ApiConstants.staffBaseUrl);
 
   // —— School users (user host) ——
   static const String schoolUsers = '/api/v1/school-users';

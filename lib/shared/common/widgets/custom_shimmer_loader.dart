@@ -315,6 +315,361 @@ class StaffCardShimmer extends StatelessWidget {
   }
 }
 
+/// Shimmer placeholder matching the Staff Scheduling profile card:
+/// avatar + name/designation/classroom header, three hour tiles, and a
+/// day timeline placeholder. Used for the first-time load so the user sees
+/// the card structure instead of a blank area or spinner.
+class StaffSchedulingShimmer extends StatelessWidget {
+  const StaffSchedulingShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: const Color.fromARGB(255, 232, 234, 234),
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 22,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 14,
+                        width: MediaQuery.of(context).size.width * 0.4,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 14,
+                        width: MediaQuery.of(context).size.width * 0.3,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(
+              3,
+              (i) => Padding(
+                padding: EdgeInsets.only(bottom: i < 2 ? 16 : 20),
+                child: Container(
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              height: 300,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer for the hour-tiles + day timeline portion only — used when a
+/// staff member is already selected and we're refreshing day-specific data
+/// (so the profile header stays put and only the body skeletons animate).
+class StaffShiftsBodyShimmer extends StatelessWidget {
+  const StaffShiftsBodyShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Column(
+        children: [
+          ...List.generate(
+            3,
+            (i) => Padding(
+              padding: EdgeInsets.only(bottom: i < 2 ? 16 : 20),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholder matching the Classroom Schedule table card:
+/// header row plus classroom/staff rows with left entity column and right
+/// time/status column (week pills or day Gantt blocks).
+class ClassroomSchedulingShimmer extends StatelessWidget {
+  const ClassroomSchedulingShimmer({
+    super.key,
+    this.rowCount = 4,
+    this.showDayTimelineBlocks = false,
+  });
+
+  final int rowCount;
+  final bool showDayTimelineBlocks;
+
+  static const double _statusColumnWidth = 140;
+  static const double _leftColumnWidth = 152;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0x33162831)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ShimmerTableRow(
+                left: Container(
+                  height: 16,
+                  width: 90,
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                right: Container(
+                  height: 16,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                headerBackground: true,
+              ),
+              for (int i = 0; i < rowCount; i++) ...[
+                _ShimmerTableRow(
+                  left: _EntityCellPlaceholder(width: _leftColumnWidth),
+                  right: showDayTimelineBlocks
+                      ? _TimelineBlocksPlaceholder()
+                      : _TimePillPlaceholder(),
+                ),
+                if (i == 0)
+                  _ShimmerTableRow(
+                    left: _EntityCellPlaceholder(
+                      width: _leftColumnWidth,
+                      compact: true,
+                    ),
+                    right: showDayTimelineBlocks
+                        ? _TimelineBlocksPlaceholder()
+                        : _TimePillPlaceholder(),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShimmerTableRow extends StatelessWidget {
+  const _ShimmerTableRow({
+    required this.left,
+    required this.right,
+    this.headerBackground = false,
+  });
+
+  final Widget left;
+  final Widget right;
+  final bool headerBackground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ColoredBox(
+          color: headerBackground
+              ? const Color(0xB2F9F5FA)
+              : Colors.transparent,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: left),
+                Container(width: 1, color: const Color(0xFFE9ECEF)),
+                SizedBox(
+                  width: ClassroomSchedulingShimmer._statusColumnWidth,
+                  child: Center(child: right),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Container(height: 1, color: const Color(0xFFE9ECEF)),
+      ],
+    );
+  }
+}
+
+class _EntityCellPlaceholder extends StatelessWidget {
+  const _EntityCellPlaceholder({
+    required this.width,
+    this.compact = false,
+  });
+
+  final double width;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: compact ? 8 : 10,
+        horizontal: 6,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: compact ? 32 : 38,
+            height: compact ? 32 : 38,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          SizedBox(height: compact ? 6 : 8),
+          Container(
+            height: compact ? 12 : 14,
+            width: width * 0.7,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          if (!compact) ...[
+            const SizedBox(height: 4),
+            Container(
+              height: 10,
+              width: width * 0.5,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TimePillPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      child: Container(
+        width: 88,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineBlocksPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+          12,
+          (i) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Shimmer placeholder matching Classroom profile screen layout:
 /// dropdown/header row, classroom details card, three summary cards, and events card.
 class ClassroomProfileShimmer extends StatelessWidget {

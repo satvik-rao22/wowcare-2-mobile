@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -62,6 +66,73 @@ class StudentCard extends StatefulWidget {
 
 class _StudentCardState extends State<StudentCard> {
   bool isExpanded = false;
+
+  /// Shared across all StudentCard instances — every card in a list shares
+  /// the same school, so we only hit `/regular-schedule` once per app load.
+  static List<String>? _cachedSchoolDayShortLabels;
+  static Future<List<String>>? _inFlightLoad;
+
+  static const Map<String, String> _enumToShort = <String, String>{
+    'MONDAY': 'Mon',
+    'TUESDAY': 'Tue',
+    'WEDNESDAY': 'Wed',
+    'THURSDAY': 'Thu',
+    'FRIDAY': 'Fri',
+    'SATURDAY': 'Sat',
+    'SUNDAY': 'Sun',
+  };
+
+  static const List<String> _weekOrder = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
+  List<String> _schoolOpenShortDays = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = _cachedSchoolDayShortLabels;
+    if (cached != null) {
+      _schoolOpenShortDays = cached;
+    } else {
+      _loadSchoolOpenDays();
+    }
+  }
+
+  Future<void> _loadSchoolOpenDays() async {
+    try {
+      final future = _inFlightLoad ??= _fetchSchoolOpenDays();
+      final result = await future;
+      if (!mounted) return;
+      setState(() => _schoolOpenShortDays = result);
+    } catch (_) {
+      // Leave fallback in place if the API fails.
+    }
+  }
+
+  static Future<List<String>> _fetchSchoolOpenDays() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return const <String>[];
+    final repo = serviceLocator<StaffRepository>();
+    final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+    final open = <String>{
+      for (final d in days) d.dayOfWeek.toUpperCase(),
+    };
+    final ordered = _weekOrder
+        .where(open.contains)
+        .map((k) => _enumToShort[k]!)
+        .toList(growable: false);
+    _cachedSchoolDayShortLabels = ordered;
+    return ordered;
+  }
 
   String _formatBirthDate(String raw) {
     if (raw.isEmpty) return '-';
@@ -345,9 +416,8 @@ class _StudentCardState extends State<StudentCard> {
                             const SizedBox(height: 10),
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
                                     'Schedule',
@@ -365,13 +435,23 @@ class _StudentCardState extends State<StudentCard> {
                                     runSpacing: 4,
                                     alignment: WrapAlignment.start,
                                     children: [
-                                      ...[
-                                        'Mon',
-                                        'Tue',
-                                        'Wed',
-                                        'Thu',
-                                        'Fri',
-                                      ].map((day) {
+                                      ...(() {
+                                        // Days the school is open, sourced
+                                        // from the regular-schedule API.
+                                        // Render a chip for every open day so
+                                        // Sat/Sun show up too — even if the
+                                        // student has no schedule for them.
+                                        if (_schoolOpenShortDays.isNotEmpty) {
+                                          return _schoolOpenShortDays;
+                                        }
+                                        return const <String>[
+                                          'Mon',
+                                          'Tue',
+                                          'Wed',
+                                          'Thu',
+                                          'Fri',
+                                        ];
+                                      })().map((day) {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
                                             widget.scheduleByDay[enumDay];
@@ -391,9 +471,7 @@ class _StudentCardState extends State<StudentCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(
-                                                    0xFF6C7FD8,
-                                                  ).withOpacity(0.12)
+                                                ? const Color(0x4DB1AFE9)
                                                 : const Color(0xFFF3F4FB),
                                             borderRadius: BorderRadius.circular(
                                               8,
@@ -406,12 +484,17 @@ class _StudentCardState extends State<StudentCard> {
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF6C7FD8)
+                                                  ? const Color(0xFF4B5B7A)
                                                   : const Color(0xFFB1AFC9),
                                             ),
                                           ),
                                         );
-                                        if (!isActive) return dayChip;
+                                        if (!isActive) {
+                                          return Opacity(
+                                            opacity: 0.4,
+                                            child: dayChip,
+                                          );
+                                        }
                                         final tooltipText =
                                             (scheduleText != null &&
                                                 scheduleText.trim().isNotEmpty)
@@ -419,6 +502,11 @@ class _StudentCardState extends State<StudentCard> {
                                             : '$day: Scheduled';
                                         return Tooltip(
                                           message: tooltipText,
+                                          triggerMode:
+                                              TooltipTriggerMode.longPress,
+                                          showDuration:
+                                              const Duration(seconds: 3),
+                                          preferBelow: true,
                                           child: dayChip,
                                         );
                                       }),
@@ -629,4 +717,5 @@ class _StudentCardState extends State<StudentCard> {
       },
     );
   }
+
 }

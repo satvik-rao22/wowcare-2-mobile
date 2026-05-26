@@ -1,0 +1,323 @@
+import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
+
+/// A single staff shift returned by `GET /api/v1/staff/staff-shifts`.
+class StaffShift extends Equatable {
+  const StaffShift({
+    required this.shiftCode,
+    required this.staffCode,
+    required this.classroomCode,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    this.breakStartTime,
+    this.breakEndTime,
+    this.classroomName = '',
+    this.staffName = '',
+    this.notes,
+    this.isPublished = false,
+    this.seriesCode,
+    this.isRecurring = false,
+    this.seriesRecurrenceDays = const <int>[],
+    this.seriesEndDate,
+    this.availableHours = 0,
+    this.scheduledHours = 0,
+    this.unscheduledHours = 0,
+  });
+
+  final String shiftCode;
+  final String staffCode;
+  final String classroomCode;
+  final String classroomName;
+  final String staffName;
+  final DateTime shiftDate;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
+  final String? notes;
+  final bool isPublished;
+  final String? seriesCode;
+  final bool isRecurring;
+
+  /// 1..7 (Mon..Sun) — recurrence days when this shift is part of a series.
+  final List<int> seriesRecurrenceDays;
+  final DateTime? seriesEndDate;
+
+  /// Aggregate totals from the school-wide shifts API (same value across all
+  /// shifts of one staff member on a day — backend pre-computes them).
+  final int availableHours;
+  final int scheduledHours;
+  final int unscheduledHours;
+
+  @override
+  List<Object?> get props => [
+        shiftCode,
+        staffCode,
+        classroomCode,
+        classroomName,
+        staffName,
+        shiftDate,
+        startTime,
+        endTime,
+        breakStartTime,
+        breakEndTime,
+        notes,
+        isPublished,
+        seriesCode,
+        isRecurring,
+        seriesRecurrenceDays,
+        seriesEndDate,
+        availableHours,
+        scheduledHours,
+        unscheduledHours,
+      ];
+}
+
+/// Request body for `POST /api/v1/staff-shifts`. Mirrors the swagger contract.
+class StaffShiftCreateRequest extends Equatable {
+  const StaffShiftCreateRequest({
+    required this.staffCode,
+    required this.classroomCode,
+    required this.schoolCode,
+    required this.organizationCode,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    this.breakStartTime,
+    this.breakEndTime,
+    this.publish = false,
+    this.repeat = false,
+    this.repeatDays = const <int>[],
+    this.repeatUntilDate,
+    this.overrideConflicts = false,
+    this.forceAdd = false,
+    this.notes,
+  });
+
+  final String staffCode;
+  final String classroomCode;
+  final String schoolCode;
+  final String organizationCode;
+  final DateTime shiftDate;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
+  final bool publish;
+  final bool repeat;
+  /// 1=Monday … 7=Sunday (matches `java.time.DayOfWeek.getValue()`).
+  final List<int> repeatDays;
+  final DateTime? repeatUntilDate;
+  final bool overrideConflicts;
+  final bool forceAdd;
+  final String? notes;
+
+  StaffShiftCreateRequest copyWith({
+    bool? overrideConflicts,
+    bool? forceAdd,
+    bool? publish,
+  }) {
+    return StaffShiftCreateRequest(
+      staffCode: staffCode,
+      classroomCode: classroomCode,
+      schoolCode: schoolCode,
+      organizationCode: organizationCode,
+      shiftDate: shiftDate,
+      startTime: startTime,
+      endTime: endTime,
+      breakStartTime: breakStartTime,
+      breakEndTime: breakEndTime,
+      publish: publish ?? this.publish,
+      repeat: repeat,
+      repeatDays: repeatDays,
+      repeatUntilDate: repeatUntilDate,
+      overrideConflicts: overrideConflicts ?? this.overrideConflicts,
+      forceAdd: forceAdd ?? this.forceAdd,
+      notes: notes,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        staffCode,
+        classroomCode,
+        schoolCode,
+        organizationCode,
+        shiftDate,
+        startTime,
+        endTime,
+        breakStartTime,
+        breakEndTime,
+        publish,
+        repeat,
+        repeatDays,
+        repeatUntilDate,
+        overrideConflicts,
+        forceAdd,
+        notes,
+      ];
+}
+
+/// Request body for `PUT /api/v1/staff-shifts/{shiftCode}` — updates a
+/// single shift occurrence. The backend wants the full identity block
+/// (`shiftCode`, `staffCode`, `schoolCode`, `organizationCode`, `shiftDate`)
+/// on the wire even though the public swagger only documents a subset.
+class StaffShiftUpdateRequest extends Equatable {
+  const StaffShiftUpdateRequest({
+    required this.shiftCode,
+    required this.staffCode,
+    required this.schoolCode,
+    required this.organizationCode,
+    required this.classroomCode,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    this.breakStartTime,
+    this.breakEndTime,
+    this.notes,
+    this.overrideConflicts = false,
+    this.forceAdd = false,
+    this.publish = false,
+  });
+
+  final String shiftCode;
+  final String staffCode;
+  final String schoolCode;
+  final String organizationCode;
+  final String classroomCode;
+  final DateTime shiftDate;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
+  final String? notes;
+  final bool overrideConflicts;
+  final bool forceAdd;
+  final bool publish;
+
+  @override
+  List<Object?> get props => [
+        shiftCode,
+        staffCode,
+        schoolCode,
+        organizationCode,
+        classroomCode,
+        shiftDate,
+        startTime,
+        endTime,
+        breakStartTime,
+        breakEndTime,
+        notes,
+        overrideConflicts,
+        forceAdd,
+        publish,
+      ];
+}
+
+/// Request body for `PUT /api/v1/staff-shifts/series/{seriesCode}` — updates
+/// every occurrence in a recurring series. The body in practice carries more
+/// than the public swagger lists; the backend wants the full identity block
+/// (`shiftCode`, `staffCode`, `schoolCode`, `organizationCode`, `shiftDate`)
+/// alongside the recurrence pattern so `publish` etc. take effect.
+class StaffShiftSeriesUpdateRequest extends Equatable {
+  const StaffShiftSeriesUpdateRequest({
+    required this.seriesCode,
+    required this.shiftCode,
+    required this.staffCode,
+    required this.schoolCode,
+    required this.organizationCode,
+    required this.shiftDate,
+    required this.classroomCode,
+    required this.startTime,
+    required this.endTime,
+    this.breakStartTime,
+    this.breakEndTime,
+    this.notes,
+    this.overrideConflicts = false,
+    this.repeat = true,
+    this.repeatDays = const <int>[],
+    this.repeatUntilDate,
+    this.publish = false,
+  });
+
+  final String seriesCode;
+  final String shiftCode;
+  final String staffCode;
+  final String schoolCode;
+  final String organizationCode;
+  final DateTime shiftDate;
+  final String classroomCode;
+  final TimeOfDay startTime;
+  final TimeOfDay endTime;
+  final TimeOfDay? breakStartTime;
+  final TimeOfDay? breakEndTime;
+  final String? notes;
+  final bool overrideConflicts;
+  final bool repeat;
+  /// 0=Monday … 6=Sunday (matches the wire format the backend expects on
+  /// POST and now also on series PUT).
+  final List<int> repeatDays;
+  final DateTime? repeatUntilDate;
+  /// Required by the backend to actually flip `shiftStatus` to PUBLISHED on
+  /// every occurrence in the series. The swagger doesn't list this on the
+  /// series-PUT body but the API honors it when the full identity block is
+  /// also present.
+  final bool publish;
+
+  @override
+  List<Object?> get props => [
+        seriesCode,
+        shiftCode,
+        staffCode,
+        schoolCode,
+        organizationCode,
+        shiftDate,
+        classroomCode,
+        startTime,
+        endTime,
+        breakStartTime,
+        breakEndTime,
+        notes,
+        overrideConflicts,
+        repeat,
+        repeatDays,
+        repeatUntilDate,
+        publish,
+      ];
+}
+
+/// Result returned by `POST /api/v1/staff-shifts`.
+class StaffShiftCreateResult extends Equatable {
+  const StaffShiftCreateResult({
+    required this.createdCount,
+    required this.skippedCount,
+    required this.overriddenCount,
+    this.seriesCode,
+    this.createdShiftCodes = const <String>[],
+    this.skippedDates = const <DateTime>[],
+    this.overriddenDates = const <DateTime>[],
+    this.warnings = const <String>[],
+  });
+
+  final int createdCount;
+  final int skippedCount;
+  final int overriddenCount;
+  final String? seriesCode;
+  final List<String> createdShiftCodes;
+  final List<DateTime> skippedDates;
+  final List<DateTime> overriddenDates;
+  final List<String> warnings;
+
+  @override
+  List<Object?> get props => [
+        createdCount,
+        skippedCount,
+        overriddenCount,
+        seriesCode,
+        createdShiftCodes,
+        skippedDates,
+        overriddenDates,
+        warnings,
+      ];
+}

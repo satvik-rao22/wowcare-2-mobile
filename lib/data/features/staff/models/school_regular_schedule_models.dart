@@ -21,11 +21,20 @@ class SchoolRegularScheduleListModel {
       final startTime = (item['startTime'] as String?)?.trim() ?? '';
       final endTime = (item['endTime'] as String?)?.trim() ?? '';
       if (dayOfWeek.isEmpty || startTime.isEmpty || endTime.isEmpty) continue;
+      final durationRaw =
+          item['durationMinutes'] ?? item['duration'] ?? item['blockDuration'];
+      int? durationMinutes;
+      if (durationRaw is num) {
+        durationMinutes = durationRaw.toInt();
+      } else {
+        durationMinutes = int.tryParse(durationRaw?.toString() ?? '');
+      }
       days.add(
         SchoolRegularScheduleDay(
           dayOfWeek: dayOfWeek.toUpperCase(),
           startTime: startTime,
           endTime: endTime,
+          durationMinutes: durationMinutes,
           halfDay: (item['halfDay'] as String?)?.trim(),
           label: (item['label'] as String?)?.trim(),
         ),

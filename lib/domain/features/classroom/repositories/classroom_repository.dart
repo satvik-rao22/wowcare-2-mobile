@@ -8,6 +8,9 @@ abstract class ClassroomRepository {
     /// When true, restricts results to type=CLASSROOM.
     /// When false, omits the type filter.
     bool onlyTypeClassroom,
+    /// Overrides [onlyTypeClassroom] when non-null. Sets `type=<value>` on
+    /// the request, used to fetch a specific non-CLASSROOM type (e.g. ADMIN).
+    String? typeOverride,
   });
 
   Future<ClassroomDetails> getClassroomByCode({

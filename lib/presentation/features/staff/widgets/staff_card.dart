@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
@@ -62,6 +66,83 @@ class StaffCard extends StatefulWidget {
 
 class _StaffCardState extends State<StaffCard> {
   bool isExpanded = false;
+
+  /// Shared across all StaffCard instances — every card in a list is for the
+  /// same school, so we only call `/regular-schedule` once per app load.
+  static List<String>? _cachedSchoolDayShortLabels;
+  static Future<List<String>>? _inFlightLoad;
+
+  static const Map<String, String> _enumToShort = <String, String>{
+    'MONDAY': 'Mon',
+    'TUESDAY': 'Tue',
+    'WEDNESDAY': 'Wed',
+    'THURSDAY': 'Thu',
+    'FRIDAY': 'Fri',
+    'SATURDAY': 'Sat',
+    'SUNDAY': 'Sun',
+  };
+
+  static const Map<String, String> _shortToEnum = <String, String>{
+    'Mon': 'MONDAY',
+    'Tue': 'TUESDAY',
+    'Wed': 'WEDNESDAY',
+    'Thu': 'THURSDAY',
+    'Fri': 'FRIDAY',
+    'Sat': 'SATURDAY',
+    'Sun': 'SUNDAY',
+  };
+
+  static const List<String> _weekOrder = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
+  List<String> _schoolOpenShortDays = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = _cachedSchoolDayShortLabels;
+    if (cached != null) {
+      _schoolOpenShortDays = cached;
+    } else {
+      _loadSchoolOpenDays();
+    }
+  }
+
+  Future<void> _loadSchoolOpenDays() async {
+    try {
+      final future = _inFlightLoad ??= _fetchSchoolOpenDays();
+      final result = await future;
+      if (!mounted) return;
+      setState(() => _schoolOpenShortDays = result);
+    } catch (_) {
+      // Leave fallback in place if the API fails.
+    }
+  }
+
+  static Future<List<String>> _fetchSchoolOpenDays() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return const <String>[];
+    final repo = serviceLocator<StaffRepository>();
+    final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+    final open = <String>{
+      for (final d in days) d.dayOfWeek.toUpperCase(),
+    };
+    final ordered = _weekOrder
+        .where(open.contains)
+        .map((k) => _enumToShort[k]!)
+        .toList(growable: false);
+    _cachedSchoolDayShortLabels = ordered;
+    return ordered;
+  }
 
   /// Formats enum-style strings from the API into human readable labels.
   /// Examples:
@@ -323,27 +404,26 @@ class _StaffCardState extends State<StaffCard> {
                                   runSpacing: 4,
                                   alignment: WrapAlignment.start,
                                   children: [
-                                    ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(
+                                    ...(() {
+                                      // Days the school is open, sourced from
+                                      // the regular-schedule API. Render a
+                                      // chip for every open day so Sat/Sun
+                                      // appear too — even if the staff has
+                                      // no work/break entries for that day.
+                                      if (_schoolOpenShortDays.isNotEmpty) {
+                                        return _schoolOpenShortDays;
+                                      }
+                                      return const <String>[
+                                        'Mon',
+                                        'Tue',
+                                        'Wed',
+                                        'Thu',
+                                        'Fri',
+                                      ];
+                                    })().map(
                                       (shortDay) {
-                                        String enumDay;
-                                        switch (shortDay) {
-                                          case 'Mon':
-                                            enumDay = 'MONDAY';
-                                            break;
-                                          case 'Tue':
-                                            enumDay = 'TUESDAY';
-                                            break;
-                                          case 'Wed':
-                                            enumDay = 'WEDNESDAY';
-                                            break;
-                                          case 'Thu':
-                                            enumDay = 'THURSDAY';
-                                            break;
-                                          case 'Fri':
-                                          default:
-                                            enumDay = 'FRIDAY';
-                                            break;
-                                        }
+                                        final enumDay =
+                                            _shortToEnum[shortDay] ?? 'FRIDAY';
 
                                         final work =
                                             widget.workScheduleByDay[enumDay];
@@ -362,8 +442,7 @@ class _StaffCardState extends State<StaffCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0xFF6C7FD8)
-                                                    .withOpacity(0.12)
+                                                ? const Color(0x4DB1AFE9)
                                                 : const Color(0xFFF3F4FB),
                                             borderRadius:
                                                 BorderRadius.circular(8),
@@ -375,7 +454,7 @@ class _StaffCardState extends State<StaffCard> {
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF6C7FD8)
+                                                  ? const Color(0xFF4B5B7A)
                                                   : const Color(0xFFB1AFC9),
                                             ),
                                           ),
@@ -402,6 +481,11 @@ class _StaffCardState extends State<StaffCard> {
 
                                         return Tooltip(
                                           message: tooltipText,
+                                          triggerMode:
+                                              TooltipTriggerMode.longPress,
+                                          showDuration:
+                                              const Duration(seconds: 3),
+                                          preferBelow: true,
                                           child: chip,
                                         );
                                       },
@@ -669,6 +753,7 @@ class _StaffCardState extends State<StaffCard> {
       await launchUrl(uri);
     }
   }
+
 }
 
 

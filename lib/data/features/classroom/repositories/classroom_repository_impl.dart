@@ -15,10 +15,12 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<List<Classroom>> getActiveClassrooms({
     required String schoolCode,
     bool onlyTypeClassroom = true,
+    String? typeOverride,
   }) async {
     final response = await _remoteDataSource.getActiveClassrooms(
       schoolCode: schoolCode,
       onlyTypeClassroom: onlyTypeClassroom,
+      typeOverride: typeOverride,
     );
 
     return response.items
