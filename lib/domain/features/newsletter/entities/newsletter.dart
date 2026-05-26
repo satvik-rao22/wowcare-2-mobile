@@ -1,0 +1,49 @@
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
+
+class Newsletter {
+  const Newsletter({
+    required this.id,
+    required this.code,
+    required this.schoolCode,
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.sentAt,
+    required this.createdAt,
+    required this.recipientCount,
+    required this.classroomCodes,
+    this.bodyHtml = '',
+    this.attachments = const <NewsletterAttachment>[],
+  });
+
+  final int id;
+  final String code;
+  final String schoolCode;
+  final String title;
+  final String subtitle;
+  final String status;
+  final DateTime? sentAt;
+  final DateTime? createdAt;
+  final int recipientCount;
+  final List<String> classroomCodes;
+  final String bodyHtml;
+  final List<NewsletterAttachment> attachments;
+}
+
+class NewsletterPage {
+  const NewsletterPage({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<Newsletter> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+}
