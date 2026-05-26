@@ -157,6 +157,10 @@ class ApiPathsUat {
           return ApiMicroservices.activity;
         }
         return ApiMicroservices.user;
+      case 'conversations':
+      case 'newsletters':
+      case 'messages':
+        return ApiMicroservices.communication;
       default:
         return ApiMicroservices.user;
     }

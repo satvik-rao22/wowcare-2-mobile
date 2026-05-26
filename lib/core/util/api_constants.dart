@@ -89,8 +89,8 @@ class ApiConstants {
 
   static String get communicationBaseUrl => isUat
       ? ApiConstantsUat.communicationBaseUrl
-      : 'https://qs176zl8-8089.inc1.devtunnels.ms';
-
+      : 'https://qs176zl8-8087.inc1.devtunnels.ms';
+ 
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {
     if (isUat) return ApiConstantsUat.baseUrlForMicroservice(microserviceKey);

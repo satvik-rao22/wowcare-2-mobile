@@ -182,6 +182,13 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
+import '../../data/features/newsletter/repositories/newsletter_repository_impl.dart';
+import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
+import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.dart';
+import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
+import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
+import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
@@ -309,6 +316,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
+  serviceLocator.registerLazySingleton<NewsletterRemoteDataSource>(
+    () => NewsletterRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+
   // Repositories
   serviceLocator.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
@@ -355,6 +366,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => CommunicationRepositoryImpl(
       remoteDataSource: serviceLocator(),
       cacheService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<NewsletterRepository>(
+    () => NewsletterRepositoryImpl(
+      serviceLocator<NewsletterRemoteDataSource>(),
+      serviceLocator<StorageService>(),
     ),
   );
 
@@ -684,6 +702,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<PublishStaffShiftsUseCase>(
     () => PublishStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
+  serviceLocator.registerFactory<GetSentNewslettersUseCase>(
+    () => GetSentNewslettersUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNewsletterByCodeUseCase>(
+    () => GetNewsletterByCodeUseCase(serviceLocator()),
+  );
 
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<AuthCubit>(
@@ -918,5 +942,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),
+  );
+  serviceLocator.registerFactory<NewsletterListCubit>(
+    () => NewsletterListCubit(
+      getSentNewslettersUseCase: serviceLocator(),
+      repository: serviceLocator<NewsletterRepository>(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<PreviewNewsletterCubit>(
+    () => PreviewNewsletterCubit(serviceLocator()),
   );
 }

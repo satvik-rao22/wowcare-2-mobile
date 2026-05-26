@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/newsletter_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_view_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -91,7 +92,10 @@ class _MessagingScreenState extends State<MessagingScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [ParentViewScreen(), ParentViewScreen()],
+                  children: [
+                    ParentViewScreen(),
+                    const NewsLatterTab(),
+                  ],
                 ),
               ),
             ] else
@@ -100,7 +104,7 @@ class _MessagingScreenState extends State<MessagingScreen>
                   controller: _tabController,
                   children: [
                     MessagingTab(initialTabIndex: widget.initialTabIndex),
-                    MessagingTab(initialTabIndex: widget.initialTabIndex),
+                    const NewsLatterTab(),
                   ],
                 ),
               ),
