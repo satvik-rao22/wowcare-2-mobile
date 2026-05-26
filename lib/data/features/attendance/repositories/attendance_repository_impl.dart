@@ -12,6 +12,7 @@ import '../../../../domain/features/attendance/entities/staff_attendance_absent.
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     as student_absent;
 import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../../../domain/features/attendance/entities/qr_validation_result.dart';
 import '../datasources/attendance_remote_datasource.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/student_attendance_models.dart';
@@ -1386,5 +1387,19 @@ class AttendanceRepositoryImpl
       payload: payload,
       allowedClassroomCodes: allowed,
     );
+  }
+
+  @override
+  Future<QrValidationResult> validateQrCode({
+    required String schoolCode,
+    required String qrToken,
+    required String useCase,
+  }) async {
+    final model = await _remoteDataSource.validateQrCode(
+      schoolCode: schoolCode,
+      qrToken: qrToken,
+      useCase: useCase,
+    );
+    return model.toEntity();
   }
 }
