@@ -28,12 +28,16 @@ class NewsletterRepositoryImpl
   @override
   Future<NewsletterPage> getSentNewsletters({
     required String schoolCode,
+    String? search,
+    List<String> classroomCodes = const <String>[],
     int page = 0,
     int size = 20,
   }) async {
     final model = await _remoteDataSource.getNewslettersBySchool(
       schoolCode: schoolCode,
       status: _sentStatus,
+      search: search,
+      classroomCodes: classroomCodes,
       page: page,
       size: size,
       sort: const ['sentAt,desc'],
@@ -87,6 +91,7 @@ class NewsletterRepositoryImpl
       createdAt: model.createdAt,
       recipientCount: model.recipientCount,
       classroomCodes: model.classroomCodes,
+      createdByName: model.createdByName,
       bodyHtml: buildNewsletterBodyHtml(
         layoutJson: model.layoutJson,
         subtitle: model.subtitle,

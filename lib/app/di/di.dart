@@ -689,6 +689,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PublishStaffShiftsUseCase>(
     () => PublishStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
+  );
   serviceLocator.registerFactory<GetSentNewslettersUseCase>(
     () => GetSentNewslettersUseCase(serviceLocator()),
   );
@@ -893,6 +894,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),
+  );
   serviceLocator.registerFactory<NewsletterListCubit>(
     () => NewsletterListCubit(
       getSentNewslettersUseCase: serviceLocator(),

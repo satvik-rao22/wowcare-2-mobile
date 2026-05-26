@@ -120,6 +120,8 @@ class NewsletterModel extends Equatable {
     this.sentAt,
     this.createdAt,
     required this.recipientCount,
+    this.createdBy = '',
+    this.createdByName = '',
     required this.recipients,
     required this.components,
     required this.attachments,
@@ -138,6 +140,8 @@ class NewsletterModel extends Equatable {
   final DateTime? sentAt;
   final DateTime? createdAt;
   final int recipientCount;
+  final String createdBy;
+  final String createdByName;
   final List<NewsletterRecipientModel> recipients;
   final List<NewsletterComponentModel> components;
   final List<NewsletterAttachmentModel> attachments;
@@ -171,6 +175,8 @@ class NewsletterModel extends Equatable {
       sentAt: _parseDateTime(json['sentAt']),
       createdAt: _parseDateTime(json['createdAt']),
       recipientCount: json['recipientCount'] as int? ?? 0,
+      createdBy: (json['createdBy'] as String? ?? '').trim(),
+      createdByName: (json['createdByName'] as String? ?? '').trim(),
       recipients: recipientsJson
           .map(
             (dynamic e) => NewsletterRecipientModel.fromJson(
@@ -202,6 +208,8 @@ class NewsletterModel extends Equatable {
         'sentAt': sentAt?.toIso8601String(),
         'createdAt': createdAt?.toIso8601String(),
         'recipientCount': recipientCount,
+        'createdBy': createdBy,
+        'createdByName': createdByName,
         'recipients': recipients.map((e) => e.toJson()).toList(),
         'components': components
             .map(
@@ -249,6 +257,8 @@ class NewsletterModel extends Equatable {
         sentAt,
         createdAt,
         recipientCount,
+        createdBy,
+        createdByName,
         recipients,
         components,
         attachments,
