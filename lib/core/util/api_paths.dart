@@ -224,6 +224,8 @@ class ApiPaths {
         }
         return ApiMicroservices.user;
       case 'conversations':
+      case 'newsletters':
+      case 'messages':
         return ApiMicroservices.communication;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
@@ -672,9 +674,18 @@ class ApiPaths {
       ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
       : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
-  static const String messagingCreateMessage = '/api/v1/messaging/conversations';
+  static const String messagingCreateMessage =
+      '/api/v1/messaging/conversations';
   static const String messagingMessages = '/api/v1/messaging/messages';
   // static String studentnewsLatter = 'api/v1/newsletters/student/';
   static String studentNewslettersByStudentCode(String studentCode) =>
       '/api/v1/newsletters/student/${Uri.encodeComponent(studentCode.trim())}';
+
+  /// GET /api/v1/newsletters/school/{schoolCode}
+  static String newslettersBySchool(String schoolCode) =>
+      '/api/v1/newsletters/school/${Uri.encodeComponent(schoolCode.trim())}';
+
+  /// GET /api/v1/newsletters/{code}
+  static String newsletterByCode(String code) =>
+      '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
 }
