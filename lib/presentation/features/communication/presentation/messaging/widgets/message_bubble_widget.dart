@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:flutter_html/flutter_html.dart' as html;
 
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
@@ -232,23 +233,26 @@ class _MessageBubbleState extends State<MessageBubble> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          CustomTextWidget(
-                                            text:
-                                                widget
-                                                        .quotedMessage!
-                                                        .text
-                                                        .length >
-                                                    100
-                                                ? '${widget.quotedMessage?.text.substring(0, 100)}...'
-                                                : widget.quotedMessage?.text,
-                                            fontSize: 13,
-                                            fontColor: isMe
-                                                ? Colors.white
-                                                : AppColors.primaryColor,
-                                            softWrap: true,
-                                            overflow: TextOverflow.visible,
-                                            unlimitedLines: true,
-                                          ),
+                                            html.Html(
+                                              data: widget.quotedMessage!.text.length > 100
+                                                  ? '${widget.quotedMessage?.text.substring(0, 100)}...'
+                                                  : widget.quotedMessage?.text,
+                                              style: {
+                                                "body": html.Style(
+                                                  margin: html.Margins.zero,
+                                                  padding: html.HtmlPaddings.zero,
+                                                  fontSize: html.FontSize(13),
+                                                  fontFamily: 'Manrope',
+                                                  color: isMe
+                                                      ? Colors.white
+                                                      : AppColors.primaryColor,
+                                                ),
+                                                "p": html.Style(
+                                                  margin: html.Margins.zero,
+                                                  padding: html.HtmlPaddings.zero,
+                                                ),
+                                              },
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -260,15 +264,23 @@ class _MessageBubbleState extends State<MessageBubble> {
                                   const SizedBox(height: 10),
                                 ],
 
-                                CustomTextWidget(
-                                  text: widget.message.text,
-                                  fontSize: 15.5,
-                                  fontColor: isMe
-                                      ? Colors.white
-                                      : AppColors.primaryColor,
-                                  softWrap: true,
-                                  overflow: TextOverflow.visible,
-                                  unlimitedLines: true,
+                                html.Html(
+                                  data: widget.message.text,
+                                  style: {
+                                    "body": html.Style(
+                                      margin: html.Margins.zero,
+                                      padding: html.HtmlPaddings.zero,
+                                      fontSize: html.FontSize(15.5),
+                                      fontFamily: 'Manrope',
+                                      color: isMe
+                                          ? Colors.white
+                                          : AppColors.primaryColor,
+                                    ),
+                                    "p": html.Style(
+                                      margin: html.Margins.zero,
+                                      padding: html.HtmlPaddings.zero,
+                                    ),
+                                  },
                                 ),
                               ],
                             ),
@@ -745,19 +757,25 @@ class _MessageBubbleState extends State<MessageBubble> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      CustomTextWidget(
-                                        text:
-                                            widget.quotedMessage!.text.length >
-                                                100
+                                      html.Html(
+                                        data: widget.quotedMessage!.text.length > 100
                                             ? '${widget.quotedMessage?.text.substring(0, 100)}...'
                                             : widget.quotedMessage?.text,
-                                        fontSize: 13,
-                                        fontColor: isMe
-                                            ? Colors.white
-                                            : AppColors.primaryColor,
-                                        softWrap: true,
-                                        overflow: TextOverflow.visible,
-                                        unlimitedLines: true,
+                                        style: {
+                                          "body": html.Style(
+                                            margin: html.Margins.zero,
+                                            padding: html.HtmlPaddings.zero,
+                                            fontSize: html.FontSize(13),
+                                            fontFamily: 'Manrope',
+                                            color: isMe
+                                                ? Colors.white
+                                                : AppColors.primaryColor,
+                                          ),
+                                          "p": html.Style(
+                                            margin: html.Margins.zero,
+                                            padding: html.HtmlPaddings.zero,
+                                          ),
+                                        },
                                       ),
                                     ],
                                   ),
@@ -770,15 +788,23 @@ class _MessageBubbleState extends State<MessageBubble> {
                               const SizedBox(height: 10),
                             ],
 
-                            CustomTextWidget(
-                              text: widget.message.text,
-                              fontSize: 15.5,
-                              fontColor: isMe
-                                  ? Colors.white
-                                  : AppColors.primaryColor,
-                              softWrap: true,
-                              overflow: TextOverflow.visible,
-                              unlimitedLines: true,
+                            html.Html(
+                              data: widget.message.text,
+                              style: {
+                                "body": html.Style(
+                                  margin: html.Margins.zero,
+                                  padding: html.HtmlPaddings.zero,
+                                  fontSize: html.FontSize(15.5),
+                                  fontFamily: 'Manrope',
+                                  color: isMe
+                                      ? Colors.white
+                                      : AppColors.primaryColor,
+                                ),
+                                "p": html.Style(
+                                  margin: html.Margins.zero,
+                                  padding: html.HtmlPaddings.zero,
+                                ),
+                              },
                             ),
                           ],
                         ),

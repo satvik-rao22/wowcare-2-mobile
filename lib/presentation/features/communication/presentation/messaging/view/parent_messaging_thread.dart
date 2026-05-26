@@ -370,7 +370,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           child: EmojiPicker(
             onEmojiSelected: (category, emoji) {
               Navigator.pop(context); // close picker
-              _onReactionAdded(message, emoji.emoji);
+              // _onReactionAdded(message, emoji.emoji);
             },
             config: const Config(
               //height: 380,
@@ -395,40 +395,21 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  void _onReactionAdded(Message message, String emoji) {
-    if (!mounted) return;
-    final currentUserId = 'me'; // dummy for now
-    setState(() {
-      final _messages = _activeMessages;
-      final index = _messages.indexWhere((m) => m.id == message.id);
-      if (index != -1) {
-        final currentReactions = Map<String, String>.from(
-          _activeMessages[index].reactions,
-        );
-        currentReactions[currentUserId] = emoji;
-        _messages[index] = Message(
-          id: _messages[index].id,
-          text: _messages[index].text,
-          isSentByMe: _messages[index].isSentByMe,
-          time: _messages[index].time,
-          deliveredAt: _messages[index].deliveredAt,
-          readAt: _messages[index].readAt,
-          deliveredTo: _messages[index].deliveredTo,
-          readBy: _messages[index].readBy,
-          attachments: _messages[index].attachments,
-          senderName: widget.currentSender,
-          reactions: currentReactions,
-        );
-      }
-      // ScaffoldMessenger.of(
-      //   context,
-      // ).showSnackBar(
-      //   SnackBar(
-      //     content: Text('Reacted with $emoji'),
-      //   ),
-      // );
-    });
-  }
+  // void _onReactionAdded(Message message, String emoji) {
+  //   final tabIndex = _tabController.index;
+  //   final String activeTabKey;
+  //   if (_privateModeEnabled) {
+  //     activeTabKey =
+  //         tabIndex == 0 ? 'parent_group_parent1' : 'parent_group_parent2';
+  //   } else {
+  //     activeTabKey = 'parent_group_default';
+  //   }
+  //   context.read<CommunicationCubit>().addReaction(
+  //     activeTabKey,
+  //     message.id,
+  //     emoji,
+  //   );
+  // }
 
   void _showEditDialog(BuildContext context, Message message) {
     final TextEditingController editingController = TextEditingController(

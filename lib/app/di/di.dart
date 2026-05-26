@@ -180,6 +180,8 @@ import '../../domain/features/communication/usecases/send_message_usecase.dart';
 import '../../domain/features/communication/usecases/create_conversation_usecase.dart';
 import '../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
+import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
@@ -192,6 +194,15 @@ import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
+import '../../data/features/geofencing/datasources/geofencing_local_datasource.dart';
+import '../../data/features/geofencing/repositories/geofencing_repository_impl.dart';
+import '../../domain/features/geofencing/repositories/geofencing_repository.dart';
+import '../../domain/features/geofencing/usecases/check_location_permission_usecase.dart';
+import '../../domain/features/geofencing/usecases/request_location_permission_usecase.dart';
+import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
+import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
+import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
+import '../../shared/services/geofence_notification_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -645,6 +656,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetCachedConversationsUseCase>(
     () => GetCachedConversationsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetCachedMessagesUseCase>(
+    () => GetCachedMessagesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddReactionUseCase>(
+    () => AddReactionUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
@@ -862,6 +879,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       sendMessageUseCase: serviceLocator(),
       getConversationsUseCase: serviceLocator(),
       getCachedConversationsUseCase: serviceLocator(),
+      getCachedMessagesUseCase: serviceLocator(),
+      addReactionUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
@@ -919,4 +938,48 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+
+  // Geofencing Feature
+  serviceLocator.registerLazySingleton<GeofencingLocalDataSource>(
+    () => GeofencingLocalDataSourceImpl(),
+  );
+  serviceLocator.registerLazySingleton<GeofencingRepository>(
+    () => GeofencingRepositoryImpl(
+      localDataSource: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<GeofenceNotificationService>(
+    () => GeofenceNotificationService(),
+  );
+  serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
+    () => CheckLocationPermissionUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RequestLocationPermissionUseCase>(
+    () => RequestLocationPermissionUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetSchoolLocationUseCase>(
+    () => GetSchoolLocationUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchGeofenceUseCase>(
+    () => WatchGeofenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GeofenceCubit>(
+    () => GeofenceCubit(
+      checkLocationPermissionUseCase: serviceLocator(),
+      requestLocationPermissionUseCase: serviceLocator(),
+      getSchoolLocationUseCase: serviceLocator(),
+      watchGeofenceUseCase: serviceLocator(),
+      notificationService: serviceLocator(),
+    ),
+  );
+
+  // Initialize notification service after registering it
+  // Wrap in try-catch in case native plugin isn't ready yet
+  try {
+    await serviceLocator<GeofenceNotificationService>().init();
+  } catch (e) {
+    // Native plugin might not be loaded yet - will retry when geofence cubit initializes
+    print('Warning: Notification service initialization deferred: $e');
+  }
 }

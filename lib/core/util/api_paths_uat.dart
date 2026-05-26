@@ -18,6 +18,7 @@ class ApiPathsUat {
     ApiMicroservices.activity,
     'activities',
     ApiMicroservices.document,
+    // Communication
   };
 
   static const Map<String, Set<String>> _resourceRootsByMicroservice = {
@@ -29,11 +30,7 @@ class ApiPathsUat {
       'guardian-user',
       'guardian',
     },
-    ApiMicroservices.organization: {
-      'schools',
-      'organizations',
-      'school',
-    },
+    ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
       'staff-classrooms',
@@ -67,13 +64,12 @@ class ApiPathsUat {
       'individual-movements',
       'future-availability',
     },
-    ApiMicroservices.activity: {
-      'classrooms',
-      'activities',
-      'activity-types',
-    },
+    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types'},
     // Document endpoints in this app are handled separately via `/document-ms/...`.
     ApiMicroservices.document: {},
+
+    //. Communication
+    ApiMicroservices.communication: {},
   };
 
   static String _uatSegmentForMicroservice(String microserviceKey) {
@@ -150,6 +146,11 @@ class ApiPathsUat {
       case 'activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      // /api/v1/messaging/conversations
+      case 'messaging':
+      case 'conversations':
+      case 'messages':
+        return ApiMicroservices.communication;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject
@@ -185,6 +186,9 @@ class ApiPathsUat {
 
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
+
+    // Special-case: communication/messaging endpoints do not use a microservice segment in UAT.
+    if (microserviceKeyFromPath(p) == ApiMicroservices.communication) return p;
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') return p;
@@ -247,4 +251,3 @@ class ApiPathsUat {
     return '$base/upload-sessions/$s/assets/$a/complete';
   }
 }
-

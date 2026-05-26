@@ -89,8 +89,8 @@ class ConversationParticipantCollection {
   late DateTime joinedAt;
   DateTime? leftAt;
   DateTime? lastReadAt;
-  late bool muted;
-  late bool notificationsEnabled;
+  bool? muted;
+  bool? notificationsEnabled;
   late DateTime createdAt;
   late DateTime updatedAt;
 
@@ -124,8 +124,8 @@ class ConversationParticipantCollection {
       joinedAt: joinedAt,
       leftAt: leftAt,
       lastReadAt: lastReadAt,
-      muted: muted,
-      notificationsEnabled: notificationsEnabled,
+      muted: muted ?? false,
+      notificationsEnabled: notificationsEnabled ?? true,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

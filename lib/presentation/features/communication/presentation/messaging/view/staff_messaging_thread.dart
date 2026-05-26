@@ -315,36 +315,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   void _onReactionAdded(Message message, String emoji) {
-    if (!mounted) return;
-    final currentUserId = 'me'; // dummy for now
-    setState(() {
-      final index = _messages.indexWhere((m) => m.id == message.id);
-      if (index != -1) {
-        final currentReactions = Map<String, String>.from(
-          _messages[index].reactions,
-        );
-        currentReactions[currentUserId] = emoji;
-        _messages[index] = Message(
-          id: _messages[index].id,
-          text: _messages[index].text,
-          isSentByMe: _messages[index].isSentByMe,
-          time: _messages[index].time,
-          deliveredAt: _messages[index].deliveredAt,
-          readAt: _messages[index].readAt,
-          deliveredTo: _messages[index].deliveredTo,
-          readBy: _messages[index].readBy,
-          attachments: _messages[index].attachments,
-          reactions: currentReactions,
-        );
-      }
-      // ScaffoldMessenger.of(
-      //   context,
-      // ).showSnackBar(
-      //   SnackBar(
-      //     content: Text('Reacted with $emoji'),
-      //   ),
-      // );
-    });
+    context.read<CommunicationCubit>().addReaction(
+      widget.staffInfo['code'] as String,
+      message.id,
+      emoji,
+    );
   }
 
   void _showEditDialog(BuildContext context, Message message) {
@@ -670,7 +645,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                               height: 12,
                                               decoration: BoxDecoration(
                                                 color:
-                                                    widget.staffInfo['isSigned']
+                                                    (widget.staffInfo['isSigned'] ?? false)
                                                     ? const Color.fromRGBO(
                                                         0,
                                                         177,
@@ -681,8 +656,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
                                                   color:
-                                                      widget
-                                                          .staffInfo['isSigned']
+                                                      (widget.staffInfo['isSigned'] ?? false)
                                                       ? Colors.white
                                                       : Colors.transparent,
                                                   width: 2,

@@ -5,6 +5,8 @@ import '../../../../domain/features/communication/entities/message.dart';
 import '../../../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
+import '../../../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
+import '../../../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../../../domain/features/communication/usecases/send_message_usecase.dart';
 import 'communication_state.dart';
 
@@ -13,6 +15,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final SendMessageUseCase sendMessageUseCase;
   final GetConversationsUseCase getConversationsUseCase;
   final GetCachedConversationsUseCase getCachedConversationsUseCase;
+  final GetCachedMessagesUseCase getCachedMessagesUseCase;
+  final AddReactionUseCase addReactionUseCase;
   final List<Timer> _statusTimers = [];
 
   CommunicationCubit({
@@ -20,6 +24,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.sendMessageUseCase,
     required this.getConversationsUseCase,
     required this.getCachedConversationsUseCase,
+    required this.getCachedMessagesUseCase,
+    required this.addReactionUseCase,
   }) : super(CommunicationInitial());
 
   Future<void> loadConversations({
@@ -87,17 +93,51 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         ? (state as CommunicationLoaded).threads
         : {};
 
-    if (!currentThreads.containsKey(threadId)) {
+    // 1. Try Loading from Isar cache first for faster initial loading
+    final cacheResult = await getCachedMessagesUseCase(threadId);
+    cacheResult.fold(
+      (_) => null, // Ignore cache errors
+      (cachedMessages) {
+        if (cachedMessages.isNotEmpty && !isClosed) {
+          final newThreads = Map<String, List<Message>>.from(currentThreads);
+          newThreads[threadId] = cachedMessages;
+          emit(
+            CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
+          );
+        }
+      },
+    );
+
+    // 2. Only emit Loading if we have absolutely no cached messages in the state
+    final Map<String, List<Message>> updatedThreads =
+        state is CommunicationLoaded
+        ? (state as CommunicationLoaded).threads
+        : {};
+    if (!updatedThreads.containsKey(threadId) || updatedThreads[threadId]!.isEmpty) {
       emit(CommunicationLoading());
     }
 
+    // 3. Fetch latest data from remote in the background and update state/cache
     final result = await getMessagesUseCase(threadId, currentUserId: currentUserId);
     if (isClosed) return;
 
     result.fold(
-      (failure) => emit(CommunicationError(failure.message ?? 'Unknown error')),
+      (failure) {
+        // Only show error page if we don't already have cached messages
+        final Map<String, List<Message>> finalThreads =
+            state is CommunicationLoaded
+            ? (state as CommunicationLoaded).threads
+            : {};
+        if (!finalThreads.containsKey(threadId) || finalThreads[threadId]!.isEmpty) {
+          emit(CommunicationError(failure.message ?? 'Unknown error'));
+        }
+      },
       (messages) {
-        final newThreads = Map<String, List<Message>>.from(currentThreads);
+        final Map<String, List<Message>> latestThreads =
+            state is CommunicationLoaded
+            ? (state as CommunicationLoaded).threads
+            : {};
+        final newThreads = Map<String, List<Message>>.from(latestThreads);
         newThreads[threadId] = messages;
         emit(
           CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
@@ -248,10 +288,15 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     return super.close();
   }
 
-  void addReaction(String threadId, String messageId, String emoji) {
+  Future<void> addReaction(
+    String threadId,
+    String messageId,
+    String emoji,
+  ) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
 
+    // Optimistically update the UI
     final updatedThreads = Map<String, List<Message>>.from(
       currentState.threads,
     );
@@ -282,5 +327,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     updatedThreads[threadId] = updatedMessages;
     emit(currentState.copyWith(threads: updatedThreads));
+
+    // Persist reaction in the background
+    await addReactionUseCase(threadId, messageId, emoji);
   }
 }

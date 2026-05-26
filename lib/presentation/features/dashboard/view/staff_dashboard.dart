@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_progress_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
@@ -8,6 +12,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/todo_card.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/staff_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -31,12 +36,29 @@ class StaffDashboard extends StatefulWidget {
 
 class _StaffDashboardState extends State<StaffDashboard> {
   final StaffDashboardViewModel _viewModel = StaffDashboardViewModel();
+  late final GeofenceCubit _geofenceCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens.
   static const double _maxContentWidth = 640;
 
   @override
+  void initState() {
+    super.initState();
+    _geofenceCubit = serviceLocator<GeofenceCubit>();
+    _initGeofence();
+  }
+
+  Future<void> _initGeofence() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode);
+    if (schoolCode != null && schoolCode.isNotEmpty) {
+      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+    }
+  }
+
+  @override
   void dispose() {
+    _geofenceCubit.close();
     _viewModel.dispose();
     super.dispose();
   }
@@ -81,6 +103,13 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<GeofenceCubit>.value(
+      value: _geofenceCubit,
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
     return GlobalScaffold(
       showCustomNavigationBar: true,
       bodyPadding: EdgeInsets.zero,

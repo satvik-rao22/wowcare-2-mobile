@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/billing_card.dart';
@@ -35,13 +40,30 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   final AdminDashboardViewModel _viewModel = AdminDashboardViewModel();
+  late final GeofenceCubit _geofenceCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens
   /// instead of stretching cards edge to edge.
   static const double _maxContentWidth = 640;
 
   @override
+  void initState() {
+    super.initState();
+    _geofenceCubit = serviceLocator<GeofenceCubit>();
+    _initGeofence();
+  }
+
+  Future<void> _initGeofence() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode);
+    if (schoolCode != null && schoolCode.isNotEmpty) {
+      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+    }
+  }
+
+  @override
   void dispose() {
+    _geofenceCubit.close();
     _viewModel.dispose();
     super.dispose();
   }
@@ -92,6 +114,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<GeofenceCubit>.value(
+      value: _geofenceCubit,
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
     return GlobalScaffold(
       showCustomNavigationBar: true,
       bodyPadding: EdgeInsets.zero,
