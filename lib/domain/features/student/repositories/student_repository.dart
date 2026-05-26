@@ -1,8 +1,11 @@
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_important_dates.dart';
+import '../entities/student_profile.dart';
 
 abstract class StudentRepository {
+  /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
+  Future<StudentProfile> getStudentProfile({required String code});
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,
@@ -141,17 +144,13 @@ abstract class StudentRepository {
   /// Fetches all guardians/parents for a school via `GET /api/v1/guardian`.
   ///
   /// Returns a list of display names (e.g. "First Last") suitable for dropdowns.
-  Future<List<String>> getGuardianNamesForSchool({
-    required String schoolCode,
-  });
+  Future<List<String>> getGuardianNamesForSchool({required String schoolCode});
 
   /// Fetches all tag names for a school via `GET /api/v1/tags`.
   ///
   /// Returns a list of tag display names (e.g. "5 Days", "Vegetarian") suitable
   /// for dropdowns.
-  Future<List<String>> getTagNamesForSchool({
-    required String schoolCode,
-  });
+  Future<List<String>> getTagNamesForSchool({required String schoolCode});
 
   /// Returns a mapping from tag display name to tag code for a given school.
   ///
@@ -192,9 +191,7 @@ abstract class StudentRepository {
   ///
   /// The returned map must contain keys: 'activeCount', 'upcomingCount',
   /// and 'enrolledCount'.
-  Future<Map<String, int>> getStudentCounts({
-    required String schoolCode,
-  });
+  Future<Map<String, int>> getStudentCounts({required String schoolCode});
 
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///
@@ -229,7 +226,6 @@ abstract class StudentRepository {
     required String code,
     required String studentCode,
   });
-
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
@@ -264,4 +260,3 @@ abstract class StudentRepositoryWithCache {
 
   Future<StudentDocumentsPage?> loadCachedStudentDocuments(String studentCode);
 }
-

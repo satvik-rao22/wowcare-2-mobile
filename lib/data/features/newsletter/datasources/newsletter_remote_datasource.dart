@@ -7,6 +7,8 @@ abstract class NewsletterRemoteDataSource {
   Future<NewsletterPageModel> getNewslettersBySchool({
     required String schoolCode,
     String? status,
+    List<String>? classroomCodes,
+    String? search,
     int page = 0,
     int size = 20,
     List<String>? sort,
@@ -25,6 +27,8 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
   Future<NewsletterPageModel> getNewslettersBySchool({
     required String schoolCode,
     String? status,
+    List<String>? classroomCodes,
+    String? search,
     int page = 0,
     int size = 20,
     List<String>? sort,
@@ -42,6 +46,18 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
     final normalizedStatus = (status ?? '').trim().toUpperCase();
     if (normalizedStatus.isNotEmpty) {
       queryParameters['status'] = normalizedStatus;
+    }
+    final normalizedSearch = (search ?? '').trim();
+    if (normalizedSearch.isNotEmpty) {
+      queryParameters['search'] = normalizedSearch;
+    }
+    final normalizedClassroomCodes = (classroomCodes ?? const <String>[])
+        .map((String c) => c.trim())
+        .where((String c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+    if (normalizedClassroomCodes.isNotEmpty) {
+      queryParameters['classroomCode'] = normalizedClassroomCodes;
     }
 
     final path = ApiPaths.newslettersBySchool(schoolCode);

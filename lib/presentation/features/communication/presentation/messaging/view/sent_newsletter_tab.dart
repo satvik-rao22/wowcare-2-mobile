@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +10,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -24,9 +26,8 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
   final TextEditingController searchController = TextEditingController();
   late final NewsletterListCubit _newsletterListCubit;
   late final ClassroomCubit _classroomCubit;
-  String? selectedClassroomName;
-  List<Newsletter> _allNewsletters = <Newsletter>[];
-  List<Newsletter> _filteredNewsletters = <Newsletter>[];
+  List<String> _selectedClassroomNames = <String>[];
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -42,6 +43,7 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     searchController.removeListener(_applyFilters);
     searchController.dispose();
     _newsletterListCubit.close();
@@ -59,39 +61,30 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
     ]);
   }
 
-  void _syncFromState(NewsletterListState state) {
-    setState(() {
-      _allNewsletters = state.newsletters;
-    });
-    _applyFilters();
-  }
-
   void _applyFilters() {
-    final String searchText = searchController.text.toLowerCase().trim();
-    final String? selectedCode = _selectedClassroomCode();
-
-    setState(() {
-      _filteredNewsletters = _allNewsletters.where((Newsletter letter) {
-        final bool matchesSearch = searchText.isEmpty ||
-            letter.title.toLowerCase().contains(searchText);
-        final bool matchesClassroom = selectedCode == null ||
-            selectedCode.isEmpty ||
-            letter.classroomCodes
-                .map((String c) => c.trim())
-                .contains(selectedCode);
-        return matchesSearch && matchesClassroom;
-      }).toList();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _newsletterListCubit.applyFilters(
+        search: searchController.text.trim(),
+        classroomCodes: _selectedClassroomCodes(),
+      );
     });
   }
 
-  String? _selectedClassroomCode() {
-    final String? name = selectedClassroomName;
-    if (name == null || name.isEmpty) return null;
+  List<String> _selectedClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) return const <String>[];
     final ClassroomState s = _classroomCubit.state;
-    for (final c in s.classrooms) {
-      if (c.name.trim() == name.trim()) return c.code.trim();
-    }
-    return null;
+    return s.classrooms
+        .where(
+          (c) => _selectedClassroomNames.any(
+            (String name) => c.name.trim() == name.trim(),
+          ),
+        )
+        .map((c) => c.code.trim())
+        .where((String code) => code.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   Map<String, String> _classroomNameByCode(ClassroomState s) {
@@ -142,13 +135,17 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: CustomDropdown(
+            child: CustomMultiSelectDropdown(
               hintText: 'Classroom',
               items: roomNames,
-              prependHintAsSelectableItem: true,
-              fieldHeight: 44,
-              onSelect: (String? value) {
-                selectedClassroomName = value;
+              selectedItems: _selectedClassroomNames,
+              showSelectAll: true,
+              enableSearch: true,
+              searchHintText: 'Search classroom',
+              onChanged: (List<String> values) {
+                setState(() {
+                  _selectedClassroomNames = values;
+                });
                 _applyFilters();
               },
             ),
@@ -170,9 +167,7 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
           final Map<String, String> nameByCode =
               _classroomNameByCode(classroomState);
           return BlocConsumer<NewsletterListCubit, NewsletterListState>(
-            listener: (BuildContext context, NewsletterListState state) {
-              _syncFromState(state);
-            },
+            listener: (_, __) {},
             builder: (BuildContext context, NewsletterListState state) {
               return CustomRefreshIndicator(
                 onRefresh: _onRefresh,
@@ -183,7 +178,7 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                       _buildSearchAndFilterBox(classroomState),
                       const SizedBox(height: 12),
                       Expanded(
-                        child: state.isLoading && _allNewsletters.isEmpty
+                        child: state.isLoading && state.newsletters.isEmpty
                             ? ListView(
                                 physics:
                                     const AlwaysScrollableScrollPhysics(),
@@ -192,7 +187,7 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                   Center(child: PrimaryCircularLoader()),
                                 ],
                               )
-                            : _filteredNewsletters.isEmpty
+                            : state.newsletters.isEmpty
                                 ? LayoutBuilder(
                                     builder: (context, constraints) {
                                       return SingleChildScrollView(
@@ -224,21 +219,21 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                 : ListView.builder(
                                     physics:
                                         const AlwaysScrollableScrollPhysics(),
-                                    itemCount: _filteredNewsletters.length,
+                                    itemCount: state.newsletters.length,
                                     itemBuilder:
                                         (BuildContext context, int index) {
                                       final Newsletter letter =
-                                          _filteredNewsletters[index];
+                                          state.newsletters[index];
                                       final String sentDate =
                                           DateFormat('MMM dd, yyyy').format(
                                         letter.sentAt ??
                                             letter.createdAt ??
                                             DateTime.now(),
                                       );
-                                      final String subtitle =
-                                          letter.subtitle.trim().isNotEmpty
-                                              ? letter.subtitle
-                                              : 'Recipients: ${letter.recipientCount}';
+                                      final String createdBy =
+                                          letter.createdByName.trim().isNotEmpty
+                                              ? letter.createdByName
+                                              : 'Demo Test';
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 8,
@@ -252,7 +247,9 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                               nameByCode,
                                             ),
                                             sentDate: sentDate,
-                                            summary: subtitle,
+                                            createdBy: createdBy,
+                                            recipientCount:
+                                                letter.recipientCount,
                                           ),
                                           onTap: () {
                                             final String code =
