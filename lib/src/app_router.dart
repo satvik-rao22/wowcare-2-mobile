@@ -14,6 +14,8 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_p
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
@@ -389,6 +391,16 @@ final GoRouter appRouter = GoRouter(
                     state,
                     _staffAttendanceProfileScreen(state.extra),
                   ),
+                ),
+                GoRoute(
+                  path: 'student-selection-sign-in-form',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StudentSelectionSignInForm()),
+                ),
+                GoRoute(
+                  path: 'student-selection-sign-out-form',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StudentSelectionSignOutForm()),
                 ),
               ],
             ),

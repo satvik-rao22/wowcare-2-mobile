@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -130,11 +131,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     Duration.zero,
   );
 
-  // Mock location / geofence state
-  bool _isWithinGeofence = false;
-  bool _isLocationEnabled = false;
-
-  // Mock reminder toggle
+  // Reminder toggle
   bool _isReminder = false;
 
   @override
@@ -410,24 +407,38 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Sign-In/Out gradient button -----
 
-  Widget _buildSignInOutButton() {
-    final bool enabled = _isWithinGeofence && _isLocationEnabled;
+  Widget _buildSignInOutButton({required GeofenceState geofenceState}) {
+    final bool isWithin = geofenceState.isWithinGeofence;
+    final bool isEnabled = geofenceState.isLocationEnabled;
+    final bool enabled = isWithin && isEnabled;
+
+    print('[SignInButton] ═══════════════════════════════════════');
+    print('[SignInButton] Status: ${geofenceState.status}');
+    print(
+      '[SignInButton] isWithinGeofence (${geofenceState.status} == withinRange): $isWithin',
+    );
+    print(
+      '[SignInButton] isLocationEnabled (check against denied/disabled/initial/error): $isEnabled',
+    );
+    print(
+      '[SignInButton] Final enabled state ($isWithin && $isEnabled): $enabled',
+    );
+    print(
+      '[SignInButton] Button will be: ${enabled ? "🟦 ENABLED (BLUE)" : "⬜ DISABLED (GREY)"}',
+    );
+    print('[SignInButton] ═══════════════════════════════════════');
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Tooltip(
-        message: !_isLocationEnabled
-            ? 'Location permission is not granted.'
-            : !_isWithinGeofence
-            ? 'You are not within the geofencing range.'
-            : '',
-        triggerMode: TooltipTriggerMode.tap,
-        preferBelow: false,
-        child: CustomButtonLayout(
-          isForm: false,
-          showCancelButton: false,
-          confirmButtonLabel: 'Sign-In/Out',
-          onPressedConfirm: enabled ? () {} : null,
-        ),
+      child: CustomButtonLayout(
+        isForm: false,
+        showCancelButton: false,
+        confirmButtonLabel: 'Sign-In/Out',
+        onPressedConfirm: enabled
+            ? () {
+                context.go('/dashboard/student-selection-sign-in-form');
+              }
+            : null,
       ),
     );
   }
@@ -653,15 +664,36 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       prev.status != curr.status ||
                       prev.studentCode != curr.studentCode ||
                       prev.todayScheduleRange != curr.todayScheduleRange ||
-                      prev.schoolTimeZone != curr.schoolTimeZone,
+                      prev.schoolTimeZone != curr.schoolTimeZone ||
+                      prev.schoolCode != curr.schoolCode,
                   listener: (context, state) {
+                    print(
+                      '[MyChildsDayCard] MyChildsDayState changed: status=${state.status}, schoolCode=${state.schoolCode}',
+                    );
                     if (state.status == MyChildsDayStatus.loaded &&
                         state.schoolTimeZone.trim().isNotEmpty) {
+                      print(
+                        '[MyChildsDayCard] Dashboard loaded, triggering geofence init',
+                      );
                       _startCountdownTimer(
                         schoolTimeZone: state.schoolTimeZone,
                         todayScheduleRange: state.todayScheduleRange,
                       );
+                      // Trigger geofence monitoring when school code is available
+                      if (state.schoolCode.isNotEmpty) {
+                        print(
+                          '[MyChildsDayCard] Calling GeofenceCubit.initForSchool with schoolCode: ${state.schoolCode}',
+                        );
+                        context.read<GeofenceCubit>().initForSchool(
+                          schoolCode: state.schoolCode,
+                        );
+                      } else {
+                        print(
+                          '[MyChildsDayCard] WARNING: schoolCode is empty!',
+                        );
+                      }
                     } else {
+                      print('[MyChildsDayCard] Dashboard not loaded yet');
                       _stopCountdownTimer();
                       _statusText.value = 'Loading schedule...';
                       _duration.value = Duration.zero;
@@ -781,7 +813,103 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                               const SizedBox(height: 16),
                               _buildSignInPinRow(selectedChild: selectedChild),
                               const SizedBox(height: 16),
-                              _buildSignInOutButton(),
+                              BlocBuilder<GeofenceCubit, GeofenceState>(
+                                builder: (context, geofenceState) {
+                                  print(
+                                    '[SignInButton-BlocBuilder] Rebuilding with state: ${geofenceState.status}',
+                                  );
+                                  return Column(
+                                    children: [
+                                      _buildSignInOutButton(
+                                        geofenceState: geofenceState,
+                                      ),
+                                      if (geofenceState.status ==
+                                          GeofenceCubitStatus.permissionDenied)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 12.0,
+                                            left: 24.0,
+                                            right: 24.0,
+                                          ),
+                                          child: GestureDetector(
+                                            onTap: () => context
+                                                .read<GeofenceCubit>()
+                                                .retryPermission(),
+                                            child: Text(
+                                              'Location permission required. Tap to enable.',
+                                              style: TextStyle(
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.65),
+                                                fontSize: 12,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        )
+                                      else if (geofenceState.status ==
+                                          GeofenceCubitStatus.locationDisabled)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 12.0,
+                                            left: 24.0,
+                                            right: 24.0,
+                                          ),
+                                          child: Text(
+                                            'Location services are disabled.',
+                                            style: TextStyle(
+                                              color: AppColors.primaryColor
+                                                  .withValues(alpha: 0.65),
+                                              fontSize: 12,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        )
+                                      else if (geofenceState.status ==
+                                          GeofenceCubitStatus.outsideRange)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 12.0,
+                                            left: 24.0,
+                                            right: 24.0,
+                                          ),
+                                          child: Text(
+                                            'You are not within the school sign-in zone.',
+                                            style: TextStyle(
+                                              color: AppColors.primaryColor
+                                                  .withValues(alpha: 0.65),
+                                              fontSize: 12,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        )
+                                      else if (geofenceState.status ==
+                                              GeofenceCubitStatus
+                                                  .checkingPermission ||
+                                          geofenceState.status ==
+                                              GeofenceCubitStatus
+                                                  .fetchingSchoolLocation)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 12.0,
+                                            left: 24.0,
+                                            right: 24.0,
+                                          ),
+                                          child: Text(
+                                            'Checking location...',
+                                            style: TextStyle(
+                                              color: AppColors.primaryColor
+                                                  .withValues(alpha: 0.65),
+                                              fontSize: 12,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
                             ],
                           ],
                         ],

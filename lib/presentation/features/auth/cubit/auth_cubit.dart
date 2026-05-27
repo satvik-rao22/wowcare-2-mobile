@@ -396,7 +396,7 @@ class AuthCubit extends Cubit<AuthState> {
     final staticFallback = staticSchoolSelectionEntriesForOrg(
       organizationCode: organizationCode,
       restrictToSchoolCodes: isAdmin ? const <String>[] : codes,
-    );
+    ).cast<Map<String, String>>();
 
     final prev = state is AuthLoaded ? state as AuthLoaded : null;
     emit(AuthLoaded(

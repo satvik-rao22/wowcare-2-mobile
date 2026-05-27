@@ -7,6 +7,7 @@ class CreateConversationRequest {
   final String schoolCode;
   final String avatarUrl;
   final List<String> participantUserCodes;
+  final List<Map<String, dynamic>>? participants;
   final List<Map<String, dynamic>> attachments;
 
   CreateConversationRequest({
@@ -17,7 +18,8 @@ class CreateConversationRequest {
     required this.organizationCode,
     required this.schoolCode,
     this.avatarUrl = '',
-    required this.participantUserCodes,
+    this.participantUserCodes = const [],
+    this.participants,
     this.attachments = const [],
   });
 
@@ -30,8 +32,18 @@ class CreateConversationRequest {
       'organizationCode': organizationCode,
       'schoolCode': schoolCode,
       'avatarUrl': avatarUrl,
-      'participantUserCodes': participantUserCodes,
     };
+
+    if (participants != null) {
+      json['participants'] = participants;
+    } else {
+      json['participants'] = participantUserCodes
+          .map((code) => {
+                'userCode': code,
+                'participantType': code.startsWith('STF_') ? 'STAFF' : 'STUDENT',
+              })
+          .toList();
+    }
 
     if (attachments.isNotEmpty) {
       json['attachments'] = attachments;

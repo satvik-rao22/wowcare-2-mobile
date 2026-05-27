@@ -279,7 +279,7 @@ MessageCollection _messageCollectionDeserialize(
     RecipientStatusCollection(),
   );
   object.id = reader.readString(offsets[3]);
-  object.isSentByMe = reader.readBool(offsets[4]);
+  object.isSentByMe = reader.readBoolOrNull(offsets[4]);
   object.quotedMessageId = reader.readStringOrNull(offsets[5]);
   object.reactions = reader.readObjectList<MessageReactionCollection>(
     offsets[6],
@@ -328,7 +328,7 @@ P _messageCollectionDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readBool(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
@@ -926,7 +926,25 @@ extension MessageCollectionQueryFilter
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
-      isSentByMeEqualTo(bool value) {
+      isSentByMeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isSentByMe',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSentByMeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isSentByMe',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSentByMeEqualTo(bool? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isSentByMe',
@@ -2572,7 +2590,8 @@ extension MessageCollectionQueryProperty
     });
   }
 
-  QueryBuilder<MessageCollection, bool, QQueryOperations> isSentByMeProperty() {
+  QueryBuilder<MessageCollection, bool?, QQueryOperations>
+      isSentByMeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSentByMe');
     });

@@ -25,11 +25,11 @@ class MessageModel extends Message {
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
-    final senderCode = json['senderUserCode'] as String? ?? '';
+    final senderCode = json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '';
     return MessageModel(
       id: (json['id'] ?? '').toString(),
       code: json['code'] as String? ?? '',
-      conversationCode: json['conversationCode'] as String?,
+      conversationCode: json['conversationCode'] as String? ?? json['conversation_code'] as String?,
       senderUserCode: senderCode,
       text: json['content'] as String? ?? '',
       isSentByMe: currentUserId != null && senderCode == currentUserId,
@@ -40,9 +40,13 @@ class MessageModel extends Message {
           ? DateTime.now()
           : null,
       readAt: json['status'] == 'READ' ? DateTime.now() : null,
-      deliveredTo: const [], // API doesn't seem to provide these in a list yet
+      deliveredTo: const [],
       readBy: const [],
-      reactions: const {}, // API snippet doesn't show reactions
+      reactions: {
+        for (var r in (json['reactions'] as List<dynamic>?) ?? [])
+          if (r is Map<String, dynamic> && r['userCode'] != null && r['emoji'] != null)
+            r['userCode'].toString(): r['emoji'].toString()
+      },
       quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
           ? null
           : json['replyToMessageId'].toString(),
@@ -55,7 +59,6 @@ class MessageModel extends Message {
     );
   }
 
-  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -80,8 +83,8 @@ class RecipientStatusModel extends RecipientStatus {
 
   factory RecipientStatusModel.fromJson(Map<String, dynamic> json) {
     return RecipientStatusModel(
-      name: json['name'] as String,
-      userId: json['user_id'] as String?,
+      name: json['name'] as String? ?? '',
+      userId: json['user_id'] as String? ?? json['userId'] as String?,
       timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : null,
     );
   }
@@ -107,12 +110,12 @@ class ChatAttachmentModel extends ChatAttachment {
 
   factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) {
     return ChatAttachmentModel(
-      name: json['name'] as String,
-      type: json['type'] as String,
-      sizeBytes: json['size_bytes'] as int,
-      mimeType: json['mime_type'] as String,
-      remoteUrl: json['remote_url'] as String,
-      localPath: json['local_path'] as String?,
+      name: json['name'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      sizeBytes: (json['size_bytes'] ?? json['sizeBytes']) as int? ?? 0,
+      mimeType: (json['mime_type'] ?? json['mimeType']) as String? ?? '',
+      remoteUrl: (json['remote_url'] ?? json['remoteUrl']) as String? ?? '',
+      localPath: (json['local_path'] ?? json['localPath']) as String?,
     );
   }
 
