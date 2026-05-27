@@ -179,6 +179,12 @@ class BulkMessagingCompositionCubit
         return;
       }
 
+      final senderCode =
+          (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+      final senderUserCode =
+          (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
+      final actualSenderCode = senderCode.isNotEmpty ? senderCode : senderUserCode;
+
       final attachmentPayloads = await _buildAttachmentPayloads();
       if (isClosed) return;
       final messageText = state.messageText.trim();
@@ -202,12 +208,22 @@ class BulkMessagingCompositionCubit
 
           final request = CreateConversationRequest(
             title: recipientName,
-            type: 'DIRECT',
+            type: 'STAFF_DIRECT',
             description: messageText,
             initialMessage: messageText,
             organizationCode: orgCode,
             schoolCode: schoolCode,
             participantUserCodes: [recipientCode],
+            participants: [
+              {
+                'userCode': actualSenderCode,
+                'participantType': 'STAFF',
+              },
+              {
+                'userCode': recipientCode,
+                'participantType': 'STAFF',
+              }
+            ],
             attachments: attachmentPayloads,
           );
 
@@ -270,12 +286,23 @@ class BulkMessagingCompositionCubit
           title:
               'Bulk Message ${DateTime.now().toString().substring(0, 16)}', // Default title
           type:
-              'DIRECT', // Group chat might have a different type, but following user's structure
+              'GROUP', // Group chat might have a different type, but following user's structure
           description: messageText,
           initialMessage: messageText,
           organizationCode: orgCode,
           schoolCode: schoolCode,
           participantUserCodes: recipientCodes,
+          participants: [
+            if (actualSenderCode.isNotEmpty)
+              {
+                'userCode': actualSenderCode,
+                'participantType': 'STAFF',
+              },
+            ...recipientCodes.map((code) => {
+                  'userCode': code,
+                  'participantType': code.startsWith('STF_') ? 'STAFF' : 'STUDENT',
+                }),
+          ],
           attachments: attachmentPayloads,
         );
 

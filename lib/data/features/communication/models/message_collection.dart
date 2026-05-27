@@ -12,7 +12,7 @@ class MessageCollection {
   @Index()
   late String threadId;
   late String text;
-  late bool isSentByMe;
+  bool? isSentByMe;
   late DateTime time;
   DateTime? deliveredAt;
   DateTime? readAt;
@@ -61,7 +61,7 @@ class MessageCollection {
     return Message(
       id: id,
       text: text,
-      isSentByMe: isSentByMe,
+      isSentByMe: isSentByMe ?? false,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,

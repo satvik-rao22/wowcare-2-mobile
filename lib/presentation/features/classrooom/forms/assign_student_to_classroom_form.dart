@@ -63,7 +63,7 @@ class AssignStudentToClassroomForm extends StatefulWidget {
 
 class _AssignStudentToClassroomFormState
     extends State<AssignStudentToClassroomForm> {
-  static const int _pageSize = 100;
+  static const int _pageSize = 200;
 
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';

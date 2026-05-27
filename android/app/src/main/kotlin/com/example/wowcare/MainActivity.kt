@@ -68,6 +68,7 @@ class MainActivity : FlutterActivity() {
                 "studio.midoridesign.gal.GalPlugin",
                 "com.baseflow.geocoding.GeocodingPlugin",
                 "com.baseflow.geolocator.GeolocatorPlugin",
+                "com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin",
                 "io.flutter.plugins.imagepicker.ImagePickerPlugin",
                 "dev.isar.isar_flutter_libs.IsarFlutterLibsPlugin",
                 "com.crazecoder.openfile.OpenFilePlugin",

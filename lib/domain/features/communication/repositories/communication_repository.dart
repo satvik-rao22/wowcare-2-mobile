@@ -30,4 +30,10 @@ abstract class CommunicationRepository {
     int size = 20,
   });
   Future<Either<Failure, List<Conversation>>> loadCachedConversations();
+  Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId);
+  Future<Either<Failure, void>> addReaction(
+    String threadId,
+    String messageId,
+    String emoji,
+  );
 }

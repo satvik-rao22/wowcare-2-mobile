@@ -124,6 +124,7 @@ class _AssignStaffToClassroomFormState
         'schoolCode': schoolCode,
         'excludeClassroomCode': excludeClassroomCode,
         'status': const ['ACTIVE'],
+        'sort': 'name,asc',
       },
     );
 

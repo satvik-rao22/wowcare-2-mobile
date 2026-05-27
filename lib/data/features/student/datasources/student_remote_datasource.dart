@@ -391,7 +391,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'schoolCode': schoolCode,
       'page': page,
       'size': size,
-      'sort': 'desc',
+      'sort': 'firstName,asc',
     };
 
     if (code != null && code.isNotEmpty) {

@@ -36,7 +36,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   bool _showUnread = false;
   static const int _conversationPageSize = 50;
 
-  String get _conversationType => 'DIRECT';
+  String get _conversationType => 'STAFF_DIRECT';
 
   @override
   bool get wantKeepAlive => true;
@@ -431,7 +431,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   id: 0,
                   code: member.code,
                   title: member.name,
-                  type: 'DIRECT',
+                  type: 'STAFF_DIRECT',
                   organizationCode: '',
                   schoolCode: '',
                   status: 'ACTIVE',
