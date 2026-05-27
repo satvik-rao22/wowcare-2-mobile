@@ -12,50 +12,74 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------
-// Responsive sizing — fixed for Bug 3 (iPad split-screen)
-// Uses shortestSide to detect a true tablet regardless of split-view width.
+// Responsive sizing — compact-first, breakpoint-based.
+//
+// shortestSide is used intentionally: it reflects the physical short edge of
+// the device regardless of orientation or split-view width, so a tablet in
+// landscape or split-screen is still detected as a tablet, not a phone.
+//
+// Breakpoints (shortestSide):
+//   < 360  → small phone  (e.g. Galaxy A01, iPhone SE 1st-gen)
+//   360–599→ normal phone (most Android flagships, iPhone 14 Pro etc.)
+//   600–899→ tablet       (iPad Mini, small Android tablets)
+//   ≥ 900  → large tablet (iPad Pro 11", iPad Air 13", large Android tablets)
+//
+// Sizing philosophy: the phone tier is the visual baseline. Tablets scale up
+// SLIGHTLY — never dramatically — so the navbar stays compact on every device.
 // ---------------------------------------------------------------------------
 class _NavSizes {
   _NavSizes(BuildContext context) {
     final mq = MediaQuery.of(context);
-    // shortestSide is always the physical short dimension even in landscape.
-    // ≥600 on shortestSide = a genuine tablet, not an iPhone in landscape.
     final shortest = mq.size.shortestSide;
-    final isTablet = shortest >= 600;
+
+    // Tier flags — mutually exclusive, evaluated top-down.
+    final isSmallPhone = shortest < 360;
+    final isTablet = shortest >= 600 && shortest < 900;
     final isLargeTablet = shortest >= 900;
+    // isNormalPhone = everything else (360 ≤ shortest < 600)
 
     if (isLargeTablet) {
-      iconSize = 30;
-      fontSize = 13;
-      itemPaddingH = 16;
+      iconSize = 28;
+      fontSize = 12.5;
+      itemPaddingH = 12;
       itemPaddingV = 12;
       activeRadius = 16;
+      iconTextGap = 4;
     } else if (isTablet) {
       iconSize = 26;
-      fontSize = 12;
+      fontSize = 11.5;
       itemPaddingH = 10;
-      itemPaddingV = 10;
+      itemPaddingV = 11;
       activeRadius = 14;
-    } else {
+      iconTextGap = 4;
+    } else if (isSmallPhone) {
       iconSize = 22;
       fontSize = 10;
       itemPaddingH = 4;
-      itemPaddingV = 6;
-      activeRadius = 12;
+      itemPaddingV = 9;
+      activeRadius = 11;
+      iconTextGap = 3;
+    } else {
+      // Normal phone baseline.
+      iconSize = 24;
+      fontSize = 11;
+      itemPaddingH = 6;
+      itemPaddingV = 10;
+      activeRadius = 13;
+      iconTextGap = 4;
     }
 
-    // Bug 2 fix — Samsung & all Android gesture-nav:
-    // viewPadding is the raw inset before system consumption; it reports the
-    // correct bottom inset in every Android navigation mode (gesture, 2-button,
-    // 3-button) AND on iOS home-bar devices.
-    // DO NOT use mq.padding.bottom — it can be 0 in gesture mode on Samsung.
-    final bottomInset = mq.viewPadding.bottom;
-    barPadding = EdgeInsets.fromLTRB(
-      isLargeTablet ? 16 : (isTablet ? 12 : 6),
-      isLargeTablet ? 10 : (isTablet ? 8 : 6),
-      isLargeTablet ? 16 : (isTablet ? 12 : 6),
-      (isLargeTablet ? 10 : (isTablet ? 8 : 6)) + bottomInset,
-    );
+    final rawBottom = mq.viewPadding.bottom;
+    final safeBottom = rawBottom.clamp(0.0, 36.0);
+
+    final double vPad = isLargeTablet
+        ? 12
+        : (isTablet ? 10 : (isSmallPhone ? 8 : 9));
+    final double hPad = isLargeTablet
+        ? 12
+        : (isTablet ? 10 : (isSmallPhone ? 4 : 6));
+
+    barPadding = EdgeInsets.fromLTRB(hPad, vPad, hPad, vPad + safeBottom);
   }
 
   late final double iconSize;
@@ -64,6 +88,9 @@ class _NavSizes {
   late final double itemPaddingV;
   late final EdgeInsets barPadding;
   late final double activeRadius;
+
+  /// Vertical gap between icon and label — scales with tier.
+  late final double iconTextGap;
 }
 
 class CustomNavigationBar extends StatefulWidget {
@@ -168,7 +195,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: .35),
                   borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
               : const BoxDecoration(),
@@ -183,7 +210,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                     ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
                     : null,
               ),
-              const SizedBox(height: 3),
+              SizedBox(height: sizes.iconTextGap),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -247,7 +274,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     // Highlight comes from the shell's current branch; falls back to 0
     // when the bar renders outside the shell (e.g. on an auth screen).
     final shell = appNavigationShell(context);
-    final activeTabIndex = widget.activeTabIndexOverride ??
+    final activeTabIndex =
+        widget.activeTabIndexOverride ??
         (shell == null
             ? 0
             : tabIndexForBranchIndex(
