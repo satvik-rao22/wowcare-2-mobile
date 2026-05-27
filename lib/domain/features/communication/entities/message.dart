@@ -2,11 +2,13 @@ import 'package:equatable/equatable.dart';
 
 class Message extends Equatable {
   final String id;
+  final String code;
   final String text;
   final bool isSentByMe;
   final DateTime time;
   final DateTime? deliveredAt;
   final DateTime? readAt;
+  final DateTime? editedAt;
   final List<RecipientStatus> deliveredTo;
   final List<RecipientStatus> readBy;
   final Map<String, String> reactions;
@@ -14,14 +16,17 @@ class Message extends Equatable {
   final List<ChatAttachment> attachments;
   final String? senderName;
   final List<String> receivers;
+  final String? senderUserCode;
 
   const Message({
     required this.id,
+    required this.code,
     required this.text,
     required this.isSentByMe,
     required this.time,
     this.deliveredAt,
     this.readAt,
+    this.editedAt,
     this.deliveredTo = const [],
     this.readBy = const [],
     this.reactions = const {},
@@ -29,6 +34,7 @@ class Message extends Equatable {
     this.attachments = const [],
     this.senderName,
     this.receivers = const [],
+    this.senderUserCode,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -53,11 +59,13 @@ class Message extends Equatable {
   @override
   List<Object?> get props => [
         id,
+        code,
         text,
         isSentByMe,
         time,
         deliveredAt,
         readAt,
+        editedAt,
         deliveredTo,
         readBy,
         reactions,
@@ -65,6 +73,7 @@ class Message extends Equatable {
         attachments,
         senderName,
         receivers,
+        senderUserCode,
       ];
 }
 

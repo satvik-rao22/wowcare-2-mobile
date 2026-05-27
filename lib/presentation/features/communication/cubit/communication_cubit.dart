@@ -8,6 +8,7 @@ import '../../../../domain/features/communication/usecases/get_cached_conversati
 import '../../../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
 import '../../../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../../../domain/features/communication/usecases/send_message_usecase.dart';
+import '../../../../domain/features/communication/usecases/edit_message_usecase.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -17,6 +18,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final GetCachedConversationsUseCase getCachedConversationsUseCase;
   final GetCachedMessagesUseCase getCachedMessagesUseCase;
   final AddReactionUseCase addReactionUseCase;
+  final EditMessageUseCase editMessageUseCase;
   final List<Timer> _statusTimers = [];
 
   CommunicationCubit({
@@ -26,6 +28,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.getCachedConversationsUseCase,
     required this.getCachedMessagesUseCase,
     required this.addReactionUseCase,
+    required this.editMessageUseCase,
   }) : super(CommunicationInitial());
 
   Future<void> loadConversations({
@@ -80,7 +83,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             : <String?, List<Conversation>>{};
 
         final updatedMap = Map<String?, List<Conversation>>.from(currentMap);
-        updatedMap[type] = conversations;
+        final sorted = List<Conversation>.from(conversations)
+          ..sort((a, b) {
+            final aTime = a.lastMessageAt ?? a.updatedAt;
+            final bTime = b.lastMessageAt ?? b.updatedAt;
+            return bTime.compareTo(aTime);
+          });
+        updatedMap[type] = sorted;
 
         emit(CommunicationConversationsLoaded(updatedMap));
       },
@@ -159,6 +168,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     final tempMessage = Message(
       id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+      code: '',
       text: text,
       isSentByMe: true,
       time: DateTime.now(),
@@ -230,11 +240,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             if (i != -1) {
               ms[i] = Message(
                 id: sentMessage.id,
+                code: sentMessage.code,
                 text: sentMessage.text,
                 isSentByMe: true,
                 time: sentMessage.time,
                 deliveredAt: DateTime.now(),
                 readAt: sentMessage.readAt,
+                editedAt: sentMessage.editedAt,
                 attachments: sentMessage.attachments,
                 quotedMessageId: sentMessage.quotedMessageId,
                 senderName: sentMessage.senderName,
@@ -259,11 +271,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             if (i != -1) {
               ms[i] = Message(
                 id: sentMessage.id,
+                code: sentMessage.code,
                 text: sentMessage.text,
                 isSentByMe: true,
                 time: sentMessage.time,
                 deliveredAt: ms[i].deliveredAt,
                 readAt: DateTime.now(),
+                editedAt: ms[i].editedAt,
                 attachments: sentMessage.attachments,
                 quotedMessageId: sentMessage.quotedMessageId,
                 senderName: sentMessage.senderName,
@@ -290,7 +304,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
   Future<void> addReaction(
     String threadId,
-    String messageId,
+    String messageCode,
     String emoji,
   ) async {
     if (state is! CommunicationLoaded) return;
@@ -303,16 +317,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final threadMessages = List<Message>.from(updatedThreads[threadId] ?? []);
 
     final updatedMessages = threadMessages.map((m) {
-      if (m.id == messageId) {
+      if (m.code == messageCode) {
         final newReactions = Map<String, String>.from(m.reactions);
         newReactions['me'] = emoji;
         return Message(
           id: m.id,
+          code: m.code,
           text: m.text,
           isSentByMe: m.isSentByMe,
           time: m.time,
           deliveredAt: m.deliveredAt,
           readAt: m.readAt,
+          editedAt: m.editedAt,
           deliveredTo: m.deliveredTo,
           readBy: m.readBy,
           reactions: newReactions,
@@ -329,6 +345,50 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     emit(currentState.copyWith(threads: updatedThreads));
 
     // Persist reaction in the background
-    await addReactionUseCase(threadId, messageId, emoji);
+    await addReactionUseCase(threadId, messageCode, emoji);
+  }
+
+  Future<void> editMessage(
+    String threadId,
+    String messageCode,
+    String content,
+  ) async {
+    if (state is! CommunicationLoaded) return;
+    final currentState = state as CommunicationLoaded;
+
+    // Optimistically update the UI
+    final updatedThreads = Map<String, List<Message>>.from(
+      currentState.threads,
+    );
+    final threadMessages = List<Message>.from(updatedThreads[threadId] ?? []);
+
+    final updatedMessages = threadMessages.map((m) {
+      if (m.code == messageCode) {
+        return Message(
+          id: m.id,
+          code: m.code,
+          text: content,
+          isSentByMe: m.isSentByMe,
+          time: m.time,
+          deliveredAt: m.deliveredAt,
+          readAt: m.readAt,
+          editedAt: DateTime.now(),
+          deliveredTo: m.deliveredTo,
+          readBy: m.readBy,
+          reactions: m.reactions,
+          quotedMessageId: m.quotedMessageId,
+          attachments: m.attachments,
+          senderName: m.senderName,
+          receivers: m.receivers,
+        );
+      }
+      return m;
+    }).toList();
+
+    updatedThreads[threadId] = updatedMessages;
+    emit(currentState.copyWith(threads: updatedThreads));
+
+    // Persist edit in the background
+    await editMessageUseCase(messageCode, content);
   }
 }

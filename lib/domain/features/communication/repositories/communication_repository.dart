@@ -33,7 +33,11 @@ abstract class CommunicationRepository {
   Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId);
   Future<Either<Failure, void>> addReaction(
     String threadId,
-    String messageId,
+    String messageCode,
     String emoji,
+  );
+  Future<Either<Failure, Message>> editMessage(
+    String messageCode,
+    String content,
   );
 }

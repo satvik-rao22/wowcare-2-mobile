@@ -517,6 +517,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     if (idx != -1) {
                       _messages[idx] = Message(
                         id: message.id,
+                        code: message.code,
                         text: newText,
                         senderName: widget.currentSender,
                         isSentByMe: message.isSentByMe,
@@ -684,27 +685,28 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   ),
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
-                                                MessageBubble(
-                                                  //key: key,
-                                                  //scrollKey: scrollKey,
-                                                  message: message,
-                                                  isParentMessaging: true,
-                                                  quotedMessage: quotedMessage,
-                                                  onLongPress:
-                                                      (
-                                                        LongPressStartDetails
-                                                        details,
-                                                      ) {
-                                                        _showMessageOptions(
-                                                          context,
-                                                          message,
-                                                          details,
-                                                        );
-                                                      },
-                                                  onScrollToQuoted: (quoteId) {
-                                                    _scrollToMessage(quoteId);
-                                                  },
-                                                ),
+
+                                                // MessageBubble(
+                                                //   //key: key,
+                                                //   //scrollKey: scrollKey,
+                                                //   message: message,
+                                                //   isParentMessaging: true,
+                                                //   quotedMessage: quotedMessage,
+                                                //   onLongPress:
+                                                //       (
+                                                //         LongPressStartDetails
+                                                //         details,
+                                                //       ) {
+                                                //         _showMessageOptions(
+                                                //           context,
+                                                //           message,
+                                                //           details,
+                                                //         );
+                                                //       },
+                                                //   onScrollToQuoted: (quoteId) {
+                                                //     _scrollToMessage(quoteId);
+                                                //   },
+                                                // ),
                                               ],
                                             ),
                                           );
@@ -778,27 +780,28 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   ),
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
-                                                MessageBubble(
-                                                  //key: key,
-                                                  //scrollKey: scrollKey,
-                                                  message: message,
-                                                  isParentMessaging: true,
-                                                  quotedMessage: quotedMessage,
-                                                  onLongPress:
-                                                      (
-                                                        LongPressStartDetails
-                                                        details,
-                                                      ) {
-                                                        _showMessageOptions(
-                                                          context,
-                                                          message,
-                                                          details,
-                                                        );
-                                                      },
-                                                  onScrollToQuoted: (quoteId) {
-                                                    _scrollToMessage(quoteId);
-                                                  },
-                                                ),
+
+                                                // MessageBubble(
+                                                //   //key: key,
+                                                //   //scrollKey: scrollKey,
+                                                //   message: message,
+                                                //   isParentMessaging: true,
+                                                //   quotedMessage: quotedMessage,
+                                                //   onLongPress:
+                                                //       (
+                                                //         LongPressStartDetails
+                                                //         details,
+                                                //       ) {
+                                                //         _showMessageOptions(
+                                                //           context,
+                                                //           message,
+                                                //           details,
+                                                //         );
+                                                //       },
+                                                //   onScrollToQuoted: (quoteId) {
+                                                //     _scrollToMessage(quoteId);
+                                                //   },
+                                                // ),
                                               ],
                                             ),
                                           );
@@ -879,42 +882,43 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   ),
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
-                                                MessageBubble(
-                                                  //key: key,
-                                                  //scrollKey: scrollKey,
-                                                  message: message,
-                                                  isParentMessaging: true,
-                                                  quotedMessage: quotedMessage,
-                                                  onLongPress:
-                                                      (
-                                                        LongPressStartDetails
-                                                        details,
-                                                      ) {
-                                                        _showMessageOptions(
-                                                          context,
-                                                          message,
-                                                          details,
-                                                        );
-                                                      },
-                                                  onScrollToQuoted: (quoteId) {
-                                                    _scrollToMessage(quoteId);
-                                                  },
-                                                  // onHeightMeasured: (id, height) {
-                                                  //   if (_bubbleHeights[id] != height) {
-                                                  //     setState(() {
-                                                  //       _bubbleHeights[id] = height;
-                                                  //     });
-                                                  //   }
-                                                  // },
-                                                  //onHeightMeasured:
-                                                  // onContextReady: (id, ctx) {
-                                                  //   if (_messageContexts[id] != ctx) {
-                                                  //     setState(() {
-                                                  //       _messageContexts[id] = ctx;
-                                                  //     });
-                                                  //   }
-                                                  // },
-                                                ),
+
+                                                // MessageBubble(
+                                                //   //key: key,
+                                                //   //scrollKey: scrollKey,
+                                                //   message: message,
+                                                //   isParentMessaging: true,
+                                                //   quotedMessage: quotedMessage,
+                                                //   onLongPress:
+                                                //       (
+                                                //         LongPressStartDetails
+                                                //         details,
+                                                //       ) {
+                                                //         _showMessageOptions(
+                                                //           context,
+                                                //           message,
+                                                //           details,
+                                                //         );
+                                                //       },
+                                                //   onScrollToQuoted: (quoteId) {
+                                                //     _scrollToMessage(quoteId);
+                                                //   },
+                                                //   // onHeightMeasured: (id, height) {
+                                                //   //   if (_bubbleHeights[id] != height) {
+                                                //   //     setState(() {
+                                                //   //       _bubbleHeights[id] = height;
+                                                //   //     });
+                                                //   //   }
+                                                //   // },
+                                                //   //onHeightMeasured:
+                                                //   // onContextReady: (id, ctx) {
+                                                //   //   if (_messageContexts[id] != ctx) {
+                                                //   //     setState(() {
+                                                //   //       _messageContexts[id] = ctx;
+                                                //   //     });
+                                                //   //   }
+                                                //   // },
+                                                // ),
                                               ],
                                             ),
                                           );
@@ -1150,31 +1154,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
-                                                    MessageBubble(
-                                                      //key: key,
-                                                      //scrollKey: scrollKey,
-                                                      message: message,
-                                                      isParentMessaging: true,
-                                                      quotedMessage:
-                                                          quotedMessage,
-                                                      onLongPress:
-                                                          (
-                                                            LongPressStartDetails
-                                                            details,
-                                                          ) {
-                                                            _showMessageOptions(
-                                                              context,
-                                                              message,
-                                                              details,
-                                                            );
-                                                          },
-                                                      onScrollToQuoted:
-                                                          (quoteId) {
-                                                            _scrollToMessage(
-                                                              quoteId,
-                                                            );
-                                                          },
-                                                    ),
+
+                                                    // MessageBubble(
+                                                    //   //key: key,
+                                                    //   //scrollKey: scrollKey,
+                                                    //   message: message,
+                                                    //   isParentMessaging: true,
+                                                    //   quotedMessage:
+                                                    //       quotedMessage,
+                                                    //   onLongPress:
+                                                    //       (
+                                                    //         LongPressStartDetails
+                                                    //         details,
+                                                    //       ) {
+                                                    //         _showMessageOptions(
+                                                    //           context,
+                                                    //           message,
+                                                    //           details,
+                                                    //         );
+                                                    //       },
+                                                    //   onScrollToQuoted:
+                                                    //       (quoteId) {
+                                                    //         _scrollToMessage(
+                                                    //           quoteId,
+                                                    //         );
+                                                    //       },
+                                                    // ),
                                                   ],
                                                 ),
                                               );
@@ -1260,31 +1265,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
-                                                    MessageBubble(
-                                                      //key: key,
-                                                      //scrollKey: scrollKey,
-                                                      message: message,
-                                                      isParentMessaging: true,
-                                                      quotedMessage:
-                                                          quotedMessage,
-                                                      onLongPress:
-                                                          (
-                                                            LongPressStartDetails
-                                                            details,
-                                                          ) {
-                                                            _showMessageOptions(
-                                                              context,
-                                                              message,
-                                                              details,
-                                                            );
-                                                          },
-                                                      onScrollToQuoted:
-                                                          (quoteId) {
-                                                            _scrollToMessage(
-                                                              quoteId,
-                                                            );
-                                                          },
-                                                    ),
+
+                                                    // MessageBubble(
+                                                    //   //key: key,
+                                                    //   //scrollKey: scrollKey,
+                                                    //   message: message,
+                                                    //   isParentMessaging: true,
+                                                    //   quotedMessage:
+                                                    //       quotedMessage,
+                                                    //   onLongPress:
+                                                    //       (
+                                                    //         LongPressStartDetails
+                                                    //         details,
+                                                    //       ) {
+                                                    //         _showMessageOptions(
+                                                    //           context,
+                                                    //           message,
+                                                    //           details,
+                                                    //         );
+                                                    //       },
+                                                    //   onScrollToQuoted:
+                                                    //       (quoteId) {
+                                                    //         _scrollToMessage(
+                                                    //           quoteId,
+                                                    //         );
+                                                    //       },
+                                                    // ),
                                                   ],
                                                 ),
                                               );
@@ -1372,31 +1378,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
-                                                    MessageBubble(
-                                                      //key: key,
-                                                      //scrollKey: scrollKey,
-                                                      message: message,
-                                                      isParentMessaging: true,
-                                                      quotedMessage:
-                                                          quotedMessage,
-                                                      onLongPress:
-                                                          (
-                                                            LongPressStartDetails
-                                                            details,
-                                                          ) {
-                                                            _showMessageOptions(
-                                                              context,
-                                                              message,
-                                                              details,
-                                                            );
-                                                          },
-                                                      onScrollToQuoted:
-                                                          (quoteId) {
-                                                            _scrollToMessage(
-                                                              quoteId,
-                                                            );
-                                                          },
-                                                    ),
+
+                                                    // MessageBubble(
+                                                    //   //key: key,
+                                                    //   //scrollKey: scrollKey,
+                                                    //   message: message,
+                                                    //   isParentMessaging: true,
+                                                    //   quotedMessage:
+                                                    //       quotedMessage,
+                                                    //   onLongPress:
+                                                    //       (
+                                                    //         LongPressStartDetails
+                                                    //         details,
+                                                    //       ) {
+                                                    //         _showMessageOptions(
+                                                    //           context,
+                                                    //           message,
+                                                    //           details,
+                                                    //         );
+                                                    //       },
+                                                    //   onScrollToQuoted:
+                                                    //       (quoteId) {
+                                                    //         _scrollToMessage(
+                                                    //           quoteId,
+                                                    //         );
+                                                    //       },
+                                                    // ),
                                                   ],
                                                 ),
                                               );
@@ -1512,8 +1519,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType:
-                                    att.mimeType ?? 'application/octet-stream',
+                                mimeType: att.mimeType,
                                 dataResolver: () async {
                                   return await File(
                                     att.localPath!,

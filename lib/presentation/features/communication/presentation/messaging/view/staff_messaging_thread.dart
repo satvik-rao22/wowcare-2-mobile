@@ -20,6 +20,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class StaffMessagingThread extends StatefulWidget {
@@ -35,6 +37,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   final AutoScrollController _scrollController = AutoScrollController();
   final TextEditingController _controller = TextEditingController();
 
+  String? _currentUserCode;
+
   List<Message> get _messages {
     final state = context.read<CommunicationCubit>().state;
     if (state is CommunicationLoaded) {
@@ -47,24 +51,27 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   late final ReactionsController _reactionsController;
 
   Message? _quotedMessage = null;
-  String? _quotedMessageId;
+  String? _quotedMessageCode;
   List<ChatAttachment> _pendingAttachments = [];
 
   @override
   void initState() {
     super.initState();
-    _reactionsController = ReactionsController(currentUserId: 'me'); // for now
+    final authState = context.read<AuthCubit>().state;
+    _currentUserCode = authState is AuthLoaded
+        ? authState.loginResponse.userCode
+        : null;
+    _reactionsController = ReactionsController(
+      currentUserId: _currentUserCode ?? 'me',
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final authState = context.read<AuthCubit>().state;
-        final userCode = authState is AuthLoaded
-            ? authState.loginResponse.userCode
-            : null;
         context.read<CommunicationCubit>().loadMessages(
           widget.staffInfo['code'] as String,
-          currentUserId: userCode,
+          currentUserId: _currentUserCode,
         );
+        _scrollToBottom();
       }
     });
   }
@@ -72,7 +79,21 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   @override
   void dispose() {
     _reactionsController.dispose();
+    _scrollController.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _sendMessage() {
@@ -91,7 +112,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       widget.staffInfo['code'] as String,
       text,
       attachments: List.from(_pendingAttachments),
-      quotedMessageId: _quotedMessageId,
+      quotedMessageId: _quotedMessageCode,
       senderName: senderName,
     );
 
@@ -99,179 +120,46 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       _controller.clear();
       _pendingAttachments.clear();
       _quotedMessage = null;
-      _quotedMessageId = null;
+      _quotedMessageCode = null;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.scrollToIndex(
-        0,
-        preferPosition: AutoScrollPosition.begin,
-        duration: const Duration(milliseconds: 300),
-      );
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
-  int? _getReversedIndex(String messageId) {
+  int? _getMessageIndex(String messageId) {
     final index = _messages.indexWhere((m) => m.id == messageId);
-    if (index == -1) return null;
-    return _messages.length - 1 - index;
+    return index >= 0 ? index : null;
   }
 
   void _scrollToMessage(String messageId) {
-    final index = _getReversedIndex(messageId);
+    final index = _getMessageIndex(messageId);
     if (index == null) {
       AppLogger.d("Message $messageId not found");
       return;
     }
 
-    _scrollController.scrollToIndex(
-      index,
-      preferPosition: AutoScrollPosition.middle,
+    _scrollController.animateTo(
+      (_scrollController.position.maxScrollExtent / _messages.length) *
+          (index + 1),
       duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
     );
   }
 
-  void _showMessageOptions(
-    BuildContext context,
-    Message message,
-    LongPressStartDetails details,
-  ) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(
-          details.globalPosition.dx,
-          details.globalPosition.dy,
-          40,
-          40,
-        ),
-        Offset.zero & overlay.size,
-      ),
-      items: <PopupMenuEntry<String>>[
-        if (message.isSentByMe) ...[
-          const PopupMenuItem<String>(
-            value: 'edit',
-            child: ListTile(
-              leading: Icon(Icons.edit, color: AppColors.primaryColor),
-              title: CustomTextWidget(
-                text: 'Edit',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                applyLetterSpacing: false,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem<String>(
-            value: 'delete',
-            child: ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: AppColors.primaryColor,
-              ),
-              title: CustomTextWidget(
-                text: 'Delete',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                applyLetterSpacing: false,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-        const PopupMenuItem<String>(
-          value: 'reply',
-          child: ListTile(
-            leading: Icon(Icons.reply, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Reply',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'copy',
-          child: ListTile(
-            leading: Icon(Icons.copy, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Copy',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'info',
-          child: ListTile(
-            leading: Icon(Icons.info, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Info',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'react',
-          child: ListTile(
-            leading: Icon(Icons.emoji_emotions_outlined),
-            title: Text('React'),
-          ),
-        ),
-      ],
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
-    ).then((value) {
-      if (!mounted || value == null) return;
-
-      switch (value) {
-        case 'reply':
-          setState(() {
-            _quotedMessageId = message.id;
-            _quotedMessage = message;
-          });
-          break;
-        case 'copy':
-          Clipboard.setData(ClipboardData(text: message.text));
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Message copied successfully',
-            isSuccess: true,
-          );
-          break;
-        case 'info':
-          _showMessageStatusDialog(context, message);
-          break;
-        case 'edit':
-          _showEditDialog(context, message);
-          break;
-
-        case 'delete':
-          setState(() {
-            _messages.removeWhere((m) => m.id == message.id);
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Message deleted successfully',
-              isSuccess: true,
-            );
-          });
-          break;
-        case 'react':
-          _showEmojiPicker(context, message);
-          break;
-      }
-    });
+  void _onReactionAdded(Message message, String emoji) {
+    context.read<CommunicationCubit>().addReaction(
+      widget.staffInfo['code'] as String,
+      message.code,
+      emoji,
+    );
   }
 
   void _showEmojiPicker(BuildContext context, Message message) {
@@ -292,7 +180,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
               _onReactionAdded(message, emoji.emoji);
             },
             config: const Config(
-              //height: 380,
               checkPlatformCompatibility: true,
               emojiSet: null,
               locale: Locale('en'),
@@ -311,14 +198,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
           ),
         );
       },
-    );
-  }
-
-  void _onReactionAdded(Message message, String emoji) {
-    context.read<CommunicationCubit>().addReaction(
-      widget.staffInfo['code'] as String,
-      message.id,
-      emoji,
     );
   }
 
@@ -422,6 +301,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                 final newText = editingController.text.trim();
                 if (newText.isNotEmpty && newText != message.text) {
                   if (!mounted) return;
+                  context.read<CommunicationCubit>().editMessage(
+                    widget.staffInfo['code'] as String,
+                    message.code,
+                    newText,
+                  );
                   setState(() {
                     final idx = _messages.indexWhere((m) => m.id == message.id);
                     if (idx != -1) {
@@ -432,10 +316,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                         time: message.time,
                         deliveredAt: message.deliveredAt,
                         readAt: message.readAt,
+                        editedAt: DateTime.now(),
                         deliveredTo: message.deliveredTo,
                         readBy: message.readBy,
                         attachments: message.attachments,
                         reactions: message.reactions,
+                        code: message.code,
                       );
                       CoreUtils.showTopSnackBar(
                         context: context,
@@ -492,11 +378,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               horizontal: 8,
                               vertical: 12,
                             ),
-                            reverse: true,
+                            reverse: false,
                             itemCount: _messages.length,
                             itemBuilder: (context, index) {
-                              final message =
-                                  _messages[_messages.length - 1 - index];
+                              final message = _messages[index];
                               final messageId = message.id;
                               //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
                               // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
@@ -506,23 +391,35 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               // );
                               Message? quotedMessage;
                               if (message.quotedMessageId != null) {
-                                quotedMessage = _messages.firstWhere(
+                                final matches = _messages.where(
                                   (m) => m.id == message.quotedMessageId,
-                                ); // ?? null;
+                                );
+                                quotedMessage = matches.isNotEmpty
+                                    ? matches.first
+                                    : null;
                               }
                               bool showDateHeader = false;
-                              final prevListIndex =
-                                  _messages.length - 2 - index;
+                              final prevMessageIndex = index - 1;
 
-                              if (prevListIndex >= 0) {
-                                final prevMessage = _messages[prevListIndex];
+                              if (prevMessageIndex >= 0) {
+                                final prevMessage = _messages[prevMessageIndex];
+                                final schoolTz =
+                                    SchoolTimezoneResolver.lastKnownTimeZone;
+                                final currentDate =
+                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                      message.time,
+                                      schoolTz,
+                                    );
+                                final prevDate =
+                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                      prevMessage.time,
+                                      schoolTz,
+                                    );
 
                                 showDateHeader =
-                                    message.time.year !=
-                                        prevMessage.time.year ||
-                                    message.time.month !=
-                                        prevMessage.time.month ||
-                                    message.time.day != prevMessage.time.day;
+                                    currentDate.year != prevDate.year ||
+                                    currentDate.month != prevDate.month ||
+                                    currentDate.day != prevDate.day;
                               } else {
                                 showDateHeader = true;
                               }
@@ -549,21 +446,59 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                     if (showDateHeader)
                                       const SizedBox(height: 10),
                                     MessageBubble(
-                                      //key: key,
-                                      //scrollKey: scrollKey,
                                       message: message,
                                       quotedMessage: quotedMessage,
-                                      onLongPress:
-                                          (LongPressStartDetails details) {
-                                            _showMessageOptions(
-                                              context,
-                                              message,
-                                              details,
-                                            );
-                                          },
+                                      currentUserCode: _currentUserCode,
+                                      reactionsController: _reactionsController,
                                       onScrollToQuoted: (quoteId) {
                                         _scrollToMessage(quoteId);
                                       },
+                                      onReply: () {
+                                        setState(() {
+                                          _quotedMessageCode = message.code;
+                                          _quotedMessage = message;
+                                        });
+                                      },
+                                      onReplyFromMenu: () {
+                                        setState(() {
+                                          _quotedMessageCode = message.code;
+                                          _quotedMessage = message;
+                                        });
+                                      },
+                                      onCopy: () {
+                                        Clipboard.setData(
+                                          ClipboardData(text: message.text),
+                                        );
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message:
+                                              'Message copied successfully',
+                                          isSuccess: true,
+                                        );
+                                      },
+                                      onEdit: () =>
+                                          _showEditDialog(context, message),
+                                      onDelete: () {
+                                        setState(() {
+                                          _messages.removeWhere(
+                                            (m) => m.id == message.id,
+                                          );
+                                        });
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message:
+                                              'Message deleted successfully',
+                                          isSuccess: true,
+                                        );
+                                      },
+                                      onInfo: () => _showMessageStatusDialog(
+                                        context,
+                                        message,
+                                      ),
+                                      onReactionAdded: (emoji) =>
+                                          _onReactionAdded(message, emoji),
+                                      onReactionTap: () =>
+                                          _showEmojiPicker(context, message),
                                     ),
                                   ],
                                 ),
@@ -645,7 +580,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                               height: 12,
                                               decoration: BoxDecoration(
                                                 color:
-                                                    (widget.staffInfo['isSigned'] ?? false)
+                                                    (widget.staffInfo['isSigned'] ??
+                                                        false)
                                                     ? const Color.fromRGBO(
                                                         0,
                                                         177,
@@ -656,7 +592,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
                                                   color:
-                                                      (widget.staffInfo['isSigned'] ?? false)
+                                                      (widget.staffInfo['isSigned'] ??
+                                                          false)
                                                       ? Colors.white
                                                       : Colors.transparent,
                                                   width: 2,
@@ -685,11 +622,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                     horizontal: 8,
                                     vertical: 12,
                                   ),
-                                  reverse: true,
+                                  reverse: false,
                                   itemCount: _messages.length,
                                   itemBuilder: (context, index) {
-                                    final message =
-                                        _messages[_messages.length - 1 - index];
+                                    final message = _messages[index];
                                     final messageId = message.id;
                                     //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
                                     // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
@@ -699,25 +635,36 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                     // );
                                     Message? quotedMessage;
                                     if (message.quotedMessageId != null) {
-                                      quotedMessage = _messages.firstWhere(
+                                      final matches = _messages.where(
                                         (m) => m.id == message.quotedMessageId,
-                                      ); // ?? null;
+                                      );
+                                      quotedMessage = matches.isNotEmpty
+                                          ? matches.first
+                                          : null;
                                     }
                                     bool showDateHeader = false;
-                                    final prevListIndex =
-                                        _messages.length - 2 - index;
+                                    final prevMessageIndex = index - 1;
 
-                                    if (prevListIndex >= 0) {
+                                    if (prevMessageIndex >= 0) {
                                       final prevMessage =
-                                          _messages[prevListIndex];
+                                          _messages[prevMessageIndex];
+                                      final schoolTz = SchoolTimezoneResolver
+                                          .lastKnownTimeZone;
+                                      final currentDate =
+                                          SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                            message.time,
+                                            schoolTz,
+                                          );
+                                      final prevDate =
+                                          SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                            prevMessage.time,
+                                            schoolTz,
+                                          );
 
                                       showDateHeader =
-                                          message.time.year !=
-                                              prevMessage.time.year ||
-                                          message.time.month !=
-                                              prevMessage.time.month ||
-                                          message.time.day !=
-                                              prevMessage.time.day;
+                                          currentDate.year != prevDate.year ||
+                                          currentDate.month != prevDate.month ||
+                                          currentDate.day != prevDate.day;
                                     } else {
                                       showDateHeader = true;
                                     }
@@ -747,23 +694,73 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                             const SizedBox(height: 10),
 
                                           MessageBubble(
-                                            //key: key,
-                                            //scrollKey: scrollKey,
                                             message: message,
                                             quotedMessage: quotedMessage,
-                                            onLongPress:
-                                                (
-                                                  LongPressStartDetails details,
-                                                ) {
-                                                  _showMessageOptions(
-                                                    context,
-                                                    message,
-                                                    details,
-                                                  );
-                                                },
+                                            currentUserCode: _currentUserCode,
+                                            reactionsController:
+                                                _reactionsController,
                                             onScrollToQuoted: (quoteId) {
                                               _scrollToMessage(quoteId);
                                             },
+                                            onReply: () {
+                                              setState(() {
+                                                _quotedMessageCode =
+                                                    message.code;
+                                                _quotedMessage = message;
+                                              });
+                                            },
+                                            onReplyFromMenu: () {
+                                              setState(() {
+                                                _quotedMessageCode =
+                                                    message.code;
+                                                _quotedMessage = message;
+                                              });
+                                            },
+                                            onCopy: () {
+                                              Clipboard.setData(
+                                                ClipboardData(
+                                                  text: message.text,
+                                                ),
+                                              );
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Message copied successfully',
+                                                isSuccess: true,
+                                              );
+                                            },
+                                            onEdit: () => _showEditDialog(
+                                              context,
+                                              message,
+                                            ),
+                                            onDelete: () {
+                                              setState(() {
+                                                _messages.removeWhere(
+                                                  (m) => m.id == message.id,
+                                                );
+                                              });
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Message deleted successfully',
+                                                isSuccess: true,
+                                              );
+                                            },
+                                            onInfo: () =>
+                                                _showMessageStatusDialog(
+                                                  context,
+                                                  message,
+                                                ),
+                                            onReactionAdded: (emoji) =>
+                                                _onReactionAdded(
+                                                  message,
+                                                  emoji,
+                                                ),
+                                            onReactionTap: () =>
+                                                _showEmojiPicker(
+                                                  context,
+                                                  message,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -837,6 +834,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                       onPressed: () {
                         setState(() {
                           _quotedMessage = null;
+                          _quotedMessageCode = null;
                         });
                       },
                     ),
@@ -1000,7 +998,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               hintText: "Type your message here...",
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
-                                vertical: 12,
+                                vertical: 5,
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(24),
@@ -1075,30 +1073,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   }
 
   Widget _buildDateChip(DateTime date) {
-    final now = DateTime.now();
+    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      date,
+      schoolTz,
+    );
+    final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      DateTime.now().toUtc(),
+      schoolTz,
+    );
 
     String label;
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label = "Today, ${date.day} ${monthNames[date.month - 1]} ${date.year}";
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
+    if (schoolDate.year == schoolNow.year &&
+        schoolDate.month == schoolNow.month &&
+        schoolDate.day == schoolNow.day) {
       final monthNames = [
         'January',
         'February',
@@ -1114,7 +1102,26 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
         'December',
       ];
       label =
-          "Yesterday, ${date.day} ${monthNames[date.month - 1]} ${date.year}";
+          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+    } else if (schoolDate.year == schoolNow.year &&
+        schoolDate.month == schoolNow.month &&
+        schoolDate.day == schoolNow.day - 1) {
+      final monthNames = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ];
+      label =
+          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else {
       final monthNames = [
         'January',
@@ -1130,7 +1137,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
         'November',
         'December',
       ];
-      label = "${date.day} ${monthNames[date.month - 1]} ${date.year}";
+      label =
+          "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
     return CustomTextWidget(

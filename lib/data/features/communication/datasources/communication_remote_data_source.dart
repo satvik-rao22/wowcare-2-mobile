@@ -12,6 +12,7 @@ import '../../../../core/util/api_paths.dart';
 abstract class CommunicationRemoteDataSource {
   Future<List<MessageModel>> getMessages(String threadId, {String? currentUserId});
   Future<MessageModel> sendMessage(String threadId, MessageModel message);
+  Future<MessageModel> editMessage(String messageCode, String content);
   Future<void> markAsRead(String threadId, String messageId);
   Future<String> uploadAttachment(ChatAttachmentModel attachment);
   Future<ConversationModel> createConversation(
@@ -23,7 +24,7 @@ abstract class CommunicationRemoteDataSource {
     int page = 0,
     int size = 20,
   });
-  Future<void> addReaction(String messageId, String emoji);
+  Future<void> addReaction(String messageCode, String emoji);
 }
 
 class CommunicationRemoteDataSourceImpl
@@ -66,9 +67,88 @@ class CommunicationRemoteDataSourceImpl
     String threadId,
     MessageModel message,
   ) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 300));
-    return message; // In mock, we just return what was sent
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingMessages,
+      ApiConstants.communicationBaseUrl,
+    );
+
+    final body = {
+      'conversationCode': threadId,
+      'type': 'TEXT',
+      'content': message.text,
+      if (message.quotedMessageId != null)
+        'replyToMessageId': message.quotedMessageId,
+    };
+
+    final response = await apiClient.client.post(endpoint, data: body);
+
+    ApiLogger.logResponse(
+      url: endpoint,
+      method: 'POST',
+      statusCode: response.statusCode,
+      data: response.data,
+    );
+
+    if (response.data != null && response.data['success'] == true) {
+      final data = response.data['data'] as Map<String, dynamic>;
+      final parsed = MessageModel.fromJson(data);
+      // The sender is always the current user for outbound messages.
+      return MessageModel(
+        id: parsed.id,
+        code: parsed.code,
+        conversationCode: parsed.conversationCode,
+        senderUserCode: parsed.senderUserCode,
+        text: parsed.text,
+        isSentByMe: true,
+        time: parsed.time,
+        quotedMessageId: parsed.quotedMessageId,
+        attachments: parsed.attachments,
+        reactions: parsed.reactions,
+        senderName: parsed.senderName,
+      );
+    } else {
+      throw Exception(response.data?['message'] ?? 'Failed to send message');
+    }
+  }
+
+  @override
+  Future<MessageModel> editMessage(String messageCode, String content) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.messagingMessages}/$messageCode',
+      ApiConstants.communicationBaseUrl,
+    );
+
+    final response = await apiClient.client.put(
+      endpoint,
+      data: {'content': content},
+    );
+
+    ApiLogger.logResponse(
+      url: endpoint,
+      method: 'PUT',
+      statusCode: response.statusCode,
+      data: response.data,
+    );
+
+    if (response.data != null && response.data['success'] == true) {
+      final data = response.data['data'] as Map<String, dynamic>;
+      final parsed = MessageModel.fromJson(data);
+      return MessageModel(
+        id: parsed.id,
+        code: parsed.code,
+        conversationCode: parsed.conversationCode,
+        senderUserCode: parsed.senderUserCode,
+        text: parsed.text,
+        isSentByMe: true,
+        time: parsed.time,
+        quotedMessageId: parsed.quotedMessageId,
+        attachments: parsed.attachments,
+        reactions: parsed.reactions,
+        senderName: parsed.senderName,
+      );
+    } else {
+      throw Exception(response.data?['message'] ?? 'Failed to edit message');
+    }
   }
 
   @override
@@ -135,9 +215,9 @@ class CommunicationRemoteDataSourceImpl
   }
 
   @override
-  Future<void> addReaction(String messageId, String emoji) async {
+  Future<void> addReaction(String messageCode, String emoji) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.messagingMessages}/$messageId/react',
+      '${ApiPaths.messagingMessages}/$messageCode/reactions',
       ApiConstants.communicationBaseUrl,
     );
 

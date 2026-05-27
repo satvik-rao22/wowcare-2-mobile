@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/create_conversation_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -390,7 +392,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 ),
                         ),
                       );
-                      Navigator.of(context).push(route);
+                      Navigator.of(context).push(route).then((_) {
+                        if (mounted) {
+                          context.read<CommunicationCubit>().loadConversations(
+                            type: _conversationType,
+                            size: _conversationPageSize,
+                          );
+                        }
+                      });
                     },
                   );
                 }, childCount: conversationsToDisplay.length),
@@ -446,7 +455,33 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   lastMessagePreview: 'Tap to start chatting',
                   participants: [],
                 ),
-                onTap: () {
+                onTap: () async {
+                  final authState = context.read<AuthCubit>().state;
+                  if (authState is! AuthLoaded) return;
+
+                  final currentUserCode = authState.loginResponse.userCode;
+                  final firstRole = authState.loginResponse.roles.isNotEmpty
+                      ? authState.loginResponse.roles.first
+                      : null;
+                  final orgCode = firstRole?.organizationCode ?? '';
+                  final schoolCode = firstRole?.schoolCode ?? '';
+
+                  final cubit = serviceLocator<CreateConversationCubit>();
+
+                  final result = await cubit.createConversationAndReturn(
+                    title: member.name,
+                    type: 'STAFF_DIRECT',
+                    description: '',
+                    organizationCode: orgCode,
+                    schoolCode: schoolCode,
+                    participantUserCodes: [currentUserCode, member.code],
+                    avatarUrl: '',
+                  );
+
+                  if (!context.mounted) return;
+
+                  final conversationCode = result?.code ?? member.code;
+
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => BlocProvider<CommunicationCubit>(
@@ -456,12 +491,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                           staffInfo: {
                             'name': member.name,
                             'avatar': member.profileImage,
-                            'code': member.code,
+                            'code': conversationCode,
                           },
                         ),
                       ),
                     ),
-                  );
+                  ).then((_) {
+                    if (mounted) {
+                      context.read<CommunicationCubit>().loadConversations(
+                        type: _conversationType,
+                        size: _conversationPageSize,
+                      );
+                    }
+                  });
                 },
               );
             }, childCount: staff.length),
@@ -529,7 +571,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                         ),
                       ),
                     ),
-                  );
+                  ).then((_) {
+                    if (mounted) {
+                      context.read<CommunicationCubit>().loadConversations(
+                        type: _conversationType,
+                        size: _conversationPageSize,
+                      );
+                    }
+                  });
                 },
               );
             }, childCount: students.length),

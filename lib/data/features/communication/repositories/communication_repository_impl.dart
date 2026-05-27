@@ -30,11 +30,21 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         currentUserId: currentUserId,
       );
 
-      // Save to cache for offline support
+      // Synchronize cache: API response is the source of truth
+      // Delete all old cached messages for this thread first
+      final oldCachedCollections = await cacheService
+          .getByField<MessageCollection>('threadId', threadId);
+      for (final collection in oldCachedCollections) {
+        await cacheService.delete<MessageCollection>(collection.isarId);
+      }
+
+      // Insert fresh messages from API (empty API → cache is now empty)
       final collections = remoteMessages
           .map((m) => MessageCollection.fromEntity(m, threadId))
           .toList();
-      await cacheService.putAll(collections);
+      if (collections.isNotEmpty) {
+        await cacheService.putAll(collections);
+      }
 
       return Right(remoteMessages);
     } catch (e) {
@@ -60,6 +70,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     try {
       final messageModel = MessageModel(
         id: message.id,
+        code: message.code,
         text: message.text,
         isSentByMe: message.isSentByMe,
         time: message.time,
@@ -67,7 +78,6 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         senderName: message.senderName,
         receivers: message.receivers,
         reactions: message.reactions,
-        code: '',
         senderUserCode: '',
       );
       final sentMessage = await remoteDataSource.sendMessage(
@@ -235,16 +245,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   @override
   Future<Either<Failure, void>> addReaction(
     String threadId,
-    String messageId,
+    String messageCode,
     String emoji,
   ) async {
     try {
-      await remoteDataSource.addReaction(messageId, emoji);
+      await remoteDataSource.addReaction(messageCode, emoji);
 
       // Update local Isar cache
       final results = await cacheService.getByField<MessageCollection>(
-        'id',
-        messageId,
+        'code',
+        messageCode,
       );
       if (results.isNotEmpty) {
         final messageCollection = results.first;
@@ -266,6 +276,35 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       }
 
       return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Message>> editMessage(
+    String messageCode,
+    String content,
+  ) async {
+    try {
+      final editedMessage = await remoteDataSource.editMessage(
+        messageCode,
+        content,
+      );
+
+      // Update cache
+      final results = await cacheService.getByField<MessageCollection>(
+        'code',
+        messageCode,
+      );
+      if (results.isNotEmpty) {
+        final messageCollection = results.first;
+        messageCollection.text = content;
+        messageCollection.editedAt = DateTime.now();
+        await cacheService.put(messageCollection);
+      }
+
+      return Right(editedMessage);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

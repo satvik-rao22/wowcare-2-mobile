@@ -1,20 +1,20 @@
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class MessageModel extends Message {
-  final String code;
   final String? conversationCode;
   final String senderUserCode;
 
   const MessageModel({
     required super.id,
+    required super.code,
     required super.text,
     required super.isSentByMe,
     required super.time,
-    required this.code,
     this.conversationCode,
     required this.senderUserCode,
     super.deliveredAt,
     super.readAt,
+    super.editedAt,
     super.deliveredTo,
     super.readBy,
     super.reactions,
@@ -22,7 +22,7 @@ class MessageModel extends Message {
     super.attachments,
     super.senderName,
     super.receivers,
-  });
+  }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
     final senderCode = json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '';
@@ -40,6 +40,9 @@ class MessageModel extends Message {
           ? DateTime.now()
           : null,
       readAt: json['status'] == 'READ' ? DateTime.now() : null,
+      editedAt: json['editedAt'] != null
+          ? DateTime.parse(json['editedAt'] as String)
+          : null,
       deliveredTo: const [],
       readBy: const [],
       reactions: {

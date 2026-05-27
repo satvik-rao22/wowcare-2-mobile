@@ -182,6 +182,7 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
+import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 
@@ -195,9 +196,6 @@ import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.d
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
-
-import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
-import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
@@ -685,6 +683,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AddReactionUseCase>(
     () => AddReactionUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<EditMessageUseCase>(
+    () => EditMessageUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
@@ -910,6 +911,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getCachedConversationsUseCase: serviceLocator(),
       getCachedMessagesUseCase: serviceLocator(),
       addReactionUseCase: serviceLocator(),
+      editMessageUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
