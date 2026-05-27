@@ -38,6 +38,7 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final qp = <String, String>{
       'school': schoolCode,
       'status': 'ACTIVE',
+      'sort': 'name,asc',
     };
     final overrideType = (typeOverride ?? '').trim();
     if (overrideType.isNotEmpty) {
@@ -45,9 +46,14 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     } else if (onlyTypeClassroom) {
       qp['type'] = 'CLASSROOM';
     }
-    final uri = Uri.parse(ApiPaths.url(ApiPaths.classroomAll)).replace(
-      queryParameters: qp,
-    );
+    // Build query manually so the comma in `sort=name,asc` stays literal
+    // instead of being percent-encoded to `%2C`.
+    final query = qp.entries
+        .map((e) =>
+            '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value).replaceAll('%2C', ',')}')
+        .join('&');
+    final uri =
+        Uri.parse(ApiPaths.url(ApiPaths.classroomAll)).replace(query: query);
 
     final response = await _client.getUri<dynamic>(uri);
 

@@ -292,6 +292,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       'schoolCode': schoolCode,
       'page': page,
       'size': size,
+      'sort': 'firstName,asc',
     };
 
     // New: send organizationCode so backend can scope staff list correctly.
@@ -354,6 +355,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
       // Single large page so we get every staff member in one round trip.
       'page': 0,
       'size': size,
+      'sort': 'firstName,asc',
     };
     if (organizationCode.isNotEmpty) {
       queryParameters['organizationCode'] = organizationCode;

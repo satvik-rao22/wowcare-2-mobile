@@ -1099,7 +1099,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
           fromAttendanceDate: date,
           toAttendanceDate: date,
           page: 0,
-          size: 100,
+          size: 200,
         );
         final match = page.items.where(
           (i) => i.studentCode.trim() == selectedChild.code.trim(),

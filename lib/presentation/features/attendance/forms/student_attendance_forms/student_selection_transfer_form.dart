@@ -151,7 +151,7 @@ class _StudentSelectionTransferFormState
         tagCodes: tagCodes,
         search: searchText,
         page: 0,
-        size: 100,
+        size: 200,
       );
 
       final students = page.items.asMap().entries.map((entry) {

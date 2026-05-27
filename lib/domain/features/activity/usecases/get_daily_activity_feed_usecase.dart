@@ -16,7 +16,7 @@ class GetDailyActivityFeedUseCase {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) {
     return _repository.getDailyActivityFeed(
       classroomCode: classroomCode,

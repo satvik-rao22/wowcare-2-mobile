@@ -87,6 +87,7 @@ class StudentClassroomRemoteDataSourceImpl
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
       'classroomCode': classroomCode,
+      'sort': 'name,asc',
     };
 
     if (firstName != null && firstName.trim().isNotEmpty) {

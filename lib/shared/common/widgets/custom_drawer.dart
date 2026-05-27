@@ -408,7 +408,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           fromAttendanceDate: date,
           toAttendanceDate: date,
           page: 0,
-          size: 100,
+          size: 200,
         );
         final selected = signedInPage.items.where(
           (i) => i.studentCode.trim() == selectedChild.code.trim(),
