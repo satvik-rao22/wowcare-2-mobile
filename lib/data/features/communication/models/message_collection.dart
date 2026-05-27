@@ -63,13 +63,28 @@ class MessageCollection {
           .toList();
   }
 
-  Message toEntity() {
+  /// Converts to a domain [Message].
+  ///
+  /// When [currentUserId] is supplied the [isSentByMe] flag is re-derived
+  /// from [senderUserCode] at read-time, which is the authoritative source.
+  /// This prevents stale/null Isar booleans from flipping the bubble style.
+  Message toEntity({String? currentUserId}) {
+    final normalizedUserId = currentUserId?.trim();
+    final normalizedSenderCode = senderUserCode?.trim();
+    final resolvedIsSentByMe =
+        (normalizedUserId != null &&
+            normalizedUserId.isNotEmpty &&
+            normalizedSenderCode != null &&
+            normalizedSenderCode.isNotEmpty)
+        ? normalizedSenderCode == normalizedUserId
+        : (isSentByMe ?? false);
+
     return Message(
       id: id,
       code: code,
       text: text,
-      isSentByMe: isSentByMe ?? false,
-      senderUserCode: senderUserCode,
+      isSentByMe: resolvedIsSentByMe,
+      senderUserCode: normalizedSenderCode,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,

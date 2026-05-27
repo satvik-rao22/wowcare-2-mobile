@@ -1,5 +1,3 @@
-import 'package:wowcare/core/network/api_logger.dart';
-
 import '../../../../core/network/api_client.dart';
 import '../models/create_conversation_request.dart';
 import '../models/conversation_model.dart';
@@ -10,7 +8,10 @@ import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 
 abstract class CommunicationRemoteDataSource {
-  Future<List<MessageModel>> getMessages(String threadId, {String? currentUserId});
+  Future<List<MessageModel>> getMessages(
+    String threadId, {
+    String? currentUserId,
+  });
   Future<MessageModel> sendMessage(String threadId, MessageModel message);
   Future<MessageModel> editMessage(String messageCode, String content);
   Future<void> markAsRead(String threadId, String messageId);
@@ -44,8 +45,6 @@ class CommunicationRemoteDataSourceImpl
     );
 
     final response = await apiClient.client.get(endpoint);
-
-    ApiLogger.logResponse(url: endpoint, method: 'GET');
 
     if (response.data != null && response.data['success'] == true) {
       final List<dynamic> messagesJson = response.data['data']['messages'];
@@ -82,13 +81,6 @@ class CommunicationRemoteDataSourceImpl
 
     final response = await apiClient.client.post(endpoint, data: body);
 
-    ApiLogger.logResponse(
-      url: endpoint,
-      method: 'POST',
-      statusCode: response.statusCode,
-      data: response.data,
-    );
-
     if (response.data != null && response.data['success'] == true) {
       final data = response.data['data'] as Map<String, dynamic>;
       final parsed = MessageModel.fromJson(data);
@@ -121,13 +113,6 @@ class CommunicationRemoteDataSourceImpl
     final response = await apiClient.client.put(
       endpoint,
       data: {'content': content},
-    );
-
-    ApiLogger.logResponse(
-      url: endpoint,
-      method: 'PUT',
-      statusCode: response.statusCode,
-      data: response.data,
     );
 
     if (response.data != null && response.data['success'] == true) {
@@ -179,13 +164,32 @@ class CommunicationRemoteDataSourceImpl
     final apiResponse = CreateConversationResponse.fromJson(response.data);
 
     if (apiResponse.success && apiResponse.data != null) {
-      ApiLogger.logResponse(
-        url: endpoint,
-        method: 'POST',
-        statusCode: response.statusCode,
-        data: response.data,
-      );
-      return apiResponse.data!;
+      final conversation = apiResponse.data!;
+
+      // Some backends accept `initialMessage` in the create request but don't
+      // actually create a first message (response shows lastMessageAt/Preview null).
+      // Ensure the first message exists by sending it explicitly.
+      final initial = request.initialMessage.trim();
+      if (initial.isNotEmpty) {
+        try {
+          final messageEndpoint = ApiPaths.urlWithBase(
+            ApiPaths.messagingMessages,
+            ApiConstants.communicationBaseUrl,
+          );
+          await apiClient.client.post(
+            messageEndpoint,
+            data: {
+              'conversationCode': conversation.code,
+              'type': 'TEXT',
+              'content': initial,
+            },
+          );
+        } catch (_) {
+          // Conversation is created; message send can be retried separately.
+        }
+      }
+
+      return conversation;
     } else {
       throw Exception(apiResponse.message);
     }
@@ -209,8 +213,6 @@ class CommunicationRemoteDataSourceImpl
 
     final response = await apiClient.client.get(endpoint);
 
-    ApiLogger.logResponse(url: endpoint, method: 'GET');
-
     return GetConversationsResponse.fromJson(response.data);
   }
 
@@ -221,16 +223,6 @@ class CommunicationRemoteDataSourceImpl
       ApiConstants.communicationBaseUrl,
     );
 
-    final response = await apiClient.client.post(
-      endpoint,
-      data: {'emoji': emoji},
-    );
-
-    ApiLogger.logResponse(
-      url: endpoint,
-      method: 'POST',
-      statusCode: response.statusCode,
-      data: response.data,
-    );
+    await apiClient.client.post(endpoint, data: {'emoji': emoji});
   }
 }

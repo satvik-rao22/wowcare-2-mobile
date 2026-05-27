@@ -30,7 +30,7 @@ abstract class CommunicationRepository {
     int size = 20,
   });
   Future<Either<Failure, List<Conversation>>> loadCachedConversations();
-  Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId);
+  Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId, {String? currentUserId});
   Future<Either<Failure, void>> addReaction(
     String threadId,
     String messageCode,
@@ -40,4 +40,6 @@ abstract class CommunicationRepository {
     String messageCode,
     String content,
   );
+  Future<Either<Failure, void>> clearMessagesCache(String threadId);
+  Future<Either<Failure, void>> clearConversationsCache();
 }

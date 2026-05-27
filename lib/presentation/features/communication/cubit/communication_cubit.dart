@@ -9,6 +9,7 @@ import '../../../../domain/features/communication/usecases/get_cached_messages_u
 import '../../../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../../../domain/features/communication/usecases/send_message_usecase.dart';
 import '../../../../domain/features/communication/usecases/edit_message_usecase.dart';
+import '../../../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -19,6 +20,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final GetCachedMessagesUseCase getCachedMessagesUseCase;
   final AddReactionUseCase addReactionUseCase;
   final EditMessageUseCase editMessageUseCase;
+  final ClearMessagesCacheUseCase clearMessagesCacheUseCase;
+  final ClearConversationsCacheUseCase clearConversationsCacheUseCase;
   final List<Timer> _statusTimers = [];
 
   CommunicationCubit({
@@ -29,7 +32,25 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.getCachedMessagesUseCase,
     required this.addReactionUseCase,
     required this.editMessageUseCase,
+    required this.clearMessagesCacheUseCase,
+    required this.clearConversationsCacheUseCase,
   }) : super(CommunicationInitial());
+
+  /// Clears Isar cache for a specific thread's messages.
+  Future<void> clearThreadCache(String threadId) async {
+    await clearMessagesCacheUseCase(threadId);
+  }
+
+  /// Clears the full Isar conversations cache then reloads from API.
+  Future<void> refreshConversations({
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 20,
+  }) async {
+    await clearConversationsCacheUseCase();
+    await loadConversations(type: type, status: status, page: page, size: size);
+  }
 
   Future<void> loadConversations({
     String? type,
@@ -96,20 +117,30 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     );
   }
 
+  /// Sorts messages oldest-first so the ListView (reverse: false) shows the
+  /// latest message at the bottom, matching standard chat UX.
+  List<Message> _sortByTime(List<Message> messages) {
+    final sorted = List<Message>.from(messages);
+    sorted.sort((a, b) => a.time.compareTo(b.time));
+    return sorted;
+  }
+
   Future<void> loadMessages(String threadId, {String? currentUserId}) async {
     final Map<String, List<Message>> currentThreads =
         state is CommunicationLoaded
         ? (state as CommunicationLoaded).threads
         : {};
 
-    // 1. Try Loading from Isar cache first for faster initial loading
-    final cacheResult = await getCachedMessagesUseCase(threadId);
+    // 1. Try Loading from Isar cache first for faster initial loading.
+    //    Pass currentUserId so isSentByMe is re-derived from senderUserCode,
+    //    preventing stale/null Isar booleans from flipping the bubble style.
+    final cacheResult = await getCachedMessagesUseCase(threadId, currentUserId: currentUserId);
     cacheResult.fold(
       (_) => null, // Ignore cache errors
       (cachedMessages) {
         if (cachedMessages.isNotEmpty && !isClosed) {
           final newThreads = Map<String, List<Message>>.from(currentThreads);
-          newThreads[threadId] = cachedMessages;
+          newThreads[threadId] = _sortByTime(cachedMessages);
           emit(
             CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
           );
@@ -147,7 +178,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             ? (state as CommunicationLoaded).threads
             : {};
         final newThreads = Map<String, List<Message>>.from(latestThreads);
-        newThreads[threadId] = messages;
+        newThreads[threadId] = _sortByTime(messages);
         emit(
           CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
         );
@@ -161,6 +192,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     List<ChatAttachment> attachments = const [],
     String? quotedMessageId,
     String? senderName,
+    String? senderUserCode,
     List<String> receivers = const [],
   }) async {
     if (state is! CommunicationLoaded) return;
@@ -171,6 +203,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       code: '',
       text: text,
       isSentByMe: true,
+      senderUserCode: senderUserCode,
       time: DateTime.now(),
       attachments: attachments,
       quotedMessageId: quotedMessageId,
@@ -178,13 +211,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       receivers: receivers,
     );
 
-    // Optimistic update for the specific thread
+    // Optimistic update — append then re-sort so the new bubble lands at bottom
     final updatedThreads = Map<String, List<Message>>.from(
       currentState.threads,
     );
-    updatedThreads[threadId] = List<Message>.from(
-      updatedThreads[threadId] ?? [],
-    )..add(tempMessage);
+    updatedThreads[threadId] = _sortByTime(
+      List<Message>.from(updatedThreads[threadId] ?? [])..add(tempMessage),
+    );
 
     emit(
       CommunicationSending(threads: updatedThreads, activeThreadId: threadId),

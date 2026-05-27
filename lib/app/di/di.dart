@@ -183,6 +183,7 @@ import '../../domain/features/communication/usecases/get_cached_conversations_us
 import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_usecase.dart';
+import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 
@@ -686,6 +687,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<EditMessageUseCase>(
     () => EditMessageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<ClearMessagesCacheUseCase>(
+    () => ClearMessagesCacheUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ClearConversationsCacheUseCase>(
+    () => ClearConversationsCacheUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
@@ -905,13 +912,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CommunicationCubit>(
     () => CommunicationCubit(
-      getMessagesUseCase: serviceLocator(),
-      sendMessageUseCase: serviceLocator(),
-      getConversationsUseCase: serviceLocator(),
-      getCachedConversationsUseCase: serviceLocator(),
-      getCachedMessagesUseCase: serviceLocator(),
-      addReactionUseCase: serviceLocator(),
-      editMessageUseCase: serviceLocator(),
+      getMessagesUseCase: serviceLocator<GetMessagesUseCase>(),
+      sendMessageUseCase: serviceLocator<SendMessageUseCase>(),
+      getConversationsUseCase: serviceLocator<GetConversationsUseCase>(),
+      getCachedConversationsUseCase: serviceLocator<GetCachedConversationsUseCase>(),
+      getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
+      addReactionUseCase: serviceLocator<AddReactionUseCase>(),
+      editMessageUseCase: serviceLocator<EditMessageUseCase>(),
+      clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
+      clearConversationsCacheUseCase: serviceLocator<ClearConversationsCacheUseCase>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(

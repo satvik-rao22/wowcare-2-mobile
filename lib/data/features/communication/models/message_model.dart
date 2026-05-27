@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class MessageModel extends Message {
@@ -25,14 +26,29 @@ class MessageModel extends Message {
   }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
-    final senderCode = json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '';
+    final senderCode = (json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '').trim();
+    final normalizedUserId = currentUserId?.trim();
+    final isMine = normalizedUserId != null &&
+        normalizedUserId.isNotEmpty &&
+        senderCode.isNotEmpty &&
+        senderCode == normalizedUserId;
+
+    AppLogger.d(
+      '[CHAT OWNERSHIP] fromJson\n'
+      '  messageId      = ${json['id']}\n'
+      '  code           = ${json['code']}\n'
+      '  senderUserCode = $senderCode\n'
+      '  currentUserId  = $normalizedUserId\n'
+      '  isMine         = $isMine',
+    );
+
     return MessageModel(
       id: (json['id'] ?? '').toString(),
       code: json['code'] as String? ?? '',
       conversationCode: json['conversationCode'] as String? ?? json['conversation_code'] as String?,
       senderUserCode: senderCode,
       text: json['content'] as String? ?? '',
-      isSentByMe: currentUserId != null && senderCode == currentUserId,
+      isSentByMe: isMine,
       time: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),

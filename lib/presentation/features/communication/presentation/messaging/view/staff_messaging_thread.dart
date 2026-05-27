@@ -15,7 +15,11 @@ import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/jwt_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
@@ -57,15 +61,59 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
   @override
   void initState() {
     super.initState();
+
+    // Primary source: auth cubit state (already in memory after login).
     final authState = context.read<AuthCubit>().state;
-    _currentUserCode = authState is AuthLoaded
-        ? authState.loginResponse.userCode
-        : null;
+    final userCodeFromAuth = authState is AuthLoaded
+        ? authState.loginResponse.userCode.trim()
+        : '';
+
+    _currentUserCode = userCodeFromAuth.isNotEmpty ? userCodeFromAuth : null;
+
     _reactionsController = ReactionsController(
       currentUserId: _currentUserCode ?? 'me',
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final storage = serviceLocator<StorageService>();
+
+      // PRIMARY: JWT `sub` saved at login (new sessions).
+      String jwtSub = (await storage.getString(StorageKeys.authUserId) ?? '').trim();
+
+      // For existing sessions that pre-date the authUserId storage key, decode
+      // the stored access token on-the-fly and cache the result immediately.
+      if (jwtSub.isEmpty) {
+        final token = await storage.getString(StorageKeys.accessToken);
+        final decoded = extractJwtSub(token);
+        if (decoded != null && decoded.isNotEmpty) {
+          jwtSub = decoded;
+          await storage.saveString(StorageKeys.authUserId, jwtSub);
+        }
+      }
+
+      // FALLBACK chain (should never be needed after the JWT decode above,
+      // but keeps the app working even if the token is unavailable).
+      final storedUserCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
+
+      _currentUserCode = jwtSub.isNotEmpty
+          ? jwtSub
+          : userCodeFromAuth.isNotEmpty
+          ? userCodeFromAuth
+          : storedUserCode.isNotEmpty
+          ? storedUserCode
+          : null;
+
+      AppLogger.d(
+        '[CHAT OWNERSHIP] initState identity resolution:\n'
+        '  jwtSub (authUserId)    → "$jwtSub"\n'
+        '  loginResponse.userCode → "$userCodeFromAuth"\n'
+        '  storage.userCode       → "$storedUserCode"\n'
+        '  resolved               → "$_currentUserCode"\n'
+        '  threadId               → "${widget.staffInfo['code']}"',
+      );
+
       if (mounted) {
         context.read<CommunicationCubit>().loadMessages(
           widget.staffInfo['code'] as String,
@@ -114,6 +162,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageCode,
       senderName: senderName,
+      senderUserCode: _currentUserCode,
     );
 
     setState(() {
@@ -306,30 +355,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                     message.code,
                     newText,
                   );
-                  setState(() {
-                    final idx = _messages.indexWhere((m) => m.id == message.id);
-                    if (idx != -1) {
-                      _messages[idx] = Message(
-                        id: message.id,
-                        text: newText,
-                        isSentByMe: message.isSentByMe,
-                        time: message.time,
-                        deliveredAt: message.deliveredAt,
-                        readAt: message.readAt,
-                        editedAt: DateTime.now(),
-                        deliveredTo: message.deliveredTo,
-                        readBy: message.readBy,
-                        attachments: message.attachments,
-                        reactions: message.reactions,
-                        code: message.code,
-                      );
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Message updated successfully',
-                        isSuccess: true,
-                      );
-                    }
-                  });
+                  // Cubit's editMessage already applies the optimistic update.
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: 'Message updated successfully',
+                    isSuccess: true,
+                  );
                 }
                 Navigator.pop(dialogContext);
               },
@@ -352,9 +383,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CommunicationCubit, CommunicationState>(
+    return BlocConsumer<CommunicationCubit, CommunicationState>(
+      listener: (context, state) {
+        // Auto-scroll to bottom whenever messages finish loading (cache or API)
+        if (state is CommunicationLoaded) {
+          _scrollToBottom();
+        }
+      },
       builder: (context, state) {
-        final screenHeight = MediaQuery.of(context).size.height;
+        // final screenHeight = MediaQuery.of(context).size.height;
         final bool isLandscape =
             MediaQuery.of(context).orientation == Orientation.landscape;
         return GlobalScaffold(
@@ -876,8 +913,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType:
-                                    att.mimeType ?? 'application/octet-stream',
+                                mimeType: att.mimeType,
                                 dataResolver: () async {
                                   return await File(
                                     att.localPath!,

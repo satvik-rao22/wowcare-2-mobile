@@ -106,11 +106,15 @@ class _MessageBubbleState extends State<MessageBubble>
 
   /// Seed the [ReactionsController] with current message reactions so
   /// [StackedReactions] always reflects the latest API state.
+  /// Deferred to post-frame to avoid notifyListeners() during build.
   void _syncReactionsToController() {
-    final reactions = widget.message.reactions.entries.map((e) {
-      return Reaction(emoji: e.value, userId: e.key, timestamp: DateTime.now());
-    }).toList();
-    widget.reactionsController.loadReactions(widget.message.code, reactions);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reactions = widget.message.reactions.entries.map((e) {
+        return Reaction(emoji: e.value, userId: e.key, timestamp: DateTime.now());
+      }).toList();
+      widget.reactionsController.loadReactions(widget.message.code, reactions);
+    });
   }
 
   void _onDragUpdate(DragUpdateDetails details) {

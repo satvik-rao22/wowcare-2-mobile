@@ -36,13 +36,11 @@ class ShimmerLoader extends StatelessWidget {
     );
   }
 }
+
 class AttendanceCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const AttendanceCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const AttendanceCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +55,7 @@ class AttendanceCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -119,10 +117,7 @@ class AttendanceCardShimmer extends StatelessWidget {
 class SummaryCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const SummaryCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const SummaryCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -233,10 +228,7 @@ class SummaryCardShimmer extends StatelessWidget {
 class StaffCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const StaffCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const StaffCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -575,10 +567,7 @@ class _ShimmerTableRow extends StatelessWidget {
 }
 
 class _EntityCellPlaceholder extends StatelessWidget {
-  const _EntityCellPlaceholder({
-    required this.width,
-    this.compact = false,
-  });
+  const _EntityCellPlaceholder({required this.width, this.compact = false});
 
   final double width;
   final bool compact;
@@ -586,10 +575,7 @@ class _EntityCellPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: compact ? 8 : 10,
-        horizontal: 6,
-      ),
+      padding: EdgeInsets.symmetric(vertical: compact ? 8 : 10, horizontal: 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -708,7 +694,10 @@ class ClassroomProfileShimmer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromARGB(255, 232, 234, 234), width: 1.5),
+              border: Border.all(
+                color: const Color.fromARGB(255, 232, 234, 234),
+                width: 1.5,
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +794,10 @@ class ClassroomProfileShimmer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromARGB(255, 232, 234, 234), width: 1.5),
+              border: Border.all(
+                color: const Color.fromARGB(255, 232, 234, 234),
+                width: 1.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -919,7 +911,10 @@ class MyChildsDayCardShimmer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               // Separator
-              Text(':', style: TextStyle(fontSize: 48, color: Colors.grey[300])),
+              Text(
+                ':',
+                style: TextStyle(fontSize: 48, color: Colors.grey[300]),
+              ),
               const SizedBox(width: 8),
               // MM
               Column(
@@ -945,7 +940,10 @@ class MyChildsDayCardShimmer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               // Separator
-              Text(':', style: TextStyle(fontSize: 48, color: Colors.grey[300])),
+              Text(
+                ':',
+                style: TextStyle(fontSize: 48, color: Colors.grey[300]),
+              ),
               const SizedBox(width: 8),
               // SS
               Column(

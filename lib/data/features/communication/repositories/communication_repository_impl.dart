@@ -51,12 +51,14 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // Fallback to cache if network fails
       final cachedCollections = await cacheService
           .getByField<MessageCollection>('threadId', threadId);
-      final cachedMessages = cachedCollections
-          .map((c) => c.toEntity())
-          .toList();
+      final fallbackMessages =
+          cachedCollections
+              .map((c) => c.toEntity(currentUserId: currentUserId))
+              .toList()
+            ..sort((a, b) => a.time.compareTo(b.time));
 
-      if (cachedMessages.isNotEmpty) {
-        return Right(cachedMessages);
+      if (fallbackMessages.isNotEmpty) {
+        return Right(fallbackMessages);
       }
       return Left(ServerFailure(e.toString()));
     }
@@ -157,6 +159,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   ) async {
     try {
       final conversation = await remoteDataSource.createConversation(request);
+
+      // Keep Isar in sync so returning to the list shows the new conversation
+      // immediately (even before the next remote refresh).
+      try {
+        await cacheService.put(ConversationCollection.fromEntity(conversation));
+      } catch (_) {}
       return Right(conversation);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
@@ -227,15 +235,18 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId) async {
+  Future<Either<Failure, List<Message>>> loadCachedMessages(
+    String threadId, {
+    String? currentUserId,
+  }) async {
     try {
-      final cachedCollections = await cacheService.getByField<MessageCollection>(
-        'threadId',
-        threadId,
-      );
-      final cachedMessages = cachedCollections
-          .map((c) => c.toEntity())
-          .toList();
+      final cachedCollections = await cacheService
+          .getByField<MessageCollection>('threadId', threadId);
+      final cachedMessages =
+          cachedCollections
+              .map((c) => c.toEntity(currentUserId: currentUserId))
+              .toList()
+            ..sort((a, b) => a.time.compareTo(b.time));
       return Right(cachedMessages);
     } catch (e) {
       return Left(CacheFailure(e.toString()));
@@ -278,6 +289,32 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> clearMessagesCache(String threadId) async {
+    try {
+      final collections = await cacheService.getByField<MessageCollection>(
+        'threadId',
+        threadId,
+      );
+      for (final c in collections) {
+        await cacheService.delete<MessageCollection>(c.isarId);
+      }
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> clearConversationsCache() async {
+    try {
+      await cacheService.clear<ConversationCollection>();
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
     }
   }
 

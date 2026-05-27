@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/jwt_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 
@@ -74,6 +75,15 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.saveInt(StorageKeys.refreshExpiresIn, response.refreshExpiresIn);
     await _storage.saveString(StorageKeys.tokenType, response.tokenType);
     await _storage.saveString(StorageKeys.userCode, response.userCode);
+
+    // Extract the JWT `sub` claim — this UUID is what the messaging backend
+    // stores as `senderUserCode`.  It differs from `userCode` which is the
+    // app-level profile code (USR-…, STF-…, etc.).
+    final jwtSub = extractJwtSub(response.accessToken);
+    if (jwtSub != null && jwtSub.isNotEmpty) {
+      await _storage.saveString(StorageKeys.authUserId, jwtSub);
+    }
+
     await _storage.saveString(StorageKeys.email, response.email);
     await _storage.saveString(StorageKeys.displayName, response.displayName);
     await _storage.saveBool(StorageKeys.firstLogin, response.firstLogin);

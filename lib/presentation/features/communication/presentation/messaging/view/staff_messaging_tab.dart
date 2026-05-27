@@ -237,7 +237,6 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                           );
                           if (!mounted) return;
                           if (result is Map) {
-                            // TODO: apply filters to list
                             setState(() {});
                           }
                         },
@@ -327,9 +326,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       if (_showUnread && conv.unreadCount == 0) return false;
 
                       // Filter by Staff vs Student/Parent
-                      final otherParticipants = conv.participants.where(
-                        (p) => p.userCode != conv.createdBy,
-                      );
+                      // final otherParticipants = conv.participants.where(
+                      //   (p) => p.userCode != conv.createdBy,
+                      // );
                       bool isStaffConv = false;
                       bool isStudentConv = false;
 
@@ -392,9 +391,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 ),
                         ),
                       );
-                      Navigator.of(context).push(route).then((_) {
+                      Navigator.of(context).push(route).then((_) async {
                         if (mounted) {
-                          context.read<CommunicationCubit>().loadConversations(
+                          await context.read<CommunicationCubit>().refreshConversations(
                             type: _conversationType,
                             size: _conversationPageSize,
                           );
@@ -482,28 +481,30 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 
                   final conversationCode = result?.code ?? member.code;
 
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => BlocProvider<CommunicationCubit>(
-                        create: (context) =>
-                            serviceLocator<CommunicationCubit>(),
-                        child: StaffMessagingThread(
-                          staffInfo: {
-                            'name': member.name,
-                            'avatar': member.profileImage,
-                            'code': conversationCode,
-                          },
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider<CommunicationCubit>(
+                            create: (context) =>
+                                serviceLocator<CommunicationCubit>(),
+                            child: StaffMessagingThread(
+                              staffInfo: {
+                                'name': member.name,
+                                'avatar': member.profileImage,
+                                'code': conversationCode,
+                              },
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ).then((_) {
-                    if (mounted) {
-                      context.read<CommunicationCubit>().loadConversations(
-                        type: _conversationType,
-                        size: _conversationPageSize,
-                      );
-                    }
-                  });
+                      )
+                      .then((_) async {
+                        if (mounted) {
+                          await context.read<CommunicationCubit>().refreshConversations(
+                            type: _conversationType,
+                            size: _conversationPageSize,
+                          );
+                        }
+                      });
                 },
               );
             }, childCount: staff.length),
@@ -554,31 +555,34 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   participants: [],
                 ),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => BlocProvider<CommunicationCubit>(
-                        create: (context) =>
-                            serviceLocator<CommunicationCubit>(),
-                        child: ParentMessagingThread(
-                          parentInfo: {
-                            'name': '${student.firstName} ${student.lastName}',
-                            'avatar': student.profileImage,
-                            'code': student.code,
-                            'parents': [],
-                            'staffList': [],
-                            'privateModeParents': [],
-                          },
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider<CommunicationCubit>(
+                            create: (context) =>
+                                serviceLocator<CommunicationCubit>(),
+                            child: ParentMessagingThread(
+                              parentInfo: {
+                                'name':
+                                    '${student.firstName} ${student.lastName}',
+                                'avatar': student.profileImage,
+                                'code': student.code,
+                                'parents': [],
+                                'staffList': [],
+                                'privateModeParents': [],
+                              },
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ).then((_) {
-                    if (mounted) {
-                      context.read<CommunicationCubit>().loadConversations(
-                        type: _conversationType,
-                        size: _conversationPageSize,
-                      );
-                    }
-                  });
+                      )
+                      .then((_) async {
+                        if (mounted) {
+                          await context.read<CommunicationCubit>().refreshConversations(
+                            type: _conversationType,
+                            size: _conversationPageSize,
+                          );
+                        }
+                      });
                 },
               );
             }, childCount: students.length),
