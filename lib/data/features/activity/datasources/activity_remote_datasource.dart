@@ -121,7 +121,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   });
 
   /// Date range classroom feed:
@@ -137,7 +137,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   });
 }
 
@@ -654,7 +654,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
         .map((e) => e.trim())
@@ -723,7 +723,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
         .map((e) => e.trim())

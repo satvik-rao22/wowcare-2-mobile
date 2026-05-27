@@ -328,7 +328,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     final allItems = <StudentAttendanceAbsentFormItem>[];
 
     var page = 0;
-    const pageSize = 100;
+    const pageSize = 200;
     while (true) {
       final absentPage = await repo.getStudentAbsentFormList(
         fromAbsenceDate: attendanceDateYyyyMmDd,

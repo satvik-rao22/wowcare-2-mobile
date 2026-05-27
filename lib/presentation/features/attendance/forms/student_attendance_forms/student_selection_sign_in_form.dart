@@ -222,7 +222,7 @@ class _StudentSelectionSignInFormState
         tagCodes: tagCodes,
         search: searchText,
         page: 0,
-        size: 100,
+        size: 200,
       );
 
       if (!mounted) return;

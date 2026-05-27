@@ -50,6 +50,7 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
 
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
+      'sort': 'name,asc',
     };
 
     if (code != null && code.trim().isNotEmpty) queryParameters['code'] = code.trim();

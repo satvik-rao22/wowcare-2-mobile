@@ -523,7 +523,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         fromAttendanceDate: date,
         toAttendanceDate: date,
         page: 0,
-        size: 100,
+        size: 200,
       );
       final selected = signedInPage.items.where(
         (i) => i.studentCode.trim() == child.code.trim(),
