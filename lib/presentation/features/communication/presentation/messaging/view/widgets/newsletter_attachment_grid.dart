@@ -4,6 +4,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -136,11 +137,7 @@ class _AttachmentTileState extends State<_AttachmentTile> {
   }) async {
     if (isImage) {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => _NewsletterImageViewer(imageUrl: url),
-        ),
-      );
+      await showNewsletterImagePreview(context, imageUrl: url);
       return;
     }
     await _openExternalUrl(url);
@@ -266,46 +263,3 @@ class _AttachmentTileState extends State<_AttachmentTile> {
   }
 }
 
-class _NewsletterImageViewer extends StatelessWidget {
-  const _NewsletterImageViewer({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.8,
-          maxScale: 5,
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.6,
-                ),
-              );
-            },
-            errorBuilder: (_, __, ___) => const Icon(
-              Icons.broken_image_outlined,
-              color: Colors.white70,
-              size: 56,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

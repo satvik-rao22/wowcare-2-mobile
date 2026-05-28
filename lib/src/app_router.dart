@@ -24,6 +24,8 @@ import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
@@ -259,6 +261,16 @@ final GoRouter appRouter = GoRouter(
                   path: 'billing',
                   pageBuilder: (context, state) =>
                       _fastPage(state, const BillingScreen()),
+                ),
+                GoRoute(
+                  path: 'parent-newsletter',
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<StudentNewslettersCubit>(
+                      create: (_) => serviceLocator<StudentNewslettersCubit>(),
+                      child: const ParentNewsletterScreen(),
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'reports',

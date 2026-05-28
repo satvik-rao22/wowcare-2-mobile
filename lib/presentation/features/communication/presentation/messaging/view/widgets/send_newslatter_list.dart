@@ -12,6 +12,7 @@ class NewsletterListItemModel {
     required this.createdBy,
     required this.recipientCount,
     this.primaryAttachmentAssetCode,
+    this.primaryAttachmentDirectUrl,
     this.primaryAttachmentMimeType,
     this.additionalAttachmentCount = 0,
   });
@@ -22,8 +23,11 @@ class NewsletterListItemModel {
   final String createdBy;
   final int recipientCount;
   final String? primaryAttachmentAssetCode;
+  final String? primaryAttachmentDirectUrl;
   final String? primaryAttachmentMimeType;
   final int additionalAttachmentCount;
+
+  bool get showClassroomRow => classroom.trim().isNotEmpty;
 }
 
 class NewsletterSentListCard extends StatelessWidget {
@@ -61,7 +65,11 @@ class NewsletterSentListCard extends StatelessWidget {
                   width: 84,
                   height: 56,
                   child: _CardThumbnail(
+                    key: ValueKey<String>(
+                      '${newsLetter.primaryAttachmentAssetCode ?? ''}|${newsLetter.primaryAttachmentDirectUrl ?? ''}',
+                    ),
                     assetCode: newsLetter.primaryAttachmentAssetCode,
+                    directUrl: newsLetter.primaryAttachmentDirectUrl,
                     mimeType: newsLetter.primaryAttachmentMimeType,
                     additionalAttachmentCount: newsLetter.additionalAttachmentCount,
                   ),
@@ -88,47 +96,111 @@ class NewsletterSentListCard extends StatelessWidget {
                       value: newsLetter.createdBy,
                     ),
                     const SizedBox(height: 2),
-                    _AlignedMetaRow(
-                      label: 'Date',
-                      value: newsLetter.sentDate,
-                    ),
-                    const SizedBox(height: 2),
-                    _AlignedMetaRow(
-                      label: 'Classroom',
-                      value: newsLetter.classroom,
-                    ),
-                    const SizedBox(height: 4),
                     Row(
-                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.account_circle_outlined,
-                          size: 18,
-                          color: AppColors.primaryColor.withValues(alpha: 0.62),
+                        Expanded(
+                          child: _DateMetaRow(date: newsLetter.sentDate),
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${newsLetter.recipientCount}',
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.78),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        _RecipientCountBadge(
+                          count: newsLetter.recipientCount,
                         ),
                       ],
                     ),
+                    if (newsLetter.showClassroomRow) ...[
+                      const SizedBox(height: 2),
+                      _AlignedMetaRow(
+                        label: 'Classroom',
+                        value: newsLetter.classroom,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.primaryColor.withValues(alpha: 0.4),
-                size: 20,
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 2, top: 2),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.primaryColor.withValues(alpha: 0.4),
+                  size: 20,
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DateMetaRow extends StatelessWidget {
+  const _DateMetaRow({required this.date});
+
+  final String date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 74,
+          child: Text(
+            'Date',
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.58),
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Text(
+          date,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.visible,
+          style: TextStyle(
+            color: AppColors.primaryColor.withValues(alpha: 0.82),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipientCountBadge extends StatelessWidget {
+  const _RecipientCountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.account_circle_outlined,
+            size: 18,
+            color: AppColors.primaryColor.withValues(alpha: 0.62),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '$count',
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.78),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -176,12 +248,15 @@ class _AlignedMetaRow extends StatelessWidget {
 
 class _CardThumbnail extends StatefulWidget {
   const _CardThumbnail({
+    super.key,
     this.assetCode,
+    this.directUrl,
     this.mimeType,
     this.additionalAttachmentCount = 0,
   });
 
   final String? assetCode;
+  final String? directUrl;
   final String? mimeType;
   final int additionalAttachmentCount;
 
@@ -190,7 +265,7 @@ class _CardThumbnail extends StatefulWidget {
 }
 
 class _CardThumbnailState extends State<_CardThumbnail> {
-  late final Future<String> _assetUrlFuture;
+  late Future<String> _assetUrlFuture;
 
   @override
   void initState() {
@@ -198,9 +273,28 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     _assetUrlFuture = _resolveAssetUrl();
   }
 
+  @override
+  void didUpdateWidget(covariant _CardThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final String oldCode = (oldWidget.assetCode ?? '').trim();
+    final String newCode = (widget.assetCode ?? '').trim();
+    final String oldUrl = (oldWidget.directUrl ?? '').trim();
+    final String newUrl = (widget.directUrl ?? '').trim();
+    if (oldCode != newCode ||
+        oldUrl != newUrl ||
+        oldWidget.mimeType != widget.mimeType) {
+      _assetUrlFuture = _resolveAssetUrl();
+    }
+  }
+
   Future<String> _resolveAssetUrl() async {
+    final String direct = (widget.directUrl ?? '').trim();
+    if (_isHttpUrl(direct)) return direct;
+
     final String code = (widget.assetCode ?? '').trim();
     if (code.isEmpty) return '';
+    if (_isHttpUrl(code)) return code;
+
     try {
       final ImageUploadService uploadService = serviceLocator<ImageUploadService>();
       return await uploadService.getMediaAssetUrlByCode(assetCode: code);
@@ -209,9 +303,41 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     }
   }
 
+  bool _isHttpUrl(String value) {
+    final lower = value.trim().toLowerCase();
+    return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
   bool get _isImage {
-    final String mime = (widget.mimeType ?? '').toLowerCase();
-    return mime.startsWith('image/');
+    final String mime = (widget.mimeType ?? '').trim().toLowerCase();
+    if (mime.startsWith('image/')) return true;
+    if (mime.contains('pdf') ||
+        mime.contains('word') ||
+        mime.contains('document') ||
+        mime.contains('sheet') ||
+        mime.contains('excel')) {
+      return false;
+    }
+
+    for (final source in <String>[
+      widget.directUrl ?? '',
+      widget.assetCode ?? '',
+    ]) {
+      final lower = source.toLowerCase();
+      if (lower.endsWith('.png') ||
+          lower.endsWith('.jpg') ||
+          lower.endsWith('.jpeg') ||
+          lower.endsWith('.webp') ||
+          lower.endsWith('.gif') ||
+          lower.endsWith('.avif') ||
+          lower.endsWith('.bmp')) {
+        return true;
+      }
+    }
+
+    final String code = (widget.assetCode ?? '').trim();
+    if (code.isNotEmpty && mime.isEmpty) return true;
+    return false;
   }
 
   @override
@@ -272,7 +398,9 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     if (!hasUrl) return _thumbnailPlaceholder();
     return Image.network(
       url,
+      key: ValueKey<String>(url),
       fit: BoxFit.cover,
+      gaplessPlayback: false,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return _loadingPreview();
