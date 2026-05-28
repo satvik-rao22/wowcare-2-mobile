@@ -341,6 +341,151 @@ class _MovementRowShimmer extends StatelessWidget {
   }
 }
 
+/// Shimmer placeholder matching AvailabilityCard table layout:
+/// header row (Classroom | Morning | Afternoon) + skeleton data rows.
+class AvailabilityCardShimmer extends StatelessWidget {
+  const AvailabilityCardShimmer({
+    super.key,
+    this.rowCount = 5,
+  });
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            // Header row skeleton
+            Container(
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 16,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 8,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 8,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Data rows skeleton
+            ...List.generate(rowCount, (i) => _AvailabilityRowShimmer(key: ValueKey(i))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvailabilityRowShimmer extends StatelessWidget {
+  const _AvailabilityRowShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          // Classroom cell
+          Expanded(
+            flex: 16,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Morning cell
+          Expanded(
+            flex: 8,
+            child: Center(
+              child: Container(
+                width: 24,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          // Afternoon cell
+          Expanded(
+            flex: 8,
+            child: Center(
+              child: Container(
+                width: 24,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Shimmer placeholder specifically matching the collapsed StaffCard layout.
 class StaffCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;

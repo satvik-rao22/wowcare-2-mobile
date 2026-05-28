@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_s
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
+import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
@@ -47,6 +48,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   late final SchoolStatusCubit _schoolStatusCubit;
   late final RatioMonitoringCubit _ratioMonitoringCubit;
   late final IndividualMovementsCubit _movementsCubit;
+  late final FutureAvailabilityCubit _availabilityCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens
   /// instead of stretching cards edge to edge.
@@ -59,16 +61,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _schoolStatusCubit = serviceLocator<SchoolStatusCubit>();
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
     _movementsCubit = serviceLocator<IndividualMovementsCubit>();
+    _availabilityCubit = serviceLocator<FutureAvailabilityCubit>();
     // ignore: discarded_futures
     _initGeofence();
     // ignore: discarded_futures
     _initRatioMonitoring();
     // ignore: discarded_futures
     _initMovements();
+    // ignore: discarded_futures
+    _initAvailability();
   }
 
   Future<void> _initMovements() async {
     await _movementsCubit.loadInitial();
+  }
+
+  Future<void> _initAvailability() async {
+    await _availabilityCubit.load(
+      date: DateTime.now(),
+      isTwoShifts: true,
+    );
   }
 
   Future<void> _initRatioMonitoring() async {
@@ -102,6 +114,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _ratioMonitoringCubit.close();
     // ignore: discarded_futures
     _movementsCubit.close();
+    // ignore: discarded_futures
+    _availabilityCubit.close();
     _viewModel.dispose();
     super.dispose();
   }
@@ -125,7 +139,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       // case AdminDashboardCard.todo:
       //   return const TodoCard();
       case AdminDashboardCard.availability:
-        return const AvailabilityCard();
+        return BlocProvider<FutureAvailabilityCubit>.value(
+          value: _availabilityCubit,
+          child: const AvailabilityCard(),
+        );
       case AdminDashboardCard.movements:
         return BlocProvider<IndividualMovementsCubit>.value(
           value: _movementsCubit,
@@ -164,6 +181,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         BlocProvider<SchoolStatusCubit>.value(value: _schoolStatusCubit),
         BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
         BlocProvider<IndividualMovementsCubit>.value(value: _movementsCubit),
+        BlocProvider<FutureAvailabilityCubit>.value(value: _availabilityCubit),
       ],
       child: _buildScaffold(),
     );
@@ -197,6 +215,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       forceRefresh: true,
                     ),
                     _movementsCubit.refresh(),
+                    _availabilityCubit.refresh(
+                      date: _availabilityCubit.state.selectedDate ?? DateTime.now(),
+                      isTwoShifts: true,
+                    ),
                   ]);
                 } else {
                   await _viewModel.refresh();
