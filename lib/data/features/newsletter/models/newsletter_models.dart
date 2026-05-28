@@ -63,9 +63,12 @@ class NewsletterAttachmentModel extends Equatable {
   final int sortOrder;
 
   factory NewsletterAttachmentModel.fromJson(Map<String, dynamic> json) {
+    final mediaCode = (json['mediaCode'] ?? json['assetCode'] ?? '')
+        .toString()
+        .trim();
     return NewsletterAttachmentModel(
       id: json['id'] as int? ?? 0,
-      mediaCode: (json['mediaCode'] as String? ?? '').trim(),
+      mediaCode: mediaCode,
       fileName: (json['fileName'] as String? ?? '').trim(),
       mimeType: (json['mimeType'] as String? ?? '').trim(),
       fileSize: json['fileSize'] as int? ?? 0,

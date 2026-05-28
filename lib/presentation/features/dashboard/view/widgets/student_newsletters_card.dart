@@ -224,8 +224,12 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
@@ -297,7 +301,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
             DashboardCardHeader(
               title: 'Newsletter',
               showRedirect: true,
-              onRedirect: () {},
+              onRedirect: () => context.go(ParentNewsletterScreen.routeName),
               minimized: _minimized,
               onToggle: () => setState(() => _minimized = !_minimized),
             ),
@@ -394,7 +398,18 @@ class _NewsletterRow extends StatelessWidget {
     final recipientCount = item.recipientCount;
 
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        final code = item.code.trim();
+        if (code.isEmpty) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PreviewNewsletterScreen(
+              newsletterCode: code,
+              initialNewsletter: mapNewsletterEntityToNewsletter(item),
+            ),
+          ),
+        );
+      },
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
