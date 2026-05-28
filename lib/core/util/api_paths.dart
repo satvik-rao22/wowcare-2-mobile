@@ -227,8 +227,6 @@ class ApiPaths {
       case 'newsletters':
       case 'messages':
         return ApiMicroservices.communication;
-      case 'newsletters':
-        return ApiMicroservices.newsLatter;
       default:
         return ApiMicroservices.user;
     }

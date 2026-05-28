@@ -5,9 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/newsletter_staff_scope.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_classroom_display.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -28,17 +31,39 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
   late final ClassroomCubit _classroomCubit;
   List<String> _selectedClassroomNames = <String>[];
   Timer? _searchDebounce;
+  bool _isStaffScoped = false;
+  String? _primaryClassroomCode;
+  List<String> _allowedClassroomCodes = const <String>[];
+  bool _scopeResolved = false;
+  bool _staffListBootstrapped = false;
+  bool _adminListLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _newsletterListCubit = serviceLocator<NewsletterListCubit>()..loadInitial();
+    _newsletterListCubit = serviceLocator<NewsletterListCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>()
       ..loadActiveClassrooms(
         force: true,
         applyAttendanceStaffScope: true,
       );
     searchController.addListener(_applyFilters);
+    _resolveStaffScopeAndLoad();
+  }
+
+  Future<void> _resolveStaffScopeAndLoad() async {
+    final scope = await resolveNewsletterStaffScope();
+    if (!mounted) return;
+    setState(() {
+      _isStaffScoped = scope.isScoped;
+      _primaryClassroomCode = scope.primaryClassroomCode;
+      _allowedClassroomCodes = scope.allowedClassroomCodes;
+      _scopeResolved = true;
+    });
+    if (!_isStaffScoped && !_adminListLoaded) {
+      _adminListLoaded = true;
+      await _newsletterListCubit.loadInitial();
+    }
   }
 
   @override
@@ -63,11 +88,12 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
 
   void _applyFilters() {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
       if (!mounted) return;
+      if (_isStaffScoped && !_staffListBootstrapped) return;
       _newsletterListCubit.applyFilters(
         search: searchController.text.trim(),
-        classroomCodes: _selectedClassroomCodes(),
+        classroomCodes: _effectiveClassroomCodesForApi(),
       );
     });
   }
@@ -85,6 +111,56 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
         .where((String code) => code.isNotEmpty)
         .toSet()
         .toList();
+  }
+
+  List<String> _effectiveClassroomCodesForApi() {
+    final selected = _selectedClassroomCodes();
+    if (!_isStaffScoped) return selected;
+
+    final Set<String> codes = <String>{};
+    final primary = (_primaryClassroomCode ?? '').trim();
+    if (primary.isNotEmpty) codes.add(primary);
+    codes.addAll(selected);
+
+    if (codes.isEmpty && _allowedClassroomCodes.isNotEmpty) {
+      codes.add(_allowedClassroomCodes.first);
+    }
+    return codes.toList();
+  }
+
+  void _maybeBootstrapStaffList(ClassroomState classroomState) {
+    if (!_scopeResolved || !_isStaffScoped || _staffListBootstrapped) return;
+    if (classroomState.isLoading) return;
+
+    final String? primaryName = _primaryClassroomName(classroomState);
+    final List<String> defaultNames = <String>[];
+    if (primaryName != null && primaryName.isNotEmpty) {
+      defaultNames.add(primaryName);
+    } else {
+      final options = _classroomNameOptions(classroomState);
+      if (options.isNotEmpty) defaultNames.add(options.first);
+    }
+
+    setState(() {
+      _selectedClassroomNames = defaultNames;
+      _staffListBootstrapped = true;
+    });
+    _newsletterListCubit.applyFilters(
+      search: searchController.text.trim(),
+      classroomCodes: _effectiveClassroomCodesForApi(),
+    );
+  }
+
+  String? _primaryClassroomName(ClassroomState classroomState) {
+    final primaryCode = (_primaryClassroomCode ?? '').trim();
+    if (primaryCode.isEmpty) return null;
+    for (final classroom in classroomState.classrooms) {
+      if (classroom.code.trim() == primaryCode) {
+        final name = classroom.name.trim();
+        return name.isNotEmpty ? name : primaryCode;
+      }
+    }
+    return null;
   }
 
   Map<String, String> _classroomNameByCode(ClassroomState s) {
@@ -107,13 +183,22 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
     Newsletter letter,
     Map<String, String> nameByCode,
   ) {
-    if (letter.classroomCodes.isEmpty) return 'All Classrooms';
-    final List<String> labels = letter.classroomCodes
-        .map((String c) => c.trim())
-        .where((String c) => c.isNotEmpty)
-        .map((String c) => nameByCode[c] ?? c)
-        .toList();
-    return labels.isEmpty ? 'All Classrooms' : labels.join(', ');
+    return buildNewsletterClassroomLabel(
+      classroomCodes: letter.classroomCodes,
+      nameByCode: nameByCode,
+      restrictToKnownClassrooms: _isStaffScoped,
+    );
+  }
+
+  List<String> _extractAssetCodesFromNewsletter(Newsletter letter) {
+    final RegExp codePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
+    final String text = '${letter.subtitle}\n${letter.bodyHtml}';
+    final Set<String> codes = <String>{};
+    for (final RegExpMatch match in codePattern.allMatches(text)) {
+      final String code = (match.group(0) ?? '').trim();
+      if (code.isNotEmpty) codes.add(code);
+    }
+    return codes.toList();
   }
 
   Widget _buildSearchAndFilterBox(ClassroomState classroomState) {
@@ -164,6 +249,12 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
       ],
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (BuildContext context, ClassroomState classroomState) {
+          if (_scopeResolved && _isStaffScoped && !_staffListBootstrapped) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _maybeBootstrapStaffList(classroomState);
+            });
+          }
           final Map<String, String> nameByCode =
               _classroomNameByCode(classroomState);
           return BlocConsumer<NewsletterListCubit, NewsletterListState>(
@@ -178,7 +269,20 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                       _buildSearchAndFilterBox(classroomState),
                       const SizedBox(height: 12),
                       Expanded(
-                        child: state.isLoading && state.newsletters.isEmpty
+                        child: _isStaffScoped &&
+                                (!_scopeResolved ||
+                                    !_staffListBootstrapped ||
+                                    classroomState.isLoading) &&
+                                state.newsletters.isEmpty
+                            ? ListView(
+                                physics:
+                                    const AlwaysScrollableScrollPhysics(),
+                                children: const [
+                                  SizedBox(height: 120),
+                                  Center(child: PrimaryCircularLoader()),
+                                ],
+                              )
+                            : state.isLoading && state.newsletters.isEmpty
                             ? ListView(
                                 physics:
                                     const AlwaysScrollableScrollPhysics(),
@@ -234,11 +338,42 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                           letter.createdByName.trim().isNotEmpty
                                               ? letter.createdByName
                                               : 'Demo Test';
+                                      final primaryAttachment =
+                                          pickPrimaryListAttachment(letter);
+                                      final List<String> derivedAssetCodes =
+                                          _extractAssetCodesFromNewsletter(
+                                        letter,
+                                      );
+                                      final Set<String> allCodes =
+                                          <String>{
+                                        ...letter.attachments
+                                            .map((a) => a.mediaCode.trim())
+                                            .where((c) => c.isNotEmpty),
+                                        ...derivedAssetCodes,
+                                      };
+                                      final String primaryAssetCode =
+                                          (primaryAttachment?.mediaCode ?? '')
+                                                  .trim()
+                                                  .isNotEmpty
+                                              ? primaryAttachment!.mediaCode
+                                              : (derivedAssetCodes.isNotEmpty
+                                                  ? derivedAssetCodes.first
+                                                  : '');
+                                      final int additionalAttachmentCount =
+                                          allCodes.length > 1
+                                              ? allCodes.length - 1
+                                              : 0;
+                                      final String listKey =
+                                          letter.code.trim().isNotEmpty
+                                              ? letter.code.trim()
+                                              : 'newsletter-$index';
                                       return Padding(
+                                        key: ValueKey<String>(listKey),
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 8,
                                         ),
                                         child: NewsletterSentListCard(
+                                          key: ValueKey<String>(listKey),
                                           newsLetter: NewsletterListItemModel(
                                             title: letter.title,
                                             classroom:
@@ -250,6 +385,22 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                             createdBy: createdBy,
                                             recipientCount:
                                                 letter.recipientCount,
+                                            primaryAttachmentAssetCode:
+                                                primaryAssetCode,
+                                            primaryAttachmentMimeType:
+                                                () {
+                                              final mime = (primaryAttachment
+                                                          ?.mimeType ??
+                                                      '')
+                                                  .trim();
+                                              if (mime.isNotEmpty) return mime;
+                                              if (primaryAssetCode.isNotEmpty) {
+                                                return 'image/*';
+                                              }
+                                              return null;
+                                            }(),
+                                            additionalAttachmentCount:
+                                                additionalAttachmentCount,
                                           ),
                                           onTap: () {
                                             final String code =
