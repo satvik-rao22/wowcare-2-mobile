@@ -77,6 +77,7 @@ class IndividualMovementModel {
     required this.source,
     required this.comment,
     required this.bucket,
+    this.profilePhotoAssetCode,
     this.confirmedAt,
     this.confirmedBy,
     this.rejectedAt,
@@ -101,6 +102,7 @@ class IndividualMovementModel {
   final String source;
   final String comment;
   final String bucket;
+  final String? profilePhotoAssetCode;
   final DateTime? confirmedAt;
   final String? confirmedBy;
   final DateTime? rejectedAt;
@@ -126,6 +128,7 @@ class IndividualMovementModel {
       source: (json['source'] ?? '').toString(),
       comment: (json['comment'] ?? '').toString(),
       bucket: (json['bucket'] ?? '').toString(),
+      profilePhotoAssetCode: json['profilePhotoAssetCode']?.toString(),
       confirmedAt: _parseDateTime(json['confirmedAt']),
       confirmedBy: json['confirmedBy']?.toString(),
       rejectedAt: _parseDateTime(json['rejectedAt']),
@@ -153,6 +156,7 @@ class IndividualMovementModel {
       'source': source,
       'comment': comment,
       'bucket': bucket,
+      'profilePhotoAssetCode': profilePhotoAssetCode,
       'confirmedAt': confirmedAt?.toIso8601String(),
       'confirmedBy': confirmedBy,
       'rejectedAt': rejectedAt?.toIso8601String(),
@@ -180,6 +184,7 @@ class IndividualMovementModel {
       source: source,
       comment: comment,
       bucket: bucket,
+      profilePhotoAssetCode: profilePhotoAssetCode,
       confirmedAt: confirmedAt,
       confirmedBy: confirmedBy,
       rejectedAt: rejectedAt,

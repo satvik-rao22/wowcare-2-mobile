@@ -1,103 +1,116 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
-// Local model classes (UI-only, no entity imports)
+// UI-layer student model — carries avatar data from the entity
 // ---------------------------------------------------------------------------
 
-class Student {
-  const Student({required this.id, required this.name});
+class _MovementStudent {
+  const _MovementStudent({
+    required this.id,
+    required this.name,
+    required this.avatarInitials,
+    this.profilePhotoAssetCode,
+  });
 
   final int id;
   final String name;
+  final String avatarInitials;
+  final String? profilePhotoAssetCode;
 }
 
-class GroupedMovement {
-  GroupedMovement({
-    required this.currentRoomId,
-    required this.nextRoomId,
+// ---------------------------------------------------------------------------
+// UI-layer grouped movement — one row per (date × from → to × bucket)
+// ---------------------------------------------------------------------------
+
+class _GroupedMovement {
+  _GroupedMovement({
     required this.movementDate,
     required this.movementDay,
     required this.movementMonth,
     required this.enrollmentStatus,
     required this.isLeaving,
-    required this.currentRoom,
-    required this.nextRoom,
+    this.currentRoom,
+    this.nextRoom,
     required this.students,
   });
 
-  final int? currentRoomId;
-  final int? nextRoomId;
-  final String movementDate;
+  final DateTime movementDate;
   final String movementDay;
   final String movementMonth;
   final String enrollmentStatus;
   final bool isLeaving;
   final String? currentRoom;
   final String? nextRoom;
-  final List<Student> students;
+  final List<_MovementStudent> students;
 }
 
 // ---------------------------------------------------------------------------
-// Hardcoded mock data — 3 representative grouped movements
+// Grouping helper — converts the board into display rows
 // ---------------------------------------------------------------------------
-final List<GroupedMovement> _mockMovements = [
-  GroupedMovement(
-    currentRoomId: 1,
-    nextRoomId: 2,
-    movementDate: '2026-05-10',
-    movementDay: '10',
-    movementMonth: 'May',
-    enrollmentStatus: 'Overdue',
-    isLeaving: false,
-    currentRoom: 'Infant Room',
-    nextRoom: 'Toddler Room',
-    students: [
-      Student(id: 1, name: 'Ava Martinez'),
-      Student(id: 2, name: 'Liam Johnson'),
-      Student(id: 3, name: 'Sophia Lee'),
-    ],
-  ),
-  GroupedMovement(
-    currentRoomId: 2,
-    nextRoomId: 3,
-    movementDate: '2026-05-22',
-    movementDay: '22',
-    movementMonth: 'May',
-    enrollmentStatus: 'Upcoming',
-    isLeaving: false,
-    currentRoom: 'Toddler Room',
-    nextRoom: 'Pre-K Room',
-    students: [
-      Student(id: 4, name: 'Noah Williams'),
-      Student(id: 5, name: 'Emma Davis'),
-    ],
-  ),
-  GroupedMovement(
-    currentRoomId: 3,
-    nextRoomId: null,
-    movementDate: '2026-06-01',
-    movementDay: '01',
-    movementMonth: 'Jun',
-    enrollmentStatus: 'Confirmed',
-    isLeaving: true,
-    currentRoom: 'Pre-K Room',
-    nextRoom: null,
-    students: [
-      Student(id: 6, name: 'Oliver Brown'),
-      Student(id: 7, name: 'Isabella Jones'),
-      Student(id: 8, name: 'Mia Garcia'),
-      Student(id: 9, name: 'Ethan Wilson'),
-      Student(id: 10, name: 'Charlotte Moore'),
-      Student(id: 11, name: 'James Taylor'),
-    ],
-  ),
-];
+
+List<_GroupedMovement> _buildGroupedRows(IndividualMovementBoard board) {
+  // Use insertion-ordered map so overdue → upcoming → confirmed → rejected.
+  final map = <String, _GroupedMovement>{};
+
+  void addBucket(List<IndividualMovement> movements, String label) {
+    for (final m in movements) {
+      final dateKey = _dateKey(m.movementDate);
+      final key = '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|$label';
+
+      final existing = map[key];
+      if (existing != null) {
+        existing.students.add(_studentFrom(m));
+      } else {
+        final from = m.fromClassroomName.trim().isEmpty ? null : m.fromClassroomName.trim();
+        final to = m.toClassroomName.trim().isEmpty ? null : m.toClassroomName.trim();
+        map[key] = _GroupedMovement(
+          movementDate: m.movementDate,
+          movementDay: m.movementDate.day.toString().padLeft(2, '0'),
+          movementMonth: _monthAbbr(m.movementDate.month),
+          enrollmentStatus: label,
+          isLeaving: m.movementType == IndividualMovementType.leaveSchool,
+          currentRoom: from,
+          nextRoom: to,
+          students: [_studentFrom(m)],
+        );
+      }
+    }
+  }
+
+  addBucket(board.overdue, 'Overdue');
+  addBucket(board.upcoming, 'Upcoming');
+  addBucket(board.confirmed, 'Confirmed');
+  addBucket(board.rejected, 'Rejected');
+
+  return map.values.toList(growable: false);
+}
+
+_MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
+      id: m.id,
+      name: m.studentName,
+      avatarInitials: m.studentAvatarInitials,
+      profilePhotoAssetCode:
+          (m.profilePhotoAssetCode?.trim().isEmpty ?? true) ? null : m.profilePhotoAssetCode,
+    );
+
+String _dateKey(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+
+String _monthAbbr(int month) {
+  const abbrs = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return abbrs[(month - 1).clamp(0, 11)];
+}
 
 // ---------------------------------------------------------------------------
-// MovementsCard — StatefulWidget (collapse toggle is genuine local UI state)
+// MovementsCard
 // ---------------------------------------------------------------------------
 
 class MovementsCard extends StatefulWidget {
@@ -111,28 +124,44 @@ class _MovementsCardState extends State<MovementsCard> {
   bool _minimized = false;
 
   // -------------------------------------------------------------------------
-  // Status colour helpers (inline — no ColorUtils import)
+  // Status colour helpers
   // -------------------------------------------------------------------------
 
   Color _statusColor(String status) {
-    if (status == 'Overdue') return Colors.red;
-    if (status == 'Upcoming') return Colors.yellow.shade700;
-    if (status == 'Confirmed') return Colors.green;
-    return Colors.grey;
+    switch (status) {
+      case 'Overdue':
+        return Colors.red;
+      case 'Upcoming':
+        return Colors.yellow.shade700;
+      case 'Confirmed':
+        return Colors.green;
+      case 'Rejected':
+        return Colors.red.shade300;
+      default:
+        return Colors.grey;
+    }
   }
 
   Color _statusBackground(String status) {
-    if (status == 'Overdue') return Colors.red.withValues(alpha: 0.25);
-    if (status == 'Upcoming') return Colors.yellow.withValues(alpha: 0.25);
-    if (status == 'Confirmed') return Colors.green.withValues(alpha: 0.25);
-    return Colors.grey.withValues(alpha: 0.25);
+    switch (status) {
+      case 'Overdue':
+        return Colors.red.withValues(alpha: 0.25);
+      case 'Upcoming':
+        return Colors.yellow.withValues(alpha: 0.25);
+      case 'Confirmed':
+        return Colors.green.withValues(alpha: 0.25);
+      case 'Rejected':
+        return Colors.red.shade300.withValues(alpha: 0.20);
+      default:
+        return Colors.grey.withValues(alpha: 0.25);
+    }
   }
 
   // -------------------------------------------------------------------------
   // Students dialog
   // -------------------------------------------------------------------------
 
-  void _showStudentsDialog(BuildContext context, List<Student> students) {
+  void _showStudentsDialog(BuildContext context, List<_MovementStudent> students) {
     showDialog(
       context: context,
       builder: (BuildContext ctx) {
@@ -144,16 +173,18 @@ class _MovementsCardState extends State<MovementsCard> {
               shrinkWrap: true,
               itemCount: students.length,
               itemBuilder: (_, index) {
+                final s = students[index];
                 return ListTile(
                   leading: DocumentImageWidget(
                     fileUuid: '',
-                    name: students[index].name,
+                    mediaAssetCode: s.profilePhotoAssetCode,
+                    name: s.name.isEmpty ? s.avatarInitials : s.name,
                     size: 40,
                     fontSize: 16,
                     disableProfileLookupFallback: true,
                     disableAttendanceStatusLookup: true,
                   ),
-                  title: Text(students[index].name),
+                  title: Text(s.name),
                 );
               },
             ),
@@ -173,7 +204,7 @@ class _MovementsCardState extends State<MovementsCard> {
   // Student avatar stack (max 5, overflow indicator)
   // -------------------------------------------------------------------------
 
-  Widget _buildStudentAvatars(List<Student> students) {
+  Widget _buildStudentAvatars(List<_MovementStudent> students) {
     final displayCount = students.length > 5 ? 5 : students.length;
     final overflowCount = students.length - 4;
 
@@ -188,6 +219,7 @@ class _MovementsCardState extends State<MovementsCard> {
               clipBehavior: Clip.none,
               children: List.generate(displayCount, (index) {
                 final isOverflowSlot = index == 4 && students.length > 5;
+                final s = students[index];
 
                 return Positioned(
                   right: index * 5.0,
@@ -198,10 +230,7 @@ class _MovementsCardState extends State<MovementsCard> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.grey.shade400,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
-                            ),
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -223,7 +252,8 @@ class _MovementsCardState extends State<MovementsCard> {
                           ),
                           child: DocumentImageWidget(
                             fileUuid: '',
-                            name: students[index].name,
+                            mediaAssetCode: s.profilePhotoAssetCode,
+                            name: s.name.isEmpty ? s.avatarInitials : s.name,
                             size: 41,
                             fontSize: 16,
                             disableProfileLookupFallback: true,
@@ -272,7 +302,7 @@ class _MovementsCardState extends State<MovementsCard> {
     required String studentCount,
     required String from,
     required String to,
-    required List<Student> students,
+    required List<_MovementStudent> students,
     required String status,
   }) {
     return Column(
@@ -287,10 +317,7 @@ class _MovementsCardState extends State<MovementsCard> {
                 children: [
                   Text(
                     month,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   Text(
                     day,
@@ -343,9 +370,8 @@ class _MovementsCardState extends State<MovementsCard> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // Room transition label — wrapped to avoid overflow
                   Text(
-                    '$from → $to',
+                    from.isEmpty ? to : '$from → $to',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -360,6 +386,22 @@ class _MovementsCardState extends State<MovementsCard> {
         ),
         const SizedBox(height: 8),
       ],
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Empty state
+  // -------------------------------------------------------------------------
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: Text(
+          'No movements scheduled',
+          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+        ),
+      ),
     );
   }
 
@@ -380,7 +422,6 @@ class _MovementsCardState extends State<MovementsCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Card header row
           DashboardCardHeader(
             title: 'Movements',
             showRedirect: true,
@@ -393,33 +434,56 @@ class _MovementsCardState extends State<MovementsCard> {
             },
           ),
           const SizedBox(height: 24),
-
-          /// Collapsible body
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
-            child: _minimized
-                ? const SizedBox.shrink()
-                : Column(
-                    children: _mockMovements
-                        .map(
-                          (move) => _buildMoveItem(
-                            month: move.movementMonth,
-                            day: move.movementDay,
-                            studentCount: move.students.length.toString(),
-                            from: move.currentRoom ?? '',
-                            to: move.isLeaving
-                                ? 'Leaving the School'
-                                : move.nextRoom ?? '',
-                            students: move.students,
-                            status: move.enrollmentStatus,
-                          ),
-                        )
-                        .toList(),
-                  ),
+            child: _minimized ? const SizedBox.shrink() : _buildBody(),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    return BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
+      builder: (context, state) {
+        // First load with no cached data yet → shimmer
+        if (state.isLoading && state.board == null) {
+          return const MovementsCardShimmer();
+        }
+
+        // Error with no data to show
+        if (state.board == null && state.errorMessage != null) {
+          return _buildEmptyState();
+        }
+
+        // Board available (may be refreshing silently in background)
+        if (state.board != null) {
+          final rows = _buildGroupedRows(state.board!);
+          if (rows.isEmpty) return _buildEmptyState();
+
+          return Column(
+            children: rows
+                .map(
+                  (move) => _buildMoveItem(
+                    month: move.movementMonth,
+                    day: move.movementDay,
+                    studentCount: move.students.length.toString(),
+                    from: move.currentRoom ?? '',
+                    to: move.isLeaving
+                        ? 'Leaving the School'
+                        : move.nextRoom ?? '',
+                    students: move.students,
+                    status: move.enrollmentStatus,
+                  ),
+                )
+                .toList(),
+          );
+        }
+
+        // Initial state before first load
+        return const MovementsCardShimmer();
+      },
     );
   }
 }
