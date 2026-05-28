@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
@@ -1105,6 +1106,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               }
                             },
                           ),
+                        _CustomExpansionTile(
+                          title: 'Reports',
+                          icon: MediaRes.documents_drawer_Icon,
+                          isCurrentRoute:
+                              _currentRoute == ReportsScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != ReportsScreen.routeName) {
+                              context.go(ReportsScreen.routeName);
+                            }
+                          },
+                        ),
                         if (showSettingsMenu)
                           _CustomExpansionTile(
                             title: 'Settings',
