@@ -29,11 +29,19 @@ class RatioMonitoringClassroom extends Equatable {
 
   /// Whether the current ratio is within the allowed limit.
   ///
-  /// - `staffPresent == 0` → RED (no staff present is always a violation)
-  /// - `actualRatio <= allowedRatio` → GREEN
-  /// - `actualRatio >  allowedRatio` → RED
+  /// Evaluation order:
+  /// 1. `studentPresent == 0` → GREEN  (empty classroom, nothing to supervise)
+  /// 2. `staffPresent == 0`   → RED   (students present but no staff → unsafe)
+  /// 3. `allowedRatio <= 0`  → GREEN  (both present, no restriction configured)
+  /// 4. `actualRatio <= allowedRatio` → GREEN, else RED
   bool get isRatioGood {
+    // Empty classroom — nothing to supervise.
+    if (studentPresent == 0) return true;
+    // Students present but NO staff → always RED regardless of configured ratio.
     if (staffPresent == 0) return false;
+    // Both present: if no ratio restriction configured, it's compliant.
+    if (allowedRatio <= 0) return true;
+    // Normal comparison: actual ratio vs allowed limit.
     return actualRatio <= allowedRatio;
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -19,8 +20,12 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Dashboard card that displays live classroom student-to-staff ratios.
 ///
-/// Integrates with [RatioMonitoringCubit] for live data. UI layout is
-/// identical to the original design — only the data source changed.
+/// Lifecycle:
+/// - **First open**: shows shimmer → classroom rows appear with 0 counts
+///   once the classroom list loads → counts update when attendance data arrives.
+/// - **App returns from background** (`WidgetsBindingObserver`): silently
+///   refreshes attendance data; existing rows stay visible throughout.
+/// - **Pull-to-refresh**: triggered by parent `AdminDashboard`; shimmer shown.
 class RatioMonitoringCard extends StatefulWidget {
   const RatioMonitoringCard({
     super.key,
@@ -33,47 +38,112 @@ class RatioMonitoringCard extends StatefulWidget {
   State<RatioMonitoringCard> createState() => _RatioMonitoringCardState();
 }
 
-class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
-  static const double cellHeightRow = 50;
+class _RatioMonitoringCardState extends State<RatioMonitoringCard>
+    with WidgetsBindingObserver {
+  // ── constants ──────────────────────────────────────────────────────────────
+  static const double _cellH = 50;
   static const int _initialDisplayCount = 7;
 
-  final DateTime _selectedRatioMonitoringDate = DateTime.now();
-
+  // ── UI state ───────────────────────────────────────────────────────────────
+  final DateTime _selectedDate = DateTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
+
+  // ── lifecycle tracking ─────────────────────────────────────────────────────
+
+  // Minimum time between two silent refreshes (prevents rapid consecutive hits).
+  static const _refreshCooldown = Duration(seconds: 30);
+
+  /// Cached cubit reference — resolved once in [didChangeDependencies] and
+  /// passed explicitly to [BlocBuilder] so that BlocBuilder never needs to
+  /// call context.read<RatioMonitoringCubit>() in its own initState (which
+  /// can fail when the widget is first inflated inside a LayoutBuilder during
+  /// the layout phase before the InheritedWidget chain is fully resolved).
+  RatioMonitoringCubit? _cubit;
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addObserver(this);
+    // Trigger initial load. The cubit's _isFetching guard prevents duplication
+    // if AdminDashboard also calls loadRatioMonitoring.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _loadData() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = await storage.getString(StorageKeys.schoolCode);
-    if (schoolCode != null && schoolCode.isNotEmpty && mounted) {
-      try {
-        await context.read<RatioMonitoringCubit>().loadRatioMonitoring(
-              schoolCode: schoolCode,
-              isSilent: true,
-            );
-      } catch (_) {}
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Resolve the cubit safely — didChangeDependencies is guaranteed to run
+    // with a fully mounted context where all InheritedWidgets are accessible.
+    _cubit = context.read<RatioMonitoringCubit>();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // ── App lifecycle ──────────────────────────────────────────────────────────
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _silentRefresh();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data loading helpers
+  // ---------------------------------------------------------------------------
+
+  Future<void> _load() async {
+    final cubit = _cubit;
+    if (cubit == null) return;
+    final schoolCode = await _resolveSchoolCode();
+    if (schoolCode == null || !mounted) return;
+    cubit.loadRatioMonitoring(schoolCode: schoolCode, isSilent: true);
+  }
+
+  void _silentRefresh() {
+    if (!mounted) return;
+    final cubit = _cubit;
+    if (cubit == null) return;
+
+    // Cooldown: avoid hammering the API on rapid lifecycle events.
+    final lastFetch = cubit.lastFetchAt;
+    if (lastFetch != null &&
+        DateTime.now().difference(lastFetch) < _refreshCooldown) {
+      return;
+    }
+
+    unawaited(_resolveSchoolCode().then((schoolCode) {
+      if (schoolCode == null || !mounted) return;
+      cubit.loadRatioMonitoring(schoolCode: schoolCode, isSilent: true);
+    }));
+  }
+
+  Future<String?> _resolveSchoolCode() async {
+    final storage = serviceLocator<StorageService>();
+    final code = await storage.getString(StorageKeys.schoolCode);
+    return (code != null && code.isNotEmpty) ? code : null;
   }
 
   // ---------------------------------------------------------------------------
   // Header date navigator
   // ---------------------------------------------------------------------------
 
-  Widget _buildRatioMonitoringDateNavigator() {
-    final formattedDate =
-        DateFormat('EEE, MMM d').format(_selectedRatioMonitoringDate);
+  Widget _buildDateNavigator() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 2),
         Text(
-          formattedDate,
+          DateFormat('EEE, MMM d').format(_selectedDate),
           style: const TextStyle(
             color: AppColors.primaryColor,
             fontWeight: FontWeight.w600,
@@ -85,7 +155,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
   }
 
   // ---------------------------------------------------------------------------
-  // Table header row
+  // Table header
   // ---------------------------------------------------------------------------
 
   TableRow _buildHeaderRow() {
@@ -94,22 +164,22 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
         _buildHeaderCell(
           mainText: 'Classroom',
           subText: '',
-          backgroundColor: const Color.fromRGBO(249, 245, 250, 1),
+          bg: const Color.fromRGBO(249, 245, 250, 1),
         ),
         _buildHeaderCell(
           mainText: 'Students',
           subText: 'Present',
-          backgroundColor: const Color.fromRGBO(234, 240, 253, 1),
+          bg: const Color.fromRGBO(234, 240, 253, 1),
         ),
         _buildHeaderCell(
           mainText: 'Staff',
           subText: 'Present',
-          backgroundColor: const Color.fromRGBO(234, 251, 255, 1),
+          bg: const Color.fromRGBO(234, 251, 255, 1),
         ),
         _buildHeaderCell(
           mainText: 'Ratio',
           subText: 'Current',
-          backgroundColor: const Color.fromRGBO(255, 245, 234, 1),
+          bg: const Color.fromRGBO(255, 245, 234, 1),
         ),
       ],
     );
@@ -118,14 +188,14 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
   Widget _buildHeaderCell({
     required String mainText,
     required String subText,
-    required Color backgroundColor,
+    required Color bg,
   }) {
     return Container(
       height: 90,
-      decoration: BoxDecoration(color: backgroundColor),
+      decoration: BoxDecoration(color: bg),
       child: Column(
         children: [
-          Expanded(child: Container()),
+          Expanded(child: const SizedBox.shrink()),
           if (subText.isNotEmpty) ...[
             Text(
               mainText,
@@ -169,32 +239,28 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
   }
 
   // ---------------------------------------------------------------------------
-  // Table empty row
+  // Table rows
   // ---------------------------------------------------------------------------
 
   TableRow _buildEmptyRow() {
     return TableRow(
-      children: [
-        SizedBox(height: cellHeightRow),
-        SizedBox(height: cellHeightRow),
-        SizedBox(height: cellHeightRow),
-        SizedBox(height: cellHeightRow),
-      ],
+      children: List.generate(4, (_) => SizedBox(height: _cellH)),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Data row
-  // ---------------------------------------------------------------------------
-
+  /// Builds a data row for [room].
+  ///
+  /// Always renders — even when [room.studentPresent] and [room.staffPresent]
+  /// are both 0 (attendance data not yet available or not present for this
+  /// classroom). A zero means "no one signed in", not "missing classroom".
   TableRow _buildDataRow(RatioMonitoringClassroom room) {
     return TableRow(
       children: [
-        // ── Classroom cell ──────────────────────────────────────────────────
+        // ── Classroom name ──────────────────────────────────────────────────
         GestureDetector(
           onTap: () {},
           child: Container(
-            height: cellHeightRow,
+            height: _cellH,
             color: Colors.white,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
@@ -227,14 +293,15 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
           ),
         ),
 
-        // ── Students Present cell ───────────────────────────────────────────
+        // ── Students present ────────────────────────────────────────────────
         GestureDetector(
           onTap: () {},
           child: Container(
-            height: cellHeightRow,
+            height: _cellH,
             color: const Color.fromRGBO(234, 240, 253, 1),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
               child: Text(
                 room.studentPresent.toString(),
                 textAlign: TextAlign.center,
@@ -248,14 +315,15 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
           ),
         ),
 
-        // ── Staff Present cell ──────────────────────────────────────────────
+        // ── Staff present ───────────────────────────────────────────────────
         GestureDetector(
           onTap: () {},
           child: Container(
-            height: cellHeightRow,
+            height: _cellH,
             color: const Color.fromRGBO(234, 251, 255, 1),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
               child: Text(
                 room.staffPresent.toString(),
                 textAlign: TextAlign.center,
@@ -269,16 +337,17 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
           ),
         ),
 
-        // ── Ratio indicator cell ────────────────────────────────────────────
+        // ── Ratio indicator (thumb up / down) ───────────────────────────────
         Container(
-          height: cellHeightRow,
+          height: _cellH,
           color: const Color.fromRGBO(255, 245, 234, 1),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
+            padding:
+                const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
             child: Center(
-              child: room.isRatioGood
-                  ? SvgPicture.asset(MediaRes.thumbUp)
-                  : SvgPicture.asset(MediaRes.thumbDown),
+              child: SvgPicture.asset(
+                room.isRatioGood ? MediaRes.thumbUp : MediaRes.thumbDown,
+              ),
             ),
           ),
         ),
@@ -293,24 +362,24 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<RatioMonitoringCubit, RatioMonitoringState>(
+      bloc: _cubit,
       builder: (context, state) {
-        // Show shimmer only on first load when there is no cached data.
-        // If data is present (silent refresh or error recovery), keep rows visible.
+        // Show shimmer ONLY on the very first load (no classroom data at all).
+        // If we already have classroom rows — even with 0 counts — keep them
+        // visible while attendance data silently updates in background.
         final showShimmer =
-            state.isInitial || (state.isLoading && state.classrooms.isEmpty);
+            state.isInitial ||
+            (state.isLoading && state.classrooms.isEmpty);
 
         if (showShimmer) {
           return const _RatioMonitoringCardShimmer();
         }
 
         final classrooms = state.classrooms;
-
-        final displayedClassrooms =
-            (_showAllClassrooms || !widget.isDashboard)
-                ? classrooms
-                : classrooms.take(_initialDisplayCount).toList();
-
-        final hasMoreToShow = classrooms.length > _initialDisplayCount;
+        final displayed = (_showAllClassrooms || !widget.isDashboard)
+            ? classrooms
+            : classrooms.take(_initialDisplayCount).toList();
+        final hasMore = classrooms.length > _initialDisplayCount;
 
         return Container(
           padding: const EdgeInsets.all(4),
@@ -321,22 +390,19 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
           ),
           child: Column(
             children: [
-              // ── Card header ──────────────────────────────────────────────
+              // ── Card header ────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
                 child: DashboardCardHeader(
                   title: 'Ratio Monitoring',
                   minimized: _minimized,
-                  onToggle: () {
-                    setState(() {
-                      _minimized = !_minimized;
-                    });
-                  },
-                  trailing: _buildRatioMonitoringDateNavigator(),
+                  onToggle: () =>
+                      setState(() => _minimized = !_minimized),
+                  trailing: _buildDateNavigator(),
                 ),
               ),
 
-              // ── Card body (hidden when minimized) ─────────────────────────
+              // ── Body (hidden when minimized) ───────────────────────────────
               if (!_minimized) ...[
                 Column(
                   children: [
@@ -349,29 +415,29 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
                       },
                       border: TableBorder.symmetric(
                         inside: BorderSide(
-                          color: AppColors.primaryColor.withValues(alpha: 0.05),
+                          color: AppColors.primaryColor
+                              .withValues(alpha: 0.05),
                         ),
                       ),
                       children: [
                         _buildHeaderRow(),
-                        if (displayedClassrooms.isEmpty)
+                        if (displayed.isEmpty)
                           _buildEmptyRow()
                         else
-                          ...displayedClassrooms.map(_buildDataRow),
+                          ...displayed.map(_buildDataRow),
                       ],
                     ),
 
-                    // ── Show More / Show Less toggle ──────────────────────
-                    if (hasMoreToShow && widget.isDashboard)
+                    // ── Show More / Show Less ──────────────────────────────
+                    if (hasMore && widget.isDashboard)
                       InkWell(
-                        onTap: () {
-                          setState(() {
-                            _showAllClassrooms = !_showAllClassrooms;
-                          });
-                        },
+                        onTap: () => setState(
+                          () => _showAllClassrooms = !_showAllClassrooms,
+                        ),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 8),
                           decoration: BoxDecoration(
                             color: AppColors.primaryColor
                                 .withValues(alpha: 0.03),
@@ -415,7 +481,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard> {
 }
 
 // ---------------------------------------------------------------------------
-// Shimmer — matches exact card dimensions to prevent layout shift.
+// Shimmer — matches exact card dimensions; shown only on first load.
 // ---------------------------------------------------------------------------
 
 class _RatioMonitoringCardShimmer extends StatelessWidget {
@@ -439,7 +505,7 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row shimmer
+            // Header row
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
               child: Row(
@@ -464,12 +530,12 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
                 ],
               ),
             ),
-            // Column header shimmer
+            // Column headers
             Container(
               height: 90,
               color: Colors.white.withValues(alpha: 0.6),
             ),
-            // Data row shimmers
+            // Data rows
             ...List.generate(
               _shimmerRows,
               (_) => Container(

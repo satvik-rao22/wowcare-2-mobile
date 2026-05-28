@@ -10,8 +10,10 @@ part 'ratio_monitoring_state.dart';
 class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
   RatioMonitoringCubit({
     required GetRatioMonitoringClassroomsUseCase getRatioMonitoringClassroomsUseCase,
-    required GetStudentAttendanceSummaryByClassroomsUseCase getStudentAttendanceSummaryByClassroomsUseCase,
-    required GetStaffAttendanceSummaryByClassroomsUseCase getStaffAttendanceSummaryByClassroomsUseCase,
+    required GetStudentAttendanceSummaryByClassroomsUseCase
+        getStudentAttendanceSummaryByClassroomsUseCase,
+    required GetStaffAttendanceSummaryByClassroomsUseCase
+        getStaffAttendanceSummaryByClassroomsUseCase,
     required CacheManager cacheManager,
   })  : _getRatioMonitoringClassroomsUseCase = getRatioMonitoringClassroomsUseCase,
         _getStudentAttendanceSummaryByClassroomsUseCase =
@@ -30,12 +32,29 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
 
   bool _isFetching = false;
 
-  /// Loads ratio monitoring data.
+  /// Last completed fetch timestamp — used by callers to implement cooldowns.
+  DateTime? get lastFetchAt => _lastFetchAt;
+  DateTime? _lastFetchAt;
+
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
+  /// Loads ratio monitoring data for [schoolCode].
   ///
-  /// - First load (no cached data): emits loading → shimmer shown.
-  /// - Navigate back (has data, [isSilent] = true): keeps old rows visible,
-  ///   silently refreshes in background.
-  /// - [forceRefresh]: clears caches, shows shimmer again (pull-to-refresh).
+  /// Load strategy:
+  ///
+  /// **First open** (`state.isInitial`):
+  ///   Phase 1 — fetch classroom list → emit loaded state with all classrooms
+  ///   at 0 counts so the table rows are immediately visible.
+  ///   Phase 2 — fetch attendance data in parallel → update rows with live counts.
+  ///
+  /// **Silent background refresh** (`isSilent = true`, data already present):
+  ///   No shimmer, no intermediate 0-state. Data updates atomically when both
+  ///   attendance APIs respond.
+  ///
+  /// **Pull-to-refresh** (`forceRefresh = true`):
+  ///   Invalidates classroom cache, shows shimmer, full re-fetch.
   Future<void> loadRatioMonitoring({
     required String schoolCode,
     bool forceRefresh = false,
@@ -47,10 +66,11 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       return;
     }
 
+    // Guard against concurrent fetches.
     if (_isFetching) return;
     _isFetching = true;
 
-    // Show loading shimmer only when we have no data OR on a forced refresh.
+    // Show shimmer only when: not silent AND (no data yet OR force-refresh).
     if (!isSilent && (!state.isLoaded || forceRefresh)) {
       emit(state.copyWith(
         status: RatioMonitoringStatus.loading,
@@ -61,6 +81,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     }
 
     try {
+      // ── Cache invalidation on explicit force-refresh ──────────────────────
       if (forceRefresh) {
         await _cacheManager.invalidateCache(
           CacheManager.buildCacheKey(
@@ -71,7 +92,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
         );
       }
 
-      // Step 1 — fetch classroom list (cached after first hit).
+      // ── Phase 1: Fetch classroom master list ──────────────────────────────
       final classrooms = await _getRatioMonitoringClassroomsUseCase(
         schoolCode: code,
       );
@@ -83,10 +104,33 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
             classrooms: const [],
           ));
         }
+        _lastFetchAt = DateTime.now();
         return;
       }
 
-      // Step 2 — extract codes and fetch both attendance summaries in parallel.
+      // Phase 1 result: emit all classrooms immediately with 0 counts so the
+      // table is never empty while attendance data is still loading.
+      // Skip this intermediate emit on silent refresh to avoid visible flicker.
+      final hasExistingData = state.isLoaded && state.classrooms.isNotEmpty;
+      if (!hasExistingData && !isClosed) {
+        emit(RatioMonitoringState.loaded(
+          schoolCode: code,
+          classrooms: classrooms
+              .map(
+                (c) => RatioMonitoringClassroom(
+                  code: c.code,
+                  name: c.name,
+                  capacity: c.capacity,
+                  allowedRatio: c.allowedRatio,
+                  studentPresent: 0,
+                  staffPresent: 0,
+                ),
+              )
+              .toList(),
+        ));
+      }
+
+      // ── Phase 2: Fetch attendance for all classrooms in parallel ──────────
       final codes = classrooms.map((c) => c.code).toList();
 
       final results = await Future.wait([
@@ -97,7 +141,9 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       final studentMap = results[0];
       final staffMap = results[1];
 
-      // Step 3 — merge into aggregate entities.
+      // ── Phase 3: Merge classroom list + attendance maps ───────────────────
+      // Every classroom in the master list always produces a row.
+      // Missing attendance entries default to 0 — no row is ever suppressed.
       final merged = classrooms.map((c) {
         final studentEntry = studentMap[c.code];
         final staffEntry = staffMap[c.code];
@@ -117,14 +163,21 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
           classrooms: merged,
         ));
       }
+
+      _lastFetchAt = DateTime.now();
     } catch (e) {
       if (!isClosed) {
-        // Preserve existing loaded data on error — card stays populated.
+        // On error: if Phase 1 already populated the state with classrooms
+        // (the intermediate 0-count emit), keep those rows visible.
+        // Only switch to error status if we have absolutely no data to show.
+        final shouldShowError = !state.isLoaded || state.classrooms.isEmpty;
         emit(state.copyWith(
-          status: state.isLoaded
-              ? RatioMonitoringStatus.loaded
-              : RatioMonitoringStatus.error,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+          status: shouldShowError
+              ? RatioMonitoringStatus.error
+              : RatioMonitoringStatus.loaded,
+          errorMessage: shouldShowError
+              ? ApiErrorHandler.extractErrorMessage(e)
+              : null,
         ));
       }
     } finally {

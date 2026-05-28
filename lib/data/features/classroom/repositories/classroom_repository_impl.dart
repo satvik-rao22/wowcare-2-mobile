@@ -213,6 +213,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       identifier: schoolCode,
     );
 
+    // ── Serve from cache if available ────────────────────────────────────────
     final cached = await _cacheManager.loadCache(key);
     if (cached != null) {
       final list = cached['items'] as List<dynamic>? ?? const [];
@@ -229,31 +230,73 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       }).toList();
     }
 
-    final model = await _remoteDataSource.getRatioMonitoringClassrooms(
+    // ── Try the new paginated API (returns studentsTeacherRatio) ─────────────
+    try {
+      final model = await _remoteDataSource.getRatioMonitoringClassrooms(
+        schoolCode: schoolCode,
+      );
+
+      if (model.items.isNotEmpty) {
+        final result = model.items
+            .map(
+              (e) => RatioMonitoringClassroom(
+                code: e.code,
+                name: e.name,
+                capacity: e.capacity,
+                allowedRatio: e.studentsTeacherRatio,
+                studentPresent: 0,
+                staffPresent: 0,
+              ),
+            )
+            .toList();
+
+        await _cacheManager.saveCache(key, {
+          'items': result.map((e) => {
+            'code': e.code,
+            'name': e.name,
+            'capacity': e.capacity,
+            'allowedRatio': e.allowedRatio,
+          }).toList(),
+        });
+
+        return result;
+      }
+    } catch (_) {
+      // Paginated API unavailable — fall through to the reliable fallback.
+    }
+
+    // ── Fallback: use the existing /classroom/all endpoint (always works) ────
+    // This endpoint does not return studentsTeacherRatio, so allowedRatio
+    // defaults to 0 which resolves to GREEN (no restriction) per entity logic.
+    final fallback = await _remoteDataSource.getActiveClassrooms(
       schoolCode: schoolCode,
     );
 
-    await _cacheManager.saveCache(key, {
-      'items': model.items.map((e) => {
-        'code': e.code,
-        'name': e.name,
-        'capacity': e.capacity,
-        'allowedRatio': e.studentsTeacherRatio,
-      }).toList(),
-    });
-
-    return model.items
+    final result = fallback.items
         .map(
           (e) => RatioMonitoringClassroom(
             code: e.code,
             name: e.name,
-            capacity: e.capacity,
-            allowedRatio: e.studentsTeacherRatio,
+            capacity: 0,
+            allowedRatio: 0,
             studentPresent: 0,
             staffPresent: 0,
           ),
         )
         .toList();
+
+    if (result.isNotEmpty) {
+      await _cacheManager.saveCache(key, {
+        'items': result.map((e) => {
+          'code': e.code,
+          'name': e.name,
+          'capacity': e.capacity,
+          'allowedRatio': e.allowedRatio,
+        }).toList(),
+      });
+    }
+
+    return result;
   }
 
   @override
