@@ -11,7 +11,8 @@ FLUTTER ?= flutter
 	uat-ios-debug local-ios-debug prod-ios-debug \
 	uat-ios-profile local-ios-profile prod-ios-profile \
 	uat-ios-release local-ios-release prod-ios-release \
-	uat-ipa local-ipa prod-ipa
+	uat-ipa local-ipa prod-ipa \
+	uat-build local-build prod-build
 
 # -----------------------------------------------------------------------------
 # HELP
@@ -86,6 +87,11 @@ help:
 	@echo "  make uat-ipa"
 	@echo "  make local-ipa"
 	@echo "  make prod-ipa"
+	@echo ""
+	@echo "Generic Build (APK + iOS Release):"
+	@echo "  make uat-build"
+	@echo "  make local-build"
+	@echo "  make prod-build"
 	@echo ""
 
 # -----------------------------------------------------------------------------
@@ -258,3 +264,13 @@ local-ipa:
 
 prod-ipa:
 	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD
+
+# -----------------------------------------------------------------------------
+# GENERIC BUILD COMMANDS
+# -----------------------------------------------------------------------------
+
+uat-build: uat-apk-release uat-ios-release
+
+local-build: local-apk-release local-ios-release
+
+prod-build: prod-apk-release prod-ios-release

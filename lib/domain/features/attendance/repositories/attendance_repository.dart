@@ -28,7 +28,10 @@ abstract class AttendanceRepository {
   /// When null or empty, the repository may fall back to the first allowed
   /// classroom for the current user.
   Future<StudentAttendanceExpectedSummary>
-  getStudentAttendanceExpectedSummary({String? classroomCode});
+  getStudentAttendanceExpectedSummary({
+    String? classroomCode,
+    bool schoolWide = false,
+  });
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
     required String fromAttendanceDate,
@@ -181,6 +184,7 @@ abstract class AttendanceRepository {
   /// [classroomCode] is sent as `classroomCode` on the summary/card API.
   Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary({
     String? classroomCode,
+    bool schoolWide = false,
   });
 
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({

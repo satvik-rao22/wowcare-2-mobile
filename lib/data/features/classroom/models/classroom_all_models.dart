@@ -16,6 +16,70 @@ class ClassroomAllItemModel {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Ratio Monitoring — paginated classroom list
+// ---------------------------------------------------------------------------
+
+/// One item in the paginated ratio-monitoring classroom list
+/// (`GET /api/v1/classroom/classroom`).
+class RatioClassroomItemModel {
+  const RatioClassroomItemModel({
+    required this.code,
+    required this.name,
+    required this.capacity,
+    required this.studentsTeacherRatio,
+  });
+
+  final String code;
+  final String name;
+  final int capacity;
+  final int studentsTeacherRatio;
+
+  factory RatioClassroomItemModel.fromJson(Map<String, dynamic> json) {
+    final code = (json['code'] as String? ??
+            json['classroomCode'] as String? ??
+            json['id']?.toString()) ??
+        '';
+    final name = (json['name'] as String? ??
+            json['classroomName'] as String?) ??
+        '';
+    return RatioClassroomItemModel(
+      code: code,
+      name: name,
+      capacity: json['capacity'] as int? ?? 0,
+      studentsTeacherRatio: json['studentsTeacherRatio'] as int? ?? 0,
+    );
+  }
+}
+
+/// Paginated response wrapping [RatioClassroomItemModel] items.
+/// Backend shape: `{ data: { content: [...] } }`.
+class RatioClassroomPageResponseModel {
+  const RatioClassroomPageResponseModel({required this.items});
+
+  final List<RatioClassroomItemModel> items;
+
+  factory RatioClassroomPageResponseModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'];
+    List<dynamic> content = const [];
+    if (data is Map<String, dynamic>) {
+      final c = data['content'];
+      if (c is List) content = c;
+    } else if (data is List) {
+      content = data;
+    }
+    return RatioClassroomPageResponseModel(
+      items: content
+          .map(
+            (e) => RatioClassroomItemModel.fromJson(e as Map<String, dynamic>),
+          )
+          .toList(),
+    );
+  }
+}
+
 class ClassroomAllResponseModel {
   const ClassroomAllResponseModel({
     required this.success,

@@ -47,6 +47,9 @@ import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import '../../domain/features/classroom/usecases/get_school_capacity_usecase.dart';
+import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dart';
+import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -62,6 +65,9 @@ import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit
 import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
+import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
+import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
@@ -350,7 +356,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ClassroomRepository>(
-    () => ClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
+    () => ClassroomRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+      serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerLazySingleton<StudentRepository>(
     () => StudentRepositoryImpl(serviceLocator(), serviceLocator()),
@@ -600,6 +610,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentCountsUseCase>(
     () => GetStudentCountsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetSchoolCapacityUseCase>(
+    () => GetSchoolCapacityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetRatioMonitoringClassroomsUseCase>(
+    () => GetRatioMonitoringClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
+    () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffAttendanceSummaryByClassroomsUseCase>(
+    () => GetStaffAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomCountUseCase>(
+    () => GetClassroomCountUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetSchoolFteUseCase>(
+    () => GetSchoolFteUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetClassroomActivitySettingsUseCase>(
     () => GetClassroomActivitySettingsUseCase(serviceLocator()),
   );
@@ -740,6 +768,25 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cubits (factory - new instance each time for UI)
+  serviceLocator.registerFactory<RatioMonitoringCubit>(
+    () => RatioMonitoringCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getStudentAttendanceSummaryByClassroomsUseCase: serviceLocator(),
+      getStaffAttendanceSummaryByClassroomsUseCase: serviceLocator(),
+      cacheManager: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<SchoolStatusCubit>(
+    () => SchoolStatusCubit(
+      getStudentCountsUseCase: serviceLocator(),
+      getSchoolCapacityUseCase: serviceLocator(),
+      getClassroomCountUseCase: serviceLocator(),
+      getSchoolFteUseCase: serviceLocator(),
+      getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
+      getStudentAttendanceExpectedSummaryUseCase: serviceLocator(),
+      cacheManager: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<AuthCubit>(
     () => AuthCubit(
       loginUseCase: serviceLocator(),

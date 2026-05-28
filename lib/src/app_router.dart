@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -41,6 +40,7 @@ import 'package:wowcare/presentation/features/user-profile/view/notification_set
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
+import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -191,6 +191,14 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: ClassroomOverviewScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra as Map<String, dynamic>?;
+        final filter = args?['filter'] as String?;
+        return ClassroomOverviewScreen(initialStudentFilter: filter);
+      },
+    ),
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
@@ -236,23 +244,31 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'students',
-                  pageBuilder: (context, state) => _fastPage(
-                    state,
-                    MultiBlocProvider(
-                      providers: [
-                        BlocProvider<StudentCubit>(
-                          create: (_) =>
-                              serviceLocator<StudentCubit>()..loadInitial(),
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final filter = args?['filter'] as String?;
+                    final classrooms = args?['classrooms'] as List<String>?;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<StudentCubit>(
+                            create: (_) =>
+                                serviceLocator<StudentCubit>()..loadInitial(),
+                          ),
+                          BlocProvider<ClassroomCubit>(
+                            create: (_) =>
+                                serviceLocator<ClassroomCubit>()
+                                  ..loadActiveClassrooms(),
+                          ),
+                        ],
+                        child: StudentScreen(
+                          incomingStatusFilter: filter,
+                          incomingClassroomSelections: classrooms,
                         ),
-                        BlocProvider<ClassroomCubit>(
-                          create: (_) =>
-                              serviceLocator<ClassroomCubit>()
-                                ..loadActiveClassrooms(),
-                        ),
-                      ],
-                      child: const StudentScreen(),
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'billing',
@@ -339,13 +355,25 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'student-attendance-tabbed-view',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StudentAttendanceTabbedView()),
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final filter = args?['filter'] as String?;
+                    return _fastPage(
+                      state,
+                      StudentAttendanceTabbedView(dailyIncomingFilter: filter),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'staff-attendance-tabbed-view',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StaffAttendanceTabbedView()),
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final filter = args?['filter'] as String?;
+                    return _fastPage(
+                      state,
+                      StaffAttendanceTabbedView(dailyIncomingFilter: filter),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'userProfile',

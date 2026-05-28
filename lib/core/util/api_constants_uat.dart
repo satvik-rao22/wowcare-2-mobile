@@ -20,7 +20,7 @@ class ApiConstantsUat {
 
   /// UAT — single host.
   static const _host = 'https://uat-wowcare.childcarewow.app';
-  // static const _host = "https://4hn0k1dg-8090.inc1.devtunnels.ms";
+  // static const _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
 
   static const String baseUrl = _host;
   static const String staffBaseUrl = _host;

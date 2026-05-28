@@ -6,12 +6,12 @@ enum AdminDashboardCard {
   enrollment,
   ratioMonitoring,
   classroomShifts,
-  events,
-  todo,
+  // events,
+  // todo,
   availability,
   movements,
   billing,
-  classroomProgress,
+  // classroomProgress,
 }
 
 /// View-model for [AdminDashboard].
@@ -23,8 +23,9 @@ enum AdminDashboardCard {
 /// view needing any change.
 class AdminDashboardViewModel extends ChangeNotifier {
   /// Live, user-reorderable card order. Seeded from the enum's default order.
-  final List<AdminDashboardCard> _cards =
-      List<AdminDashboardCard>.of(AdminDashboardCard.values);
+  final List<AdminDashboardCard> _cards = List<AdminDashboardCard>.of(
+    AdminDashboardCard.values,
+  );
 
   bool _isRefreshing = false;
 

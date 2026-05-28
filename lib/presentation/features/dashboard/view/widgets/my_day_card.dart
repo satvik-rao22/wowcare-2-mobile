@@ -6,6 +6,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -219,9 +221,10 @@ class _MyDayCardState extends State<MyDayCard> {
     return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
   }
 
-  /// Derive countdown state from [_mockSchedule] relative to [DateTime.now].
+  /// Derive countdown state from [_mockSchedule] relative to school-zone "now".
   void _computeCountdown() {
-    final now = DateTime.now();
+    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(DateTime.now().toUtc(), schoolTz);
 
     // Working shifts only (no break-time entries), Mon–Fri
     final workShifts = _mockSchedule
