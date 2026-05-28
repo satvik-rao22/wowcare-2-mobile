@@ -28,11 +28,30 @@ class MessagingScreen extends StatefulWidget {
 class _MessagingScreenState extends State<MessagingScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  int? _lastAppliedInitialIndex;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 1),
+    );
+    _lastAppliedInitialIndex = widget.initialTabIndex.clamp(0, 1);
+  }
+
+  @override
+  void didUpdateWidget(covariant MessagingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextIndex = widget.initialTabIndex.clamp(0, 1);
+    if (nextIndex != _lastAppliedInitialIndex) {
+      _lastAppliedInitialIndex = nextIndex;
+      if (_tabController.index != nextIndex) {
+        // Use animateTo to keep UX smooth.
+        _tabController.animateTo(nextIndex);
+      }
+    }
   }
 
   @override
@@ -45,6 +64,20 @@ class _MessagingScreenState extends State<MessagingScreen>
   Widget build(BuildContext context) {
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+
+    // When this screen is kept alive by a shell/IndexedStack, ensure tab is
+    // synced to latest requested index (e.g. drawer deep-link to newsletter).
+    final nextIndex = widget.initialTabIndex.clamp(0, 1);
+    if (nextIndex != _tabController.index) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final idx = widget.initialTabIndex.clamp(0, 1);
+        if (_tabController.index != idx) {
+          _tabController.animateTo(idx);
+        }
+      });
+    }
+
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(

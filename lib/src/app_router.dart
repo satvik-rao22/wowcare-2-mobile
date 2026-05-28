@@ -442,10 +442,13 @@ final GoRouter appRouter = GoRouter(
               path: AppRoutes.messaging,
               builder: (context, state) {
                 final isParent = context.read<RoleProvider>().isParent;
+                final tab = state.uri.queryParameters['tab']?.trim().toLowerCase();
+                final initialTabIndex = tab == 'newsletter' ? 1 : 0;
                 return MessagingScreen(
                   userPersona: isParent
                       ? UserPersona.parent
                       : UserPersona.admin,
+                  initialTabIndex: initialTabIndex,
                 );
               },
             ),

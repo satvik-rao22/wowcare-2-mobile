@@ -63,7 +63,7 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
 
   void _applyFilters() {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
       if (!mounted) return;
       _newsletterListCubit.applyFilters(
         search: searchController.text.trim(),
@@ -114,6 +114,17 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
         .map((String c) => nameByCode[c] ?? c)
         .toList();
     return labels.isEmpty ? 'All Classrooms' : labels.join(', ');
+  }
+
+  List<String> _extractAssetCodesFromNewsletter(Newsletter letter) {
+    final RegExp codePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
+    final String text = '${letter.subtitle}\n${letter.bodyHtml}';
+    final Set<String> codes = <String>{};
+    for (final RegExpMatch match in codePattern.allMatches(text)) {
+      final String code = (match.group(0) ?? '').trim();
+      if (code.isNotEmpty) codes.add(code);
+    }
+    return codes.toList();
   }
 
   Widget _buildSearchAndFilterBox(ClassroomState classroomState) {
@@ -234,6 +245,33 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                           letter.createdByName.trim().isNotEmpty
                                               ? letter.createdByName
                                               : 'Demo Test';
+                                      final primaryAttachment =
+                                          letter.attachments.isNotEmpty
+                                              ? letter.attachments.first
+                                              : null;
+                                      final List<String> derivedAssetCodes =
+                                          _extractAssetCodesFromNewsletter(
+                                        letter,
+                                      );
+                                      final Set<String> allCodes =
+                                          <String>{
+                                        ...letter.attachments
+                                            .map((a) => a.mediaCode.trim())
+                                            .where((c) => c.isNotEmpty),
+                                        ...derivedAssetCodes,
+                                      };
+                                      final String primaryAssetCode =
+                                          (primaryAttachment?.mediaCode ?? '')
+                                                  .trim()
+                                                  .isNotEmpty
+                                              ? primaryAttachment!.mediaCode
+                                              : (derivedAssetCodes.isNotEmpty
+                                                  ? derivedAssetCodes.first
+                                                  : '');
+                                      final int additionalAttachmentCount =
+                                          allCodes.length > 1
+                                              ? allCodes.length - 1
+                                              : 0;
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 8,
@@ -250,6 +288,15 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                             createdBy: createdBy,
                                             recipientCount:
                                                 letter.recipientCount,
+                                            primaryAttachmentAssetCode:
+                                                primaryAssetCode,
+                                            primaryAttachmentMimeType:
+                                                primaryAttachment?.mimeType ??
+                                                    (primaryAssetCode.isNotEmpty
+                                                        ? 'image/*'
+                                                        : null),
+                                            additionalAttachmentCount:
+                                                additionalAttachmentCount,
                                           ),
                                           onTap: () {
                                             final String code =

@@ -72,16 +72,11 @@ class ApiPathsUat {
 
     //. Communication
     ApiMicroservices.communication: {},
-
-    // Newsletter MS — resource root is plural `newsletters`.
-    ApiMicroservices.newsLatter: {'newsletters'},
   };
 
   static String _uatSegmentForMicroservice(String microserviceKey) {
     // UAT gateway expects plural `activities` as the microservice segment.
     if (microserviceKey == ApiMicroservices.activity) return 'activities';
-    // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
-    if (microserviceKey == ApiMicroservices.newsLatter) return 'newsletter';
     return microserviceKey;
   }
 
@@ -102,7 +97,6 @@ class ApiPathsUat {
     // (/api/v1/<ms>/...), use it as-is.
     if (_microservicePathSegments.contains(seg)) {
       if (seg == 'activities') return ApiMicroservices.activity;
-      if (seg == 'newsletter') return ApiMicroservices.newsLatter;
       return seg;
     }
 
@@ -160,7 +154,7 @@ class ApiPathsUat {
       case 'messages':
         return ApiMicroservices.communication;
       case 'newsletters':
-        return ApiMicroservices.newsLatter;
+        return ApiMicroservices.communication;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject
@@ -212,9 +206,7 @@ class ApiPathsUat {
       // (e.g. local `/api/v1/staff/code` should become `/api/v1/staff/staff/code` in UAT).
       final ms = seg == 'activities'
           ? ApiMicroservices.activity
-          : seg == 'newsletter'
-              ? ApiMicroservices.newsLatter
-              : seg;
+          : seg;
       final roots = _resourceRootsByMicroservice[ms];
       if (parts.length >= 4 && roots != null && roots.contains(parts[3])) {
         return p; // already `/api/<version>/<ms>/<resource>/...`

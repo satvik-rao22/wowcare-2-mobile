@@ -792,7 +792,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      '${MessagingScreen.routeName}?tab=newsletter',
+                                    );
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -807,7 +809,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      '${MessagingScreen.routeName}?tab=newsletter',
+                                    );
                                   },
                                 ),
                             ],
