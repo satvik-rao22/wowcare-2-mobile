@@ -20,6 +20,7 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
@@ -258,6 +259,11 @@ final GoRouter appRouter = GoRouter(
                   path: 'billing',
                   pageBuilder: (context, state) =>
                       _fastPage(state, const BillingScreen()),
+                ),
+                GoRoute(
+                  path: 'reports',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const ReportsScreen()),
                 ),
                 GoRoute(
                   path: 'scheduling',
