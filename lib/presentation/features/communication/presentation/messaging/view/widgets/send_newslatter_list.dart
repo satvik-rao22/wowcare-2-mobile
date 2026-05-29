@@ -465,17 +465,9 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     );
   }
 
-  Widget _loadingPreview() {
-    return Container(
-      color: Colors.grey.shade100,
-      alignment: Alignment.center,
-      child: const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-    );
-  }
+  // While the asset URL resolves / the image downloads, show the default
+  // newsletter thumbnail instead of a spinner.
+  Widget _loadingPreview() => _thumbnailPlaceholder();
 
   IconData _documentIconForMimeType(String mimeType) {
     final String mime = mimeType.toLowerCase();
