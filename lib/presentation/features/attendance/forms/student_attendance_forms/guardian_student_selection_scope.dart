@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Parent / guardian sign-in & sign-out selection must only list that user's
 /// linked children. Staff and admin flows pass through unchanged ([null]).
@@ -12,10 +12,10 @@ import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 Future<Set<String>?> loadGuardianStudentAllowlistForSelection(
   BuildContext context,
 ) async {
-  final isParent = context.read<RoleProvider>().isParent;
+  final isParent = context.read<RoleCubit>().isParent;
   if (!isParent) return null;
 
-  final provider = context.read<ParentChildProvider>();
+  final provider = context.read<ParentChildCubit>();
   await provider.ensureLoaded();
 
   return {

@@ -6,7 +6,7 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/newsletter_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_view_screen.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -90,7 +90,7 @@ class _MessagingScreenState extends State<MessagingScreen>
         MediaQuery.of(context).orientation == Orientation.landscape;
     final bool isParentPersona =
         widget.userPersona == UserPersona.parent ||
-        context.watch<RoleProvider>().isParent;
+        context.watch<RoleCubit>().isParent;
 
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),

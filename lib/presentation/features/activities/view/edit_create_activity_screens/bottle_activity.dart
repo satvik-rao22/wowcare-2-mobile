@@ -15,13 +15,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
@@ -95,13 +89,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   /// Staff label from activity parameters (API may set [ActivityItem.createdBy] to "system").
   String? _staffPresentLabelForEdit;
 
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityEditorCubit _editor;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
@@ -157,15 +145,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
       _selectedStudents =
@@ -219,7 +199,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -249,7 +229,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
     try {
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -275,7 +255,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      final detail = await _editor.getActivity(code: code);
       if (!mounted) return;
       final item = activityItemFromActivityDetail(
         detail,
@@ -338,6 +318,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
   void dispose() {
     _descriptionController.dispose();
     _amountController.dispose();
+    _editor.close();
     super.dispose();
   }
 
@@ -379,7 +360,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
 
     try {
       final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? bottleSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -537,7 +518,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
       // Build parameterValues in backend-required shape:
       // [{ "parameterCode": "...", "value": ... }, ...]
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -581,7 +562,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           {'parameterCode': amountParamCode, 'value': amountOz.toString()},
       ];
 
-      final message = await _createActivityUseCase(
+      final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -751,7 +732,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
     setState(() => _isSubmitting = true);
     try {
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -835,7 +816,7 @@ class _BottleActivityScreenState extends State<BottleActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())

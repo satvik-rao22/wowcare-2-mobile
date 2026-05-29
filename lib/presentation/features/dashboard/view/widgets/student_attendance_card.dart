@@ -6,7 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -44,7 +44,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
   }
 
   void _loadAttendanceData(BuildContext context, {bool forceRefresh = false}) {
-    final parentChildProvider = Provider.of<ParentChildProvider>(
+    final parentChildProvider = Provider.of<ParentChildCubit>(
       context,
       listen: false,
     );
@@ -60,9 +60,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
   }
 
   Widget _buildSelectedChildName() {
-    return Consumer<ParentChildProvider>(
-      builder: (context, parentChildProvider, _) {
-        final selectedChild = parentChildProvider.selectedChild;
+    return BlocBuilder<ParentChildCubit, ParentChildState>(
+      builder: (context, state) {
+        final selectedChild = state.selectedChild;
         if (selectedChild == null) {
           return const Text(
             'No Child Selected',
@@ -300,7 +300,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final parentChildProvider = Provider.of<ParentChildProvider>(context);
+    final parentChildProvider = Provider.of<ParentChildCubit>(context);
     final selectedChild = parentChildProvider.selectedChild;
     final nextCode = (selectedChild?.code ?? '').trim();
     if (nextCode != _selectedChildCode) {

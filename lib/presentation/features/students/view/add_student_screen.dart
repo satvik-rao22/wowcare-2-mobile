@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -134,7 +135,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         sameName = true;
       }
       // Debug
-      print(
+      AppLogger.d(
         '[AddStudent] Returning to previous screen with studentName="$studentName"',
       );
       CoreUtils.showTopSnackBar(
@@ -148,7 +149,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         isSuccess: true,
       );
       final result = {'showPostAddPrompt': true, 'studentName': studentName};
-      print('[AddStudent] Navigator.pop result: ' + result.toString());
+      AppLogger.d('[AddStudent] Navigator.pop result: ' + result.toString());
       Navigator.pop(context, result);
     });
   }

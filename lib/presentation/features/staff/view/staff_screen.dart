@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -127,7 +128,7 @@ class _StaffScreenState extends State<StaffScreen> {
     // Debug: log scroll + pagination state
     final position = _scrollController.position;
     // ignore: avoid_print
-    print(
+    AppLogger.d(
       '[StaffScreen] scroll pixels=${position.pixels}, '
       'max=${position.maxScrollExtent}, '
       'hasMore=${state.hasMore}, '
@@ -138,14 +139,14 @@ class _StaffScreenState extends State<StaffScreen> {
     // When content doesn't fill the viewport but we have more data, load next page
     if (position.maxScrollExtent <= 0) {
       // ignore: avoid_print
-      print('[StaffScreen] maxScrollExtent <= 0, forcing loadNextPage');
+      AppLogger.d('[StaffScreen] maxScrollExtent <= 0, forcing loadNextPage');
       cubit.loadNextPage();
       return;
     }
     // Load next page when within 400px of the bottom
     if (position.pixels >= position.maxScrollExtent - 400) {
       // ignore: avoid_print
-      print('[StaffScreen] near bottom, requesting next page');
+      AppLogger.d('[StaffScreen] near bottom, requesting next page');
       cubit.loadNextPage();
     }
   }
@@ -643,7 +644,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                   ),
                                 );
                                 if (!mounted) return;
-                                print(
+                                AppLogger.d(
                                   '[StaffScreen] Received result from AddStaffScreen: ' +
                                       result.toString(),
                                 );

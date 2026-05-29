@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
@@ -829,12 +830,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
       final isCompleted = status == 'COMPLETED';
 
-      print(
+      AppLogger.d(
         '[ImportantDates Guard] staffCode=$staffCode type=$type status=$status dueDate=$dueDate today=$today picked=$picked',
       );
 
       if (isDueOrScheduled && picked.isBefore(today)) {
-        print(
+        AppLogger.d(
           '[ImportantDates Guard] BLOCK: Due/Scheduled picked date is before today.',
         );
         throw Exception(
@@ -842,7 +843,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         );
       }
       if (isCompleted && picked.isAfter(today)) {
-        print(
+        AppLogger.d(
           '[ImportantDates Guard] BLOCK: Completed picked date is after today.',
         );
         throw Exception(

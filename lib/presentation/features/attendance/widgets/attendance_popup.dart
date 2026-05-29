@@ -8,7 +8,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
@@ -16,7 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -74,7 +74,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   @override
   void initState() {
     super.initState();
-    _isParentRole = context.read<RoleProvider>().isParent;
+    _isParentRole = context.read<RoleCubit>().isParent;
     _tabController = TabController(
       length: _isParentRole ? 1 : 2,
       vsync: this,
@@ -87,7 +87,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final role = context.watch<RoleProvider>().role;
+    final role = context.watch<RoleCubit>().role;
     if (_lastSeenRole != role) {
       _lastSeenRole = role;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -153,7 +153,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     }
 
     // Fallback to provider role (already reflects active persona).
-    return context.read<RoleProvider>().isParent;
+    return context.read<RoleCubit>().isParent;
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -211,7 +211,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final roleProvider = context.watch<RoleProvider>();
+    final roleProvider = context.watch<RoleCubit>();
     final isAdmin = roleProvider.isAdmin && !_isParentRole;
     final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;
@@ -1069,7 +1069,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
     try {
-      final parentChild = context.read<ParentChildProvider>();
+      final parentChild = context.read<ParentChildCubit>();
       await parentChild.ensureLoaded();
 
       final selectedChild = parentChild.selectedChild;

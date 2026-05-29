@@ -22,7 +22,11 @@ class StorageKeys {
   static const String activeSchoolRole = 'activeSchoolRole';
   static const String rememberMe = 'rememberMe';
   static const String username = 'username';
-  static const String password = 'password';
+
+  /// SECURITY: the password is NEVER persisted. This key exists only so that
+  /// any plaintext value written by an old app version can be located and
+  /// purged on login/logout (see AuthLocalDataSource). Do not write to it.
+  static const String legacyPasswordPurgeKey = 'password';
   static const String loginCacheKey = 'login_cache';
   static const String loginCacheTimestamp = 'login_cache_timestamp';
   /// Currently selected org/school (used for API calls).

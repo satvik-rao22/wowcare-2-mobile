@@ -424,13 +424,15 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> saveCredentials(String username, String password, bool rememberMe) async {
+    // SECURITY: the password is never persisted. "Remember me" only stores the
+    // username for convenience; the session is restored from the cached
+    // access/refresh token, never from saved credentials. Any password value
+    // written by a previous app version is purged here.
+    await _storage.remove(StorageKeys.legacyPasswordPurgeKey);
     if (rememberMe) {
-      final encodedPassword = base64Encode(utf8.encode(password));
       await _storage.saveString(StorageKeys.username, username);
-      await _storage.saveString(StorageKeys.password, encodedPassword);
     } else {
       await _storage.remove(StorageKeys.username);
-      await _storage.remove(StorageKeys.password);
     }
     await _storage.saveBool(StorageKeys.rememberMe, rememberMe);
   }
@@ -438,26 +440,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<Map<String, String?>> getSavedCredentials() async {
     final username = await _storage.getString(StorageKeys.username);
-    final savedPassword = await _storage.getString(StorageKeys.password);
-    String? password;
-    if (savedPassword != null && savedPassword.isNotEmpty) {
-      try {
-        password = utf8.decode(base64Decode(savedPassword));
-      } catch (_) {
-        // Backward compatibility for previously saved plain-text values.
-        password = savedPassword;
-      }
-    }
+    // SECURITY: passwords are never read back. Purge any legacy stored value.
+    await _storage.remove(StorageKeys.legacyPasswordPurgeKey);
     return {
       'username': username,
-      'password': password,
+      'password': null,
     };
   }
 
   @override
   Future<void> clearCredentials() async {
     await _storage.remove(StorageKeys.username);
-    await _storage.remove(StorageKeys.password);
+    await _storage.remove(StorageKeys.legacyPasswordPurgeKey);
     await _storage.remove(StorageKeys.rememberMe);
   }
 }

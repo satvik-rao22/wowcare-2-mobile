@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -100,7 +100,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   }
 
   Future<void> _openEdit(BuildContext context) async {
-    final role = context.read<RoleProvider>();
+    final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
@@ -125,7 +125,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {

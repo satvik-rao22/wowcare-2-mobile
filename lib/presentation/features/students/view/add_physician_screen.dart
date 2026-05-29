@@ -6,7 +6,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -131,8 +130,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
       final schoolCode =
           await storage.getString(StorageKeys.schoolCode) ?? '';
 
-      final studentRepo =
-          serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final studentRepo = serviceLocator<StudentRepository>();
 
       if (widget.isEdit &&
           widget.physicianCode != null &&

@@ -16,14 +16,8 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
@@ -91,14 +85,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
 
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
+  late final ActivityEditorCubit _editor;
   late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
@@ -124,16 +112,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     super.initState();
     bootstrapActivitySchoolTimezone();
 
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
     _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
 
     if (_layoutAsEdit && widget.activityData != null) {
       final activity = widget.activityData!;
@@ -209,7 +189,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -235,7 +215,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
     try {
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -257,14 +237,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      final detail = await _editor.getActivity(code: code);
       if (!mounted) return;
       ActivityTypeDetails? typeDetailsForRemind;
       final tc = detail.activityTypeCode.trim();
       if (tc.isNotEmpty) {
         try {
           typeDetailsForRemind =
-              await _getActivityTypeDetailsUseCase(code: tc);
+              await _editor.getActivityTypeDetails(code: tc);
         } catch (_) {}
       }
       final item = activityItemFromActivityDetail(
@@ -356,7 +336,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
     try {
       final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? napSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -692,7 +672,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
     try {
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -752,7 +732,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
       _appendRemindNap15IfNapStart(details, parameterValues, isNapEnd);
 
-      final message = await _createActivityUseCase(
+      final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -876,7 +856,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     setState(() => _isSubmitting = true);
     try {
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -941,7 +921,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())
@@ -1023,6 +1003,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _editor.close();
     super.dispose();
   }
 
