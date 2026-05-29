@@ -43,7 +43,14 @@ class NewsletterRepositoryImpl
       sort: const ['sentAt,desc'],
     );
 
-    if (page == 0) {
+    // Only cache the unfiltered first page. The cache is keyed by schoolCode
+    // alone, while loadCachedSentNewsletters() hydrates the default (no search,
+    // no classroom filter) list — so caching a filtered/searched page-0 here
+    // would pollute it and show a stale subset as the full list on next open.
+    final bool isUnfilteredFirstPage = page == 0 &&
+        (search == null || search.trim().isEmpty) &&
+        classroomCodes.isEmpty;
+    if (isUnfilteredFirstPage) {
       await _cacheManager.saveCache(
         _sentNewslettersCacheKey(schoolCode),
         model.toJson(),

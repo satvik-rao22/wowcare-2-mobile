@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.d
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_list_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
@@ -112,13 +113,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                   child: studentCode.isEmpty
                       ? _emptyMessage('Select a child to view newsletters.')
                       : state.isLoading && state.items.isEmpty
-                          ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: const [
-                                SizedBox(height: 120),
-                                Center(child: PrimaryCircularLoader()),
-                              ],
-                            )
+                          ? const NewsletterListShimmer()
                           : filtered.isEmpty
                               ? _emptyScrollable(
                                   state.errorMessage.isNotEmpty
@@ -200,6 +195,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                           vertical: 8,
                                         ),
                                         child: NewsletterSentListCard(
+                                          showRecipientCount: false,
                                           newsLetter: NewsletterListItemModel(
                                             title: entity.title,
                                             classroom: classroomLabel,

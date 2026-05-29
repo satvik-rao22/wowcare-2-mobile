@@ -12,11 +12,11 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_classroom_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_list_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class SentNewsLetterTab extends StatefulWidget {
   const SentNewsLetterTab({super.key});
@@ -274,23 +274,9 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                     !_staffListBootstrapped ||
                                     classroomState.isLoading) &&
                                 state.newsletters.isEmpty
-                            ? ListView(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
-                                children: const [
-                                  SizedBox(height: 120),
-                                  Center(child: PrimaryCircularLoader()),
-                                ],
-                              )
+                            ? const NewsletterListShimmer()
                             : state.isLoading && state.newsletters.isEmpty
-                            ? ListView(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
-                                children: const [
-                                  SizedBox(height: 120),
-                                  Center(child: PrimaryCircularLoader()),
-                                ],
-                              )
+                            ? const NewsletterListShimmer()
                             : state.newsletters.isEmpty
                                 ? LayoutBuilder(
                                     builder: (context, constraints) {

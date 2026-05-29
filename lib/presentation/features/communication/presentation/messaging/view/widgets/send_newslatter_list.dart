@@ -35,10 +35,15 @@ class NewsletterSentListCard extends StatelessWidget {
     super.key,
     required this.newsLetter,
     required this.onTap,
+    this.showRecipientCount = true,
   });
 
   final NewsletterListItemModel newsLetter;
   final VoidCallback onTap;
+
+  /// Whether to show the recipient-count badge. Hidden for the guardian/parent
+  /// persona, who should not see how many recipients a newsletter was sent to.
+  final bool showRecipientCount;
 
   @override
   Widget build(BuildContext context) {
@@ -102,9 +107,10 @@ class NewsletterSentListCard extends StatelessWidget {
                         Expanded(
                           child: _DateMetaRow(date: newsLetter.sentDate),
                         ),
-                        _RecipientCountBadge(
-                          count: newsLetter.recipientCount,
-                        ),
+                        if (showRecipientCount)
+                          _RecipientCountBadge(
+                            count: newsLetter.recipientCount,
+                          ),
                       ],
                     ),
                     if (newsLetter.showClassroomRow) ...[
@@ -266,11 +272,25 @@ class _CardThumbnail extends StatefulWidget {
 
 class _CardThumbnailState extends State<_CardThumbnail> {
   late Future<String> _assetUrlFuture;
+  String? _initialUrl;
 
   @override
   void initState() {
     super.initState();
+    _initialUrl = _syncResolvedUrl();
     _assetUrlFuture = _resolveAssetUrl();
+  }
+
+  /// Returns a URL we can show immediately (a direct http URL, or one already
+  /// resolved and cached by [ImageUploadService]) so the thumbnail does not
+  /// flash a loader on rebuilds/scroll once it has been resolved before.
+  String? _syncResolvedUrl() {
+    final direct = (widget.directUrl ?? '').trim();
+    if (_isHttpUrl(direct)) return direct;
+    final code = (widget.assetCode ?? '').trim();
+    if (code.isEmpty) return null;
+    if (_isHttpUrl(code)) return code;
+    return serviceLocator<ImageUploadService>().cachedMediaAssetUrl(code);
   }
 
   @override
@@ -283,6 +303,7 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     if (oldCode != newCode ||
         oldUrl != newUrl ||
         oldWidget.mimeType != widget.mimeType) {
+      _initialUrl = _syncResolvedUrl();
       _assetUrlFuture = _resolveAssetUrl();
     }
   }
@@ -344,10 +365,13 @@ class _CardThumbnailState extends State<_CardThumbnail> {
   Widget build(BuildContext context) {
     return FutureBuilder<String>(
       future: _assetUrlFuture,
+      initialData: _initialUrl,
       builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
         final String url = (snapshot.data ?? '').trim();
         final bool hasUrl = url.isNotEmpty;
-        final bool isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final bool isLoading =
+            snapshot.connectionState == ConnectionState.waiting &&
+                !hasUrl;
 
         return Stack(
           children: [
