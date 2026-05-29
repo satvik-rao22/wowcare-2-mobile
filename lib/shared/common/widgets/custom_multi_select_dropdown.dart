@@ -510,7 +510,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
                       final visibleItems = filteredItems();
                       final itemCount = visibleItems.length + (widget.showSelectAll ? 1 : 0);
-                      final searchBoxHeight = widget.enableSearch ? 52.0 : 0.0;
+                      // final searchBoxHeight = widget.enableSearch ? 52.0 : 0.0;
+                      const searchBoxHeight = 0.0;
                       final targetHeight = (itemCount * _dropdownRowHeight) + searchBoxHeight;
                       final dropdownHeight =
                           targetHeight > widget.maxDropdownHeight
@@ -520,38 +521,38 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                         height: dropdownHeight,
                         child: Column(
                           children: [
-                            if (widget.enableSearch)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-                                child: SizedBox(
-                                  height: 38,
-                                  child: TextField(
-                                    controller: _searchController,
-                                    onChanged: (value) {
-                                      setOverlayState(() {
-                                        _searchQuery = value;
-                                      });
-                                    },
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      prefixIcon: const Icon(Icons.search, size: 18),
-                                      hintText: widget.searchHintText ?? 'Search',
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: Colors.grey.shade300),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: Colors.grey.shade300),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            // if (widget.enableSearch)
+                            //   Padding(
+                            //     padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                            //     child: SizedBox(
+                            //       height: 38,
+                            //       child: TextField(
+                            //         controller: _searchController,
+                            //         onChanged: (value) {
+                            //           setOverlayState(() {
+                            //             _searchQuery = value;
+                            //           });
+                            //         },
+                            //         decoration: InputDecoration(
+                            //           isDense: true,
+                            //           prefixIcon: const Icon(Icons.search, size: 18),
+                            //           hintText: widget.searchHintText ?? 'Search',
+                            //           contentPadding: const EdgeInsets.symmetric(
+                            //             horizontal: 10,
+                            //             vertical: 10,
+                            //           ),
+                            //           border: OutlineInputBorder(
+                            //             borderRadius: BorderRadius.circular(8),
+                            //             borderSide: BorderSide(color: Colors.grey.shade300),
+                            //           ),
+                            //           enabledBorder: OutlineInputBorder(
+                            //             borderRadius: BorderRadius.circular(8),
+                            //             borderSide: BorderSide(color: Colors.grey.shade300),
+                            //           ),
+                            //         ),
+                            //       ),
+                            //     ),
+                            //   ),
                             Expanded(
                               child: ListView.builder(
                                 padding: EdgeInsets.zero,

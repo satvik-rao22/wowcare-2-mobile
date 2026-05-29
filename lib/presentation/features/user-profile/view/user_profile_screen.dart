@@ -77,6 +77,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _guardianPhone = '';
   String _guardianAddress = '';
 
+  /// Guardian identity + photo, resolved from
+  /// GET `/api/v1/student/guardian/profile`. [_guardianCode] (e.g. `GUA_…`)
+  /// drives the guardian profile-photo upload session; [_guardianPhotoAssetCode]
+  /// renders the current photo via the document service; [_guardianPhotoUrl]
+  /// holds the freshly-finalized URL after an upload so it shows immediately.
+  String _guardianCode = '';
+  String _guardianPhotoAssetCode = '';
+  String _guardianPhotoUrl = '';
+
   String _formatPhoneForDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
     if (digits.length == 10) {
@@ -441,12 +450,35 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           (await storage.getString(StorageKeys.userCode) ?? '').trim();
       if (schoolCode.isEmpty || userCode.isEmpty) return;
 
+      // Seed from the persisted guardian photo first so the avatar is visible
+      // immediately (and stays visible even if the live fetch returns an empty
+      // asset code, as the guardian profile API sometimes does).
+      final cachedAsset =
+          (await storage.getString(StorageKeys.guardianProfileAssetCode) ?? '')
+              .trim();
+      final cachedUrl =
+          (await storage.getString(StorageKeys.guardianProfilePhotoUrl) ?? '')
+              .trim();
+      if (mounted && (cachedAsset.isNotEmpty || cachedUrl.isNotEmpty)) {
+        setState(() {
+          if (cachedAsset.isNotEmpty) _guardianPhotoAssetCode = cachedAsset;
+          if (cachedUrl.isNotEmpty) _guardianPhotoUrl = cachedUrl;
+        });
+      }
+
       final remote = serviceLocator<StudentRemoteDataSource>();
       final profile = await remote.getGuardianProfile(
         schoolCode: schoolCode,
         userCode: userCode,
       );
 
+      final guardianCode = (profile['code'] ?? '').toString().trim();
+      final photoAssetCode =
+          (profile['profilePhotoAssetCode'] ?? '').toString().trim();
+      final photoUrl =
+          (profile['profilePhotoUrl'] ?? profile['photoUrl'] ?? '')
+              .toString()
+              .trim();
       final firstName = (profile['firstName'] ?? '').toString().trim();
       final lastName = (profile['lastName'] ?? '').toString().trim();
       final fullName = (profile['fullName'] ?? '').toString().trim();
@@ -481,7 +513,30 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         if (resolvedEmail.isNotEmpty) _loginEmail = resolvedEmail;
         _guardianPhone = resolvedPhone;
         _guardianAddress = resolvedAddress;
+        if (guardianCode.isNotEmpty) _guardianCode = guardianCode;
+        // Never clobber a known-good photo: the guardian profile API can return
+        // an empty asset code/url even when a photo exists.
+        if (photoAssetCode.isNotEmpty) _guardianPhotoAssetCode = photoAssetCode;
+        if (photoUrl.isNotEmpty) _guardianPhotoUrl = photoUrl;
       });
+
+      // Mirror the guardian photo into storage (only when non-empty) so the
+      // three-dot (kebab) menu header — which reads these keys — shows the same
+      // photo and doesn't get wiped by an empty API response.
+      try {
+        if (photoAssetCode.isNotEmpty) {
+          await storage.saveString(
+            StorageKeys.guardianProfileAssetCode,
+            photoAssetCode,
+          );
+        }
+        if (photoUrl.isNotEmpty) {
+          await storage.saveString(
+            StorageKeys.guardianProfilePhotoUrl,
+            photoUrl,
+          );
+        }
+      } catch (_) {}
     } catch (_) {
       // Non-blocking: profile still renders with cached/login values.
     }
@@ -497,6 +552,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
+
+      // Guardian (parent) persona uploads via the guardian profile-photo
+      // endpoints, keyed by the guardian code resolved from the guardian
+      // profile GET — not the staff endpoints.
+      if (!mounted) return;
+      if (context.read<RoleProvider>().isParent) {
+        await _uploadGuardianProfilePhoto(image);
+        return;
+      }
 
       var staffCode = _effectiveStaffCode();
       if (staffCode.isEmpty) {
@@ -607,6 +671,159 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         isSuccess: true,
       );
     } catch (e) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to update profile photo: $e',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingProfilePhoto = false;
+          _profilePhotoUploadPercent = 0;
+        });
+      }
+    }
+  }
+
+  /// Guardian (parent) profile-photo upload. Mirrors the staff flow but uses
+  /// the guardian upload-session / finalize endpoints (POST
+  /// `/student/guardian/{guardianCode}/profile-photo/upload-session`), keyed by
+  /// the guardian code resolved from the guardian profile GET.
+  Future<void> _uploadGuardianProfilePhoto(XFile image) async {
+    try {
+      // Resolve the guardian code — re-fetch the guardian profile if we don't
+      // have it yet (e.g. tapped before the initial profile load settled).
+      var guardianCode = _guardianCode.trim();
+      if (guardianCode.isEmpty) {
+        await _loadGuardianProfileForParent();
+        if (!mounted) return;
+        guardianCode = _guardianCode.trim();
+      }
+      if (guardianCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Guardian profile is still loading. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final storage = serviceLocator<StorageService>();
+      if ((_schoolCode ?? '').trim().isEmpty ||
+          (_organizationCode ?? '').trim().isEmpty) {
+        final school =
+            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+        final org =
+            (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+        if (!mounted) return;
+        setState(() {
+          _schoolCode = school.isEmpty ? null : school;
+          _organizationCode = org.isEmpty ? null : org;
+        });
+      }
+      final schoolCode = (_schoolCode ?? '').trim();
+      final organizationCode = (_organizationCode ?? '').trim();
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing school or organization context.',
+          isError: true,
+        );
+        return;
+      }
+      final userCode =
+          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+
+      setState(() {
+        _isUploadingProfilePhoto = true;
+        _profilePhotoUploadPercent = 5;
+      });
+      final uploadService = serviceLocator<ImageUploadService>();
+      final file = File(image.path);
+      final sessionCode =
+          await uploadService.createGuardianProfilePhotoUploadSession(
+        guardianCode: guardianCode,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
+      final lowerPath = image.path.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType =
+          lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'guardian-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'GUARDIAN',
+        ownerCode: guardianCode,
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (!mounted || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          setState(() {
+            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
+          });
+        },
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
+      final resolvedUrl = await uploadService.finalizeGuardianProfilePhoto(
+        guardianCode: guardianCode,
+        assetCode: presign.assetCode,
+        schoolCode: schoolCode,
+        userCode: userCode,
+      );
+
+      DocumentImageWidget.clearProfilePhotoCache();
+      // Persist the freshly-uploaded photo so the three-dot (kebab) menu header
+      // (which reads these keys from storage) shows it immediately too.
+      try {
+        await storage.saveString(
+          StorageKeys.guardianProfileAssetCode,
+          presign.assetCode.trim(),
+        );
+        await storage.saveString(
+          StorageKeys.guardianProfilePhotoUrl,
+          resolvedUrl.trim(),
+        );
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _guardianPhotoUrl = resolvedUrl.trim();
+        _guardianPhotoAssetCode = presign.assetCode.trim();
+      });
+      await _loadGuardianProfileForParent();
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Profile photo updated successfully',
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to update profile photo: $e',
@@ -850,21 +1067,42 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       DocumentImageWidget(
-                                        fileUuid: _effectiveStaffCode().isNotEmpty
-                                            ? _effectiveStaffCode()
-                                            : (displayName.isNotEmpty
-                                                ? displayName
-                                                : 'User'),
+                                        fileUuid: isParentPersona
+                                            ? (_guardianCode.isNotEmpty
+                                                ? _guardianCode
+                                                : (displayName.isNotEmpty
+                                                    ? displayName
+                                                    : 'User'))
+                                            : (_effectiveStaffCode().isNotEmpty
+                                                ? _effectiveStaffCode()
+                                                : (displayName.isNotEmpty
+                                                    ? displayName
+                                                    : 'User')),
                                         name: displayName.isNotEmpty ? displayName : 'User',
-                                        imageUrl: (_profile?.profilePhotoUrl ?? '')
-                                                .trim()
-                                                .isNotEmpty
-                                            ? _profile!.profilePhotoUrl.trim()
+                                        imageUrl: isParentPersona
+                                            ? (_guardianPhotoUrl.trim().isNotEmpty
+                                                ? _guardianPhotoUrl.trim()
+                                                : null)
+                                            : ((_profile?.profilePhotoUrl ?? '')
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _profile!.profilePhotoUrl.trim()
+                                                : null),
+                                        mediaAssetCode: isParentPersona
+                                            ? (_guardianPhotoAssetCode
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _guardianPhotoAssetCode.trim()
+                                                : null)
                                             : null,
-                                        staffCode: _effectiveStaffCode().isNotEmpty
+                                        staffCode: (!isParentPersona &&
+                                                _effectiveStaffCode().isNotEmpty)
                                             ? _effectiveStaffCode()
                                             : null,
-                                        staffEmploymentStatus: _profile?.status,
+                                        staffEmploymentStatus:
+                                            isParentPersona ? null : _profile?.status,
+                                        disableAttendanceStatusLookup:
+                                            isParentPersona,
                                         size: 90,
                                         fontSize: 24,
                                       ),

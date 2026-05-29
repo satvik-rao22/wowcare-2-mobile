@@ -6,7 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
@@ -873,9 +873,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                             builder: (context, state) {
                               final visible = _getVisibleStaff();
                               if (state.isLoading && visible.isEmpty) {
-                                return const Center(
-                                  child: PrimaryCircularLoader(),
-                                );
+                                return const ClassroomStaffListShimmer();
                               }
                               return CustomRefreshIndicator(
                                 onRefresh: _refreshAll,

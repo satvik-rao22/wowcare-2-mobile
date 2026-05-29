@@ -11,22 +11,6 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 
-String _formatTimeOfDayReadable(TimeOfDay? tod) {
-  if (tod == null) return '--';
-  final hour12 = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
-  final minute = tod.minute.toString().padLeft(2, '0');
-  final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
-  return '$hour12:$minute $period';
-}
-
-String _yyyyMmDd(DateTime date) {
-  final normalized = DateTime(date.year, date.month, date.day);
-  final yyyy = normalized.year.toString().padLeft(4, '0');
-  final mm = normalized.month.toString().padLeft(2, '0');
-  final dd = normalized.day.toString().padLeft(2, '0');
-  return '$yyyy-$mm-$dd';
-}
-
 Future<DateTime?> _selectedInstantUtc({
   required DateTime date,
   required TimeOfDay time,
@@ -168,8 +152,6 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   if (selectedDate == null || selectedTime == null) return true;
   final storage = serviceLocator<StorageService>();
   final apiClient = serviceLocator<ApiClient>();
-  final selectedTimeDisplay = _formatTimeOfDayReadable(selectedTime);
-  final selectedDateDisplay = _yyyyMmDd(selectedDate);
   final instantUtc = await _selectedInstantUtc(
     date: selectedDate,
     time: selectedTime,
@@ -195,7 +177,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         CoreUtils.showTopSnackBar(
           context: context,
           message:
-              'You cannot mark activity for $selectedDateDisplay at $selectedTimeDisplay because staff is not signed in at that time.',
+              'The following staff must be signed in before creating the activity.',
           isWarning: true,
         );
         return false;
@@ -204,7 +186,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'Unable to validate staff attendance at the selected time. Please try again.',
+            'The following staff must be signed in before creating the activity.',
         isWarning: true,
       );
       return false;
@@ -229,23 +211,27 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         classroomCode: classroomCode,
         instantUtc: instantUtc,
       );
-      for (final code in studentCodes) {
-        if (studentStatus[code] != true) {
-          final name = studentNameByCode[code];
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message:
-                '${name == null || name.isEmpty ? 'Selected student' : name} cannot be marked because the student is not signed in at $selectedTimeDisplay on $selectedDateDisplay.',
-            isWarning: true,
-          );
-          return false;
-        }
+      final notSignedInNames = <String>[
+        for (final code in studentCodes)
+          if (studentStatus[code] != true)
+            (studentNameByCode[code] == null || studentNameByCode[code]!.isEmpty)
+                ? 'Selected student'
+                : studentNameByCode[code]!,
+      ];
+      if (notSignedInNames.isNotEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'The following students must be signed in before creating the activity:\n${notSignedInNames.join(', ')}',
+          isWarning: true,
+        );
+        return false;
       }
     } catch (_) {
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'Unable to validate student attendance at the selected time. Please try again.',
+            'The following students must be signed in before creating the activity.',
         isWarning: true,
       );
       return false;

@@ -16,6 +16,15 @@ class ImageUploadService {
 
   final ApiClient _apiClient;
 
+  /// Caches resolved delivery URLs by asset code so the same thumbnail is not
+  /// re-resolved over the network every time its widget rebuilds (e.g. on list
+  /// scroll/recycling). Asset URLs are stable once finalized.
+  final Map<String, String> _assetUrlCache = <String, String>{};
+
+  /// Dedupes concurrent resolutions of the same asset code so a list of cards
+  /// sharing one code issues a single network call.
+  final Map<String, Future<String>> _assetUrlInFlight = <String, Future<String>>{};
+
   Future<UploadSessionResult> createActivityUploadSession({
     required String organizationCode,
     required String schoolCode,
@@ -716,10 +725,34 @@ class ImageUploadService {
     }
   }
 
+  /// Synchronous lookup of an already-resolved asset URL, or null if it has
+  /// not been resolved yet. Lets widgets seed a FutureBuilder with cached data
+  /// and skip the loading frame entirely.
+  String? cachedMediaAssetUrl(String assetCode) =>
+      _assetUrlCache[assetCode.trim()];
+
   Future<String> getMediaAssetUrlByCode({
     required String assetCode,
   }) async {
-    return _waitForDocumentAssetUrlByCode(assetCode: assetCode);
+    final normalized = assetCode.trim();
+    if (normalized.isEmpty) return '';
+
+    // Already resolved this session → return instantly, no loader.
+    final cached = _assetUrlCache[normalized];
+    if (cached != null) return cached;
+
+    // A resolution for this code is already running → share its result.
+    final inFlight = _assetUrlInFlight[normalized];
+    if (inFlight != null) return inFlight;
+
+    final future = _waitForDocumentAssetUrlByCode(assetCode: normalized)
+        .then((String url) {
+      if (url.isNotEmpty) _assetUrlCache[normalized] = url;
+      return url;
+    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+
+    _assetUrlInFlight[normalized] = future;
+    return future;
   }
 
   UploadSessionResult _parseUploadSessionResponse(dynamic body) {

@@ -21,6 +21,7 @@ class SchedulingEntityLeftCell extends StatelessWidget {
     required this.imageFileUuid,
     this.mediaAssetCode,
     this.staffCode,
+    this.classroomCode,
     this.placeholderAsset,
     this.subtitle,
     this.availableHours,
@@ -35,6 +36,9 @@ class SchedulingEntityLeftCell extends StatelessWidget {
   final String imageFileUuid;
   final String? mediaAssetCode;
   final String? staffCode;
+
+  /// When set, [DocumentImageWidget] resolves and shows the classroom logo.
+  final String? classroomCode;
   final String? placeholderAsset;
   final String? subtitle;
   final double? availableHours;
@@ -75,6 +79,7 @@ class SchedulingEntityLeftCell extends StatelessWidget {
               name: title,
               mediaAssetCode: mediaAssetCode,
               staffCode: staffCode,
+              classroomCode: classroomCode,
               size: 38,
               placeholderAsset: placeholderAsset ?? MediaRes.classroomIcon,
               disableProfileLookupFallback: mediaAssetCode != null &&
@@ -138,6 +143,7 @@ class ClassroomRowLeft extends StatelessWidget {
     return SchedulingEntityLeftCell(
       title: classroomName,
       imageFileUuid: classroomCode,
+      classroomCode: classroomCode,
       placeholderAsset: MediaRes.classroomIcon,
       subtitle: 'Class Schedule',
     );
