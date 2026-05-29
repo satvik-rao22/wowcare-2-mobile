@@ -1110,6 +1110,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         _CustomExpansionTile(
                           title: 'Reports',
                           icon: MediaRes.documents_drawer_Icon,
+                          preserveIconColors: true,
                           isCurrentRoute:
                               _currentRoute == ReportsScreen.routeName,
                           onTap: () {
@@ -1185,6 +1186,12 @@ class _CustomExpansionTile extends StatefulWidget {
   final VoidCallback? onTap;
   final bool isDashboard;
 
+  /// When true, the icon's native colors (e.g. gradient fills, multi-color
+  /// strokes) are preserved instead of being flattened by a single
+  /// [ColorFilter]. Use for SVGs that ship their own gradient like the
+  /// Reports/Documents drawer icon.
+  final bool preserveIconColors;
+
   const _CustomExpansionTile({
     required this.title,
     required this.icon,
@@ -1193,6 +1200,7 @@ class _CustomExpansionTile extends StatefulWidget {
     this.isCurrentRoute = false,
     this.onTap,
     this.isDashboard = false,
+    this.preserveIconColors = false,
   });
 
   @override
@@ -1264,10 +1272,12 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 },
                 leading: SvgPicture.asset(
                   widget.icon,
-                  colorFilter: ColorFilter.mode(
-                    _getIconColor(),
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: widget.preserveIconColors
+                      ? null
+                      : ColorFilter.mode(
+                          _getIconColor(),
+                          BlendMode.srcIn,
+                        ),
                 ),
                 iconColor: AppColors.themeColor,
                 collapsedIconColor: Colors.white,
@@ -1282,10 +1292,14 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
             : ListTile(
                 leading: SvgPicture.asset(
                   widget.icon,
-                  colorFilter: ColorFilter.mode(
-                    widget.isCurrentRoute ? AppColors.themeColor : Colors.white,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: widget.preserveIconColors
+                      ? null
+                      : ColorFilter.mode(
+                          widget.isCurrentRoute
+                              ? AppColors.themeColor
+                              : Colors.white,
+                          BlendMode.srcIn,
+                        ),
                 ),
                 title: Text(
                   widget.title,

@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+class StaffScheduleReportScreen extends StatefulWidget {
+  const StaffScheduleReportScreen({
+    super.key,
+    required this.classrooms,
+  });
+
+  static const String routeName = '/reports/staff/schedule';
+
+  final List<String> classrooms;
+
+  @override
+  State<StaffScheduleReportScreen> createState() =>
+      _StaffScheduleReportScreenState();
+}
+
+class _StaffScheduleReportScreenState
+    extends State<StaffScheduleReportScreen> {
+  late DateTime _startDate;
+  late DateTime _endDate;
+  List<String> _selectedClassrooms = <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _startDate = now;
+    _endDate = now.add(const Duration(days: 6));
+  }
+
+  void _onGenerate() {
+    if (_endDate.isBefore(_startDate)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'End date cannot be before Start date',
+        isError: true,
+      );
+      return;
+    }
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Generating Staff Scheduling report…',
+      isSuccess: true,
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+
+    return ReportFormLayout(
+      title: 'Staff Scheduling',
+      onGenerate: _onGenerate,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ReportFieldLabel(label: 'Start Date'),
+          CustomDateTimeField(
+            hasLabel: false,
+            fetchInitialTime: false,
+            initialDate: _startDate,
+            onDateSelected: (d) => setState(() => _startDate = d),
+          ),
+          SizedBox(height: responsive.verticalSpacing),
+          const ReportFieldLabel(label: 'End Date'),
+          CustomDateTimeField(
+            hasLabel: false,
+            fetchInitialTime: false,
+            initialDate: _endDate,
+            onDateSelected: (d) => setState(() => _endDate = d),
+          ),
+          SizedBox(height: responsive.verticalSpacing),
+          CustomMultiSelectDropdown(
+            label: 'Classroom',
+            hintText: 'Select Classroom',
+            items: widget.classrooms,
+            selectedItems: _selectedClassrooms,
+            onChanged: (s) => setState(() => _selectedClassrooms = s),
+          ),
+          const ReportDefaultNote(
+            text: 'Note: All Classrooms will be selected by Default.',
+          ),
+        ],
+      ),
+    );
+  }
+}
