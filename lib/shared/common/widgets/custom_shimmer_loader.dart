@@ -36,13 +36,11 @@ class ShimmerLoader extends StatelessWidget {
     );
   }
 }
+
 class AttendanceCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const AttendanceCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const AttendanceCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +55,7 @@ class AttendanceCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -119,10 +117,7 @@ class AttendanceCardShimmer extends StatelessWidget {
 class SummaryCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const SummaryCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const SummaryCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -229,14 +224,273 @@ class SummaryCardShimmer extends StatelessWidget {
   }
 }
 
+/// Shimmer placeholder matching MovementsCard — header + 3 movement rows.
+/// Each row mirrors the date-column / divider-bar / details / avatar-stack layout.
+class MovementsCardShimmer extends StatelessWidget {
+  const MovementsCardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(3, (i) => _MovementRowShimmer(key: ValueKey(i))),
+      ),
+    );
+  }
+}
+
+class _MovementRowShimmer extends StatelessWidget {
+  const _MovementRowShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // Date column placeholder
+          SizedBox(
+            width: 48,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 14,
+                  width: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  height: 36,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Coloured bar
+          Container(
+            width: 3,
+            height: 64,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Details column
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      height: 16,
+                      width: 90,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    Container(
+                      height: 28,
+                      width: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 15,
+                  width: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Avatar stack placeholder
+          Container(
+            width: 45,
+            height: 45,
+            margin: const EdgeInsets.only(left: 8),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholder matching AvailabilityCard table layout:
+/// header row (Classroom | Morning | Afternoon) + skeleton data rows.
+class AvailabilityCardShimmer extends StatelessWidget {
+  const AvailabilityCardShimmer({
+    super.key,
+    this.rowCount = 5,
+  });
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            // Header row skeleton
+            Container(
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 16,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 8,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 8,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Data rows skeleton
+            ...List.generate(rowCount, (i) => _AvailabilityRowShimmer(key: ValueKey(i))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvailabilityRowShimmer extends StatelessWidget {
+  const _AvailabilityRowShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          // Classroom cell
+          Expanded(
+            flex: 16,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Morning cell
+          Expanded(
+            flex: 8,
+            child: Center(
+              child: Container(
+                width: 24,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          // Afternoon cell
+          Expanded(
+            flex: 8,
+            child: Center(
+              child: Container(
+                width: 24,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Shimmer placeholder specifically matching the collapsed StaffCard layout.
 class StaffCardShimmer extends StatelessWidget {
   final EdgeInsets? margin;
 
-  const StaffCardShimmer({
-    super.key,
-    this.margin,
-  });
+  const StaffCardShimmer({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
@@ -575,10 +829,7 @@ class _ShimmerTableRow extends StatelessWidget {
 }
 
 class _EntityCellPlaceholder extends StatelessWidget {
-  const _EntityCellPlaceholder({
-    required this.width,
-    this.compact = false,
-  });
+  const _EntityCellPlaceholder({required this.width, this.compact = false});
 
   final double width;
   final bool compact;
@@ -586,10 +837,7 @@ class _EntityCellPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: compact ? 8 : 10,
-        horizontal: 6,
-      ),
+      padding: EdgeInsets.symmetric(vertical: compact ? 8 : 10, horizontal: 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -708,7 +956,10 @@ class ClassroomProfileShimmer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromARGB(255, 232, 234, 234), width: 1.5),
+              border: Border.all(
+                color: const Color.fromARGB(255, 232, 234, 234),
+                width: 1.5,
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +1056,10 @@ class ClassroomProfileShimmer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color.fromARGB(255, 232, 234, 234), width: 1.5),
+              border: Border.all(
+                color: const Color.fromARGB(255, 232, 234, 234),
+                width: 1.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -919,7 +1173,10 @@ class MyChildsDayCardShimmer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               // Separator
-              Text(':', style: TextStyle(fontSize: 48, color: Colors.grey[300])),
+              Text(
+                ':',
+                style: TextStyle(fontSize: 48, color: Colors.grey[300]),
+              ),
               const SizedBox(width: 8),
               // MM
               Column(
@@ -945,7 +1202,10 @@ class MyChildsDayCardShimmer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               // Separator
-              Text(':', style: TextStyle(fontSize: 48, color: Colors.grey[300])),
+              Text(
+                ':',
+                style: TextStyle(fontSize: 48, color: Colors.grey[300]),
+              ),
               const SizedBox(width: 8),
               // SS
               Column(

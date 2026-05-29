@@ -19,6 +19,7 @@ class IndividualMovement {
     required this.source,
     required this.comment,
     required this.bucket,
+    this.profilePhotoAssetCode,
     this.confirmedAt,
     this.confirmedBy,
     this.rejectedAt,
@@ -43,6 +44,7 @@ class IndividualMovement {
   final String source;
   final String comment;
   final String bucket;
+  final String? profilePhotoAssetCode;
   final DateTime? confirmedAt;
   final String? confirmedBy;
   final DateTime? rejectedAt;

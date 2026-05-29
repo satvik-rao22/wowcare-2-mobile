@@ -42,7 +42,7 @@ class LoginResponseModel {
       expiresIn: _toInt(json['expiresIn']),
       refreshExpiresIn: _toInt(json['refreshExpiresIn']),
       tokenType: json['tokenType'] as String? ?? 'Bearer',
-      userCode: json['userCode'] as String? ?? '',
+      userCode: (json['userCode'] as String? ?? '').trim(),
       email: json['email'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       firstLogin: json['firstLogin'] as bool? ?? false,

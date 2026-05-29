@@ -1,20 +1,21 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class MessageModel extends Message {
-  final String code;
   final String? conversationCode;
   final String senderUserCode;
 
   const MessageModel({
     required super.id,
+    required super.code,
     required super.text,
     required super.isSentByMe,
     required super.time,
-    required this.code,
     this.conversationCode,
     required this.senderUserCode,
     super.deliveredAt,
     super.readAt,
+    super.editedAt,
     super.deliveredTo,
     super.readBy,
     super.reactions,
@@ -22,17 +23,32 @@ class MessageModel extends Message {
     super.attachments,
     super.senderName,
     super.receivers,
-  });
+  }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
-    final senderCode = json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '';
+    final senderCode = (json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '').trim();
+    final normalizedUserId = currentUserId?.trim();
+    final isMine = normalizedUserId != null &&
+        normalizedUserId.isNotEmpty &&
+        senderCode.isNotEmpty &&
+        senderCode == normalizedUserId;
+
+    AppLogger.d(
+      '[CHAT OWNERSHIP] fromJson\n'
+      '  messageId      = ${json['id']}\n'
+      '  code           = ${json['code']}\n'
+      '  senderUserCode = $senderCode\n'
+      '  currentUserId  = $normalizedUserId\n'
+      '  isMine         = $isMine',
+    );
+
     return MessageModel(
       id: (json['id'] ?? '').toString(),
       code: json['code'] as String? ?? '',
       conversationCode: json['conversationCode'] as String? ?? json['conversation_code'] as String?,
       senderUserCode: senderCode,
       text: json['content'] as String? ?? '',
-      isSentByMe: currentUserId != null && senderCode == currentUserId,
+      isSentByMe: isMine,
       time: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
@@ -40,6 +56,9 @@ class MessageModel extends Message {
           ? DateTime.now()
           : null,
       readAt: json['status'] == 'READ' ? DateTime.now() : null,
+      editedAt: json['editedAt'] != null
+          ? DateTime.parse(json['editedAt'] as String)
+          : null,
       deliveredTo: const [],
       readBy: const [],
       reactions: {

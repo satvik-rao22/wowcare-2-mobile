@@ -18,7 +18,7 @@ class NewsletterComponentModel extends Equatable {
     final rawData = json['data'];
     return NewsletterComponentModel(
       id: json['id'] as int?,
-      type: (json['type'] ?? '').toString().trim(),
+      type: (json['type'] ?? json['componentType'] ?? '').toString().trim(),
       data: rawData is Map<String, dynamic>
           ? rawData
           : rawData is Map

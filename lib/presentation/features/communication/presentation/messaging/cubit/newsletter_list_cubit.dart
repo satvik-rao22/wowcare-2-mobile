@@ -20,6 +20,7 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
   final GetSentNewslettersUseCase _getSentNewslettersUseCase;
   final NewsletterRepository _repository;
   final StorageService _storageService;
+  int _refreshRequestId = 0;
 
   Future<String?> _resolveSchoolCode() async {
     final schoolCode = await resolveLoggedInSchoolCode(_storageService);
@@ -81,10 +82,10 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
   }
 
   Future<void> refresh() async {
-    if (state.isRefreshing) return;
     final schoolCode = state.schoolCode.isNotEmpty
         ? state.schoolCode
         : await _resolveSchoolCode();
+    final int requestId = ++_refreshRequestId;
 
     if (schoolCode == null || schoolCode.isEmpty) {
       emit(
@@ -112,9 +113,9 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
         search: state.search,
         classroomCodes: state.classroomCodes,
         page: 0,
-        size: 50,
+        size: 20,
       );
-      if (isClosed) return;
+      if (isClosed || requestId != _refreshRequestId) return;
       emit(
         NewsletterListState.loaded(
           newsletters: page.items,
@@ -125,7 +126,7 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed || requestId != _refreshRequestId) return;
       emit(
         state.copyWith(
           isLoading: false,

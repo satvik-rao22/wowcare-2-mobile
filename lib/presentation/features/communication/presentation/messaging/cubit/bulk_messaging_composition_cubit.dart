@@ -7,7 +7,9 @@ import 'package:path/path.dart' as path;
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_conversation_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/send_message_usecase.dart';
 
 class SelectedAttachment extends Equatable {
   final File file;
@@ -88,14 +90,17 @@ class BulkMessagingCompositionState extends Equatable {
 class BulkMessagingCompositionCubit
     extends Cubit<BulkMessagingCompositionState> {
   final CreateConversationUseCase _createConversationUseCase;
+  final SendMessageUseCase _sendMessageUseCase;
   final StorageService _storageService;
 
   BulkMessagingCompositionCubit({
     required List<Map<String, dynamic>> initialRecipients,
     required bool isStaff,
     required CreateConversationUseCase createConversationUseCase,
+    required SendMessageUseCase sendMessageUseCase,
     required StorageService storageService,
   }) : _createConversationUseCase = createConversationUseCase,
+       _sendMessageUseCase = sendMessageUseCase,
        _storageService = storageService,
        super(
          BulkMessagingCompositionState(
@@ -230,11 +235,25 @@ class BulkMessagingCompositionCubit
           final result = await _createConversationUseCase(request);
           if (isClosed) return;
 
-          if (result.isRight()) {
-            successCount++;
-          }
-          // Note: In case of partial failure, we could continue or stop.
-          // For now, we continue but track if at least one succeeded.
+          await result.fold(
+            (_) async {},
+            (conversation) async {
+              successCount++;
+              // Backend ignores initialMessage field — send as a real message.
+              if (messageText.isNotEmpty) {
+                final msg = Message(
+                  id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                  code: '',
+                  text: messageText,
+                  isSentByMe: true,
+                  senderUserCode: senderUserCode.isNotEmpty ? senderUserCode : actualSenderCode,
+                  time: DateTime.now(),
+                );
+                await _sendMessageUseCase(conversation.code, msg);
+              }
+            },
+          );
+          if (isClosed) return;
         }
 
         if (successCount == state.selectedRecipients.length) {
@@ -309,20 +328,34 @@ class BulkMessagingCompositionCubit
         final result = await _createConversationUseCase(request);
         if (isClosed) return;
 
-        result.fold(
-          (failure) => emit(
+        await result.fold(
+          (failure) async => emit(
             state.copyWith(
               isLoading: false,
               errorMessage: failure.message ?? 'Failed to send message.',
             ),
           ),
-          (_) => emit(
-            state.copyWith(
-              isLoading: false,
-              isSuccess: true,
-              progressMessage: 'Group message sent successfully!',
-            ),
-          ),
+          (conversation) async {
+            // Backend ignores initialMessage field — send as a real message.
+            if (messageText.isNotEmpty) {
+              final msg = Message(
+                id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                code: '',
+                text: messageText,
+                isSentByMe: true,
+                senderUserCode: senderUserCode.isNotEmpty ? senderUserCode : actualSenderCode,
+                time: DateTime.now(),
+              );
+              await _sendMessageUseCase(conversation.code, msg);
+            }
+            emit(
+              state.copyWith(
+                isLoading: false,
+                isSuccess: true,
+                progressMessage: 'Group message sent successfully!',
+              ),
+            );
+          },
         );
       }
     } catch (e) {

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/newsletter_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_view_screen.dart';
+import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -21,6 +24,9 @@ class MessagingScreen extends StatefulWidget {
 
   static const String routeName = '/messageFeed';
 
+  /// Deep-link to the Newsletter top-level tab (Messaging vs Newsletter).
+  static const String newsletterRoute = '$routeName?tab=newsletter';
+
   @override
   State<MessagingScreen> createState() => _MessagingScreenState();
 }
@@ -28,11 +34,48 @@ class MessagingScreen extends StatefulWidget {
 class _MessagingScreenState extends State<MessagingScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  int? _lastAppliedInitialIndex;
+  String? _lastRouteTabQuery;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 1),
+    );
+    _lastAppliedInitialIndex = widget.initialTabIndex.clamp(0, 1);
+    _lastRouteTabQuery = widget.initialTabIndex == 1 ? 'newsletter' : null;
+  }
+
+  @override
+  void didUpdateWidget(covariant MessagingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextIndex = widget.initialTabIndex.clamp(0, 1);
+    _lastRouteTabQuery = nextIndex == 1 ? 'newsletter' : null;
+    _applyDeepLinkTabIndex(nextIndex);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Shell branches can keep this widget alive; apply drawer deep-links only
+    // when the route `tab` query actually changes (not on every rebuild).
+    final tabQuery =
+        GoRouterState.of(context).uri.queryParameters['tab']?.trim().toLowerCase();
+    if (tabQuery == _lastRouteTabQuery) return;
+    _lastRouteTabQuery = tabQuery;
+    _applyDeepLinkTabIndex(tabQuery == 'newsletter' ? 1 : 0);
+  }
+
+  void _applyDeepLinkTabIndex(int nextIndex) {
+    final clamped = nextIndex.clamp(0, 1);
+    if (clamped == _lastAppliedInitialIndex) return;
+    _lastAppliedInitialIndex = clamped;
+    if (_tabController.index != clamped) {
+      _tabController.animateTo(clamped);
+    }
   }
 
   @override
@@ -45,6 +88,10 @@ class _MessagingScreenState extends State<MessagingScreen>
   Widget build(BuildContext context) {
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final bool isParentPersona =
+        widget.userPersona == UserPersona.parent ||
+        context.watch<RoleProvider>().isParent;
+
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
@@ -56,55 +103,45 @@ class _MessagingScreenState extends State<MessagingScreen>
         body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              dividerColor: Colors.transparent,
-              indicator: const UnderlineTabIndicator(
-                borderSide: BorderSide(color: AppColors.themeColor),
-              ),
-              indicatorPadding: const EdgeInsets.only(bottom: 8),
-              labelStyle: const TextStyle(
-                color: const Color(0xFF241631),
-                fontFamily: 'Manrope',
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              unselectedLabelStyle: TextStyle(
-                //color: AppColors.primaryColor.withOpacity(0.5),
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: 'Manrope',
-                fontSize: 16,
-              ),
-              labelColor: const Color(0xFF241631),
-              //unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
-              unselectedLabelColor: AppColors.primaryColor.withValues(
-                alpha: 0.5,
-              ),
-              tabs: const [
-                Tab(text: 'Messaging'),
-                Tab(text: 'Newsletter'),
-              ],
-            ),
-            //const SizedBox(height: 16,),
-            if (widget.userPersona == UserPersona.parent) ...[
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    ParentViewScreen(),
-                    const NewsLatterTab(),
-                  ],
+            if (!isParentPersona)
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                dividerColor: Colors.transparent,
+                indicator: const UnderlineTabIndicator(
+                  borderSide: BorderSide(color: AppColors.themeColor),
                 ),
+                indicatorPadding: const EdgeInsets.only(bottom: 8),
+                labelStyle: const TextStyle(
+                  color: Color(0xFF241631),
+                  fontFamily: 'Manrope',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                unselectedLabelStyle: TextStyle(
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
+                  fontFamily: 'Manrope',
+                  fontSize: 16,
+                ),
+                labelColor: const Color(0xFF241631),
+                unselectedLabelColor: AppColors.primaryColor.withValues(
+                  alpha: 0.5,
+                ),
+                tabs: const [
+                  Tab(text: 'Messaging'),
+                  Tab(text: 'Newsletter'),
+                ],
               ),
-            ] else
+            if (isParentPersona)
+              const Expanded(child: ParentViewScreen())
+            else
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [
-                    MessagingTab(initialTabIndex: widget.initialTabIndex),
-                    const NewsLatterTab(),
+                  children: const [
+                    MessagingTab(),
+                    NewsLatterTab(),
                   ],
                 ),
               ),

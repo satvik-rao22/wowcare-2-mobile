@@ -29,6 +29,8 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
 enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
 
@@ -987,22 +989,32 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     if (attendanceReport == null) {
       return Column(
         children: [
-          _buildStatItem(
-            icon: MediaRes.calenderClockIcon,
-            iconColor: const Color(0xFF4285F4),
-            label: 'Attended Days',
-            value: '',
-            valueColor: const Color(0xFF4CAF50),
+          InkWell(
+            onTap: () {
+              context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+            },
+            child: _buildStatItem(
+              icon: MediaRes.calenderClockIcon,
+              iconColor: const Color(0xFF4285F4),
+              label: 'Attended Days',
+              value: '',
+              valueColor: const Color(0xFF4CAF50),
+            ),
           ),
           const SizedBox(height: 16),
           _buildAttendedHoursStat(report: null),
           const SizedBox(height: 16),
-          _buildStatItem(
-            icon: MediaRes.calenderClockIcon,
-            iconColor: const Color(0xFF4285F4),
-            label: 'Absent Days',
-            value: '',
-            valueColor: Colors.red,
+          InkWell(
+            onTap: () {
+              context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+            },
+            child: _buildStatItem(
+              icon: MediaRes.calenderClockIcon,
+              iconColor: const Color(0xFF4285F4),
+              label: 'Absent Days',
+              value: '',
+              valueColor: Colors.red,
+            ),
           ),
         ],
       );
@@ -1010,22 +1022,32 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     return Column(
       children: [
-        _buildStatItem(
-          icon: MediaRes.calenderClockIcon,
-          iconColor: const Color(0xFF4285F4),
-          label: 'Attended Days',
-          value: '${attendanceReport!.attendedDays}',
-          valueColor: const Color(0xFF4CAF50),
+        InkWell(
+          onTap: () {
+            context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+          },
+          child: _buildStatItem(
+            icon: MediaRes.calenderClockIcon,
+            iconColor: const Color(0xFF4285F4),
+            label: 'Attended Days',
+            value: '${attendanceReport!.attendedDays}',
+            valueColor: const Color(0xFF4CAF50),
+          ),
         ),
         const SizedBox(height: 16),
         _buildAttendedHoursStat(report: attendanceReport),
         const SizedBox(height: 16),
-        _buildStatItem(
-          icon: MediaRes.calenderClockIcon,
-          iconColor: const Color(0xFF4285F4),
-          label: 'Absent Days',
-          value: '${attendanceReport!.absentDays}',
-          valueColor: Colors.red,
+        InkWell(
+          onTap: () {
+            context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+          },
+          child: _buildStatItem(
+            icon: MediaRes.calenderClockIcon,
+            iconColor: const Color(0xFF4285F4),
+            label: 'Absent Days',
+            value: '${attendanceReport!.absentDays}',
+            valueColor: Colors.red,
+          ),
         ),
       ],
     );

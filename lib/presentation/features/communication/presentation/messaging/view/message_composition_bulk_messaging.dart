@@ -101,6 +101,7 @@ class _MessageCompositionBulkMessagingState
       initialRecipients: widget.selectedRecipients,
       isStaff: widget.isStaff,
       createConversationUseCase: serviceLocator(),
+      sendMessageUseCase: serviceLocator(),
       storageService: serviceLocator(),
     );
     _focusNode = FocusNode();

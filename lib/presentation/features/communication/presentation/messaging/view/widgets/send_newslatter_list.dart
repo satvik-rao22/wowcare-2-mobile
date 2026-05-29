@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class NewsletterListItemModel {
   const NewsletterListItemModel({
@@ -9,7 +11,10 @@ class NewsletterListItemModel {
     required this.sentDate,
     required this.createdBy,
     required this.recipientCount,
-    this.thumbnailUrl,
+    this.primaryAttachmentAssetCode,
+    this.primaryAttachmentDirectUrl,
+    this.primaryAttachmentMimeType,
+    this.additionalAttachmentCount = 0,
   });
 
   final String title;
@@ -17,7 +22,12 @@ class NewsletterListItemModel {
   final String sentDate;
   final String createdBy;
   final int recipientCount;
-  final String? thumbnailUrl;
+  final String? primaryAttachmentAssetCode;
+  final String? primaryAttachmentDirectUrl;
+  final String? primaryAttachmentMimeType;
+  final int additionalAttachmentCount;
+
+  bool get showClassroomRow => classroom.trim().isNotEmpty;
 }
 
 class NewsletterSentListCard extends StatelessWidget {
@@ -54,7 +64,15 @@ class NewsletterSentListCard extends StatelessWidget {
                 child: SizedBox(
                   width: 84,
                   height: 56,
-                  child: _CardThumbnail(imageUrl: newsLetter.thumbnailUrl),
+                  child: _CardThumbnail(
+                    key: ValueKey<String>(
+                      '${newsLetter.primaryAttachmentAssetCode ?? ''}|${newsLetter.primaryAttachmentDirectUrl ?? ''}',
+                    ),
+                    assetCode: newsLetter.primaryAttachmentAssetCode,
+                    directUrl: newsLetter.primaryAttachmentDirectUrl,
+                    mimeType: newsLetter.primaryAttachmentMimeType,
+                    additionalAttachmentCount: newsLetter.additionalAttachmentCount,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -72,73 +90,40 @@ class NewsletterSentListCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    _MetaText(
-                      'Created by',
-                      maxLines: 1,
+                    const SizedBox(height: 4),
+                    _AlignedMetaRow(
+                      label: 'Created by',
+                      value: newsLetter.createdBy,
                     ),
-                    Text(
-                      newsLetter.sentDate,
-                      style: TextStyle(
-                        color: AppColors.primaryColor.withValues(alpha: 0.78),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    const SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _DateMetaRow(date: newsLetter.sentDate),
+                        ),
+                        _RecipientCountBadge(
+                          count: newsLetter.recipientCount,
+                        ),
+                      ],
+                    ),
+                    if (newsLetter.showClassroomRow) ...[
+                      const SizedBox(height: 2),
+                      _AlignedMetaRow(
+                        label: 'Classroom',
+                        value: newsLetter.classroom,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    _MetaText('Classroom'),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 86,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                  Text(
-                    newsLetter.createdBy,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.82),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.account_circle_outlined,
-                        size: 18,
-                        color: AppColors.primaryColor.withValues(alpha: 0.62),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${newsLetter.recipientCount}',
-                        style: TextStyle(
-                          color: AppColors.primaryColor.withValues(alpha: 0.78),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    newsLetter.classroom,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.78),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  ],
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 2, top: 2),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.primaryColor.withValues(alpha: 0.4),
+                  size: 20,
                 ),
               ),
             ],
@@ -149,26 +134,295 @@ class NewsletterSentListCard extends StatelessWidget {
   }
 }
 
-class _CardThumbnail extends StatelessWidget {
-  const _CardThumbnail({this.imageUrl});
+class _DateMetaRow extends StatelessWidget {
+  const _DateMetaRow({required this.date});
 
-  final String? imageUrl;
+  final String date;
 
   @override
   Widget build(BuildContext context) {
-    final String url = (imageUrl ?? '').trim();
-    if (url.isNotEmpty) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _thumbnailPlaceholder();
-        },
-        errorBuilder: (_, __, ___) => _thumbnailPlaceholder(),
-      );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 74,
+          child: Text(
+            'Date',
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.58),
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Text(
+          date,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.visible,
+          style: TextStyle(
+            color: AppColors.primaryColor.withValues(alpha: 0.82),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipientCountBadge extends StatelessWidget {
+  const _RecipientCountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.account_circle_outlined,
+            size: 18,
+            color: AppColors.primaryColor.withValues(alpha: 0.62),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '$count',
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.78),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlignedMetaRow extends StatelessWidget {
+  const _AlignedMetaRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 74,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.58),
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.82),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CardThumbnail extends StatefulWidget {
+  const _CardThumbnail({
+    super.key,
+    this.assetCode,
+    this.directUrl,
+    this.mimeType,
+    this.additionalAttachmentCount = 0,
+  });
+
+  final String? assetCode;
+  final String? directUrl;
+  final String? mimeType;
+  final int additionalAttachmentCount;
+
+  @override
+  State<_CardThumbnail> createState() => _CardThumbnailState();
+}
+
+class _CardThumbnailState extends State<_CardThumbnail> {
+  late Future<String> _assetUrlFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _assetUrlFuture = _resolveAssetUrl();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CardThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final String oldCode = (oldWidget.assetCode ?? '').trim();
+    final String newCode = (widget.assetCode ?? '').trim();
+    final String oldUrl = (oldWidget.directUrl ?? '').trim();
+    final String newUrl = (widget.directUrl ?? '').trim();
+    if (oldCode != newCode ||
+        oldUrl != newUrl ||
+        oldWidget.mimeType != widget.mimeType) {
+      _assetUrlFuture = _resolveAssetUrl();
     }
-    return _thumbnailPlaceholder();
+  }
+
+  Future<String> _resolveAssetUrl() async {
+    final String direct = (widget.directUrl ?? '').trim();
+    if (_isHttpUrl(direct)) return direct;
+
+    final String code = (widget.assetCode ?? '').trim();
+    if (code.isEmpty) return '';
+    if (_isHttpUrl(code)) return code;
+
+    try {
+      final ImageUploadService uploadService = serviceLocator<ImageUploadService>();
+      return await uploadService.getMediaAssetUrlByCode(assetCode: code);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  bool _isHttpUrl(String value) {
+    final lower = value.trim().toLowerCase();
+    return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
+  bool get _isImage {
+    final String mime = (widget.mimeType ?? '').trim().toLowerCase();
+    if (mime.startsWith('image/')) return true;
+    if (mime.contains('pdf') ||
+        mime.contains('word') ||
+        mime.contains('document') ||
+        mime.contains('sheet') ||
+        mime.contains('excel')) {
+      return false;
+    }
+
+    for (final source in <String>[
+      widget.directUrl ?? '',
+      widget.assetCode ?? '',
+    ]) {
+      final lower = source.toLowerCase();
+      if (lower.endsWith('.png') ||
+          lower.endsWith('.jpg') ||
+          lower.endsWith('.jpeg') ||
+          lower.endsWith('.webp') ||
+          lower.endsWith('.gif') ||
+          lower.endsWith('.avif') ||
+          lower.endsWith('.bmp')) {
+        return true;
+      }
+    }
+
+    final String code = (widget.assetCode ?? '').trim();
+    if (code.isNotEmpty && mime.isEmpty) return true;
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _assetUrlFuture,
+      builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+        final String url = (snapshot.data ?? '').trim();
+        final bool hasUrl = url.isNotEmpty;
+        final bool isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: _isImage
+                  ? _buildImagePreview(
+                      url: url,
+                      hasUrl: hasUrl,
+                      isLoading: isLoading,
+                    )
+                  : _buildDocumentPreview(
+                      hasUrl: hasUrl,
+                      isLoading: isLoading,
+                    ),
+            ),
+            if (widget.additionalAttachmentCount > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '+${widget.additionalAttachmentCount}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildImagePreview({
+    required String url,
+    required bool hasUrl,
+    required bool isLoading,
+  }) {
+    if (isLoading) return _loadingPreview();
+    if (!hasUrl) return _thumbnailPlaceholder();
+    return Image.network(
+      url,
+      key: ValueKey<String>(url),
+      fit: BoxFit.cover,
+      gaplessPlayback: false,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return _loadingPreview();
+      },
+      errorBuilder: (_, __, ___) => _thumbnailPlaceholder(),
+    );
+  }
+
+  Widget _buildDocumentPreview({
+    required bool hasUrl,
+    required bool isLoading,
+  }) {
+    if (isLoading) return _loadingPreview();
+    return Container(
+      color: hasUrl ? const Color(0xFFEAF2FF) : Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: Icon(
+        _documentIconForMimeType(widget.mimeType ?? ''),
+        color: AppColors.primaryColor.withValues(alpha: 0.68),
+        size: 24,
+      ),
+    );
   }
 
   Widget _thumbnailPlaceholder() {
@@ -186,27 +440,29 @@ class _CardThumbnail extends StatelessWidget {
       ),
     );
   }
-}
 
-class _MetaText extends StatelessWidget {
-  const _MetaText(
-    this.value, {
-    this.maxLines = 2,
-  });
-
-  final String value;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      value,
-      maxLines: maxLines,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: AppColors.primaryColor.withValues(alpha: 0.58),
-        fontSize: 13,
+  Widget _loadingPreview() {
+    return Container(
+      color: Colors.grey.shade100,
+      alignment: Alignment.center,
+      child: const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }
+
+  IconData _documentIconForMimeType(String mimeType) {
+    final String mime = mimeType.toLowerCase();
+    if (mime.contains('pdf')) return Icons.picture_as_pdf_outlined;
+    if (mime.contains('word') || mime.contains('document')) {
+      return Icons.description_outlined;
+    }
+    if (mime.contains('sheet') || mime.contains('excel') || mime.contains('csv')) {
+      return Icons.table_chart_outlined;
+    }
+    return Icons.insert_drive_file_outlined;
+  }
 }
+

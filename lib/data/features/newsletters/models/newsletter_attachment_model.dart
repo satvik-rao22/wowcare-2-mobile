@@ -21,9 +21,20 @@ class NewsletterAttachmentModel extends Equatable {
   factory NewsletterAttachmentModel.fromJson(Map<String, dynamic> json) {
     return NewsletterAttachmentModel(
       id: json['id'] as int?,
-      code: (json['code'] ?? '').toString().trim(),
+      code: (json['code'] ??
+              json['mediaCode'] ??
+              json['assetCode'] ??
+              '')
+          .toString()
+          .trim(),
       name: (json['name'] ?? json['fileName'] ?? '').toString().trim(),
-      url: (json['url'] ?? json['downloadUrl'] ?? '').toString().trim(),
+      url: (json['url'] ??
+              json['downloadUrl'] ??
+              json['fileUrl'] ??
+              json['publicUrl'] ??
+              '')
+          .toString()
+          .trim(),
       mimeType: (json['mimeType'] ?? json['contentType'] ?? '').toString().trim(),
       sizeBytes: json['sizeBytes'] as int? ?? json['size'] as int?,
     );

@@ -6,16 +6,19 @@ part 'message_collection.g.dart';
 
 @collection
 class MessageCollection {
-  Id get isarId => fastHash(id);
+  Id get isarId => fastHash(code.isNotEmpty ? code : id);
 
   late String id;
+  late String code;
   @Index()
   late String threadId;
   late String text;
   bool? isSentByMe;
+  String? senderUserCode;
   late DateTime time;
   DateTime? deliveredAt;
   DateTime? readAt;
+  DateTime? editedAt;
   String? quotedMessageId;
   String? senderName;
   List<String>? receivers;
@@ -30,12 +33,15 @@ class MessageCollection {
   factory MessageCollection.fromEntity(Message message, String threadId) {
     return MessageCollection()
       ..id = message.id
+      ..code = message.code
       ..threadId = threadId
       ..text = message.text
       ..isSentByMe = message.isSentByMe
+      ..senderUserCode = message.senderUserCode
       ..time = message.time
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
+      ..editedAt = message.editedAt
       ..quotedMessageId = message.quotedMessageId
       ..senderName = message.senderName
       ..receivers = message.receivers
@@ -57,14 +63,32 @@ class MessageCollection {
           .toList();
   }
 
-  Message toEntity() {
+  /// Converts to a domain [Message].
+  ///
+  /// When [currentUserId] is supplied the [isSentByMe] flag is re-derived
+  /// from [senderUserCode] at read-time, which is the authoritative source.
+  /// This prevents stale/null Isar booleans from flipping the bubble style.
+  Message toEntity({String? currentUserId}) {
+    final normalizedUserId = currentUserId?.trim();
+    final normalizedSenderCode = senderUserCode?.trim();
+    final resolvedIsSentByMe =
+        (normalizedUserId != null &&
+            normalizedUserId.isNotEmpty &&
+            normalizedSenderCode != null &&
+            normalizedSenderCode.isNotEmpty)
+        ? normalizedSenderCode == normalizedUserId
+        : (isSentByMe ?? false);
+
     return Message(
       id: id,
+      code: code,
       text: text,
-      isSentByMe: isSentByMe ?? false,
+      isSentByMe: resolvedIsSentByMe,
+      senderUserCode: normalizedSenderCode,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,
+      editedAt: editedAt,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
       receivers: receivers ?? [],

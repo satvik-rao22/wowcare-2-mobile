@@ -1112,7 +1112,45 @@ class AttendanceRepositoryImpl
 
   @override
   Future<StudentAttendanceExpectedSummary>
-  getStudentAttendanceExpectedSummary({String? classroomCode}) async {
+  getStudentAttendanceExpectedSummary({
+    String? classroomCode,
+    bool schoolWide = false,
+  }) async {
+    if (schoolWide) {
+      final cacheKey = _studentAttendanceSummaryCacheKey('school_wide');
+      final cached = await _cacheManager.loadCache(cacheKey);
+      if (cached != null) {
+        return StudentAttendanceExpectedSummary(
+          expected: cached['expected'] as int? ?? 0,
+          present: cached['present'] as int? ?? 0,
+          absent: cached['absent'] as int? ?? 0,
+          signOut: cached['signOut'] as int? ?? 0,
+          notMarked: cached['notMarked'] as int? ?? 0,
+        );
+      }
+
+      final model = await _remoteDataSource
+          .getStudentAttendanceExpectedSummaryCard(
+            classroomCode: null,
+          );
+
+      await _cacheManager.saveCache(cacheKey, {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      });
+
+      return StudentAttendanceExpectedSummary(
+        expected: model.expected,
+        present: model.present,
+        absent: model.absent,
+        signOut: model.signOut,
+        notMarked: model.notMarked,
+      );
+    }
+
     final fromArg = classroomCode?.trim() ?? '';
     if (fromArg.isNotEmpty) {
       final cacheKey = _studentAttendanceSummaryCacheKey(fromArg);
@@ -1189,7 +1227,42 @@ class AttendanceRepositoryImpl
   @override
   Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary({
     String? classroomCode,
+    bool schoolWide = false,
   }) async {
+    if (schoolWide) {
+      final cacheKey = _staffAttendanceSummaryCacheKey('school_wide');
+      final cached = await _cacheManager.loadCache(cacheKey);
+      if (cached != null) {
+        return StudentAttendanceExpectedSummary(
+          expected: cached['expected'] as int? ?? 0,
+          present: cached['present'] as int? ?? 0,
+          absent: cached['absent'] as int? ?? 0,
+          signOut: cached['signOut'] as int? ?? 0,
+          notMarked: cached['notMarked'] as int? ?? 0,
+        );
+      }
+
+      final model = await _remoteDataSource.getStaffAttendanceExpectedSummaryCard(
+        classroomCode: null,
+      );
+
+      await _cacheManager.saveCache(cacheKey, {
+        'expected': model.expected,
+        'present': model.present,
+        'absent': model.absent,
+        'signOut': model.signOut,
+        'notMarked': model.notMarked,
+      });
+
+      return StudentAttendanceExpectedSummary(
+        expected: model.expected,
+        present: model.present,
+        absent: model.absent,
+        signOut: model.signOut,
+        notMarked: model.notMarked,
+      );
+    }
+
     final fromArg = classroomCode?.trim() ?? '';
     if (fromArg.isNotEmpty) {
       final cacheKey = _staffAttendanceSummaryCacheKey(fromArg);

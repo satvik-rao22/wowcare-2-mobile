@@ -21,14 +21,18 @@ class GeofenceNotificationService {
         requestSoundPermission: false,
       );
       await _plugin.initialize(
-        const InitializationSettings(android: androidInit, iOS: iosInit),
+        settings: const InitializationSettings(
+          android: androidInit,
+          iOS: iosInit,
+        ),
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
 
       // Create Android notification channel for Android 8.0+
       await _plugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(
             const AndroidNotificationChannel(
               _channelId,
@@ -46,29 +50,23 @@ class GeofenceNotificationService {
   }
 
   Future<void> showEnteredZoneNotification() => _show(
-        id: _enteredId,
-        title: 'You are now within school sign-in range',
-        body: 'Tap to sign your child in or out.',
-        isCritical: true,
-      );
+    id: _enteredId,
+    title: 'You are now within school sign-in range',
+    body: 'Tap to sign your child in or out.',
+    isCritical: true,
+  );
 
   Future<void> showExitedZoneNotification() => _show(
-        id: _exitedId,
-        title: 'You left the school sign-in zone',
-        body: 'GPS sign-in is unavailable until you return.',
-        isCritical: false,
-      );
+    id: _exitedId,
+    title: 'You left the school sign-in zone',
+    body: 'GPS sign-in is unavailable until you return.',
+    isCritical: false,
+  );
 
   Future<void> showCustomNotification({
     required String title,
     required String body,
-  }) =>
-      _show(
-        id: 1003,
-        title: title,
-        body: body,
-        isCritical: true,
-      );
+  }) => _show(id: 1003, title: title, body: body, isCritical: true);
 
   Future<void> _show({
     required int id,
@@ -78,14 +76,16 @@ class GeofenceNotificationService {
   }) async {
     try {
       await _plugin.show(
-        id,
-        title,
-        body,
-        NotificationDetails(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
             _channelName,
-            importance: isCritical ? Importance.high : Importance.defaultImportance,
+            importance: isCritical
+                ? Importance.high
+                : Importance.defaultImportance,
             priority: isCritical ? Priority.high : Priority.defaultPriority,
             enableVibration: isCritical,
             playSound: isCritical,
