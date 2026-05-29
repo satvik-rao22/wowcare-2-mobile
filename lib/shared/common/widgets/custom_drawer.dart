@@ -34,6 +34,11 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/activity_feed_invalidation.dart';
+import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
+import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -334,6 +339,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
         lastLoginOrganizationCode: _currentOrgCode!,
         lastLoginSchoolCode: schoolCode,
       );
+
+      // School actually changed: wipe every cached artifact so the newly
+      // selected school loads fresh data everywhere instead of hydrating from
+      // the previous school's cache. Runs BEFORE the prefetch/refresh below so
+      // those re-populate clean caches for the new school.
+      await _clearAllCachesForSchoolSwitch();
     }
 
     // Prefetch staff profile for the newly selected organisation/school
@@ -359,6 +370,44 @@ class _CustomDrawerState extends State<CustomDrawer> {
     Navigator.pop(context);
     if (!mounted) return;
     context.go(DashboardScreen.routeName);
+  }
+
+  /// Clears every cache layer so a school switch starts from a clean slate:
+  ///  1. Persisted `*_cache_*` SharedPreferences entries (repository caches),
+  ///     keeping the auth/session login cache which is not school-scoped.
+  ///  2. Non-prefs caches — image cache, Isar messaging/conversation
+  ///     collections, in-flight staff request caches (via the session wiper).
+  ///  3. Process-wide in-memory caches / invalidation gates that open screens
+  ///     listen to (students attendance status, scheduling, activity feed).
+  ///
+  /// Each step is isolated so one failure never blocks the rest of the switch.
+  Future<void> _clearAllCachesForSchoolSwitch() async {
+    final storage = serviceLocator<StorageService>();
+
+    try {
+      await CacheManager(storage).clearAllStandardCaches(
+        protectedKeys: <String>{
+          StorageKeys.loginCacheKey,
+          StorageKeys.loginCacheTimestamp,
+        },
+      );
+    } catch (_) {}
+
+    try {
+      await serviceLocator<SessionLocalCacheWiper>().wipe();
+    } catch (_) {}
+
+    try {
+      clearClassroomStudentsAttendanceCache();
+    } catch (_) {}
+
+    try {
+      SchedulingCacheGate.invalidate();
+    } catch (_) {}
+
+    try {
+      await ActivityFeedInvalidation.invalidate(storage);
+    } catch (_) {}
   }
 
   void _showSnackOnRoot(String message, {bool isError = false}) {

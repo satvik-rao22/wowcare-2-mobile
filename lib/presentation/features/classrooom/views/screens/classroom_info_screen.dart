@@ -846,28 +846,40 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.only(left: 6),
-                              child: ClassroomDropdown(
-                                items: dropdownItems.isEmpty
-                                    ? const ['Loading...']
-                                    : dropdownItems,
-                                value: dropdownItems.isEmpty
-                                    ? 'Loading...'
-                                    : (_selectedRoom?.name ??
-                                        dropdownItems.first),
-                                onChanged: (value) {
-                                  if (dropdownItems.isEmpty) return;
-                                  final selected = classrooms
-                                      .firstWhere((c) => c.name == value);
-                                  setState(() {
-                                    _selectedRoom = selected;
-                                  });
-                                  _saveLastSelectedClassroomToCache(
-                                    selected.code,
-                                    selected.name,
-                                  );
-                                  _loadDetails(selected.code);
-                                },
-                              ),
+                              child: isInitialLoading
+                                  ? const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 4),
+                                      child: ShimmerLoader(
+                                        height: 24,
+                                        width: 160,
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(6),
+                                        ),
+                                      ),
+                                    )
+                                  : ClassroomDropdown(
+                                      items: dropdownItems.isEmpty
+                                          ? const ['Loading...']
+                                          : dropdownItems,
+                                      value: dropdownItems.isEmpty
+                                          ? 'Loading...'
+                                          : (_selectedRoom?.name ??
+                                              dropdownItems.first),
+                                      onChanged: (value) {
+                                        if (dropdownItems.isEmpty) return;
+                                        final selected = classrooms
+                                            .firstWhere((c) => c.name == value);
+                                        setState(() {
+                                          _selectedRoom = selected;
+                                        });
+                                        _saveLastSelectedClassroomToCache(
+                                          selected.code,
+                                          selected.name,
+                                        );
+                                        _loadDetails(selected.code);
+                                      },
+                                    ),
                             ),
                             IconButton(
                               tooltip: 'Back',

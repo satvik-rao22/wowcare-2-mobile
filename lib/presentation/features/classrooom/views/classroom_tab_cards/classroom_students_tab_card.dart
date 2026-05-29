@@ -8,7 +8,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
@@ -56,6 +56,13 @@ final ValueNotifier<int> classroomStudentsRefreshTick = ValueNotifier<int>(0);
 
 void notifyClassroomStudentsChanged() {
   classroomStudentsRefreshTick.value++;
+}
+
+/// Clears the process-wide today's-attendance cache shared by every Students
+/// tab instance. Called on school switch so a newly selected school never
+/// shows the previous school's cached attendance status.
+void clearClassroomStudentsAttendanceCache() {
+  _ClassroomStudentsTabCardState._attendanceCacheByKey.clear();
 }
 
 class ClassroomStudentsTabCard extends StatefulWidget {
@@ -1493,9 +1500,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       builder: (context) {
                           if ((state.isLoading || _isLoadingNapStudents) &&
                               effectiveVisibleStudents.isEmpty) {
-                            return const Center(
-                              child: PrimaryCircularLoader(),
-                            );
+                            return const ClassroomStudentsListShimmer();
                           }
 
                           if (effectiveVisibleStudents.isEmpty) {

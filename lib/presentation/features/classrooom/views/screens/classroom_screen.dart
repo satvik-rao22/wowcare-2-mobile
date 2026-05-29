@@ -17,7 +17,7 @@ import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class ClassroomScreen extends StatefulWidget {
   const ClassroomScreen({
@@ -195,21 +195,33 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: ClassroomDropdown(
-                          items: dropdownItems.isEmpty
-                              ? const ['Loading...']
-                              : dropdownItems,
-                          value: dropdownItems.isEmpty
-                              ? 'Loading...'
-                              : (selectedRoom?.name ?? dropdownItems.first),
-                          onChanged: (value) {
-                            if (dropdownItems.isEmpty) return;
-                            setState(() {
-                              selectedRoom =
-                                  classrooms.firstWhere((c) => c.name == value);
-                            });
-                          },
-                        ),
+                        child: isInitialLoading
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: ShimmerLoader(
+                                  height: 24,
+                                  width: 160,
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(6),
+                                  ),
+                                ),
+                              )
+                            : ClassroomDropdown(
+                                items: dropdownItems.isEmpty
+                                    ? const ['Loading...']
+                                    : dropdownItems,
+                                value: dropdownItems.isEmpty
+                                    ? 'Loading...'
+                                    : (selectedRoom?.name ??
+                                        dropdownItems.first),
+                                onChanged: (value) {
+                                  if (dropdownItems.isEmpty) return;
+                                  setState(() {
+                                    selectedRoom = classrooms
+                                        .firstWhere((c) => c.name == value);
+                                  });
+                                },
+                              ),
                       ),
                       IconButton(
                         tooltip: 'Class profile',
@@ -291,7 +303,10 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                   ),
                   Expanded(
                     child: isInitialLoading
-                        ? const Center(child: PrimaryCircularLoader())
+                        ? const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                            child: ClassroomStudentsTabShimmer(),
+                          )
                         : TabBarView(
                             controller: _tabController,
                             children: [

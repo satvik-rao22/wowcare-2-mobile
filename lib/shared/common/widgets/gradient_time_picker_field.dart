@@ -122,6 +122,7 @@ class GradientTimePickerField extends StatelessWidget {
     required this.onTimeSelected,
     this.errorText,
     this.isRequired = false,
+    this.enabled = true,
     this.onClear,
   });
 
@@ -130,6 +131,10 @@ class GradientTimePickerField extends StatelessWidget {
   final TimeOfDay? time;
   final ValueChanged<TimeOfDay> onTimeSelected;
   final bool isRequired;
+
+  /// When false, the field is greyed out and taps are ignored (read-only).
+  /// Mirrors the disabled state the activity screens drove via `isEditable`.
+  final bool enabled;
 
   /// Optional clear callback. When non-null and [time] is set, a small
   /// close (×) button is rendered next to the clock icon — gives mobile users
@@ -232,8 +237,10 @@ class GradientTimePickerField extends StatelessWidget {
         const SizedBox(height: 6),
 
         GestureDetector(
-          onTap: () => _pickTime(context),
-          child: Container(
+          onTap: enabled ? () => _pickTime(context) : null,
+          child: Opacity(
+            opacity: enabled ? 1.0 : 0.4,
+            child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
 
             padding: EdgeInsets.symmetric(
@@ -292,7 +299,7 @@ class GradientTimePickerField extends StatelessWidget {
                   ),
                 ),
 
-                if (onClear != null && time != null) ...[
+                if (onClear != null && time != null && enabled) ...[
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: onClear,
@@ -322,6 +329,7 @@ class GradientTimePickerField extends StatelessWidget {
                 ),
               ],
             ),
+          ),
           ),
         ),
         if (errorText != null) ...[

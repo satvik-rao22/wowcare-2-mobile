@@ -1335,6 +1335,289 @@ class MyChildsDayCardShimmer extends StatelessWidget {
   }
 }
 
+/// Shimmer placeholder for a single Classroom Students list row, mirroring
+/// [ClassroomStudentListItem]: bordered card with a checkbox box, circular
+/// avatar, and a name line.
+class _ClassroomStudentRowShimmer extends StatelessWidget {
+  const _ClassroomStudentRowShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // Checkbox placeholder
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          // Avatar placeholder
+          Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Name placeholder
+          Expanded(
+            child: Container(
+              height: 16,
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shimmer list of [ClassroomStudentListItem] rows, shown on the Students tab's
+/// first load instead of a spinner. The tab card renders the real search bar /
+/// toggles above this, so this widget covers only the scrollable roster.
+class ClassroomStudentsListShimmer extends StatelessWidget {
+  const ClassroomStudentsListShimmer({super.key, this.rowCount = 7});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        physics: const NeverScrollableScrollPhysics(),
+        children: List.generate(
+          rowCount,
+          (i) => const _ClassroomStudentRowShimmer(),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full Classroom Students tab shimmer: search bar + select-all row + filter
+/// toggles + roster rows. Used on the very first landing (before any classroom
+/// has loaded) so the whole tab body shows structure instead of "Loading...".
+class ClassroomStudentsTabShimmer extends StatelessWidget {
+  const ClassroomStudentsTabShimmer({super.key, this.rowCount = 7});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Search bar + filter icon
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Select-all + chips row
+              Row(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  Container(
+                    height: 15,
+                    width: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    height: 22,
+                    width: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Filter toggles row
+              Row(
+                children: [
+                  Container(
+                    height: 18,
+                    width: 90,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Container(
+                    height: 18,
+                    width: 90,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+        Expanded(child: ClassroomStudentsListShimmer(rowCount: rowCount)),
+      ],
+    );
+  }
+}
+
+/// Shimmer placeholder for a single Classroom Staff list row, mirroring
+/// `_StaffListItem`: bordered card with a circular avatar, a name + designation
+/// text column, and a trailing mail-icon button.
+class _ClassroomStaffRowShimmer extends StatelessWidget {
+  const _ClassroomStaffRowShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 10, bottom: 10, left: 10),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // Avatar placeholder
+          Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Name + designation placeholders
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  height: 16,
+                  width: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 13,
+                  width: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Mail icon placeholder
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shimmer list of `_StaffListItem` rows, shown on the Staff tab's first load
+/// instead of a spinner. The tab card renders the real search bar / filter
+/// chips above this; this covers only the scrollable roster (with the same
+/// horizontal padding the real list uses).
+class ClassroomStaffListShimmer extends StatelessWidget {
+  const ClassroomStaffListShimmer({super.key, this.rowCount = 7});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        physics: const NeverScrollableScrollPhysics(),
+        children: List.generate(
+          rowCount,
+          (i) => const _ClassroomStaffRowShimmer(),
+        ),
+      ),
+    );
+  }
+}
+
 /// Shimmer placeholder for StudentAttendanceCard matching the stats layout.
 /// Shows: 3 stat rows (attended days, attended hours, absent days).
 class StudentAttendanceCardShimmer extends StatelessWidget {
