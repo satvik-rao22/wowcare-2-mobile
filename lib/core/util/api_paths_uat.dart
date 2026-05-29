@@ -168,6 +168,7 @@ class ApiPathsUat {
           return ApiMicroservices.activity;
         }
         return ApiMicroservices.user;
+
       default:
         return ApiMicroservices.user;
     }
@@ -213,8 +214,8 @@ class ApiPathsUat {
       final ms = seg == 'activities'
           ? ApiMicroservices.activity
           : seg == 'newsletter'
-              ? ApiMicroservices.newsLatter
-              : seg;
+          ? ApiMicroservices.newsLatter
+          : seg;
       final roots = _resourceRootsByMicroservice[ms];
       if (parts.length >= 4 && roots != null && roots.contains(parts[3])) {
         return p; // already `/api/<version>/<ms>/<resource>/...`

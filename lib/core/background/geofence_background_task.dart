@@ -43,10 +43,10 @@ Future<void> geofenceBackgroundCallback() async {
       final plugin = FlutterLocalNotificationsPlugin();
       if (isWithinRange) {
         await plugin.show(
-          1001,
-          'You are now within school sign-in range',
-          'Tap to sign your child in or out.',
-          NotificationDetails(
+          id: 1001,
+          title: 'You are now within school sign-in range',
+          body: 'Tap to sign your child in or out.',
+          notificationDetails: NotificationDetails(
             android: const AndroidNotificationDetails(
               'geofence_channel',
               'School Sign-In Zone Alerts',
@@ -64,10 +64,10 @@ Future<void> geofenceBackgroundCallback() async {
         );
       } else {
         await plugin.show(
-          1002,
-          'You left the school sign-in zone',
-          'GPS sign-in is unavailable until you return.',
-          NotificationDetails(
+          id: 1002,
+          title: 'You left the school sign-in zone',
+          body: 'GPS sign-in is unavailable until you return.',
+          notificationDetails: NotificationDetails(
             android: const AndroidNotificationDetails(
               'geofence_channel',
               'School Sign-In Zone Alerts',

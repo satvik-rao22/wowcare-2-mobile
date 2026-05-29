@@ -18,7 +18,6 @@ abstract final class ApiMicroservicesUat {
 class ApiConstantsUat {
   ApiConstantsUat._();
 
-  /// UAT — single host.
   // static const _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
   static const _host = 'https://uat-wowcare.childcarewow.app';
 

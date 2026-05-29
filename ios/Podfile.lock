@@ -1334,6 +1334,8 @@ PODS:
   - flutter_inappwebview_ios/Core (0.0.1):
     - Flutter
     - OrderedSet (~> 6.0.3)
+  - flutter_local_notifications (0.0.1):
+    - Flutter
   - flutter_pdfview (1.0.2):
     - Flutter
   - gal (1.0.0):
@@ -1552,6 +1554,7 @@ DEPENDENCIES:
   - firebase_storage (from `.symlinks/plugins/firebase_storage/ios`)
   - Flutter (from `Flutter`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
+  - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_pdfview (from `.symlinks/plugins/flutter_pdfview/ios`)
   - gal (from `.symlinks/plugins/gal/darwin`)
   - geocoding_ios (from `.symlinks/plugins/geocoding_ios/ios`)
@@ -1635,6 +1638,8 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_inappwebview_ios:
     :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
+  flutter_local_notifications:
+    :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_pdfview:
     :path: ".symlinks/plugins/flutter_pdfview/ios"
   gal:
@@ -1705,6 +1710,7 @@ SPEC CHECKSUMS:
   FirebaseStorage: 3ba2348d876c295236cdd9f408a62d3f9ff8e6b5
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
+  flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb
   flutter_pdfview: 32bf27bda6fd85b9dd2c09628a824df5081246cf
   gal: baecd024ebfd13c441269ca7404792a7152fde89
   GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4

@@ -22,6 +22,7 @@ class CustomStatBarCard extends StatelessWidget {
     required this.items,
     this.progressItems,
     this.onLegendTap,
+    this.onHeaderTap,
     this.fullWidthBar = false,
     this.numberFontSize,
     this.titleFontSize,
@@ -37,6 +38,7 @@ class CustomStatBarCard extends StatelessWidget {
   final List<ProgressItemHelper> items;
   final List<ProgressItemHelper>? progressItems;
   final void Function(String label, String? filterValue)? onLegendTap;
+  final VoidCallback? onHeaderTap;
   final bool fullWidthBar;
   final double? numberFontSize;
   final double? titleFontSize;
@@ -177,39 +179,76 @@ class CustomStatBarCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      color: const Color(0xff573353),
-                      fontWeight: FontWeight.w500,
-                      fontSize: titleFontSize ?? 15,
+            onHeaderTap != null
+                ? GestureDetector(
+                    onTap: onHeaderTap,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              color: const Color(0xff573353),
+                              fontWeight: FontWeight.w500,
+                              fontSize: titleFontSize ?? 15,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            number,
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              color: AppColors.themeColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            color: const Color(0xff573353),
+                            fontWeight: FontWeight.w500,
+                            fontSize: titleFontSize ?? 15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          number,
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            color: AppColors.themeColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    number,
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      color: AppColors.themeColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(100),
@@ -263,27 +302,52 @@ class CustomStatBarCard extends StatelessWidget {
               ),
         child: Row(
           children: [
-            Column(
-              children: [
-                Text(
-                  number,
-                  style: TextStyle(
-                    fontSize: numberFontSize ?? 24,
-                    color: AppColors.themeColor,
-                    fontWeight: FontWeight.w700,
+            onHeaderTap != null
+                ? GestureDetector(
+                    onTap: onHeaderTap,
+                    child: Column(
+                      children: [
+                        Text(
+                          number,
+                          style: TextStyle(
+                            fontSize: numberFontSize ?? 24,
+                            color: AppColors.themeColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            color: const Color(0xff573353),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      Text(
+                        number,
+                        style: TextStyle(
+                          fontSize: numberFontSize ?? 24,
+                          color: AppColors.themeColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          color: const Color(0xff573353),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    color: const Color(0xff573353),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(width: 20),
             Expanded(
               child: Column(

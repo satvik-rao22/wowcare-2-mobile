@@ -41,8 +41,6 @@ class IsarCacheService implements CacheService {
 
   @override
   Future<List<T>> getByField<T>(String fieldName, dynamic value) async {
-    // Isar requires specific generated filters for each field.
-    // For a centralized system, we map the fields for each collection here.
     if (T == MessageCollection) {
       if (fieldName == 'threadId') {
         return await _isar.messageCollections
@@ -55,6 +53,13 @@ class IsarCacheService implements CacheService {
         return await _isar.messageCollections
                 .filter()
                 .idEqualTo(value as String)
+                .findAll()
+            as List<T>;
+      }
+      if (fieldName == 'code') {
+        return await _isar.messageCollections
+                .filter()
+                .codeEqualTo(value as String)
                 .findAll()
             as List<T>;
       }

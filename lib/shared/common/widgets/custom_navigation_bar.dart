@@ -131,11 +131,19 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final shell = appNavigationShell(context);
     if (shell != null) {
-      // Re-tap on the active tab is a no-op so the user's place inside the
-      // branch is preserved. Different branch → IndexedStack swap; state of
-      // the outgoing branch is kept alive, the incoming one shows instantly
-      // (no transition animation, no rebuild of the bottom bar).
-      if (branchIndex == shell.currentIndex) return;
+      if (branchIndex == shell.currentIndex) {
+        // Already on this branch. If the user is on a sub-route (e.g.
+        // /dashboard/student-attendance-tabbed-view), navigate back to the
+        // branch root so they return to the dashboard. If already at the
+        // branch root, context.canPop() is false and we do nothing —
+        // preserving the user's scroll position and state.
+        if (context.canPop()) {
+          context.go(branchRootPaths[branchIndex]);
+        }
+        return;
+      }
+      // Different branch → IndexedStack swap; state of the outgoing branch is
+      // kept alive, the incoming one shows instantly (no transition animation).
       shell.goBranch(branchIndex);
     } else {
       // Outside the shell (e.g. on an auth screen that still shows the bar):

@@ -1,5 +1,9 @@
 import '../entities/classroom.dart';
 import '../entities/classroom_details.dart';
+import '../entities/ratio_monitoring_classroom.dart';
+import '../entities/school_capacity.dart';
+import '../entities/classroom_count.dart';
+import '../entities/school_fte.dart';
 import '../../student_classroom/entities/student_classroom_item.dart';
 
 abstract class ClassroomRepository {
@@ -15,6 +19,38 @@ abstract class ClassroomRepository {
 
   Future<ClassroomDetails> getClassroomByCode({
     required String code,
+  });
+
+  Future<SchoolCapacity> getSchoolCapacity({
+    required String schoolCode,
+  });
+
+  Future<ClassroomCount> getClassroomCount({
+    required String schoolCode,
+    required String status,
+  });
+
+  Future<SchoolFte> getSchoolFte({
+    required String schoolCode,
+    required int capacity,
+  });
+
+  /// Returns paginated ACTIVE classrooms with capacity and ratio data.
+  /// Used by the Ratio Monitoring dashboard card.
+  Future<List<RatioMonitoringClassroom>> getRatioMonitoringClassrooms({
+    required String schoolCode,
+  });
+
+  /// Per-classroom student attendance summary keyed by classroom code.
+  Future<Map<String, ClassroomAttendanceSummaryEntry>>
+  getStudentAttendanceSummaryByClassrooms({
+    required List<String> classroomCodes,
+  });
+
+  /// Per-classroom staff attendance summary keyed by classroom code.
+  Future<Map<String, ClassroomAttendanceSummaryEntry>>
+  getStaffAttendanceSummaryByClassrooms({
+    required List<String> classroomCodes,
   });
 
   /// Returns students for a classroom via `GET /api/v1/student-classroom`.

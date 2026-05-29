@@ -9,6 +9,8 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
@@ -517,6 +519,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     if (idx != -1) {
                       _messages[idx] = Message(
                         id: message.id,
+                        code: message.code,
                         text: newText,
                         senderName: widget.currentSender,
                         isSentByMe: message.isSentByMe,
@@ -649,13 +652,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
+                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
+                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
                                             showDateHeader =
-                                                message.time.year !=
-                                                    prevMessage.time.year ||
-                                                message.time.month !=
-                                                    prevMessage.time.month ||
-                                                message.time.day !=
-                                                    prevMessage.time.day;
+                                                _currDate.year != _prevDate.year ||
+                                                _currDate.month != _prevDate.month ||
+                                                _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
                                           }
@@ -684,27 +687,28 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   ),
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
-                                                MessageBubble(
-                                                  //key: key,
-                                                  //scrollKey: scrollKey,
-                                                  message: message,
-                                                  isParentMessaging: true,
-                                                  quotedMessage: quotedMessage,
-                                                  onLongPress:
-                                                      (
-                                                        LongPressStartDetails
-                                                        details,
-                                                      ) {
-                                                        _showMessageOptions(
-                                                          context,
-                                                          message,
-                                                          details,
-                                                        );
-                                                      },
-                                                  onScrollToQuoted: (quoteId) {
-                                                    _scrollToMessage(quoteId);
-                                                  },
-                                                ),
+
+                                                // MessageBubble(
+                                                //   //key: key,
+                                                //   //scrollKey: scrollKey,
+                                                //   message: message,
+                                                //   isParentMessaging: true,
+                                                //   quotedMessage: quotedMessage,
+                                                //   onLongPress:
+                                                //       (
+                                                //         LongPressStartDetails
+                                                //         details,
+                                                //       ) {
+                                                //         _showMessageOptions(
+                                                //           context,
+                                                //           message,
+                                                //           details,
+                                                //         );
+                                                //       },
+                                                //   onScrollToQuoted: (quoteId) {
+                                                //     _scrollToMessage(quoteId);
+                                                //   },
+                                                // ),
                                               ],
                                             ),
                                           );
@@ -743,13 +747,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
+                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
+                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
                                             showDateHeader =
-                                                message.time.year !=
-                                                    prevMessage.time.year ||
-                                                message.time.month !=
-                                                    prevMessage.time.month ||
-                                                message.time.day !=
-                                                    prevMessage.time.day;
+                                                _currDate.year != _prevDate.year ||
+                                                _currDate.month != _prevDate.month ||
+                                                _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
                                           }
@@ -778,27 +782,28 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   ),
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
-                                                MessageBubble(
-                                                  //key: key,
-                                                  //scrollKey: scrollKey,
-                                                  message: message,
-                                                  isParentMessaging: true,
-                                                  quotedMessage: quotedMessage,
-                                                  onLongPress:
-                                                      (
-                                                        LongPressStartDetails
-                                                        details,
-                                                      ) {
-                                                        _showMessageOptions(
-                                                          context,
-                                                          message,
-                                                          details,
-                                                        );
-                                                      },
-                                                  onScrollToQuoted: (quoteId) {
-                                                    _scrollToMessage(quoteId);
-                                                  },
-                                                ),
+
+                                                // MessageBubble(
+                                                //   //key: key,
+                                                //   //scrollKey: scrollKey,
+                                                //   message: message,
+                                                //   isParentMessaging: true,
+                                                //   quotedMessage: quotedMessage,
+                                                //   onLongPress:
+                                                //       (
+                                                //         LongPressStartDetails
+                                                //         details,
+                                                //       ) {
+                                                //         _showMessageOptions(
+                                                //           context,
+                                                //           message,
+                                                //           details,
+                                                //         );
+                                                //       },
+                                                //   onScrollToQuoted: (quoteId) {
+                                                //     _scrollToMessage(quoteId);
+                                                //   },
+                                                // ),
                                               ],
                                             ),
                                           );
@@ -844,13 +849,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
+                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
+                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
                                             showDateHeader =
-                                                message.time.year !=
-                                                    prevMessage.time.year ||
-                                                message.time.month !=
-                                                    prevMessage.time.month ||
-                                                message.time.day !=
-                                                    prevMessage.time.day;
+                                                _currDate.year != _prevDate.year ||
+                                                _currDate.month != _prevDate.month ||
+                                                _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
                                           }
@@ -879,42 +884,43 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   ),
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
-                                                MessageBubble(
-                                                  //key: key,
-                                                  //scrollKey: scrollKey,
-                                                  message: message,
-                                                  isParentMessaging: true,
-                                                  quotedMessage: quotedMessage,
-                                                  onLongPress:
-                                                      (
-                                                        LongPressStartDetails
-                                                        details,
-                                                      ) {
-                                                        _showMessageOptions(
-                                                          context,
-                                                          message,
-                                                          details,
-                                                        );
-                                                      },
-                                                  onScrollToQuoted: (quoteId) {
-                                                    _scrollToMessage(quoteId);
-                                                  },
-                                                  // onHeightMeasured: (id, height) {
-                                                  //   if (_bubbleHeights[id] != height) {
-                                                  //     setState(() {
-                                                  //       _bubbleHeights[id] = height;
-                                                  //     });
-                                                  //   }
-                                                  // },
-                                                  //onHeightMeasured:
-                                                  // onContextReady: (id, ctx) {
-                                                  //   if (_messageContexts[id] != ctx) {
-                                                  //     setState(() {
-                                                  //       _messageContexts[id] = ctx;
-                                                  //     });
-                                                  //   }
-                                                  // },
-                                                ),
+
+                                                // MessageBubble(
+                                                //   //key: key,
+                                                //   //scrollKey: scrollKey,
+                                                //   message: message,
+                                                //   isParentMessaging: true,
+                                                //   quotedMessage: quotedMessage,
+                                                //   onLongPress:
+                                                //       (
+                                                //         LongPressStartDetails
+                                                //         details,
+                                                //       ) {
+                                                //         _showMessageOptions(
+                                                //           context,
+                                                //           message,
+                                                //           details,
+                                                //         );
+                                                //       },
+                                                //   onScrollToQuoted: (quoteId) {
+                                                //     _scrollToMessage(quoteId);
+                                                //   },
+                                                //   // onHeightMeasured: (id, height) {
+                                                //   //   if (_bubbleHeights[id] != height) {
+                                                //   //     setState(() {
+                                                //   //       _bubbleHeights[id] = height;
+                                                //   //     });
+                                                //   //   }
+                                                //   // },
+                                                //   //onHeightMeasured:
+                                                //   // onContextReady: (id, ctx) {
+                                                //   //   if (_messageContexts[id] != ctx) {
+                                                //   //     setState(() {
+                                                //   //       _messageContexts[id] = ctx;
+                                                //   //     });
+                                                //   //   }
+                                                //   // },
+                                                // ),
                                               ],
                                             ),
                                           );
@@ -1110,15 +1116,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
+                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
+                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
                                                 showDateHeader =
-                                                    message.time.year !=
-                                                        prevMessage.time.year ||
-                                                    message.time.month !=
-                                                        prevMessage
-                                                            .time
-                                                            .month ||
-                                                    message.time.day !=
-                                                        prevMessage.time.day;
+                                                    _currDate.year != _prevDate.year ||
+                                                    _currDate.month != _prevDate.month ||
+                                                    _currDate.day != _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1150,31 +1154,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
-                                                    MessageBubble(
-                                                      //key: key,
-                                                      //scrollKey: scrollKey,
-                                                      message: message,
-                                                      isParentMessaging: true,
-                                                      quotedMessage:
-                                                          quotedMessage,
-                                                      onLongPress:
-                                                          (
-                                                            LongPressStartDetails
-                                                            details,
-                                                          ) {
-                                                            _showMessageOptions(
-                                                              context,
-                                                              message,
-                                                              details,
-                                                            );
-                                                          },
-                                                      onScrollToQuoted:
-                                                          (quoteId) {
-                                                            _scrollToMessage(
-                                                              quoteId,
-                                                            );
-                                                          },
-                                                    ),
+
+                                                    // MessageBubble(
+                                                    //   //key: key,
+                                                    //   //scrollKey: scrollKey,
+                                                    //   message: message,
+                                                    //   isParentMessaging: true,
+                                                    //   quotedMessage:
+                                                    //       quotedMessage,
+                                                    //   onLongPress:
+                                                    //       (
+                                                    //         LongPressStartDetails
+                                                    //         details,
+                                                    //       ) {
+                                                    //         _showMessageOptions(
+                                                    //           context,
+                                                    //           message,
+                                                    //           details,
+                                                    //         );
+                                                    //       },
+                                                    //   onScrollToQuoted:
+                                                    //       (quoteId) {
+                                                    //         _scrollToMessage(
+                                                    //           quoteId,
+                                                    //         );
+                                                    //       },
+                                                    // ),
                                                   ],
                                                 ),
                                               );
@@ -1220,15 +1225,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
+                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
+                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
                                                 showDateHeader =
-                                                    message.time.year !=
-                                                        prevMessage.time.year ||
-                                                    message.time.month !=
-                                                        prevMessage
-                                                            .time
-                                                            .month ||
-                                                    message.time.day !=
-                                                        prevMessage.time.day;
+                                                    _currDate.year != _prevDate.year ||
+                                                    _currDate.month != _prevDate.month ||
+                                                    _currDate.day != _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1260,31 +1263,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
-                                                    MessageBubble(
-                                                      //key: key,
-                                                      //scrollKey: scrollKey,
-                                                      message: message,
-                                                      isParentMessaging: true,
-                                                      quotedMessage:
-                                                          quotedMessage,
-                                                      onLongPress:
-                                                          (
-                                                            LongPressStartDetails
-                                                            details,
-                                                          ) {
-                                                            _showMessageOptions(
-                                                              context,
-                                                              message,
-                                                              details,
-                                                            );
-                                                          },
-                                                      onScrollToQuoted:
-                                                          (quoteId) {
-                                                            _scrollToMessage(
-                                                              quoteId,
-                                                            );
-                                                          },
-                                                    ),
+
+                                                    // MessageBubble(
+                                                    //   //key: key,
+                                                    //   //scrollKey: scrollKey,
+                                                    //   message: message,
+                                                    //   isParentMessaging: true,
+                                                    //   quotedMessage:
+                                                    //       quotedMessage,
+                                                    //   onLongPress:
+                                                    //       (
+                                                    //         LongPressStartDetails
+                                                    //         details,
+                                                    //       ) {
+                                                    //         _showMessageOptions(
+                                                    //           context,
+                                                    //           message,
+                                                    //           details,
+                                                    //         );
+                                                    //       },
+                                                    //   onScrollToQuoted:
+                                                    //       (quoteId) {
+                                                    //         _scrollToMessage(
+                                                    //           quoteId,
+                                                    //         );
+                                                    //       },
+                                                    // ),
                                                   ],
                                                 ),
                                               );
@@ -1332,15 +1336,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
+                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
+                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
                                                 showDateHeader =
-                                                    message.time.year !=
-                                                        prevMessage.time.year ||
-                                                    message.time.month !=
-                                                        prevMessage
-                                                            .time
-                                                            .month ||
-                                                    message.time.day !=
-                                                        prevMessage.time.day;
+                                                    _currDate.year != _prevDate.year ||
+                                                    _currDate.month != _prevDate.month ||
+                                                    _currDate.day != _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1372,31 +1374,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       const SizedBox(
                                                         height: 10,
                                                       ),
-                                                    MessageBubble(
-                                                      //key: key,
-                                                      //scrollKey: scrollKey,
-                                                      message: message,
-                                                      isParentMessaging: true,
-                                                      quotedMessage:
-                                                          quotedMessage,
-                                                      onLongPress:
-                                                          (
-                                                            LongPressStartDetails
-                                                            details,
-                                                          ) {
-                                                            _showMessageOptions(
-                                                              context,
-                                                              message,
-                                                              details,
-                                                            );
-                                                          },
-                                                      onScrollToQuoted:
-                                                          (quoteId) {
-                                                            _scrollToMessage(
-                                                              quoteId,
-                                                            );
-                                                          },
-                                                    ),
+
+                                                    // MessageBubble(
+                                                    //   //key: key,
+                                                    //   //scrollKey: scrollKey,
+                                                    //   message: message,
+                                                    //   isParentMessaging: true,
+                                                    //   quotedMessage:
+                                                    //       quotedMessage,
+                                                    //   onLongPress:
+                                                    //       (
+                                                    //         LongPressStartDetails
+                                                    //         details,
+                                                    //       ) {
+                                                    //         _showMessageOptions(
+                                                    //           context,
+                                                    //           message,
+                                                    //           details,
+                                                    //         );
+                                                    //       },
+                                                    //   onScrollToQuoted:
+                                                    //       (quoteId) {
+                                                    //         _scrollToMessage(
+                                                    //           quoteId,
+                                                    //         );
+                                                    //       },
+                                                    // ),
                                                   ],
                                                 ),
                                               );
@@ -1512,8 +1515,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType:
-                                    att.mimeType ?? 'application/octet-stream',
+                                mimeType: att.mimeType,
                                 dataResolver: () async {
                                   return await File(
                                     att.localPath!,
@@ -1708,62 +1710,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   Widget _buildDateChip(DateTime date) {
-    final now = DateTime.now();
+    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, schoolTz);
+    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(DateTime.now().toUtc(), schoolTz);
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
 
     String label;
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label = "Today, ${date.day} ${monthNames[date.month - 1]} ${date.year}";
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label =
-          "Yesterday, ${date.day} ${monthNames[date.month - 1]} ${date.year}";
+    if (schoolDate.year == now.year &&
+        schoolDate.month == now.month &&
+        schoolDate.day == now.day) {
+      label = "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+    } else if (schoolDate.year == now.year &&
+        schoolDate.month == now.month &&
+        schoolDate.day == now.day - 1) {
+      label = "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label = "${date.day} ${monthNames[date.month - 1]} ${date.year}";
+      label = "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
     return CustomTextWidget(

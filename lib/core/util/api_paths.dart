@@ -177,6 +177,7 @@ class ApiPaths {
       case 'schools':
       case 'organizations':
       case 'school':
+      case 'organization':
         return ApiMicroservices.organization;
       case 'staff':
       case 'staff-classrooms':
@@ -206,6 +207,7 @@ class ApiPaths {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      case 'attendance':
         return ApiMicroservices.attendance;
       case 'classroom':
       case 'individual-movements':
@@ -224,7 +226,7 @@ class ApiPaths {
         }
         return ApiMicroservices.user;
       case 'conversations':
-      case 'newsletters':
+      // case 'newsletters':
       case 'messages':
         return ApiMicroservices.communication;
       default:
@@ -564,6 +566,24 @@ class ApiPaths {
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';
+
+  /// `GET /api/v1/classroom/classroom?schoolCode=&page=&size=&status=&type=&sort=`
+  /// Paginated classroom list with ratio and capacity data.
+  static const String classroomPaginated = '/api/v1/classroom/classroom';
+
+  /// `GET /api/v1/attendance/student-attendance/expected/summary/card/by-classrooms`
+  static const String studentAttendanceExpectedSummaryCardByClassrooms =
+      '/api/v1/attendance/student-attendance/expected/summary/card/by-classrooms';
+
+  /// `GET /api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms`
+  static const String staffAttendanceExpectedSummaryCardByClassrooms =
+      '/api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms';
+  
+  static String schoolCapacityAge(String schoolCode) =>
+      '/api/v1/organization/schools/$schoolCode/capacity-age';
+
+  static const String classroomCount = '/api/v1/classroom/classroom/count';
+  static const String classroomSchoolFte = '/api/v1/classroom/classroom/school-fte';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
   static const String classroomLogoAssetCodes =
       '/api/v1/classroom/classroom-logo/asset-codes';

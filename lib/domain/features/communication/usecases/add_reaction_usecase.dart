@@ -9,9 +9,9 @@ class AddReactionUseCase {
 
   Future<Either<Failure, void>> call(
     String threadId,
-    String messageId,
+    String messageCode,
     String emoji,
   ) {
-    return _repository.addReaction(threadId, messageId, emoji);
+    return _repository.addReaction(threadId, messageCode, emoji);
   }
 }

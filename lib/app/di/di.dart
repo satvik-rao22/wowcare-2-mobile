@@ -47,6 +47,9 @@ import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import '../../domain/features/classroom/usecases/get_school_capacity_usecase.dart';
+import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dart';
+import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -62,6 +65,9 @@ import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit
 import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
+import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
+import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
@@ -182,6 +188,8 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
+import '../../domain/features/communication/usecases/edit_message_usecase.dart';
+import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 
@@ -195,9 +203,6 @@ import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.d
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
-
-import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
-import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
@@ -351,7 +356,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ClassroomRepository>(
-    () => ClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
+    () => ClassroomRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+      serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerLazySingleton<StudentRepository>(
     () => StudentRepositoryImpl(serviceLocator(), serviceLocator()),
@@ -601,6 +610,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentCountsUseCase>(
     () => GetStudentCountsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetSchoolCapacityUseCase>(
+    () => GetSchoolCapacityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetRatioMonitoringClassroomsUseCase>(
+    () => GetRatioMonitoringClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
+    () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffAttendanceSummaryByClassroomsUseCase>(
+    () => GetStaffAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomCountUseCase>(
+    () => GetClassroomCountUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetSchoolFteUseCase>(
+    () => GetSchoolFteUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetClassroomActivitySettingsUseCase>(
     () => GetClassroomActivitySettingsUseCase(serviceLocator()),
   );
@@ -685,6 +712,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AddReactionUseCase>(
     () => AddReactionUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<EditMessageUseCase>(
+    () => EditMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ClearMessagesCacheUseCase>(
+    () => ClearMessagesCacheUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ClearConversationsCacheUseCase>(
+    () => ClearConversationsCacheUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
@@ -732,6 +768,25 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cubits (factory - new instance each time for UI)
+  serviceLocator.registerFactory<RatioMonitoringCubit>(
+    () => RatioMonitoringCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getStudentAttendanceSummaryByClassroomsUseCase: serviceLocator(),
+      getStaffAttendanceSummaryByClassroomsUseCase: serviceLocator(),
+      cacheManager: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<SchoolStatusCubit>(
+    () => SchoolStatusCubit(
+      getStudentCountsUseCase: serviceLocator(),
+      getSchoolCapacityUseCase: serviceLocator(),
+      getClassroomCountUseCase: serviceLocator(),
+      getSchoolFteUseCase: serviceLocator(),
+      getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
+      getStudentAttendanceExpectedSummaryUseCase: serviceLocator(),
+      cacheManager: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<AuthCubit>(
     () => AuthCubit(
       loginUseCase: serviceLocator(),
@@ -904,12 +959,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CommunicationCubit>(
     () => CommunicationCubit(
-      getMessagesUseCase: serviceLocator(),
-      sendMessageUseCase: serviceLocator(),
-      getConversationsUseCase: serviceLocator(),
-      getCachedConversationsUseCase: serviceLocator(),
-      getCachedMessagesUseCase: serviceLocator(),
-      addReactionUseCase: serviceLocator(),
+      getMessagesUseCase: serviceLocator<GetMessagesUseCase>(),
+      sendMessageUseCase: serviceLocator<SendMessageUseCase>(),
+      getConversationsUseCase: serviceLocator<GetConversationsUseCase>(),
+      getCachedConversationsUseCase: serviceLocator<GetCachedConversationsUseCase>(),
+      getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
+      addReactionUseCase: serviceLocator<AddReactionUseCase>(),
+      editMessageUseCase: serviceLocator<EditMessageUseCase>(),
+      clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
+      clearConversationsCacheUseCase: serviceLocator<ClearConversationsCacheUseCase>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(

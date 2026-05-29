@@ -1,11 +1,12 @@
 import 'dart:io';
 
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../domain/features/communication/entities/message.dart'
@@ -36,6 +37,8 @@ class _ParentViewScreenState extends State<ParentViewScreen>
   final AutoScrollController _groupController = AutoScrollController();
   final AutoScrollController _parent1Controller = AutoScrollController();
   TabController? _tabController;
+  late final ReactionsController _reactionsController;
+  String? _currentUserCode;
 
   List<Message> get _groupMessages {
     final state = context.watch<CommunicationCubit>().state;
@@ -99,6 +102,14 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     final parents = (parentInfo['parents'] as List<dynamic>).cast<String>();
     parent1Name = parents[0];
     parent2Name = parents[1];
+    final authState = context.read<AuthCubit>().state;
+    _currentUserCode = authState is AuthLoaded
+        ? authState.loginResponse.userCode
+        : null;
+
+    _reactionsController = ReactionsController(
+      currentUserId: _currentUserCode ?? 'me',
+    );
 
     _tabController = TabController(
       length: _privateModeEnabled ? 1 : 1,
@@ -110,12 +121,15 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     });
 
     // Load initial messages
-    context.read<CommunicationCubit>().loadMessages('parent_group_default');
+    context.read<CommunicationCubit>().loadMessages(
+      'parent_group_default',
+      currentUserId: _currentUserCode,
+    );
   }
 
   @override
   void dispose() {
-    //_reactionsController.dispose();
+    _reactionsController.dispose();
     _controller.dispose();
     _groupController.dispose();
     _parent1Controller.dispose();
@@ -195,149 +209,6 @@ class _ParentViewScreenState extends State<ParentViewScreen>
       preferPosition: AutoScrollPosition.middle,
       duration: const Duration(milliseconds: 600),
     );
-  }
-
-  void _showMessageOptions(
-    BuildContext context,
-    Message message,
-    LongPressStartDetails details,
-  ) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(
-          details.globalPosition.dx,
-          details.globalPosition.dy,
-          40,
-          40,
-        ),
-        Offset.zero & overlay.size,
-      ),
-      items: <PopupMenuEntry<String>>[
-        if (message.isSentByMe) ...[
-          const PopupMenuItem<String>(
-            value: 'edit',
-            child: ListTile(
-              leading: Icon(Icons.edit, color: AppColors.primaryColor),
-              title: CustomTextWidget(
-                text: 'Edit',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                applyLetterSpacing: false,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem<String>(
-            value: 'delete',
-            child: ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: AppColors.primaryColor,
-              ),
-              title: CustomTextWidget(
-                text: 'Delete',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                applyLetterSpacing: false,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-        const PopupMenuItem<String>(
-          value: 'reply',
-          child: ListTile(
-            leading: Icon(Icons.reply, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Reply',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'copy',
-          child: ListTile(
-            leading: Icon(Icons.copy, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Copy',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'info',
-          child: ListTile(
-            leading: Icon(Icons.info, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Info',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'react',
-          child: ListTile(
-            leading: Icon(Icons.emoji_emotions_outlined),
-            title: Text('React'),
-          ),
-        ),
-      ],
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
-    ).then((value) {
-      if (value == null) return;
-
-      switch (value) {
-        case 'reply':
-          setState(() {
-            _quotedMessageId = message.id;
-            _quotedMessage = message;
-          });
-          break;
-        case 'copy':
-          Clipboard.setData(ClipboardData(text: message.text));
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Message copied successfully',
-            isSuccess: true,
-          );
-          break;
-        case 'info':
-          _showMessageStatusDialog(context, message);
-          break;
-        case 'edit':
-          _showEditDialog(context, message);
-          break;
-
-        case 'delete':
-          setState(() {
-            _activeMessages.removeWhere((m) => m.id == message.id);
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Message deleted successfully',
-              isSuccess: true,
-            );
-          });
-          break;
-        case 'react':
-          _showEmojiPicker(context, message);
-          break;
-      }
-    });
   }
 
   void _showMessageStatusDialog(BuildContext context, Message message) {
@@ -437,48 +308,8 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     );
   }
 
-  void _showEmojiPicker(BuildContext context, Message message) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: 380 + MediaQuery.of(context).padding.bottom,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: EmojiPicker(
-            onEmojiSelected: (category, emoji) {
-              Navigator.pop(context); // close picker
-              _onReactionAdded(message, emoji.emoji);
-            },
-            config: const Config(
-              //height: 380,
-              checkPlatformCompatibility: true,
-              emojiSet: null,
-              locale: Locale('en'),
-              emojiTextStyle: null,
-              customBackspaceIcon: null,
-              customSearchIcon: null,
-              viewOrderConfig: ViewOrderConfig(),
-              emojiViewConfig: EmojiViewConfig(),
-              skinToneConfig: SkinToneConfig(enabled: true),
-              categoryViewConfig: CategoryViewConfig(
-                recentTabBehavior: RecentTabBehavior.RECENT,
-              ),
-              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-              searchViewConfig: SearchViewConfig(),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _onReactionAdded(Message message, String emoji) {
-    final currentUserId = 'me'; // dummy for now
+    final currentUserId = _currentUserCode ?? 'me';
     setState(() {
       final _messages = _activeMessages;
       final index = _messages.indexWhere((m) => m.id == message.id);
@@ -499,6 +330,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
           attachments: _messages[index].attachments,
           senderName: currentSender,
           reactions: currentReactions,
+          code: message.code,
         );
       }
     });
@@ -619,6 +451,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                         readBy: message.readBy,
                         attachments: message.attachments,
                         reactions: message.reactions,
+                        code: message.code,
                       );
                       CoreUtils.showTopSnackBar(
                         context: context,
@@ -1028,9 +861,12 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                     final messageId = message.id;
                                     Message? quotedMessage;
                                     if (message.quotedMessageId != null) {
-                                      quotedMessage = _messages.firstWhere(
+                                      final matches = _messages.where(
                                         (m) => m.id == message.quotedMessageId,
                                       );
+                                      quotedMessage = matches.isNotEmpty
+                                          ? matches.first
+                                          : null;
                                     }
                                     bool showDateHeader = false;
                                     final prevListIndex =
@@ -1077,20 +913,59 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                           MessageBubble(
                                             message: message,
                                             isParentMessaging: true,
+                                            currentUserCode: _currentUserCode,
                                             quotedMessage: quotedMessage,
-                                            onLongPress:
-                                                (
-                                                  LongPressStartDetails details,
-                                                ) {
-                                                  _showMessageOptions(
-                                                    context,
-                                                    message,
-                                                    details,
-                                                  );
-                                                },
-                                            onScrollToQuoted: (quoteId) {
-                                              _scrollToMessage(quoteId);
+                                            reactionsController:
+                                                _reactionsController,
+                                            onScrollToQuoted: (quoteId) =>
+                                                _scrollToMessage(quoteId),
+                                            onReply: () => setState(() {
+                                              _quotedMessageId = message.id;
+                                              _quotedMessage = message;
+                                            }),
+                                            onReplyFromMenu: () => setState(() {
+                                              _quotedMessageId = message.id;
+                                              _quotedMessage = message;
+                                            }),
+                                            onCopy: () {
+                                              Clipboard.setData(
+                                                ClipboardData(
+                                                  text: message.text,
+                                                ),
+                                              );
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Message copied successfully',
+                                                isSuccess: true,
+                                              );
                                             },
+                                            onEdit: () => _showEditDialog(
+                                              context,
+                                              message,
+                                            ),
+                                            onDelete: () {
+                                              setState(() {
+                                                _activeMessages.removeWhere(
+                                                  (m) => m.id == message.id,
+                                                );
+                                              });
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message: 'Message deleted',
+                                                isSuccess: true,
+                                              );
+                                            },
+                                            onInfo: () =>
+                                                _showMessageStatusDialog(
+                                                  context,
+                                                  message,
+                                                ),
+                                            onReactionAdded: (emoji) =>
+                                                _onReactionAdded(
+                                                  message,
+                                                  emoji,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -1113,9 +988,12 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                     final messageId = message.id;
                                     Message? quotedMessage;
                                     if (message.quotedMessageId != null) {
-                                      quotedMessage = _messages.firstWhere(
+                                      final matches = _messages.where(
                                         (m) => m.id == message.quotedMessageId,
                                       );
+                                      quotedMessage = matches.isNotEmpty
+                                          ? matches.first
+                                          : null;
                                     }
                                     bool showDateHeader = false;
                                     final prevListIndex =
@@ -1162,20 +1040,59 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                           MessageBubble(
                                             message: message,
                                             isParentMessaging: true,
+                                            currentUserCode: _currentUserCode,
                                             quotedMessage: quotedMessage,
-                                            onLongPress:
-                                                (
-                                                  LongPressStartDetails details,
-                                                ) {
-                                                  _showMessageOptions(
-                                                    context,
-                                                    message,
-                                                    details,
-                                                  );
-                                                },
-                                            onScrollToQuoted: (quoteId) {
-                                              _scrollToMessage(quoteId);
+                                            reactionsController:
+                                                _reactionsController,
+                                            onScrollToQuoted: (quoteId) =>
+                                                _scrollToMessage(quoteId),
+                                            onReply: () => setState(() {
+                                              _quotedMessageId = message.id;
+                                              _quotedMessage = message;
+                                            }),
+                                            onReplyFromMenu: () => setState(() {
+                                              _quotedMessageId = message.id;
+                                              _quotedMessage = message;
+                                            }),
+                                            onCopy: () {
+                                              Clipboard.setData(
+                                                ClipboardData(
+                                                  text: message.text,
+                                                ),
+                                              );
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message:
+                                                    'Message copied successfully',
+                                                isSuccess: true,
+                                              );
                                             },
+                                            onEdit: () => _showEditDialog(
+                                              context,
+                                              message,
+                                            ),
+                                            onDelete: () {
+                                              setState(() {
+                                                _activeMessages.removeWhere(
+                                                  (m) => m.id == message.id,
+                                                );
+                                              });
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message: 'Message deleted',
+                                                isSuccess: true,
+                                              );
+                                            },
+                                            onInfo: () =>
+                                                _showMessageStatusDialog(
+                                                  context,
+                                                  message,
+                                                ),
+                                            onReactionAdded: (emoji) =>
+                                                _onReactionAdded(
+                                                  message,
+                                                  emoji,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -1224,7 +1141,6 @@ class _ParentViewScreenState extends State<ParentViewScreen>
               ],
             )
           : Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
@@ -1408,10 +1324,13 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                         final messageId = message.id;
                                         Message? quotedMessage;
                                         if (message.quotedMessageId != null) {
-                                          quotedMessage = _messages.firstWhere(
+                                          final matches = _messages.where(
                                             (m) =>
                                                 m.id == message.quotedMessageId,
                                           );
+                                          quotedMessage = matches.isNotEmpty
+                                              ? matches.first
+                                              : null;
                                         }
                                         bool showDateHeader = false;
                                         final prevListIndex =
@@ -1459,21 +1378,62 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                               MessageBubble(
                                                 message: message,
                                                 isParentMessaging: true,
+                                                currentUserCode:
+                                                    _currentUserCode,
                                                 quotedMessage: quotedMessage,
-                                                onLongPress:
-                                                    (
-                                                      LongPressStartDetails
-                                                      details,
-                                                    ) {
-                                                      _showMessageOptions(
-                                                        context,
-                                                        message,
-                                                        details,
-                                                      );
-                                                    },
-                                                onScrollToQuoted: (quoteId) {
-                                                  _scrollToMessage(quoteId);
+                                                reactionsController:
+                                                    _reactionsController,
+                                                onScrollToQuoted: (quoteId) =>
+                                                    _scrollToMessage(quoteId),
+                                                onReply: () => setState(() {
+                                                  _quotedMessageId = message.id;
+                                                  _quotedMessage = message;
+                                                }),
+                                                onReplyFromMenu: () =>
+                                                    setState(() {
+                                                      _quotedMessageId =
+                                                          message.id;
+                                                      _quotedMessage = message;
+                                                    }),
+                                                onCopy: () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: message.text,
+                                                    ),
+                                                  );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message copied successfully',
+                                                    isSuccess: true,
+                                                  );
                                                 },
+                                                onEdit: () => _showEditDialog(
+                                                  context,
+                                                  message,
+                                                ),
+                                                onDelete: () {
+                                                  setState(() {
+                                                    _activeMessages.removeWhere(
+                                                      (m) => m.id == message.id,
+                                                    );
+                                                  });
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message: 'Message deleted',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onInfo: () =>
+                                                    _showMessageStatusDialog(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                onReactionAdded: (emoji) =>
+                                                    _onReactionAdded(
+                                                      message,
+                                                      emoji,
+                                                    ),
                                               ),
                                             ],
                                           ),
@@ -1498,10 +1458,13 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                         final messageId = message.id;
                                         Message? quotedMessage;
                                         if (message.quotedMessageId != null) {
-                                          quotedMessage = _messages.firstWhere(
+                                          final matches = _messages.where(
                                             (m) =>
                                                 m.id == message.quotedMessageId,
                                           );
+                                          quotedMessage = matches.isNotEmpty
+                                              ? matches.first
+                                              : null;
                                         }
                                         bool showDateHeader = false;
                                         final prevListIndex =
@@ -1549,21 +1512,62 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                               MessageBubble(
                                                 message: message,
                                                 isParentMessaging: true,
+                                                currentUserCode:
+                                                    _currentUserCode,
                                                 quotedMessage: quotedMessage,
-                                                onLongPress:
-                                                    (
-                                                      LongPressStartDetails
-                                                      details,
-                                                    ) {
-                                                      _showMessageOptions(
-                                                        context,
-                                                        message,
-                                                        details,
-                                                      );
-                                                    },
-                                                onScrollToQuoted: (quoteId) {
-                                                  _scrollToMessage(quoteId);
+                                                reactionsController:
+                                                    _reactionsController,
+                                                onScrollToQuoted: (quoteId) =>
+                                                    _scrollToMessage(quoteId),
+                                                onReply: () => setState(() {
+                                                  _quotedMessageId = message.id;
+                                                  _quotedMessage = message;
+                                                }),
+                                                onReplyFromMenu: () =>
+                                                    setState(() {
+                                                      _quotedMessageId =
+                                                          message.id;
+                                                      _quotedMessage = message;
+                                                    }),
+                                                onCopy: () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: message.text,
+                                                    ),
+                                                  );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message copied successfully',
+                                                    isSuccess: true,
+                                                  );
                                                 },
+                                                onEdit: () => _showEditDialog(
+                                                  context,
+                                                  message,
+                                                ),
+                                                onDelete: () {
+                                                  setState(() {
+                                                    _activeMessages.removeWhere(
+                                                      (m) => m.id == message.id,
+                                                    );
+                                                  });
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message: 'Message deleted',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onInfo: () =>
+                                                    _showMessageStatusDialog(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                onReactionAdded: (emoji) =>
+                                                    _onReactionAdded(
+                                                      message,
+                                                      emoji,
+                                                    ),
                                               ),
                                             ],
                                           ),
