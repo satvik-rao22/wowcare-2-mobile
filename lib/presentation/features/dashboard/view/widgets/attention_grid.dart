@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 
@@ -52,7 +53,8 @@ class AttentionCardModel {
 
 /// "Need your attention" section.
 ///
-/// - Reads live classroom and shifts counts from their cubits.
+/// - Reads live counts from [RatioMonitoringCubit], [ClassroomShiftsCubit],
+///   and [DashboardAttentionCubit].
 /// - Hides cards whose count is 0.
 /// - Hides the entire section when no cards need attention.
 /// - Shows first 4 cards; "Show More / Show Less" expands/collapses the rest.
@@ -73,59 +75,59 @@ class _AttentionGridState extends State<AttentionGrid> {
       builder: (context, ratioState) {
         return BlocBuilder<ClassroomShiftsCubit, ClassroomShiftsState>(
           builder: (context, shiftsState) {
-            final isLoading = ratioState.isLoading || shiftsState.isLoading;
+            return BlocBuilder<DashboardAttentionCubit, DashboardAttentionState>(
+              builder: (context, attentionState) {
+                final isLoading = ratioState.isLoading ||
+                    shiftsState.isLoading ||
+                    attentionState.isLoading;
 
-            // Build the card list from live data.
-            final cards = _buildCards(ratioState, shiftsState);
+                final cards =
+                    _buildCards(ratioState, shiftsState, attentionState);
 
-            // While loading, show the section with shimmer placeholders.
-            if (isLoading && cards.isEmpty) {
-              return _buildLoadingSection();
-            }
+                if (isLoading && cards.isEmpty) {
+                  return _buildLoadingSection();
+                }
 
-            // All cards hidden → hide the entire section.
-            if (cards.isEmpty) return const SizedBox.shrink();
+                if (cards.isEmpty) return const SizedBox.shrink();
 
-            final initialCards = cards.take(_initialCount).toList();
-            final extraCards = cards.skip(_initialCount).toList();
-            final hasMore = extraCards.isNotEmpty;
+                final initialCards = cards.take(_initialCount).toList();
+                final extraCards = cards.skip(_initialCount).toList();
+                final hasMore = extraCards.isNotEmpty;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Need your attention',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Always-visible first 4 cards.
-                _buildGrid(initialCards),
-
-                // Animated extra cards.
-                if (hasMore) ...[
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    child: _expanded
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: _buildGrid(extraCards),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  const SizedBox(height: 8),
-                  _ShowMoreButton(
-                    expanded: _expanded,
-                    onTap: () => setState(() => _expanded = !_expanded),
-                  ),
-                ] else
-                  const SizedBox(height: 4),
-              ],
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Need your attention',
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildGrid(initialCards),
+                    if (hasMore) ...[
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                        child: _expanded
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: _buildGrid(extraCards),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 8),
+                      _ShowMoreButton(
+                        expanded: _expanded,
+                        onTap: () => setState(() => _expanded = !_expanded),
+                      ),
+                    ] else
+                      const SizedBox(height: 4),
+                  ],
+                );
+              },
             );
           },
         );
@@ -133,7 +135,6 @@ class _AttentionGridState extends State<AttentionGrid> {
     );
   }
 
-  /// Renders the cards list as a 2-column grid with equal-height rows.
   Widget _buildGrid(List<AttentionCardModel> cards) {
     final rows = <Widget>[];
     for (var i = 0; i < cards.length; i += 2) {
@@ -199,14 +200,10 @@ class _AttentionGridState extends State<AttentionGrid> {
     );
   }
 
-  /// Builds the filtered, visibility-checked card list from cubit states.
-  ///
-  /// Classroom count  → classrooms where `isRatioGood == false` (live attendance).
-  /// Shifts count     → entries where `ratioStatus == underRatio` (forecast).
-  /// Other categories → count 0 until their APIs are wired; cards stay hidden.
   List<AttentionCardModel> _buildCards(
     RatioMonitoringState ratioState,
     ClassroomShiftsState shiftsState,
+    DashboardAttentionState attentionState,
   ) {
     final classroomCount = ratioState.isLoaded
         ? ratioState.classrooms.where((c) => !c.isRatioGood).length
@@ -218,97 +215,58 @@ class _AttentionGridState extends State<AttentionGrid> {
             .length
         : 0;
 
-    const allCards = [
-      // These two are wired to live cubits.
-      _CardSpec(
+    return [
+      AttentionCardModel(
         label: 'Classrooms',
+        count: classroomCount,
         pillText: 'Not in Ratio',
         tone: _AttentionTone.danger,
         showThumbDown: true,
-        key: _CardKey.classrooms,
       ),
-      _CardSpec(
+      AttentionCardModel(
         label: 'Classroom Shifts',
+        count: shiftsCount,
         pillText: 'Need Attention',
         tone: _AttentionTone.danger,
-        key: _CardKey.classroomShifts,
       ),
-      // Placeholder cards — count stays 0 until APIs are integrated.
-      _CardSpec(
-        label: 'Incidents',
-        pillText: 'Pending Approval',
-        tone: _AttentionTone.warning,
-        key: _CardKey.incidents,
-      ),
-      _CardSpec(
-        label: 'Movement',
+      AttentionCardModel(
+        label: 'Pending Movements',
+        count: attentionState.pendingMovements,
         pillText: 'Needs Review',
         tone: _AttentionTone.warning,
-        key: _CardKey.movement,
       ),
-      _CardSpec(
-        label: 'Documents',
+      AttentionCardModel(
+        label: 'Overdue Movements',
+        count: attentionState.overdueMovements,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
-        key: _CardKey.documents,
       ),
-      _CardSpec(
-        label: 'Physical Checkups',
+      AttentionCardModel(
+        label: 'Expired Staff Docs',
+        count: attentionState.expiredDocuments,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
-        key: _CardKey.physicalCheckups,
       ),
-    ];
-
-    int countFor(_CardSpec spec) {
-      switch (spec.key) {
-        case _CardKey.classrooms:
-          return classroomCount;
-        case _CardKey.classroomShifts:
-          return shiftsCount;
-        default:
-          return 0;
-      }
-    }
-
-    return [
-      for (final spec in allCards)
-        AttentionCardModel(
-          label: spec.label,
-          count: countFor(spec),
-          pillText: spec.pillText,
-          tone: spec.tone,
-          showThumbDown: spec.showThumbDown,
-        ),
+      AttentionCardModel(
+        label: 'Expiring Soon Docs',
+        count: attentionState.expiringDocuments,
+        pillText: 'Expiring Soon',
+        tone: _AttentionTone.warning,
+      ),
+      AttentionCardModel(
+        label: 'Overdue Checkups',
+        count: attentionState.overdueCheckups,
+        pillText: 'Overdue',
+        tone: _AttentionTone.danger,
+      ),
+      AttentionCardModel(
+        label: 'Missing Checkups',
+        count: attentionState.missingCheckups,
+        pillText: 'No Record',
+        tone: _AttentionTone.warning,
+      ),
     ].where((c) => c.shouldShow).toList();
   }
-}
-
-// ── Internal config types ─────────────────────────────────────────────────────
-
-enum _CardKey {
-  classrooms,
-  classroomShifts,
-  incidents,
-  movement,
-  documents,
-  physicalCheckups,
-}
-
-class _CardSpec {
-  const _CardSpec({
-    required this.label,
-    required this.pillText,
-    required this.key,
-    this.tone = _AttentionTone.danger,
-    this.showThumbDown = false,
-  });
-
-  final String label;
-  final String pillText;
-  final _AttentionTone tone;
-  final bool showThumbDown;
-  final _CardKey key;
 }
 
 // ── Show More/Less button ─────────────────────────────────────────────────────

@@ -68,7 +68,12 @@ import '../../presentation/features/dashboard/cubit/student_attendance_profile_c
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
 import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -815,6 +820,28 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ClassroomShiftsCubit(
       getRatioMonitoringClassroomsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminDashboardCubit>(
+    () => AdminDashboardCubit(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCubit>(
+    () => StaffDashboardCubit(),
+  );
+  serviceLocator.registerFactory<ParentDashboardCubit>(
+    () => ParentDashboardCubit(),
+  );
+  serviceLocator.registerFactory<MyDayCubit>(
+    () => MyDayCubit(
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<DashboardAttentionCubit>(
+    () => DashboardAttentionCubit(
+      availabilityRepository: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),

@@ -320,7 +320,11 @@ class ApiPaths {
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = staffDocuments;
   static const String staffDocumentUpdate = staffDocuments;
+  static const String staffDocumentExpirySummary =
+      '/api/v1/staff-documents/expiry-summary';
   static const String staffDates = '/api/v1/staff-dates';
+  static const String staffDatesPhysicalCheckupSummary =
+      '/api/v1/staff-dates/physical-checkup-summary';
   static const String staffAddress = '/api/v1/staff-address';
 
   static String staffAllowedClassroomsByStaffCodePath(String staffCode) =>
@@ -442,6 +446,8 @@ class ApiPaths {
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
+  static const String individualMovementsStatusCounts =
+      '/api/v1/individual-movements/status-counts';
   static const String futureAvailability = '/api/v1/future-availability';
   static const String futureAvailabilityRecompute =
       '/api/v1/future-availability/recompute';

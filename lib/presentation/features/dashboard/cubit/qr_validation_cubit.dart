@@ -30,7 +30,7 @@ class QrScannerArgs {
 ///                  contains "GUARDIAN"/"PARENT" → guardian flow,
 ///                  otherwise → staff/admin flow
 /// 3. useCase     — guardian: GUARDIAN_SIGN_IN (form handles sign-out routing)
-///                  staff: STAFF_SIGN_IN or STAFF_SIGN_OUT based on live status
+///                  staff: STAFF_SELF_SIGN_IN or STAFF_SELF_SIGN_OUT based on live status
 /// 4. POST /api/v1/schools/{schoolCode}/attendance-settings/qr-code/validate
 class QrValidationCubit extends Cubit<QrValidationState> {
   QrValidationCubit({

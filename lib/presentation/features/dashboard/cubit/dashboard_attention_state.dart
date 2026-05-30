@@ -1,0 +1,73 @@
+part of 'dashboard_attention_cubit.dart';
+
+enum DashboardAttentionStatus {
+  initial,
+  loading,
+  loaded,
+  refreshing,
+  partialFailure,
+  error,
+}
+
+class DashboardAttentionState extends Equatable {
+  const DashboardAttentionState({
+    this.status = DashboardAttentionStatus.initial,
+    this.pendingMovements = 0,
+    this.overdueMovements = 0,
+    this.expiredDocuments = 0,
+    this.expiringDocuments = 0,
+    this.overdueCheckups = 0,
+    this.missingCheckups = 0,
+    this.errorMessage,
+  });
+
+  final DashboardAttentionStatus status;
+  final int pendingMovements;
+  final int overdueMovements;
+  final int expiredDocuments;
+  final int expiringDocuments;
+  final int overdueCheckups;
+  final int missingCheckups;
+  final String? errorMessage;
+
+  bool get isInitial => status == DashboardAttentionStatus.initial;
+  bool get isLoading => status == DashboardAttentionStatus.loading;
+  bool get isLoaded =>
+      status == DashboardAttentionStatus.loaded ||
+      status == DashboardAttentionStatus.partialFailure;
+  bool get isRefreshing => status == DashboardAttentionStatus.refreshing;
+
+  DashboardAttentionState copyWith({
+    DashboardAttentionStatus? status,
+    int? pendingMovements,
+    int? overdueMovements,
+    int? expiredDocuments,
+    int? expiringDocuments,
+    int? overdueCheckups,
+    int? missingCheckups,
+    String? errorMessage,
+  }) {
+    return DashboardAttentionState(
+      status: status ?? this.status,
+      pendingMovements: pendingMovements ?? this.pendingMovements,
+      overdueMovements: overdueMovements ?? this.overdueMovements,
+      expiredDocuments: expiredDocuments ?? this.expiredDocuments,
+      expiringDocuments: expiringDocuments ?? this.expiringDocuments,
+      overdueCheckups: overdueCheckups ?? this.overdueCheckups,
+      missingCheckups: missingCheckups ?? this.missingCheckups,
+      errorMessage: errorMessage,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    status,
+    pendingMovements,
+    overdueMovements,
+    expiredDocuments,
+    expiringDocuments,
+    overdueCheckups,
+    missingCheckups,
+    errorMessage,
+  ];
+}

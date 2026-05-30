@@ -3,29 +3,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_progress_card.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/todo_card.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/staff_dashboard_viewmodel.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
-/// Staff dashboard screen.
-///
-/// Composes the welcome header and the reusable dashboard cards into a single
-/// vertically scrolling, pull-to-refresh feed. Cards can be drag-and-drop
-/// reordered (long-press a card to drag it).
-///
-/// The card list and ordering come from [StaffDashboardViewModel] (MVVM): the
-/// view only maps card identifiers to widgets and never owns dashboard state
-/// itself.
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
 
@@ -36,19 +26,24 @@ class StaffDashboard extends StatefulWidget {
 }
 
 class _StaffDashboardState extends State<StaffDashboard> {
-  final StaffDashboardViewModel _viewModel = StaffDashboardViewModel();
+  late final StaffDashboardCubit _dashboardCubit;
   late final GeofenceCubit _geofenceCubit;
   late final RatioMonitoringCubit _ratioMonitoringCubit;
+  late final MyDayCubit _myDayCubit;
 
-  /// Max content width so the feed stays readable on tablets / large screens.
   static const double _maxContentWidth = 640;
 
   @override
   void initState() {
     super.initState();
+    _dashboardCubit = serviceLocator<StaffDashboardCubit>();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
+    _myDayCubit = serviceLocator<MyDayCubit>();
+    // ignore: discarded_futures
     _initGeofence();
+    // ignore: discarded_futures
+    _myDayCubit.load(isSilent: true);
   }
 
   Future<void> _initGeofence() async {
@@ -61,44 +56,37 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
   @override
   void dispose() {
+    // ignore: discarded_futures
+    _dashboardCubit.close();
+    // ignore: discarded_futures
     _geofenceCubit.close();
+    // ignore: discarded_futures
     _ratioMonitoringCubit.close();
-    _viewModel.dispose();
+    // ignore: discarded_futures
+    _myDayCubit.close();
     super.dispose();
   }
 
-  /// Maps a [StaffDashboardCard] identifier to its widget.
   Widget _cardFor(StaffDashboardCard card) {
     switch (card) {
       case StaffDashboardCard.myDay:
         return const MyDayCard();
       case StaffDashboardCard.ratioMonitoring:
         return const RatioMonitoringCard();
-      // case StaffDashboardCard.events:
-      //   return const EventsCard();
-      // case StaffDashboardCard.todo:
-      //   return const TodoCard();
       case StaffDashboardCard.myShifts:
         return const MyShiftsCard();
       case StaffDashboardCard.myAttendance:
         return const MyAttendanceCard();
-      // case StaffDashboardCard.classroomProgress:
-      //   return const ClassroomProgressCard();
     }
   }
 
-  /// Greeting header, shown above the cards. Fixed — only cards reorder.
-  Widget _buildHeader() {
-    // Transparent Material so InkWell ripples in the header have an ancestor.
+  Widget _buildHeader(String userName) {
     return Material(
       type: MaterialType.transparency,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DashboardWelcomeHeader(
-            userName: _viewModel.userName,
-            showSectionLabel: false,
-          ),
+          DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
           const SizedBox(height: 16),
         ],
       ),
@@ -109,8 +97,10 @@ class _StaffDashboardState extends State<StaffDashboard> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider<StaffDashboardCubit>.value(value: _dashboardCubit),
         BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
         BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
+        BlocProvider<MyDayCubit>.value(value: _myDayCubit),
       ],
       child: _buildScaffold(),
     );
@@ -122,47 +112,45 @@ class _StaffDashboardState extends State<StaffDashboard> {
       bodyPadding: EdgeInsets.zero,
       body: Material(
         type: MaterialType.transparency,
-        child: ListenableBuilder(
-          listenable: _viewModel,
-          builder: (context, _) {
-            final cards = _viewModel.visibleCards;
-
+        child: BlocBuilder<StaffDashboardCubit, StaffDashboardState>(
+          builder: (context, dashState) {
             return CustomRefreshIndicator(
-              onRefresh: _viewModel.refresh,
+              onRefresh: () => _myDayCubit.refresh(),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Page gutter scales down a little on narrow phones.
                   final double gutter = constraints.maxWidth < 360 ? 12 : 16;
 
                   return Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _maxContentWidth,
-                      ),
+                      constraints:
+                          const BoxConstraints(maxWidth: _maxContentWidth),
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
-                          // Fixed (non-reorderable) header section.
                           SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                            sliver: SliverToBoxAdapter(child: _buildHeader()),
+                            padding:
+                                EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                            sliver: SliverToBoxAdapter(
+                              child: _buildHeader(dashState.userName),
+                            ),
                           ),
-                          // Reorderable cards — long-press a card to drag it.
                           SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding:
+                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(
-                              itemCount: cards.length,
-                              onReorder: _viewModel.reorderCard,
+                              itemCount: dashState.cards.length,
+                              onReorder: context
+                                  .read<StaffDashboardCubit>()
+                                  .reorderCard,
                               itemBuilder: (context, index) {
-                                final card = cards[index];
+                                final card = dashState.cards[index];
                                 return ReorderableDelayedDragStartListener(
                                   key: ValueKey(card),
                                   index: index,
                                   child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    // Transparent Material so InkWell ripples
-                                    // in the card have an ancestor.
+                                    padding:
+                                        const EdgeInsets.only(bottom: 16),
                                     child: Material(
                                       type: MaterialType.transparency,
                                       child: _cardFor(card),

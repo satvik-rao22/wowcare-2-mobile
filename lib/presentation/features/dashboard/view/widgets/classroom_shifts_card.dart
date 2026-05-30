@@ -11,6 +11,12 @@ import 'package:wowcare/presentation/features/scheduling/model/scheduling_models
 
 /// Dashboard card listing each classroom's ratio status for the selected day.
 ///
+/// Loading strategy (mirrors [RatioMonitoringCard]):
+/// - **First ever load** (no entries yet): the full-card shimmer is shown.
+/// - **Subsequent loads** (date change, background refresh): the card container
+///   stays mounted with the previous entries while new data arrives — no
+///   layout jump or shimmer flicker.
+///
 /// Status is driven exclusively by [ClassroomShiftEntry.blockStatus] from the
 /// forecast API — no frontend ratio calculations.
 class ClassroomShiftsCard extends StatefulWidget {
@@ -101,6 +107,17 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   Widget build(BuildContext context) {
     return BlocBuilder<ClassroomShiftsCubit, ClassroomShiftsState>(
       builder: (context, state) {
+        // Show the full-card shimmer ONLY on the very first load when there
+        // is no entry data to display yet. This matches the ratio monitoring
+        // card pattern and prevents layout shift on subsequent refreshes.
+        final showShimmer =
+            state.status == ClassroomShiftsStatus.initial ||
+            (state.isLoading && state.entries.isEmpty);
+
+        if (showShimmer) {
+          return const _ClassroomShiftsCardShimmer();
+        }
+
         final entries = state.entries;
         final displayEntries = _showAllClassrooms
             ? entries
@@ -130,6 +147,21 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                     ),
                   ),
                   const Spacer(),
+                  // Subtle inline loading indicator — shown on date changes
+                  // (when stale entries are already visible) so the user knows
+                  // a refresh is in flight without triggering a layout shift.
+                  if (state.isLoading && entries.isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
                   DashboardCardToggle(
                     minimized: _minimized,
                     onTap: () => setState(() => _minimized = !_minimized),
@@ -138,7 +170,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
               ),
               const SizedBox(height: 16),
 
-              // ── Legend ────────────────────────────────────────────────────
+              // ── Legend + table ────────────────────────────────────────────
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -161,7 +193,6 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
               ),
               const SizedBox(height: 16),
 
-              // ── Table ─────────────────────────────────────────────────────
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -181,6 +212,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                               1: FlexColumnWidth(1),
                             },
                             children: [
+                              // ── Column headers ───────────────────────────
                               TableRow(
                                 children: [
                                   Padding(
@@ -206,8 +238,9 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                   ),
                                 ],
                               ),
-                              if (state.isLoading)
-                                ..._buildShimmerRows()
+                              // ── Data rows (stale-on-reload, no shimmer) ──
+                              if (displayEntries.isEmpty && !state.isLoading)
+                                _buildEmptyRow()
                               else
                                 ...displayEntries.map(_buildTableRow),
                             ],
@@ -224,8 +257,8 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                             ),
                           if (!state.isLoading && hasMoreToShow)
                             InkWell(
-                              onTap: () => setState(
-                                  () => _showAllClassrooms = !_showAllClassrooms),
+                              onTap: () => setState(() =>
+                                  _showAllClassrooms = !_showAllClassrooms),
                               child: Container(
                                 width: double.infinity,
                                 padding:
@@ -298,45 +331,22 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
     );
   }
 
-  List<TableRow> _buildShimmerRows() {
-    return List.generate(
-      5,
-      (_) => TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15.0),
-            child: Shimmer.fromColors(
-              baseColor: Colors.grey[300]!,
-              highlightColor: Colors.grey[100]!,
-              child: Container(
-                height: 16,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
+  // Shown when loaded data is genuinely empty (not while loading).
+  TableRow _buildEmptyRow() {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 15.0),
+          child: Text(
+            'No classrooms found',
+            style: TextStyle(
+              fontSize: _bodyFontSize,
+              color: Colors.grey[500],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15.0),
-            child: Center(
-              child: Shimmer.fromColors(
-                baseColor: Colors.grey[300]!,
-                highlightColor: Colors.grey[100]!,
-                child: Container(
-                  height: 20,
-                  width: 20,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 48),
+      ],
     );
   }
 
@@ -344,10 +354,104 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(status, size: 16),
+        SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
+            status, size: 16),
         const SizedBox(width: 4),
         Text(label, style: TextStyle(fontSize: _bodyFontSize)),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Full-card shimmer — shown only on the very first load (no entry data yet).
+// Matches card dimensions so layout is stable when the real card appears.
+// ---------------------------------------------------------------------------
+
+class _ClassroomShiftsCardShimmer extends StatelessWidget {
+  const _ClassroomShiftsCardShimmer();
+
+  static const int _shimmerRows = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.cardBorderColor),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+      ),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header placeholder
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  height: 20,
+                  width: 160,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                Container(
+                  height: 20,
+                  width: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Legend placeholder
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  height: 14,
+                  width: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Container(
+                  height: 14,
+                  width: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Column header placeholder
+            Container(
+              height: 36,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+            // Row placeholders
+            ...List.generate(
+              _shimmerRows,
+              (_) => Container(
+                height: 48,
+                margin: const EdgeInsets.only(top: 1),
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

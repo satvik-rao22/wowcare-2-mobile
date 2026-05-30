@@ -241,6 +241,14 @@ abstract class StaffRemoteDataSource {
   Future<SchoolRegularScheduleListModel> getSchoolRegularSchedules({
     required String schoolCode,
   });
+
+  Future<StaffDocumentExpirySummaryModel> getStaffDocumentExpirySummary({
+    required String schoolCode,
+  });
+
+  Future<PhysicalCheckupSummaryModel> getPhysicalCheckupSummary({
+    required String schoolCode,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -989,6 +997,38 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     return SchoolRegularScheduleListModel.fromResponse(
       response.data! as Map<String, dynamic>,
     );
+  }
+
+  @override
+  Future<StaffDocumentExpirySummaryModel> getStaffDocumentExpirySummary({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.staffDocumentExpirySummary);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff document expiry summary response format');
+    }
+    return StaffDocumentExpirySummaryModel.fromJson(
+        response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<PhysicalCheckupSummaryModel> getPhysicalCheckupSummary({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.staffDatesPhysicalCheckupSummary);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected physical checkup summary response format');
+    }
+    return PhysicalCheckupSummaryModel.fromJson(
+        response.data! as Map<String, dynamic>);
   }
 }
 

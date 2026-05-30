@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart' show FilterData;
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
@@ -376,9 +377,17 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     final filter = args?['filter'] as String?;
+                    final classroomFilter =
+                        args?['classroomFilter'] as FilterData?;
+                    final initialTabIndex =
+                        (args?['initialTabIndex'] as int?) ?? 0;
                     return _fastPage(
                       state,
-                      StudentAttendanceTabbedView(dailyIncomingFilter: filter),
+                      StudentAttendanceTabbedView(
+                        dailyIncomingFilter: filter,
+                        classroomFilter: classroomFilter,
+                        initialTabIndex: initialTabIndex,
+                      ),
                     );
                   },
                 ),
@@ -387,9 +396,17 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     final filter = args?['filter'] as String?;
+                    final classroomFilter =
+                        args?['classroomFilter'] as FilterData?;
+                    final initialTabIndex =
+                        (args?['initialTabIndex'] as int?) ?? 0;
                     return _fastPage(
                       state,
-                      StaffAttendanceTabbedView(dailyIncomingFilter: filter),
+                      StaffAttendanceTabbedView(
+                        dailyIncomingFilter: filter,
+                        classroomFilter: classroomFilter,
+                        initialTabIndex: initialTabIndex,
+                      ),
                     );
                   },
                 ),

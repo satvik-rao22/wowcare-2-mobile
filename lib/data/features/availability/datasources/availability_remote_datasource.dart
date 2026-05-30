@@ -63,6 +63,12 @@ abstract class AvailabilityRemoteDataSource {
     required DateTime startDate,
     required DateTime endDate,
   });
+
+  Future<MovementStatusCountsModel> getMovementStatusCounts({
+    required String schoolCode,
+    required String fromDate,
+    required String toDate,
+  });
 }
 
 class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
@@ -345,6 +351,28 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       final msg = payload['message']?.toString().trim();
       throw Exception(msg?.isNotEmpty == true ? msg : 'Future availability recompute failed');
     }
+  }
+
+  @override
+  Future<MovementStatusCountsModel> getMovementStatusCounts({
+    required String schoolCode,
+    required String fromDate,
+    required String toDate,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.individualMovementsStatusCounts);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'fromDate': fromDate,
+        'toDate': toDate,
+      },
+    );
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected movement status counts response format');
+    }
+    return MovementStatusCountsModel.fromJson(
+        response.data! as Map<String, dynamic>);
   }
 }
 

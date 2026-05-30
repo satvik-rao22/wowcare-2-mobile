@@ -1105,6 +1105,35 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       upcoming: (payload['upcoming'] as num?)?.toInt() ?? 0,
     );
   }
+
+  @override
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount})>
+      getStaffDocumentExpirySummary({required String schoolCode}) async {
+    final model = await _remoteDataSource.getStaffDocumentExpirySummary(
+      schoolCode: schoolCode,
+    );
+    return (
+      expiredDocumentCount: model.expiredDocumentCount,
+      expiringWithinWeekCount: model.expiringWithinWeekCount,
+    );
+  }
+
+  @override
+  Future<
+          ({
+            int overduePhysicalCheckupCount,
+            int staffWithoutActivePhysicalCheckupCount
+          })>
+      getPhysicalCheckupSummary({required String schoolCode}) async {
+    final model = await _remoteDataSource.getPhysicalCheckupSummary(
+      schoolCode: schoolCode,
+    );
+    return (
+      overduePhysicalCheckupCount: model.overduePhysicalCheckupCount,
+      staffWithoutActivePhysicalCheckupCount:
+          model.staffWithoutActivePhysicalCheckupCount,
+    );
+  }
 }
 
 

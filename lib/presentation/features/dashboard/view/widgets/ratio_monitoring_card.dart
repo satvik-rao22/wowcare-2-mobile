@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -10,8 +11,11 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
@@ -248,6 +252,49 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Navigation helpers
+  // ---------------------------------------------------------------------------
+
+  /// Navigates to the **Student** daily attendance tab pre-filtered to [room].
+  ///
+  /// Uses [FilterData.classrooms] as classroom codes — the daily view reads
+  /// them with `_resolveSelectedClassroomCodes` (line 416 of the daily view).
+  void _navigateToStudentAttendance(
+      BuildContext context, RatioMonitoringClassroom room) {
+    final filter = FilterData(
+      classroomIds: const [],
+      classrooms: [room.code],
+      statuses: const [],
+      tags: const [],
+    );
+    unawaited(context.push(
+      StudentAttendanceTabbedView.routeName,
+      extra: <String, dynamic>{
+        'initialTabIndex': 0,
+        'classroomFilter': filter,
+      },
+    ));
+  }
+
+  /// Navigates to the **Staff** daily attendance tab pre-filtered to [room].
+  void _navigateToStaffAttendance(
+      BuildContext context, RatioMonitoringClassroom room) {
+    final filter = FilterData(
+      classroomIds: const [],
+      classrooms: [room.code],
+      statuses: const [],
+      tags: const [],
+    );
+    unawaited(context.push(
+      StaffAttendanceTabbedView.routeName,
+      extra: <String, dynamic>{
+        'initialTabIndex': 0,
+        'classroomFilter': filter,
+      },
+    ));
+  }
+
   /// Builds a data row for [room].
   ///
   /// Always renders — even when [room.studentPresent] and [room.staffPresent]
@@ -293,9 +340,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           ),
         ),
 
-        // ── Students present ────────────────────────────────────────────────
+        // ── Students present — tapping navigates to student daily attendance
+        //    pre-filtered to this classroom.
         GestureDetector(
-          onTap: () {},
+          onTap: () => _navigateToStudentAttendance(context, room),
           child: Container(
             height: _cellH,
             color: const Color.fromRGBO(234, 240, 253, 1),
@@ -315,9 +363,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           ),
         ),
 
-        // ── Staff present ───────────────────────────────────────────────────
+        // ── Staff present — tapping navigates to staff daily attendance
+        //    pre-filtered to this classroom.
         GestureDetector(
-          onTap: () {},
+          onTap: () => _navigateToStaffAttendance(context, room),
           child: Container(
             height: _cellH,
             color: const Color.fromRGBO(234, 251, 255, 1),

@@ -37,6 +37,7 @@ class SchoolRegularScheduleListModel {
           durationMinutes: durationMinutes,
           halfDay: (item['halfDay'] as String?)?.trim(),
           label: (item['label'] as String?)?.trim(),
+          status: (item['status'] as String?)?.trim().toUpperCase(),
         ),
       );
     }

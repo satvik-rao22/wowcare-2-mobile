@@ -63,6 +63,13 @@ abstract class AvailabilityRepository {
     required DateTime startDate,
     required DateTime endDate,
   });
+
+  /// Fetches pending + overdue movement counts for the given school and date range.
+  Future<({int pendingCount, int overdueCount})> getMovementStatusCounts({
+    required String schoolCode,
+    required String fromDate,
+    required String toDate,
+  });
 }
 
 abstract class AvailabilityRepositoryWithCache {
