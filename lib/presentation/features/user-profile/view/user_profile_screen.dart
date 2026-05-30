@@ -9,9 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/string_utils.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -19,7 +17,6 @@ import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_user_profile_screen.dart';
 import '../view_model/user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -226,37 +223,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Future<String> _resolveClassroomNameForStaff(StaffProfile profile) async {
-    final code = profile.primaryClassroomCode.trim().isNotEmpty
-        ? profile.primaryClassroomCode.trim()
-        : (profile.allowedClassroomCodes.isNotEmpty
-            ? profile.allowedClassroomCodes.first.trim()
-            : '');
-    if (code.isEmpty) return '-';
-
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return code;
-
-      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-      for (final c in classrooms) {
-        if (c.code.trim() == code) {
-          final name = c.name.trim();
-          return name.isNotEmpty ? name : code;
-        }
-      }
-      return code;
-    } catch (_) {
-      return code;
-    }
-  }
-
   Future<void> _openStaffProfile() async {
     // Ensure we have a profile to open.
     final staffCode = (_profile?.staffCode ?? widget.staffCode ?? '').trim();
@@ -284,7 +250,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
 
-    final classroom = await _resolveClassroomNameForStaff(profile);
+    final classroom = await _cubit.resolveClassroomNameForStaff(profile);
     if (!mounted) return;
 
     Navigator.push(
@@ -321,7 +287,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (!mounted) return;
 
     final resolvedClassroom =
-        await _resolveClassroomNameForStudent(selected.classroom);
+        await _cubit.resolveClassroomNameForStudent(selected.classroom);
     if (!mounted) return;
 
     Navigator.push(
@@ -342,32 +308,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ),
       ),
     );
-  }
-
-  Future<String> _resolveClassroomNameForStudent(String classroomRaw) async {
-    final raw = classroomRaw.trim();
-    if (raw.isEmpty) return '-';
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return raw;
-
-      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-      for (final c in classrooms) {
-        if (c.code.trim() == raw) {
-          final name = c.name.trim();
-          return name.isNotEmpty ? name : raw;
-        }
-      }
-      return raw;
-    } catch (_) {
-      return raw;
-    }
   }
 
   @override

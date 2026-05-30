@@ -28,34 +28,32 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   }
 
   void _initializeDummyData() {
-    // Load dummy data
-    setState(() {
-      _addressEntity = {
-        'line': '123 Main Street',
-        'city': 'New York',
-        'state': 'NY',
-        'country': 'USA',
-        'zipcode': '10001',
-      };
+    // Set once during init (no rebuild needed: build runs after initState).
+    _addressEntity = {
+      'line': '123 Main Street',
+      'city': 'New York',
+      'state': 'NY',
+      'country': 'USA',
+      'zipcode': '10001',
+    };
 
-      // Generate dummy invoice items
-      _invoiceItems = [
+    // Generate dummy invoice items
+    _invoiceItems = [
+      {
+        'type': 'item',
+        'description': widget.transaction.description,
+        'amount': widget.transaction.amount,
+        'deductionAmt': 0,
+      },
+      if (widget.transaction.amount > 200) ...[
         {
-          'type': 'item',
-          'description': widget.transaction.description,
-          'amount': widget.transaction.amount,
-          'deductionAmt': 0,
+          'type': 'discount',
+          'description': 'Early Payment Discount',
+          'amount': 0,
+          'deductionAmt': widget.transaction.amount * 0.1,
         },
-        if (widget.transaction.amount > 200) ...[
-          {
-            'type': 'discount',
-            'description': 'Early Payment Discount',
-            'amount': 0,
-            'deductionAmt': widget.transaction.amount * 0.1,
-          },
-        ],
-      ];
-    });
+      ],
+    ];
   }
 
   // Helper method to get formatted amount with proper sign

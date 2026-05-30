@@ -13,6 +13,7 @@ import '../../../../core/util/user_details_school_roles.dart';
 import '../../../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../../../data/features/student/datasources/student_remote_datasource.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -48,12 +49,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     required AuthLocalDataSource authLocalDataSource,
     required StudentRemoteDataSource studentRemoteDataSource,
     required ImageUploadService imageUploadService,
+    required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
   })  : _storage = storageService,
         _staffRepository = staffRepository,
         _authRemoteDataSource = authRemoteDataSource,
         _authLocalDataSource = authLocalDataSource,
         _studentRemoteDataSource = studentRemoteDataSource,
         _imageUploadService = imageUploadService,
+        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         super(const UserProfileState.initial());
 
   final StorageService _storage;
@@ -62,6 +65,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   final AuthLocalDataSource _authLocalDataSource;
   final StudentRemoteDataSource _studentRemoteDataSource;
   final ImageUploadService _imageUploadService;
+  final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
 
   String _directStaffCode = '';
   bool _hasShownProfileLoadError = false;
@@ -436,6 +440,50 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       } catch (_) {}
     } catch (_) {
       // Non-blocking: profile still renders with cached/login values.
+    }
+  }
+
+  /// Resolves the display name of [profile]'s primary (or first allowed)
+  /// classroom. Falls back to the raw code (or '-') when it can't be resolved.
+  Future<String> resolveClassroomNameForStaff(StaffProfile profile) async {
+    final code = profile.primaryClassroomCode.trim().isNotEmpty
+        ? profile.primaryClassroomCode.trim()
+        : (profile.allowedClassroomCodes.isNotEmpty
+            ? profile.allowedClassroomCodes.first.trim()
+            : '');
+    if (code.isEmpty) return '-';
+    return _resolveClassroomName(code);
+  }
+
+  /// Resolves the display name for a raw classroom code/value. Falls back to
+  /// the raw value (or '-') when it can't be resolved.
+  Future<String> resolveClassroomNameForStudent(String classroomRaw) async {
+    final raw = classroomRaw.trim();
+    if (raw.isEmpty) return '-';
+    return _resolveClassroomName(raw);
+  }
+
+  /// Shared lookup: maps a classroom [code] to its name via the active
+  /// classrooms for the current school, returning [code] on any miss/failure.
+  Future<String> _resolveClassroomName(String code) async {
+    try {
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return code;
+
+      final classrooms = await _getActiveClassroomsUseCase(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+      for (final c in classrooms) {
+        if (c.code.trim() == code) {
+          final name = c.name.trim();
+          return name.isNotEmpty ? name : code;
+        }
+      }
+      return code;
+    } catch (_) {
+      return code;
     }
   }
 

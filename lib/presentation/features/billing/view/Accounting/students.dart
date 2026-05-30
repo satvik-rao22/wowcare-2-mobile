@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -32,9 +34,10 @@ class StudentsAccountingSection extends StatefulWidget {
 }
 
 class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
+  late final BoolToggleCubit _cubit = BoolToggleCubit();
   final TextEditingController _searchController = TextEditingController();
-  bool _showOutstandingOnly = false;
-  double _totalOutstandingAmount = 0;
+  bool get _showOutstandingOnly => _cubit.state;
+  final double _totalOutstandingAmount = 0;
 
   TransactionItem _buildSampleTransaction() {
     return TransactionItem(
@@ -69,12 +72,17 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
   @override
   void dispose() {
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     // Non-scrollable content; parent page handles vertical scrolling.
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -124,10 +132,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                   ),
                   const SizedBox(height: 4),
                   CustomClearAllChip(
-                    onTap: () {
-                      _searchController.clear();
-                      setState(() {});
-                    },
+                    onTap: () => _searchController.clear(),
                   ),
                 ],
               ),
@@ -148,9 +153,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                 ),
                 isToggled: _showOutstandingOnly,
                 onToggle: (val) {
-                  setState(() {
-                    _showOutstandingOnly = val;
-                  });
+                  _cubit.set(val);
                   // TODO: trigger filtering when data source is connected
                 },
               ),
@@ -182,6 +185,9 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
           onBillingProfile: () => _openBillingProfile(context),
         ),
       ],
+    );
+        },
+      ),
     );
   }
 }

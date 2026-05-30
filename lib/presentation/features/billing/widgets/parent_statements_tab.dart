@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import '../../../../core/util/safe_state_mixin.dart';
 
+import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -25,71 +26,19 @@ class ParentStatementsTab extends StatefulWidget {
   State<ParentStatementsTab> createState() => _ParentStatementsTabState();
 }
 
-class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStateMixin {
+class _ParentStatementsTabState extends State<ParentStatementsTab> {
+  late final ParentStatementsCubit _cubit = ParentStatementsCubit();
 
-  late DateTime? _customStartDate;
-  late DateTime? _customEndDate;
-  bool _isStatementsLoading = false;
-  bool _isGenerating = false;
-
-  // Demo statements data (UI only)
-  List<DemoStatement> get _demoStatements {
-    final now = DateTime.now();
-    final currentYear = now.year;
-    final currentMonth = now.month;
-    
-    return [
-      DemoStatement(
-        id: 'st_001',
-        studentName: 'Lux Stud',
-        statementType: 'Yearly',
-        generatedOn: DateTime(currentYear, 1, 22),
-        periodFrom: DateTime(currentYear, 1, 1),
-        periodTo: DateTime(currentYear, 12, 31),
-      ),
-      DemoStatement(
-        id: 'st_002',
-        studentName: 'Lux Stud',
-        statementType: 'Monthly',
-        generatedOn: DateTime(currentYear, currentMonth, 15),
-        periodFrom: DateTime(currentYear, currentMonth, 1),
-        periodTo: DateTime(currentYear, currentMonth + 1, 0),
-      ),
-      DemoStatement(
-        id: 'st_003',
-        studentName: 'Lux Stud',
-        statementType: 'Monthly',
-        generatedOn: DateTime(currentYear, currentMonth - 1, 20),
-        periodFrom: DateTime(currentYear, currentMonth - 1, 1),
-        periodTo: DateTime(currentYear, currentMonth, 0),
-      ),
-      DemoStatement(
-        id: 'st_004',
-        studentName: 'Lux Stud',
-        statementType: 'Quarterly',
-        generatedOn: DateTime(currentYear, currentMonth, 10),
-        periodFrom: DateTime(currentYear, currentMonth - 2, 1),
-        periodTo: DateTime(currentYear, currentMonth, 0),
-      ),
-    ];
-  }
+  // Read-only proxies onto the cubit state.
+  DateTime? get _customStartDate => _cubit.state.customStartDate;
+  DateTime? get _customEndDate => _cubit.state.customEndDate;
+  bool get _isStatementsLoading => _cubit.state.isStatementsLoading;
+  bool get _isGenerating => _cubit.state.isGenerating;
 
   @override
   void initState() {
     super.initState();
-    _customStartDate = widget.customStartDate;
-    _customEndDate = widget.customEndDate;
-    
-    // Set default dates if not provided
-    if (_customStartDate == null || _customEndDate == null) {
-      final now = DateTime.now();
-      final defaultStart = DateTime(now.year, now.month, 1);
-      final defaultEnd = DateTime(now.year, now.month + 1, 0);
-      setState(() {
-        _customStartDate = defaultStart;
-        _customEndDate = defaultEnd;
-      });
-    }
+    _cubit.initialize(widget.customStartDate, widget.customEndDate);
   }
 
   @override
@@ -97,77 +46,32 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
     super.didUpdateWidget(oldWidget);
     if (oldWidget.customStartDate != widget.customStartDate ||
         oldWidget.customEndDate != widget.customEndDate) {
-      setState(() {
-        _customStartDate = widget.customStartDate;
-        _customEndDate = widget.customEndDate;
-      });
+      _cubit.syncDates(widget.customStartDate, widget.customEndDate);
     }
   }
 
-  Future<void> _refresh() async {
-    setState(() => _isStatementsLoading = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    setState(() => _isStatementsLoading = false);
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
+  Future<void> _refresh() => _cubit.refresh();
+
   Future<void> _onGenerate() async {
-    setState(() => _isGenerating = true);
-    await Future.delayed(const Duration(seconds: 1));
+    await _cubit.generate();
     if (!mounted) return;
-    setState(() => _isGenerating = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Statement generated successfully'),
       ),
     );
     // Refresh statements after generation
-    await _refresh();
+    await _cubit.refresh();
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
-    setState(() {
-      _customStartDate = startDate;
-      _customEndDate = endDate ??
-          DateTime(startDate.year, startDate.month, startDate.day, 23, 59, 59);
-    });
-    // Trigger statements fetch
-    _refresh();
-  }
-
-  List<DemoStatement> _getFilteredStatements() {
-    if (_customStartDate != null && _customEndDate != null) {
-      return _demoStatements.where((stmt) {
-        // Check if statement period overlaps with selected date range
-        // Statement overlaps if: stmt.periodFrom <= selectedEndDate AND stmt.periodTo >= selectedStartDate
-        final stmtStart = DateTime(
-          stmt.periodFrom.year,
-          stmt.periodFrom.month,
-          stmt.periodFrom.day,
-        );
-        final stmtEnd = DateTime(
-          stmt.periodTo.year,
-          stmt.periodTo.month,
-          stmt.periodTo.day,
-        );
-        final selectedStart = DateTime(
-          _customStartDate!.year,
-          _customStartDate!.month,
-          _customStartDate!.day,
-        );
-        final selectedEnd = DateTime(
-          _customEndDate!.year,
-          _customEndDate!.month,
-          _customEndDate!.day,
-        );
-        // Check for overlap: statement period overlaps with selected range
-        return stmtStart.isBefore(selectedEnd.add(const Duration(days: 1))) &&
-            stmtEnd.isAfter(selectedStart.subtract(const Duration(days: 1)));
-      }).toList()
-        ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
-    }
-    return List.from(_demoStatements)
-      ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
+    _cubit.applyDateRange(startDate, endDate);
   }
 
   Widget _buildDateFilterCard() {
@@ -215,7 +119,11 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
 
   @override
   Widget build(BuildContext context) {
-    final filteredStatements = _getFilteredStatements();
+    return BlocProvider<ParentStatementsCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<ParentStatementsCubit, ParentStatementsState>(
+        builder: (context, state) {
+    final filteredStatements = state.filteredStatements;
     final currentBalance = 0.0; // TODO: Calculate from actual data
 
     // Convert familyChildren to the format expected by ParentStatementsWidget
@@ -310,6 +218,9 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> with SafeStat
               ),
           ],
         ),
+      ),
+    );
+        },
       ),
     );
   }

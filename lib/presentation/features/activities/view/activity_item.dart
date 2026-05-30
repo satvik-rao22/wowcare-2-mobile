@@ -69,4 +69,14 @@ class ActivityItem {
     this.studentActivityRefs,
     this.approvalStatus,
   });
+
+  /// Blank placeholder used when no activity exists yet (e.g. create mode),
+  /// so `effectiveActivity`-style getters never force-unwrap a null.
+  static const ActivityItem empty = ActivityItem(
+    time: '',
+    date: '',
+    name: '',
+    studentList: <String>[],
+    createdBy: '',
+  );
 }

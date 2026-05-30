@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/subsidies_cubit.dart';
 
 import '../../../../../app/theme/colors.dart';
@@ -24,9 +26,21 @@ class SubsidyCard extends StatefulWidget {
 }
 
 class _SubsidyCardState extends State<SubsidyCard> {
-  bool _isExpanded = false;
+  late final BoolToggleCubit _cubit = BoolToggleCubit();
+  bool get _isExpanded => _cubit.state;
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) {
     final SubsidyItem subsidyItem = widget.subsidy;
     return IntrinsicHeight(
       child: Container(
@@ -47,7 +61,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
         child: Material(
           color: AppColors.billingTransparentColor,
           child: InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            onTap: () => _cubit.toggle(),
             onLongPress: widget.onLongPress,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -169,6 +183,9 @@ class _SubsidyCardState extends State<SubsidyCard> {
             ),
           ),
         ),
+      ),
+    );
+        },
       ),
     );
   }

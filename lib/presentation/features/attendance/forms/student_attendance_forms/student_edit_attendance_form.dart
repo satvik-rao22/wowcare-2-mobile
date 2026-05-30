@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -18,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
 
 class StudentEditAttendanceForm extends StatefulWidget {
   const StudentEditAttendanceForm({
@@ -34,233 +29,71 @@ class StudentEditAttendanceForm extends StatefulWidget {
 }
 
 class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
-  TimeOfDay? _signInTime;
-  TimeOfDay? _signOutTime;
-  TimeOfDay? _initialSignInTime;
-  TimeOfDay? _initialSignOutTime;
-  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
-  late final UpdateStudentAttendanceRecordUseCase _updateUseCase;
-  bool _isSubmitting = false;
+  late final StudentEditAttendanceFormCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _updateUseCase = serviceLocator<UpdateStudentAttendanceRecordUseCase>();
-    _bootstrapInitialTimes();
-  }
-
-  Future<void> _bootstrapInitialTimes() async {
-    final schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
+    _cubit = serviceLocator<StudentEditAttendanceFormCubit>();
+    // ignore: discarded_futures
+    _cubit.init(
+      signInRaw: widget.studentAttendance.signInTime,
+      signOutRaw: widget.studentAttendance.signOutTime,
+      attendanceRecordCode: widget.studentAttendance.attendanceRecordCode,
+      attendanceDate: widget.attendanceDate,
     );
-    if (!mounted) return;
-    setState(() {
-      _schoolIana = schoolIana;
-      _signInTime = _parseTimeOrNull(widget.studentAttendance.signInTime);
-      _signOutTime = _parseTimeOrNull(widget.studentAttendance.signOutTime);
-      _initialSignInTime = _signInTime;
-      _initialSignOutTime = _signOutTime;
-    });
   }
 
-  bool _sameTime(TimeOfDay? a, TimeOfDay? b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return a.hour == b.hour && a.minute == b.minute;
-  }
-
-  TimeOfDay? _parseTimeOrNull(String? timeString) {
-    if (timeString == null) {
-      return null;
-    }
-    final raw = timeString.trim();
-    if (raw.isEmpty) return null;
-    if (raw.toLowerCase() == 'not yet signed out' ||
-        raw.toLowerCase() == 'not yet signed in') {
-      return null;
-    }
-
-    try {
-      final iso = DateTime.tryParse(raw);
-      if (iso != null) {
-        return SchoolZoneDateTime.timeOfDayFromInstantInSchool(iso, _schoolIana);
-      }
-    } catch (_) {}
-
-    final lower = raw.toLowerCase();
-    final byIndex = lower.indexOf(' by ');
-    final withoutBy = byIndex > 0 ? raw.substring(0, byIndex).trim() : raw;
-    final normalized = withoutBy.replaceAll('.', '').trim();
-
-    final ampmMatch = RegExp(
-      r'(\d{1,2}:\d{2}(?::\d{2})?\s*[AaPp][Mm])',
-    ).firstMatch(normalized);
-    if (ampmMatch != null) {
-      final candidate = ampmMatch.group(1)!.replaceAll(RegExp(r'\s+'), ' ');
-      try {
-        final hasSeconds = RegExp(r':\d{2}\s*[AaPp][Mm]$').hasMatch(candidate);
-        final parsed = hasSeconds
-            ? DateFormat('h:mm:ss a').parse(candidate)
-            : DateFormat.jm().parse(candidate);
-        return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
-      } catch (_) {}
-    }
-
-    final hmsMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?').firstMatch(normalized);
-    if (hmsMatch != null) {
-      final hour = int.tryParse(hmsMatch.group(1)!);
-      final minute = int.tryParse(hmsMatch.group(2)!);
-      if (hour != null && minute != null && hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
-        return TimeOfDay(hour: hour, minute: minute);
-      }
-    }
-
-    return null;
-  }
-
-  void _handleSubmit() {
-    if (_isSubmitting) return;
-    _submitAsync();
+  @override
+  void dispose() {
+    // ignore: discarded_futures
+    _cubit.close();
+    super.dispose();
   }
 
   void _handleCancel() {
     Navigator.pop(context);
   }
 
-  Future<String> _resolveStaffCode() =>
-      resolveStaffCodeForLoggedInUser();
-
-  Future<void> _submitAsync() async {
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    final attendanceCode = widget.studentAttendance.attendanceRecordCode;
-    if (attendanceCode == null || attendanceCode.isEmpty) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: 
-        const SnackBar(
-          content: Text('Unable to update: missing attendance record code.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
-
-    final staffCode = await _resolveStaffCode();
+  Future<void> _handleSubmit() async {
+    final outcome = await _cubit.submit();
     if (!mounted) return;
-    if (staffCode.isEmpty) {
+    if (outcome.success) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
-
-    final date = widget.attendanceDate;
-    if (_signInTime == null) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('Sign-In time is required.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
-
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-
-    // Send prefilled/edited times as school-local wall clock on [attendanceDate].
-    final signedInChanged = !_sameTime(_signInTime, _initialSignInTime);
-    final signedOutChanged = !_sameTime(_signOutTime, _initialSignOutTime);
-
-    final signedInAt = signedInChanged
-        ? SchoolZoneDateTime.utcFromSchoolWallClock(
-            schoolTimeZone,
-            year: date.year,
-            month: date.month,
-            day: date.day,
-            hour: _signInTime!.hour,
-            minute: _signInTime!.minute,
-          )
-        : null;
-    final signedOutAt = signedOutChanged && _signOutTime != null
-        ? SchoolZoneDateTime.utcFromSchoolWallClock(
-            schoolTimeZone,
-            year: date.year,
-            month: date.month,
-            day: date.day,
-            hour: _signOutTime!.hour,
-            minute: _signOutTime!.minute,
-          )
-        : null;
-
-    try {
-      final message = await _updateUseCase(
-        attendanceRecordCode: attendanceCode,
-        staffCode: staffCode,
-        signedInAt: signedInAt,
-        signedOutAt: signedOutAt,
-        timeZone: schoolTimeZone,
-      );
-
-      if (!mounted) return;
-
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: 
-        SnackBar(
-          content: Text(message),
+        snackBar: SnackBar(
+          content: Text(outcome.message ?? 'Attendance updated successfully'),
           backgroundColor: AppColors.successColor,
         ),
       );
       Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
+    } else {
+      final message = outcome.error != null
+          ? ApiErrorHandler.extractErrorMessage(outcome.error)
+          : outcome.message;
+      if (message == null) return; // noop (already submitting)
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
-          content: Text(ApiErrorHandler.extractErrorMessage(e)),
+        snackBar: SnackBar(
+          content: Text(message),
           backgroundColor: AppColors.errorColor,
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<StudentEditAttendanceFormCubit>.value(
+      value: _cubit,
+      child:
+          BlocBuilder<StudentEditAttendanceFormCubit, StudentEditAttendanceState>(
+        builder: (context, state) => _buildForm(context, state),
+      ),
+    );
+  }
+
+  Widget _buildForm(BuildContext context, StudentEditAttendanceState state) {
     final isTablet = ResponsiveSizing.isTablet(context);
     final student = widget.studentAttendance;
     final titleName = student.studentName.isNotEmpty
@@ -281,29 +114,21 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
             const SizedBox(height: 24),
             _buildTimeSection(
               label: 'Sign-In Time',
-              time: _signInTime,
-              onTimeChanged: (time) {
-                setState(() {
-                  _signInTime = time;
-                });
-              },
+              time: state.signInTime,
+              onTimeChanged: _cubit.setSignInTime,
             ),
             const SizedBox(height: 16),
             _buildTimeSection(
               label: 'Sign-Out Time',
-              time: _signOutTime,
-              onTimeChanged: (time) {
-                setState(() {
-                  _signOutTime = time;
-                });
-              },
+              time: state.signOutTime,
+              onTimeChanged: _cubit.setSignOutTime,
             ),
           ],
         ),
       ),
       bottomBar: CustomButtonLayout(
         onPressedCancel: _handleCancel,
-        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
+        onPressedConfirm: state.isSubmitting ? null : _handleSubmit,
         confirmButtonLabel: 'Submit',
       ),
     );
