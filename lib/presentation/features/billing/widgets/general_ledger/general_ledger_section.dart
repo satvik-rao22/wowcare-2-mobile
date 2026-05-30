@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/general_ledger_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -25,62 +27,8 @@ class GeneralLedgerSection extends StatefulWidget {
 }
 
 class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
-  _GeneralLedgerSectionState()
-      : _allLedgers = List<LedgerAccountModel>.from(_seedLedgers);
-
+  late final GeneralLedgerCubit _cubit = GeneralLedgerCubit();
   final TextEditingController _searchController = TextEditingController();
-  final List<LedgerAccountModel> _allLedgers;
-
-  static const List<LedgerAccountModel> _seedLedgers =
-      <LedgerAccountModel>[
-    LedgerAccountModel(
-      id: 'ledger-1',
-      name: 'Instructional Supplies',
-      type: 'General',
-      openBalance: 1850,
-      invoiced: 4600,
-      received: 3900,
-      description: 'Classroom supplies and teaching aids',
-    ),
-    LedgerAccountModel(
-      id: 'ledger-2',
-      name: 'Transportation - Agency',
-      type: '(Legacy) Subsidy/Agency',
-      openBalance: 3250,
-      invoiced: 2200,
-      received: 1800,
-      description: 'Agency managed bus reimbursements',
-      isSubsidy: true,
-    ),
-    LedgerAccountModel(
-      id: 'ledger-3',
-      name: 'Summer Program Expenses',
-      type: 'Expense Tracking',
-      openBalance: 900,
-      invoiced: 1450,
-      received: 1200,
-      description: 'Seasonal enrichment program costs',
-    ),
-    LedgerAccountModel(
-      id: 'ledger-4',
-      name: 'After School Club',
-      type: 'General',
-      openBalance: 1325,
-      invoiced: 2800,
-      received: 1940,
-      description: 'Clubs and extracurriculars',
-    ),
-    LedgerAccountModel(
-      id: 'ledger-5',
-      name: 'Grant - STEM Initiative',
-      type: '(Legacy) Subsidy/Agency',
-      openBalance: 5100,
-      invoiced: 7200,
-      received: 4400,
-      description: 'STEM focused public grant',
-      isSubsidy: true,
-    ),
-  ];
 
   final List<String> _ledgerTypes = const [
     'All Types',
@@ -89,7 +37,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     'Expense Tracking',
   ];
 
-  String? _selectedType;
+  String? get _selectedType => _cubit.state.selectedType;
 
   @override
   void initState() {
@@ -106,48 +54,15 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     }
   }
 
-  @override
-  void reassemble() {
-    super.reassemble();
-    if (_allLedgers.isNotEmpty &&
-        _allLedgers.first.runtimeType.toString() == '_LedgerAccount') {
-      _allLedgers
-        ..clear()
-        ..addAll(_seedLedgers);
-      setState(() {});
-    }
-  }
-
-  List<LedgerAccountModel> get _visibleLedgers {
-    final String query = _searchController.text.trim().toLowerCase();
-    return _allLedgers.where((ledger) {
-      final matchesQuery =
-          query.isEmpty || ledger.name.toLowerCase().contains(query);
-      final matchesType =
-          _selectedType == null || _selectedType == 'All Types'
-              ? true
-              : ledger.type == _selectedType;
-      return matchesQuery && matchesType;
-    }).toList();
-  }
-
   void _clearFilters() {
-    setState(() {
-      _searchController.clear();
-      _selectedType = null;
-    });
+    _searchController.clear();
+    _cubit.clearFilters();
   }
 
   void _handleLedgerCreated() {
-    final LedgerAccountModel? newLedger =
-        widget.ledgerCreationNotifier?.value;
-    if (newLedger == null) {
-      return;
-    }
-
-    setState(() {
-      _allLedgers.insert(0, newLedger);
-    });
+    final LedgerAccountModel? newLedger = widget.ledgerCreationNotifier?.value;
+    if (newLedger == null) return;
+    _cubit.addLedger(newLedger);
     widget.ledgerCreationNotifier?.value = null;
   }
 
@@ -157,16 +72,8 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
         builder: (_) => EditLedgerScreen(ledger: ledger),
       ),
     );
-
     if (updatedLedger == null) return;
-
-    final int index =
-        _allLedgers.indexWhere((element) => element.id == updatedLedger.id);
-    if (index == -1) return;
-
-    setState(() {
-      _allLedgers[index] = updatedLedger;
-    });
+    _cubit.updateLedger(updatedLedger);
   }
 
   void _handleUnavailableAction(String actionLabel) {
@@ -182,15 +89,20 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   void dispose() {
     widget.ledgerCreationNotifier?.removeListener(_handleLedgerCreated);
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final ledgers = _visibleLedgers;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+    return BlocProvider<GeneralLedgerCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<GeneralLedgerCubit, GeneralLedgerState>(
+        builder: (context, state) {
+          final ledgers = state.visibleLedgers;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
         CustomSectionCard(
           margin: const EdgeInsets.only(bottom: 12),
           child: Column(
@@ -201,7 +113,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                     child: CustomSearchBar(
                       controller: _searchController,
                       hintText: 'Search Ledger',
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (value) => _cubit.setSearchQuery(value),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -214,9 +126,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                 items: _ledgerTypes,
                 selectedItem: _selectedType ?? _ledgerTypes.first,
                 onSelect: (value) {
-                  setState(() {
-                    _selectedType = value == _ledgerTypes.first ? null : value;
-                  });
+                  _cubit.setType(value == _ledgerTypes.first ? null : value);
                 },
               ),
             ],
@@ -259,7 +169,10 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
               onDelete: () => _handleUnavailableAction('Delete ledger'),
             ),
           ),
-      ],
+            ],
+          );
+        },
+      ),
     );
   }
 }

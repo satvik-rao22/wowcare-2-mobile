@@ -14,9 +14,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -436,16 +434,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     await _loadTodayStatus();
 
-    final apiClient = serviceLocator<ApiClient>().client;
-    final profileEndpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceProfile,
-      ApiConstants.attendanceBaseUrl,
-    );
-    final absentEndpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceProfileAbsentToggle,
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
@@ -465,25 +453,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       allowedClassroomCodes,
     );
 
-    debugPrint(
-      'StaffAttendanceProfile API → GET $profileEndpoint '
-      'query=$queryParameters',
-    );
-
     try {
       // ---------- Load staff attendance profile (present days / summary) ----------
-      final profileResponse = await apiClient.get<dynamic>(
-        profileEndpoint,
-        queryParameters: queryParameters,
-        options: attendanceListQueryOptions,
-      );
-
-      debugPrint(
-        'StaffAttendanceProfile API ← status=${profileResponse.statusCode} '
-        'data=${profileResponse.data}',
-      );
-
-      final data = profileResponse.data;
+      final data = await serviceLocator<AttendanceRepository>()
+          .fetchStaffAttendanceProfile(queryParameters: queryParameters);
       if (data is Map<String, dynamic>) {
         final root = data['data'] as Map<String, dynamic>? ?? {};
         final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
@@ -592,23 +565,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         allowedClassroomCodes,
       );
 
-      debugPrint(
-        'StaffAttendanceProfileAbsentToggle API → GET $absentEndpoint '
-        'query=$absentQueryParameters',
-      );
-
-      final absentResponse = await apiClient.get<dynamic>(
-        absentEndpoint,
+      final absentData = await serviceLocator<AttendanceRepository>()
+          .fetchStaffAttendanceProfileAbsentToggle(
         queryParameters: absentQueryParameters,
-        options: attendanceListQueryOptions,
       );
-
-      debugPrint(
-        'StaffAttendanceProfileAbsentToggle API ← status=${absentResponse.statusCode} '
-        'data=${absentResponse.data}',
-      );
-
-      final absentData = absentResponse.data;
       if (absentData is Map<String, dynamic>) {
         final root = absentData['data'] as Map<String, dynamic>? ?? {};
         final agg = root['aggregations'] as Map<String, dynamic>? ?? {};

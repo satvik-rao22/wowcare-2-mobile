@@ -3,8 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
-import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 // The following imports depend on backend/bloc not available now. Keeping commented.
@@ -250,7 +250,7 @@ class _StudentDetailsDialog extends StatefulWidget {
 }
 
 class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
-  StudentHealthModel? _health;
+  StudentHealth? _health;
   bool _loading = true;
   bool _needsHealth = false;
 
@@ -300,8 +300,8 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
   Future<void> _fetchHealth() async {
     final code = widget.studentCode.trim();
     try {
-      final remote = serviceLocator<StudentRemoteDataSource>();
-      final result = await remote.getStudentHealth(code: code);
+      final result = await serviceLocator<StudentRepository>()
+          .getStudentHealth(studentCode: code);
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: DateTime.now(),
         health: result,
@@ -453,16 +453,16 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
 class _HealthCacheEntry {
   const _HealthCacheEntry({required this.fetchedAt, required this.health});
   final DateTime fetchedAt;
-  final StudentHealthModel health;
+  final StudentHealth health;
 }
 
 const Duration _healthCacheTtl = Duration(minutes: 10);
 final Map<String, _HealthCacheEntry> _healthCache =
     <String, _HealthCacheEntry>{};
-final Map<String, Future<StudentHealthModel?>> _healthInflight =
-    <String, Future<StudentHealthModel?>>{};
+final Map<String, Future<StudentHealth?>> _healthInflight =
+    <String, Future<StudentHealth?>>{};
 
-StudentHealthModel? _cachedHealthIfFresh(String studentCode) {
+StudentHealth? _cachedHealthIfFresh(String studentCode) {
   final entry = _healthCache[studentCode];
   if (entry == null) return null;
   if (DateTime.now().difference(entry.fetchedAt) > _healthCacheTtl) {
@@ -490,8 +490,8 @@ Future<void> prefetchStudentDetailsHealth(String studentCode) async {
 
   final future = () async {
     try {
-      final remote = serviceLocator<StudentRemoteDataSource>();
-      final result = await remote.getStudentHealth(code: code);
+      final result = await serviceLocator<StudentRepository>()
+          .getStudentHealth(studentCode: code);
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: DateTime.now(),
         health: result,

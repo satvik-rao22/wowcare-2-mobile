@@ -21,20 +21,29 @@ class StudentAbsentReportScreen extends StatefulWidget {
 }
 
 class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
-  late DateTime _fromDate;
-  late DateTime _toDate;
-  List<String> _selectedClassrooms = <String>[];
+  late final ValueNotifier<DateTime> _fromDate;
+  late final ValueNotifier<DateTime> _toDate;
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _fromDate = DateTime(now.year, now.month, 1);
-    _toDate = DateTime(now.year, now.month + 1, 0);
+    _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
+    _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
+  }
+
+  @override
+  void dispose() {
+    _fromDate.dispose();
+    _toDate.dispose();
+    _selectedClassrooms.dispose();
+    super.dispose();
   }
 
   void _onGenerate() {
-    if (_toDate.isBefore(_fromDate)) {
+    if (_toDate.value.isBefore(_fromDate.value)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'To date cannot be before From date',
@@ -61,27 +70,36 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ReportFieldLabel(label: 'From'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _fromDate,
-            onDateSelected: (d) => setState(() => _fromDate = d),
+          ValueListenableBuilder<DateTime>(
+            valueListenable: _fromDate,
+            builder: (_, date, __) => CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: date,
+              onDateSelected: (d) => _fromDate.value = d,
+            ),
           ),
           SizedBox(height: responsive.verticalSpacing),
           const ReportFieldLabel(label: 'To'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _toDate,
-            onDateSelected: (d) => setState(() => _toDate = d),
+          ValueListenableBuilder<DateTime>(
+            valueListenable: _toDate,
+            builder: (_, date, __) => CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: date,
+              onDateSelected: (d) => _toDate.value = d,
+            ),
           ),
           SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
+          ValueListenableBuilder<List<String>>(
+            valueListenable: _selectedClassrooms,
+            builder: (_, selected, __) => CustomMultiSelectDropdown(
+              label: 'Classroom',
+              hintText: 'Select Classroom',
+              items: widget.classrooms,
+              selectedItems: selected,
+              onChanged: (s) => _selectedClassrooms.value = s,
+            ),
           ),
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',

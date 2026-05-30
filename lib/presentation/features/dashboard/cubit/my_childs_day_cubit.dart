@@ -6,7 +6,6 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 
@@ -63,20 +62,18 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
       final todayRange = (profile.scheduleByDay[todayKey] ?? '').trim();
 
       var guardianClockPin = '';
-      final repo = _studentRepository;
-      if (repo is StudentRepositoryImpl) {
-        try {
-          final guardians = await repo.getStudentGuardians(studentCode: code);
-          final primary = guardians.where((g) => g.primaryContact).firstOrNull;
-          final withPin = guardians
-              .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
-              .toList();
-          guardianClockPin =
-              (primary?.clockPin ?? (withPin.firstOrNull?.clockPin ?? ''))
-                  .trim();
-        } catch (_) {
-          // Non-blocking: pin is optional for dashboard display.
-        }
+      try {
+        final guardians =
+            await _studentRepository.getStudentGuardians(studentCode: code);
+        final primary = guardians.where((g) => g.primaryContact).firstOrNull;
+        final withPin = guardians
+            .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
+            .toList();
+        guardianClockPin =
+            (primary?.clockPin ?? (withPin.firstOrNull?.clockPin ?? ''))
+                .trim();
+      } catch (_) {
+        // Non-blocking: pin is optional for dashboard display.
       }
 
       emit(

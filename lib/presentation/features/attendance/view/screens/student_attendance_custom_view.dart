@@ -17,10 +17,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
-import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
@@ -71,14 +68,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
       _cubit = serviceLocator<StudentAttendanceCustomCubit>();
     } else {
-      final apiClient = serviceLocator<ApiClient>();
-      final storageService = serviceLocator<StorageService>();
-      final remote = AttendanceRemoteDataSourceImpl(apiClient.client);
-      final repo = AttendanceRepositoryImpl(
-        remote,
-        storageService,
-        apiClient,
-      );
+      final repo = serviceLocator<AttendanceRepository>();
       _cubit = StudentAttendanceCustomCubit(
         getStudentAttendanceCustomUseCase:
             GetStudentAttendanceCustomUseCase(repo),

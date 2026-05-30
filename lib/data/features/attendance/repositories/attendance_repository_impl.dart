@@ -3,6 +3,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../domain/features/attendance/entities/attendance_action_result.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
@@ -1461,6 +1462,170 @@ class AttendanceRepositoryImpl
       allowedClassroomCodes: allowed,
     );
   }
+
+  /// Parses a raw attendance-mutation response into an [AttendanceActionResult].
+  AttendanceActionResult _attendanceActionResult(
+    Map<String, dynamic>? data, {
+    required String defaultMessage,
+  }) {
+    var success = false;
+    var message = defaultMessage;
+    if (data != null) {
+      success = data['success'] as bool? ?? false;
+      if (data['message'] != null) {
+        message = data['message'].toString();
+      }
+    }
+    return AttendanceActionResult(success: success, message: message);
+  }
+
+  @override
+  Future<AttendanceActionResult> submitStudentSignIn({
+    required Map<String, dynamic> payload,
+    required bool isParent,
+  }) async {
+    final body = Map<String, dynamic>.from(payload);
+    Map<String, dynamic>? queryParameters;
+    if (isParent) {
+      final g = body.remove('guardianCode');
+      if (g != null && g.toString().trim().isNotEmpty) {
+        queryParameters = {'guardianCode': g.toString().trim()};
+      }
+    }
+    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    final data = await _remoteDataSource.postStudentSignIn(
+      body: body,
+      queryParameters: queryParameters,
+      isParent: isParent,
+    );
+    return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
+  }
+
+  @override
+  Future<AttendanceActionResult> submitStudentSignOut({
+    required Map<String, dynamic> payload,
+    required bool isParent,
+  }) async {
+    final body = Map<String, dynamic>.from(payload);
+    Map<String, dynamic>? queryParameters;
+    if (isParent) {
+      final g = body.remove('guardianCode');
+      if (g != null && g.toString().trim().isNotEmpty) {
+        queryParameters = {'guardianCode': g.toString().trim()};
+      }
+    }
+    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    final data = await _remoteDataSource.postStudentSignOut(
+      body: body,
+      queryParameters: queryParameters,
+      isParent: isParent,
+    );
+    return _attendanceActionResult(
+      data,
+      defaultMessage: 'Signed-Out successfully',
+    );
+  }
+
+  @override
+  Future<AttendanceActionResult> submitStudentTransfer({
+    required Map<String, dynamic> payload,
+  }) async {
+    final body = Map<String, dynamic>.from(payload);
+    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    final data = await _remoteDataSource.postStudentTransfer(body: body);
+    return _attendanceActionResult(data, defaultMessage: 'Transfer successfully');
+  }
+
+  @override
+  Future<AttendanceActionResult> submitStaffSignIn({
+    required Map<String, dynamic> payload,
+    required bool isSelf,
+  }) async {
+    final body = Map<String, dynamic>.from(payload);
+    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    final data = await _remoteDataSource.postStaffSignIn(
+      body: body,
+      isSelf: isSelf,
+    );
+    return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
+  }
+
+  @override
+  Future<AttendanceActionResult> submitStaffSignOut({
+    required Map<String, dynamic> payload,
+  }) async {
+    final body = Map<String, dynamic>.from(payload);
+    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    final data = await _remoteDataSource.postStaffSignOut(body: body);
+    return _attendanceActionResult(
+      data,
+      defaultMessage: 'Signed-Out successfully',
+    );
+  }
+
+  @override
+  Future<AttendanceActionResult> submitStaffTransfer({
+    required Map<String, dynamic> payload,
+  }) async {
+    final body = Map<String, dynamic>.from(payload);
+    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    final data = await _remoteDataSource.postStaffTransfer(body: body);
+    return _attendanceActionResult(
+      data,
+      defaultMessage: 'Transferred successfully',
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> updateStaffAttendanceDailyRecord({
+    required String attendanceCode,
+    required Map<String, dynamic> body,
+  }) {
+    return _remoteDataSource.patchStaffAttendanceDailyRecord(
+      rowCode: attendanceCode,
+      body: body,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchStudentAttendanceProfile({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _remoteDataSource.getStudentAttendanceProfileRaw(
+        queryParameters: queryParameters,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _remoteDataSource.getStudentAttendanceProfileAbsentToggleRaw(
+        queryParameters: queryParameters,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> fetchStaffAttendanceProfile({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _remoteDataSource.getStaffAttendanceProfileRaw(
+        queryParameters: queryParameters,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
+        queryParameters: queryParameters,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _remoteDataSource.getStudentAttendanceAbsentViewRaw(
+        queryParameters: queryParameters,
+      );
 
   @override
   Future<QrValidationResult> validateQrCode({

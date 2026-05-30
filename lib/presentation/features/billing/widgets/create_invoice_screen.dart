@@ -38,7 +38,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   DateTime? _serviceStartDate;
   DateTime? _serviceEndDate;
 
-  bool _isSubmitting = false;
+  final ValueNotifier<bool> _isSubmitting = ValueNotifier<bool>(false);
   bool _isFormLocked = false;
 
   final List<String> _firstItemTypeOptions = ['New Item', 'Preset Item'];
@@ -58,6 +58,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   @override
   void dispose() {
     _internalNoteController.dispose();
+    _isSubmitting.dispose();
     for (final item in _invoiceItems) {
       item.dispose();
     }
@@ -244,7 +245,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _handleSubmit() {
-    if (_isSubmitting) return;
+    if (_isSubmitting.value) return;
     if (!_validateRequiredFields()) {
       return;
     }
@@ -271,10 +272,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       'serviceDateEnd': _serviceEndDate,
     };
 
-    setState(() => _isSubmitting = true);
+    _isSubmitting.value = true;
     Future<void>.delayed(const Duration(milliseconds: 150), () {
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
+      _isSubmitting.value = false;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -403,19 +404,25 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? AppColors.billingButtonDisabled : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : _handleSubmit,
-              child: Text(
-                'Save Invoice (UI Only)',
-                style: AppTextStyles.button(color: AppColors.billingCardColor).copyWith(
-                  fontSize: responsive.buttonFontSize,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _isSubmitting,
+            builder: (context, isSubmitting, _) => Container(
+              height: responsive.buttonHeight,
+              decoration: BoxDecoration(
+                gradient:
+                    isSubmitting ? null : AppColors.buildPrimaryGradient(),
+                color: isSubmitting ? AppColors.billingButtonDisabled : null,
+                borderRadius:
+                    BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+              ),
+              child: TextButton(
+                onPressed: isSubmitting ? null : _handleSubmit,
+                child: Text(
+                  'Save Invoice (UI Only)',
+                  style: AppTextStyles.button(color: AppColors.billingCardColor)
+                      .copyWith(
+                    fontSize: responsive.buttonFontSize,
+                  ),
                 ),
               ),
             ),

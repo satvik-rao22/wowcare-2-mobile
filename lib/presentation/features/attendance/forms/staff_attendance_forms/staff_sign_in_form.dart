@@ -11,9 +11,7 @@ import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -287,13 +285,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
-    // Default: admin-style sign-in (can sign in other staff).
-    // Teachers: will switch to self-sign-in endpoint below.
-    String endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsSignIn,
-      ApiConstants.attendanceBaseUrl,
-    );
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -414,10 +405,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     late final Map<String, dynamic> payload;
     if (!isStaffAdmin) {
       // Self sign-in for teacher persona.
-      endpoint = ApiPaths.urlWithBase(
-        ApiPaths.staffAttendanceRecordsSignInSelf,
-        ApiConstants.attendanceBaseUrl,
-      );
       payload = <String, dynamic>{
         'staffCode': staffCode,
         'method': 'APP',
@@ -464,23 +451,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(endpoint, data: body);
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Signed-In successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStaffSignIn(payload: payload, isSelf: !isStaffAdmin);
+      final success = result.success;
+      final message = result.message;
 
       if (!mounted) return;
 

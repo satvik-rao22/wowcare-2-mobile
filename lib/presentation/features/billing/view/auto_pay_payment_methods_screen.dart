@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_new_method_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -17,33 +19,33 @@ class AutoPayPaymentMethodsScreen extends StatefulWidget {
 }
 
 class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScreen> {
-  bool _isAutoPayEnabled = true;
-  bool _isSaving = false;
-  bool _isLoadingSavedPaymentMethods = false;
-  bool _hasErrorLoadingPaymentMethods = false;
-  String? _selectedMethod = 'echeck';
-  String? _initialSelectedMethod = 'echeck';
-  bool _initialAutoPayEnabled = true;
-  SavedCardData? _savedCardData = const SavedCardData(
-    nameOnCard: 'Emma Johnson',
-    last4: '3456',
-    expireMonth: 10,
-    expireYear: 2028,
-    cardType: 'visa',
-  );
-  SavedEcheckData? _savedEcheckData = const SavedEcheckData(
-    accountHolder: 'Emma Johnson',
-    routingNumber: '123456789',
-    last4: '9876',
-    accountType: 'checking',
-  );
+  late final AutoPayMethodsCubit _cubit = AutoPayMethodsCubit();
+
+  // Read-only proxies so the (large) build helpers keep their existing field
+  // reads while the cubit owns the data.
+  bool get _isAutoPayEnabled => _cubit.state.isAutoPayEnabled;
+  bool get _isSaving => _cubit.state.isSaving;
+  bool get _isLoadingSavedPaymentMethods =>
+      _cubit.state.isLoadingSavedPaymentMethods;
+  bool get _hasErrorLoadingPaymentMethods =>
+      _cubit.state.hasErrorLoadingPaymentMethods;
+  String? get _selectedMethod => _cubit.state.selectedMethod;
+  SavedCardData? get _savedCardData => _cubit.state.savedCardData;
+  SavedEcheckData? get _savedEcheckData => _cubit.state.savedEcheckData;
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final hasSelection = !_isAutoPayEnabled || _selectedMethod != null;
-    final hasChanges = (_isAutoPayEnabled != _initialAutoPayEnabled) ||
-        (_selectedMethod != _initialSelectedMethod);
-    final canSave = !_isSaving && hasSelection && hasChanges;
+    return BlocProvider<AutoPayMethodsCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<AutoPayMethodsCubit, AutoPayMethodsState>(
+        builder: (context, state) {
+    final canSave = state.canSave;
 
     return StaffFormLayout(
       title: 'Auto Payment',
@@ -97,6 +99,9 @@ class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScree
         ),
       ),
     );
+        },
+      ),
+    );
   }
 
   Widget _buildAutoPayToggle() {
@@ -128,14 +133,7 @@ class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScree
           CustomToggle(
             label: '',
             isToggled: _isAutoPayEnabled,
-            onToggle: (value) {
-              setState(() {
-                final wasEnabled = _isAutoPayEnabled;
-                _isAutoPayEnabled = value;
-                if (value && !_initialAutoPayEnabled) _selectedMethod = null;
-                if (!value && wasEnabled) _selectedMethod = null;
-              });
-            },
+            onToggle: (value) => _cubit.toggleAutoPay(value),
           ),
           const SizedBox(width: 12),
           Container(
@@ -214,7 +212,7 @@ class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScree
               value: 'card',
               isSelected: _selectedMethod == 'card' && _isAutoPayEnabled,
               isDisabled: !_isAutoPayEnabled,
-              onTap: () => setState(() => _selectedMethod = 'card'),
+              onTap: () => _cubit.selectMethod('card'),
               child: _buildCreditCard(_savedCardData!),
             ),
           if (_savedEcheckData != null)
@@ -223,7 +221,7 @@ class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScree
               value: 'echeck',
               isSelected: _selectedMethod == 'echeck' && _isAutoPayEnabled,
               isDisabled: !_isAutoPayEnabled,
-              onTap: () => setState(() => _selectedMethod = 'echeck'),
+              onTap: () => _cubit.selectMethod('echeck'),
               child: _buildEcheckCard(_savedEcheckData!),
             ),
           _buildNewPaymentMethodTile(),
@@ -617,10 +615,8 @@ class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScree
 
   Future<void> _handleSave() async {
     if (_isSaving) return;
-    setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await _cubit.save();
     if (!mounted) return;
-    setState(() => _isSaving = false);
     CoreUtils.showTopSnackBar(
       context: context,
       message: 'Auto Pay settings saved',
@@ -630,49 +626,12 @@ class _AutoPayPaymentMethodsScreenState extends State<AutoPayPaymentMethodsScree
   }
 
   Future<void> _openNewPaymentMethodScreen() async {
-    setState(() => _selectedMethod = 'new');
+    _cubit.selectMethod('new');
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const AutoPayNewMethodScreen(),
       ),
     );
-  }
-}
-
-class SavedCardData {
-  const SavedCardData({
-    required this.nameOnCard,
-    required this.last4,
-    required this.expireMonth,
-    required this.expireYear,
-    required this.cardType,
-  });
-
-  final String nameOnCard;
-  final String last4;
-  final int expireMonth;
-  final int expireYear;
-  final String cardType;
-}
-
-class SavedEcheckData {
-  const SavedEcheckData({
-    required this.accountHolder,
-    required this.routingNumber,
-    required this.last4,
-    required this.accountType,
-  });
-
-  final String accountHolder;
-  final String routingNumber;
-  final String last4;
-  final String accountType;
-
-  String get accountTypeLabel {
-    final lower = accountType.toLowerCase();
-    if (lower == 'c' || lower.contains('checking')) return 'Checking';
-    if (lower == 's' || lower.contains('saving')) return 'Savings';
-    return accountType;
   }
 }
 

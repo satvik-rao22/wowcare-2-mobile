@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
+import 'package:wowcare/presentation/features/billing/cubit/subsidies_cubit.dart';
 
 import '../../../../../app/theme/colors.dart';
 import '../../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';

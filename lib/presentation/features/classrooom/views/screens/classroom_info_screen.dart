@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -22,10 +21,9 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -227,30 +225,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    final path = '/api/v1/student-classroom/enrolled-count/$code';
-    final endpoint = ApiPaths.url(path);
-    final dio = serviceLocator<ApiClient>().client;
-
-    final response = await dio.get<dynamic>(
-      endpoint,
-      options: Options(
-        headers: <String, dynamic>{
-          'accept': 'application/json',
-          if (orgCode.isNotEmpty) ...{
-            'X-Organization-Code': orgCode,
-            'x-organization-code': orgCode,
-            'organizationCode': orgCode,
-          },
-          if (schoolCode.isNotEmpty) ...{
-            'X-School-Code': schoolCode,
-            'x-school-code': schoolCode,
-            'schoolCode': schoolCode,
-          },
-        },
-      ),
+    final body = await serviceLocator<ClassroomRepository>()
+        .getStudentClassroomEnrolledCount(
+      classroomCode: code,
+      organizationCode: orgCode,
+      schoolCode: schoolCode,
     );
-
-    final body = response.data;
     if (body is! Map<String, dynamic>) return;
     final data = body['data'];
     if (data is! Map) return;
@@ -348,17 +328,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _isLogoLoading = true;
       });
 
-      final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
-      final dio = serviceLocator<ApiClient>().client;
-      final response = await dio.get<dynamic>(
-        endpoint,
-        queryParameters: <String, dynamic>{
-          'classroomCode': code,
-          'schoolCode': schoolCode,
-        },
-      );
-
-      final body = response.data;
+      final body = await serviceLocator<ClassroomRepository>()
+          .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
       if (body is! Map<String, dynamic> || body['success'] == false) {
         return;
       }
@@ -520,27 +491,19 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _isLogoLoading = true;
       });
 
-      final dio = serviceLocator<ApiClient>().client;
       final uploadService = serviceLocator<ImageUploadService>();
 
-      final uploadSessionEndpoint =
-          ApiPaths.url(ApiPaths.classroomLogoUploadSessionPath(classroomCode));
-      final sessionResponse = await dio.post<dynamic>(
-        uploadSessionEndpoint,
-        queryParameters: <String, dynamic>{
-          'organizationCode': organizationCode,
-          'schoolCode': schoolCode,
-        },
+      final sessionBody = await serviceLocator<ClassroomRepository>()
+          .createClassroomLogoUploadSession(
+        classroomCode: classroomCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
       );
-      final sessionBody = sessionResponse.data;
-      if (sessionBody is! Map<String, dynamic> || sessionBody['success'] == false) {
+      if (sessionBody is! Map<String, dynamic> ||
+          sessionBody['success'] == false) {
+        final msg = (sessionBody?['message'] ?? '').toString().trim();
         throw Exception(
-          (sessionBody is Map ? (sessionBody['message'] ?? '') : '')
-              .toString()
-              .trim()
-              .isNotEmpty
-              ? (sessionBody['message'] ?? '').toString().trim()
-              : 'Unable to create upload session',
+          msg.isNotEmpty ? msg : 'Unable to create upload session',
         );
       }
       final sessionData = sessionBody['data'];
@@ -589,21 +552,16 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         expectedAssetCodes: <String>[presign.assetCode],
       );
 
-      final finalizeEndpoint =
-          ApiPaths.url(ApiPaths.classroomLogoFinalizePath(classroomCode));
-      final finalizeResponse = await dio.post<dynamic>(
-        finalizeEndpoint,
-        data: <String, dynamic>{'assetCode': presign.assetCode.trim()},
+      final finalizeBody = await serviceLocator<ClassroomRepository>()
+          .finalizeClassroomLogo(
+        classroomCode: classroomCode,
+        assetCode: presign.assetCode.trim(),
       );
-      final finalizeBody = finalizeResponse.data;
-      if (finalizeBody is! Map<String, dynamic> || finalizeBody['success'] == false) {
+      if (finalizeBody is! Map<String, dynamic> ||
+          finalizeBody['success'] == false) {
+        final msg = (finalizeBody?['message'] ?? '').toString().trim();
         throw Exception(
-          (finalizeBody is Map ? (finalizeBody['message'] ?? '') : '')
-              .toString()
-              .trim()
-              .isNotEmpty
-              ? (finalizeBody['message'] ?? '').toString().trim()
-              : 'Unable to finalize classroom logo',
+          msg.isNotEmpty ? msg : 'Unable to finalize classroom logo',
         );
       }
       final finalizeData = finalizeBody['data'];

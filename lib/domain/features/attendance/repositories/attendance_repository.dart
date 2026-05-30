@@ -1,3 +1,4 @@
+import '../entities/attendance_action_result.dart';
 import '../entities/student_attendance_daily.dart';
 import '../entities/student_attendance_custom.dart';
 import '../entities/staff_attendance_daily.dart';
@@ -331,6 +332,84 @@ abstract class AttendanceRepository {
     required String schoolCode,
     required String qrToken,
     required String useCase,
+  });
+
+  // --- Attendance mutations submitted from forms ---
+  //
+  // Each method takes the request payload the form assembled, applies the
+  // allowed-classroom scope, performs the HTTP call via the data layer, and
+  // returns the backend success/message. The presentation layer no longer
+  // touches ApiClient directly.
+
+  /// Submits a student sign-in (parent or staff variant).
+  Future<AttendanceActionResult> submitStudentSignIn({
+    required Map<String, dynamic> payload,
+    required bool isParent,
+  });
+
+  /// Submits a student sign-out (parent or staff variant).
+  Future<AttendanceActionResult> submitStudentSignOut({
+    required Map<String, dynamic> payload,
+    required bool isParent,
+  });
+
+  /// Submits a student classroom transfer.
+  Future<AttendanceActionResult> submitStudentTransfer({
+    required Map<String, dynamic> payload,
+  });
+
+  /// Submits a staff sign-in (admin bulk or teacher-self variant).
+  Future<AttendanceActionResult> submitStaffSignIn({
+    required Map<String, dynamic> payload,
+    required bool isSelf,
+  });
+
+  /// Submits a staff sign-out.
+  Future<AttendanceActionResult> submitStaffSignOut({
+    required Map<String, dynamic> payload,
+  });
+
+  /// Submits a staff classroom transfer.
+  Future<AttendanceActionResult> submitStaffTransfer({
+    required Map<String, dynamic> payload,
+  });
+
+  /// Patches a staff daily attendance record by its row code.
+  Future<Map<String, dynamic>?> updateStaffAttendanceDailyRecord({
+    required String attendanceCode,
+    required Map<String, dynamic> body,
+  });
+
+  // --- Attendance profile / absent reads (raw response maps) ---
+  //
+  // These return the raw backend JSON object so existing screen-level parsing
+  // is preserved; the presentation layer no longer touches ApiClient. The
+  // [queryParameters] are assembled by the caller (including date range,
+  // paging and allowed-classroom scope).
+
+  /// GET student attendance profile (present-day summary + records).
+  Future<Map<String, dynamic>?> fetchStudentAttendanceProfile({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET student attendance profile absent-toggle list.
+  Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET staff attendance profile (present-day summary + records).
+  Future<Map<String, dynamic>?> fetchStaffAttendanceProfile({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET staff attendance profile absent-toggle list.
+  Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET student absent view list (paginated, filterable).
+  Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
+    required Map<String, dynamic> queryParameters,
   });
 }
 

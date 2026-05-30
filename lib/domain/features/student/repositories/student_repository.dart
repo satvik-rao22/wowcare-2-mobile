@@ -1,5 +1,6 @@
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
+import '../entities/student_guardian.dart';
 import '../entities/student_health.dart';
 import '../entities/student_immunization.dart';
 import '../entities/student_important_dates.dart';
@@ -371,6 +372,16 @@ abstract class StudentRepository {
     required DateTime examDate,
     required String status,
     String? notes,
+  });
+
+  // --- Guardians ---
+
+  /// Fetches a student's guardians/parents.
+  ///
+  /// [forceRefresh] bypasses the local cache and re-fetches from the network.
+  Future<List<StudentGuardian>> getStudentGuardians({
+    required String studentCode,
+    bool forceRefresh = false,
   });
 }
 

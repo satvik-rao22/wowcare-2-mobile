@@ -3,9 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -215,9 +214,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     };
 
     try {
-      final apiClient = serviceLocator<ApiClient>();
       await _patchStaffAttendanceRecord(
-        apiClient: apiClient,
         attendanceCode: attendanceCode,
         body: payload,
       );
@@ -256,17 +253,13 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   Future<void> _patchStaffAttendanceRecord({
-    required ApiClient apiClient,
     required String attendanceCode,
     required Map<String, dynamic> body,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceDailyRecordByRowCode(attendanceCode),
-      ApiConstants.attendanceBaseUrl,
-    );
-    await apiClient.client.patch<Map<String, dynamic>>(
-      endpoint,
-      data: body,
+    await serviceLocator<AttendanceRepository>()
+        .updateStaffAttendanceDailyRecord(
+      attendanceCode: attendanceCode,
+      body: body,
     );
   }
 

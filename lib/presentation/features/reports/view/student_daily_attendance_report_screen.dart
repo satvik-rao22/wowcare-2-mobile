@@ -22,13 +22,15 @@ class StudentDailyAttendanceReportScreen extends StatefulWidget {
 
 class _StudentDailyAttendanceReportScreenState
     extends State<StudentDailyAttendanceReportScreen> {
-  late DateTime _date;
-  List<String> _selectedClassrooms = <String>[];
+  final ValueNotifier<DateTime> _date = ValueNotifier<DateTime>(DateTime.now());
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
 
   @override
-  void initState() {
-    super.initState();
-    _date = DateTime.now();
+  void dispose() {
+    _date.dispose();
+    _selectedClassrooms.dispose();
+    super.dispose();
   }
 
   void _onGenerate() {
@@ -51,19 +53,25 @@ class _StudentDailyAttendanceReportScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ReportFieldLabel(label: 'Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _date,
-            onDateSelected: (d) => setState(() => _date = d),
+          ValueListenableBuilder<DateTime>(
+            valueListenable: _date,
+            builder: (_, date, __) => CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: date,
+              onDateSelected: (d) => _date.value = d,
+            ),
           ),
           SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
+          ValueListenableBuilder<List<String>>(
+            valueListenable: _selectedClassrooms,
+            builder: (_, selected, __) => CustomMultiSelectDropdown(
+              label: 'Classroom',
+              hintText: 'Select Classroom',
+              items: widget.classrooms,
+              selectedItems: selected,
+              onChanged: (s) => _selectedClassrooms.value = s,
+            ),
           ),
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
