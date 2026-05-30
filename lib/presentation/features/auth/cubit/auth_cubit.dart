@@ -16,8 +16,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 part 'auth_state.dart';
 
@@ -341,8 +341,8 @@ class AuthCubit extends Cubit<AuthState> {
           if (hasGuardian) {
             final navCtx = CoreUtils.rootNavigatorKey.currentContext;
             if (navCtx != null && navCtx.mounted) {
-              navCtx.read<ParentChildProvider>().invalidate();
-              await navCtx.read<ParentChildProvider>().ensureLoaded(force: true);
+              navCtx.read<ParentChildCubit>().invalidate();
+              await navCtx.read<ParentChildCubit>().ensureLoaded(force: true);
             }
           }
         } catch (_) {
@@ -538,10 +538,10 @@ class AuthCubit extends Cubit<AuthState> {
       final navCtx = CoreUtils.rootNavigatorKey.currentContext;
       if (navCtx != null && navCtx.mounted) {
         try {
-          navCtx.read<ParentChildProvider>().invalidate();
+          navCtx.read<ParentChildCubit>().invalidate();
         } catch (_) {}
         try {
-          navCtx.read<RoleProvider>().resetSessionForLogout();
+          navCtx.read<RoleCubit>().resetSessionForLogout();
         } catch (_) {}
       }
       emit(const AuthInitial());
@@ -554,10 +554,10 @@ class AuthCubit extends Cubit<AuthState> {
       final navCtx = CoreUtils.rootNavigatorKey.currentContext;
       if (navCtx != null && navCtx.mounted) {
         try {
-          navCtx.read<ParentChildProvider>().invalidate();
+          navCtx.read<ParentChildCubit>().invalidate();
         } catch (_) {}
         try {
-          navCtx.read<RoleProvider>().resetSessionForLogout();
+          navCtx.read<RoleCubit>().resetSessionForLogout();
         } catch (_) {}
       }
       emit(const AuthInitial());

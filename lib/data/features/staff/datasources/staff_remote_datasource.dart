@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -762,12 +763,12 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
           status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
       final isCompleted = status == 'COMPLETED';
 
-      print(
+      AppLogger.d(
         '[ImportantDates DS Guard] staffCode=$staffCode status=$status dueDate=$dueDate today=$today picked=$picked',
       );
 
       if (isDueOrScheduled && picked.isBefore(today)) {
-        print(
+        AppLogger.d(
           '[ImportantDates DS Guard] BLOCK: Due/Scheduled picked date is before today.',
         );
         throw Exception(
@@ -775,7 +776,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
         );
       }
       if (isCompleted && picked.isAfter(today)) {
-        print(
+        AppLogger.d(
           '[ImportantDates DS Guard] BLOCK: Completed picked date is after today.',
         );
         throw Exception(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,8 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
@@ -79,7 +80,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late List<String> _profileTags;
   late List<String> _profileSchedule;
   late Map<String, dynamic> _profileSibling;
-  ParentChildProvider? _parentChildProvider;
+  ParentChildCubit? _parentChildProvider;
+  StreamSubscription<ParentChildState>? _parentChildSub;
   String? _profilePhotoUrl;
   String? _schoolCode;
   String? _organizationCode;
@@ -291,9 +293,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
       return;
     }
-    final p = context.read<ParentChildProvider>();
+    final p = context.read<ParentChildCubit>();
     _parentChildProvider = p;
-    p.addListener(_onParentChildSelectionChanged);
+    _parentChildSub = p.stream.listen((_) => _onParentChildSelectionChanged());
   }
 
   void _onParentChildSelectionChanged() {
@@ -319,7 +321,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   @override
   void dispose() {
-    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
+    _parentChildSub?.cancel();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -329,7 +331,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Future<void> _pickProfileImage() async {
-    final role = context.read<RoleProvider>();
+    final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
@@ -494,7 +496,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Widget _buildScreen(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canChangePhoto =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
@@ -596,7 +598,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentProfileCard(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     bool canChangePhoto,
   ) {
     return Card(
@@ -851,7 +853,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentActionButtons(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
   ) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -997,7 +999,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildActionIcon(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     String asset, {
     required VoidCallback onTap,
     required bool enabled,

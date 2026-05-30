@@ -8,7 +8,7 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
-    final roleProvider = context.watch<RoleProvider>();
+    final roleProvider = context.watch<RoleCubit>();
     final isParent = roleProvider.isParent;
 
     final showParentAttendance = roleProvider.canOpenModule(

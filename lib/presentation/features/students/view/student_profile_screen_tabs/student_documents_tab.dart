@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -119,7 +119,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   Future<void> _handleEdit(BuildContext context, StudentDocument doc) async {
-    final role = context.read<RoleProvider>();
+    final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
@@ -163,7 +163,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   Future<void> _handleDelete(BuildContext context, StudentDocument doc) async {
-    final role = context.read<RoleProvider>();
+    final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
@@ -263,7 +263,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {

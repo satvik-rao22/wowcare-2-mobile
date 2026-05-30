@@ -4,7 +4,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -101,7 +100,7 @@ class _EditStudentPhysicalExamScreenState
 
     setState(() => _isSaving = true);
     try {
-      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final repo = serviceLocator<StudentRepository>();
 
       // Map display status text back to API enum values.
       String apiStatus;

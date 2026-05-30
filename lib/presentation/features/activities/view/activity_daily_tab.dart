@@ -10,7 +10,7 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -876,7 +876,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       // Parent UX: use the child currently selected in the global dropdown.
       final globalSelectedCode =
-          (context.read<ParentChildProvider>().selectedChild?.code ?? '')
+          (context.read<ParentChildCubit>().selectedChild?.code ?? '')
               .trim();
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
@@ -927,7 +927,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   void _syncWithGlobalChildSelection() {
     if (!_parentHome) return;
     final globalSelectedCode =
-        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+        (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
     if (globalSelectedCode.isEmpty) return;
     if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
 
@@ -2675,10 +2675,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Listen to global child dropdown. When ParentChildProvider notifies,
+    // Listen to global child dropdown. When ParentChildCubit notifies,
     // this widget rebuilds and we can refresh the feed for the selected child.
     if (_parentHome) {
-      context.watch<ParentChildProvider>().selectedChild?.code;
+      context.watch<ParentChildCubit>().selectedChild?.code;
     }
     if (_parentHome) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3750,8 +3750,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                                   _filterActivityTypes =
           //                                   filters['Activity Type']!;
           //                                 });
-          //                                 //print(_filterTags);
-          //                                 //print(_filterActivityTypes);
+          //                                 //AppLogger.d(_filterTags);
+          //                                 //AppLogger.d(_filterActivityTypes);
           //                               },
           //                             ),
           //                           ),
@@ -3796,7 +3796,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                         _filterActivityTypes.clear();
           //                         _filterTags.clear();
           //                       });
-          //                       //print(_filterTags);
+          //                       //AppLogger.d(_filterTags);
           //                     },
           //                     label: 'Clear All',
           //                   ),

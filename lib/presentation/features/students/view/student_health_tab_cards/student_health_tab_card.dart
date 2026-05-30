@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -35,7 +34,7 @@ class StudentHealthTabCard extends StatefulWidget {
 }
 
 class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
-  late Future<StudentHealthModel?> _healthFuture;
+  late Future<StudentHealth?> _healthFuture;
   bool _photoPermission = true;
   bool _hasShownErrorSnackBar = false;
 
@@ -45,12 +44,12 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     _healthFuture = _buildHealthFuture();
   }
 
-  Future<StudentHealthModel?> _buildHealthFuture() async {
+  Future<StudentHealth?> _buildHealthFuture() async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return null;
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final repo = serviceLocator<StudentRepository>();
     try {
       final model = await repo.getStudentHealth(studentCode: code);
       _photoPermission = model.photoPermission ?? true;
@@ -62,7 +61,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bottomSafe = MediaQuery.of(context).padding.bottom;
@@ -82,7 +81,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<StudentHealthModel?>(
+        child: FutureBuilder<StudentHealth?>(
           future: _healthFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -178,8 +177,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         _photoPermission = v;
                       });
                       try {
-                        final repo = serviceLocator<StudentRepository>()
-                            as StudentRepositoryImpl;
+                        final repo = serviceLocator<StudentRepository>();
                         final body = {
                           'allergy': health?.allergy ?? '',
                           'medications': health?.medications ?? '',

@@ -172,7 +172,7 @@
 //               id: absentRecordId,
 //             );
 //           } catch (e) {
-//             print('Error deleting absent record for student ${student.id}: $e');
+//             AppLogger.d('Error deleting absent record for student ${student.id}: $e');
 //             // Continue with sign in even if delete fails
 //           }
 //         }

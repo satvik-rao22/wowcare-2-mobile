@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Canonical `module` strings from `/api/v1/users/details` `permissions[]`.
 ///
-/// Use these with [RoleProvider.canReadModule], [canWriteModule], [canOpenModule],
+/// Use these with [RoleCubit.canReadModule], [canWriteModule], [canOpenModule],
 /// and [ModuleAccess] helpers so UI matches backend ACLs.
 abstract final class AppAccessModules {
   static const String classroom = 'CLASSROOM';
@@ -32,7 +32,7 @@ abstract final class AppAccessModules {
   static const String individualMovements = 'INDIVISUAL_MOVEMENTS';
 }
 
-/// Read/write UI gates backed by [RoleProvider] for **every** persona.
+/// Read/write UI gates backed by [RoleCubit] for **every** persona.
 final class ModuleAccess {
   ModuleAccess._();
 
@@ -42,15 +42,15 @@ final class ModuleAccess {
   static const String featureRestrictedMessage =
       'You do not have access to this area for your selected school.';
 
-  static bool mayWrite(RoleProvider role, String module) {
+  static bool mayWrite(RoleCubit role, String module) {
     return role.canWriteModule(module);
   }
 
-  static bool mayReadOrWrite(RoleProvider role, String module) {
+  static bool mayReadOrWrite(RoleCubit role, String module) {
     return role.canReadModule(module);
   }
 
-  static bool mayOpenFeature(RoleProvider role, String module) {
+  static bool mayOpenFeature(RoleCubit role, String module) {
     return role.canOpenModule(module);
   }
 
@@ -72,7 +72,7 @@ final class ModuleAccess {
 
   static void runIfWriteAllowed(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     String module,
     VoidCallback action,
   ) {
@@ -85,7 +85,7 @@ final class ModuleAccess {
 
   static void runIfFeatureAllowed(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     String module,
     VoidCallback action,
   ) {

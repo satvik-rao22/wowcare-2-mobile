@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -348,7 +349,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         });
       }
     } catch (e) {
-      print('Error opening calendar dialog: $e');
+      AppLogger.d('Error opening calendar dialog: $e');
     }
   }
 

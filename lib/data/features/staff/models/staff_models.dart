@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:equatable/equatable.dart';
 
 class StaffListItemModel extends Equatable {
@@ -200,7 +201,7 @@ class StaffPageModel extends Equatable {
             (pageNumber + 1) * pageSize < totalElements);
 
     // ignore: avoid_print
-    print('[StaffPageModel] fromJson: page=$pageNumber, size=$pageSize, '
+    AppLogger.d('[StaffPageModel] fromJson: page=$pageNumber, size=$pageSize, '
         'totalPages=$totalPages, totalElements=$totalElements, '
         'itemsOnPage=${items.length}, hasMore=$hasMore');
 

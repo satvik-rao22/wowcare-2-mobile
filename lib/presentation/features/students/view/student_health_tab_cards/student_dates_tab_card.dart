@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -38,7 +37,7 @@ class StudentDatesTabCard extends StatefulWidget {
 }
 
 class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
-  late Future<List<StudentPhysicalExamModel>> _physicalExamFuture;
+  late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
   bool _disableAddPhysicalExam = false;
@@ -49,18 +48,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     _physicalExamFuture = _buildPhysicalExamFuture();
   }
 
-  Future<List<StudentPhysicalExamModel>> _buildPhysicalExamFuture({
+  Future<List<StudentPhysicalExam>> _buildPhysicalExamFuture({
     bool forceRefresh = false,
   }) async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return const <StudentPhysicalExamModel>[];
+      return const <StudentPhysicalExam>[];
     }
 
     final repo = serviceLocator<StudentRepository>();
-    if (repo is! StudentRepositoryImpl) {
-      return const <StudentPhysicalExamModel>[];
-    }
     return repo.getStudentPhysicalExams(
       studentCode: code,
       forceRefresh: forceRefresh,
@@ -337,8 +333,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
                                 setLocalState(() => isSaving = true);
                                 try {
-                                  final repo = serviceLocator<StudentRepository>()
-                                      as StudentRepositoryImpl;
+                                  final repo = serviceLocator<StudentRepository>();
                                   if (examCode != null &&
                                       examCode.trim().isNotEmpty) {
                                     await repo.updateStudentPhysicalExam(
@@ -393,7 +388,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canMutateStudent =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
@@ -402,7 +397,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentPhysicalExamModel>>(
+        child: FutureBuilder<List<StudentPhysicalExam>>(
           future: _physicalExamFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -438,7 +433,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
               );
             }
 
-            final exams = snapshot.data ?? const <StudentPhysicalExamModel>[];
+            final exams = snapshot.data ?? const <StudentPhysicalExam>[];
             final bool hasCompletedExam =
                 exams.any((e) => _isCompletedStatus(e.status));
             if (_disableAddPhysicalExam != hasCompletedExam) {

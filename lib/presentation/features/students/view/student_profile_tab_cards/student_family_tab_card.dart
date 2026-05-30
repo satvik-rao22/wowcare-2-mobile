@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -281,7 +281,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 

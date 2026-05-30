@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -20,8 +21,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 class TabBarStyle {
@@ -81,7 +82,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final bool hasTabs =
         tabs != null && tabController != null && tabs!.isNotEmpty;
-    final bool isParentPersona = context.read<RoleProvider>().isParent;
+    final bool isParentPersona = context.read<RoleCubit>().isParent;
     // Capture the current route name once per build so menu actions can
     // skip pushing a duplicate when the user is already on that screen.
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
@@ -111,22 +112,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: Colors.black,
       titleSpacing: 0,
       title: isParent
-          ? Consumer<ParentChildProvider>(
-              builder: (context, parentChildProvider, _) {
-                final names = parentChildProvider.childNames;
-                final canPickChild =
-                    !parentChildProvider.isLoading && names.isNotEmpty;
+          ? BlocBuilder<ParentChildCubit, ParentChildState>(
+              builder: (context, state) {
+                final cubit = context.read<ParentChildCubit>();
+                final names = cubit.childNames;
+                final canPickChild = !state.isLoading && names.isNotEmpty;
                 return Padding(
                   padding: const EdgeInsets.only(left: 20),
                   child: SizedBox(
                     width: 220,
                     child: CustomDropdown(
-                      hintText: parentChildProvider.isLoading
+                      hintText: state.isLoading
                           ? 'Loading children...'
                           : 'No children linked',
                       items: names,
-                      selectedItem: parentChildProvider.selectedChild?.name,
-                      onSelect: parentChildProvider.selectByName,
+                      selectedItem: state.selectedChild?.name,
+                      onSelect: cubit.selectByName,
                       prependHintAsSelectableItem: false,
                       isEnabled: canPickChild,
                     ),

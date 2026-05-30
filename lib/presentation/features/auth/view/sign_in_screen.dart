@@ -15,8 +15,8 @@ import 'package:wowcare/presentation/features/auth/view/school_selection_screen.
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -68,7 +68,9 @@ class _SignInScreenState extends State<SignInScreen>
     if (mounted) {
       setState(() {
         emailController.text = credentials['username'] ?? '';
-        passwordController.text = credentials['password'] ?? '';
+        // SECURITY: the password is never persisted, so it is never restored.
+        // "Remember me" only pre-fills the username; the user re-enters the
+        // password (or stays signed in via the cached token).
         rememberMe = rememberMeValue;
       });
     }
@@ -117,15 +119,15 @@ class _SignInScreenState extends State<SignInScreen>
 
   Future<void> _preloadGuardianChildrenIfNeeded(BuildContext context) async {
     try {
-      // Ensure RoleProvider resolved from /users/details first.
-      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      // Ensure RoleCubit resolved from /users/details first.
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
       if (!context.mounted) return;
-      if (!context.read<RoleProvider>().isParent) return;
+      if (!context.read<RoleCubit>().isParent) return;
 
       // Guardian only: prefetch children before opening dashboard so AppBar doesn't
       // have to trigger loading later.
-      context.read<ParentChildProvider>().invalidate();
-      await context.read<ParentChildProvider>().ensureLoaded(force: true);
+      context.read<ParentChildCubit>().invalidate();
+      await context.read<ParentChildCubit>().ensureLoaded(force: true);
     } catch (_) {
       // Non-blocking: dashboard can still open; AppBar dropdown will show empty.
     }
