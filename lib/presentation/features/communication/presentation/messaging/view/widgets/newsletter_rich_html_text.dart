@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_color_theme.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_link_launcher.dart';
 
 /// Renders newsletter HTML from `contentJson` text parts.
 ///
@@ -37,7 +39,26 @@ class NewsletterRichHtmlText extends StatelessWidget {
     return html.Html(
       data: data,
       shrinkWrap: true,
+      onLinkTap: (String? url, Map<String, String> attributes, _) {
+        _handleLinkTap(context, url);
+      },
       style: _richTextStyles(theme: theme, defaults: defaults),
+    );
+  }
+
+  Future<void> _handleLinkTap(BuildContext context, String? url) async {
+    final bool opened = await openNewsletterHyperlink(url);
+    if (opened || !context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          url == null || url.trim().isEmpty
+              ? 'Unable to open link.'
+              : 'Unable to open link: ${url.trim()}',
+        ),
+        backgroundColor: AppColors.warningColor,
+      ),
     );
   }
 

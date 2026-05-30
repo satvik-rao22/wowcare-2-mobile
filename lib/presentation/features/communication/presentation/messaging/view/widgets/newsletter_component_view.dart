@@ -3,6 +3,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_color_theme.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_float_image_text_layout.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_rich_html_text.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
@@ -287,36 +288,15 @@ class _SideBySideBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget? textWidget = textPart != null && textPart!.hasText
-        ? Expanded(
-            child: _TextBlock(part: textPart, theme: theme),
-          )
-        : null;
-    final Widget? imageWidget = imagePart != null && imagePart!.hasImage
-        ? Expanded(
-            child: _ImageBlock(part: imagePart),
-          )
-        : null;
-
-    if (textWidget == null && imageWidget == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (imageOnRight) ...[
-          if (textWidget != null) textWidget,
-          if (textWidget != null && imageWidget != null)
-            const SizedBox(width: 12),
-          if (imageWidget != null) imageWidget,
-        ] else ...[
-          if (imageWidget != null) imageWidget,
-          if (imageWidget != null && textWidget != null)
-            const SizedBox(width: 12),
-          if (textWidget != null) textWidget,
-        ],
-      ],
+    return NewsletterFloatImageTextLayout(
+      textPart: textPart,
+      imagePart: imagePart,
+      imageOnRight: imageOnRight,
+      theme: theme,
+      imageBuilder: (double width) => _ImageBlock(
+        part: imagePart,
+        fixedWidth: width,
+      ),
     );
   }
 }
@@ -418,14 +398,19 @@ class _DividerBlock extends StatelessWidget {
 }
 
 class _ImageBlock extends StatelessWidget {
-  const _ImageBlock({required this.part});
+  const _ImageBlock({
+    required this.part,
+    this.fixedWidth,
+  });
 
   final NewsletterContentPart? part;
+  final double? fixedWidth;
 
   @override
   Widget build(BuildContext context) {
+    final Widget content;
     if (part == null || !part!.hasImage) {
-      return ClipRRect(
+      content = ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: AspectRatio(
           aspectRatio: 16 / 9,
@@ -435,13 +420,16 @@ class _ImageBlock extends StatelessWidget {
           ),
         ),
       );
+    } else {
+      content = _NewsletterComponentImage(
+        imageUrl: part!.imageUrl,
+        assetCode: part!.assetCode,
+        alt: part!.alt,
+      );
     }
 
-    return _NewsletterComponentImage(
-      imageUrl: part!.imageUrl,
-      assetCode: part!.assetCode,
-      alt: part!.alt,
-    );
+    if (fixedWidth == null) return content;
+    return SizedBox(width: fixedWidth, child: content);
   }
 }
 
