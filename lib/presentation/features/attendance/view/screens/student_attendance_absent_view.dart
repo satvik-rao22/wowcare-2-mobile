@@ -20,12 +20,10 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -383,12 +381,6 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       }
     });
 
-    final apiClient = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceAbsentView,
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
@@ -422,24 +414,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     queryParameters['allowedClassroomCodes'] =
         List<String>.from(allowedClassroomCodes);
 
-    debugPrint(
-      'StudentAbsent API → GET $endpoint query=$queryParameters',
-    );
-
     try {
-      final response = await apiClient.get<dynamic>(
-        endpoint,
-        queryParameters: queryParameters,
-        options: attendanceListQueryOptions,
-      );
-
-      debugPrint(
-        'StudentAbsent API ← status=${response.statusCode} data=${response.data}',
-      );
+      final data = await serviceLocator<AttendanceRepository>()
+          .fetchStudentAttendanceAbsentView(queryParameters: queryParameters);
 
       if (!mounted) return;
 
-      final data = response.data;
       if (data is! Map<String, dynamic>) {
         setState(() {
           _isInitialLoadingStudents = false;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/auto_pay_new_method_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -19,26 +21,25 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
   static const Color _primary = Color(0xFF573353);
   static const Color _infoBg = Color(0xFFFFF3E0);
 
+  late final AutoPayNewMethodCubit _cubit = AutoPayNewMethodCubit();
+
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
   final TextEditingController _accountNumberController = TextEditingController();
   final TextEditingController _routingNumberController = TextEditingController();
 
-  String _paymentMethod = '';
-  String _expMonth = '';
-  String _expYear = '';
-  String _accountType = '';
+  // Read-only proxies onto the cubit's form state.
+  String get _paymentMethod => _cubit.state.paymentMethod;
+  String get _expMonth => _cubit.state.expMonth;
+  String get _expYear => _cubit.state.expYear;
+  String get _accountType => _cubit.state.accountType;
+  bool get _isSaving => _cubit.state.isSaving;
+  Map<String, String> get _fieldErrors => _cubit.state.fieldErrors;
 
-  bool _isSaving = false;
-  final Map<String, String> _fieldErrors = <String, String>{};
-
-  bool get _isCard =>
-      _paymentMethod.isNotEmpty && _paymentMethod.toLowerCase() != 'echeck';
-
-  bool get _showCardFields => _isCard;
-  bool get _showEcheckFields =>
-      _paymentMethod.isNotEmpty && _paymentMethod.toLowerCase() == 'echeck';
-  bool get _showInfoBlock => _paymentMethod.isNotEmpty;
+  bool get _isCard => _cubit.state.isCard;
+  bool get _showCardFields => _cubit.state.showCardFields;
+  bool get _showEcheckFields => _cubit.state.showEcheckFields;
+  bool get _showInfoBlock => _cubit.state.showInfoBlock;
   bool get _isSubmitEnabled {
     if (_paymentMethod.isEmpty) return false;
     if (_isCard) {
@@ -54,6 +55,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   @override
   void dispose() {
+    _cubit.close();
     _cardNumberController.dispose();
     _cvvController.dispose();
     _accountNumberController.dispose();
@@ -63,6 +65,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<AutoPayNewMethodCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<AutoPayNewMethodCubit, AutoPayNewMethodState>(
+        builder: (context, state) {
     final responsive = ResponsiveHelper(context);
     final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
     final currentYear = DateTime.now().year;
@@ -93,16 +99,26 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             topRight: Radius.circular(24),
           ),
         ),
-        child: AbsorbPointer(
-          absorbing: !_isSubmitEnabled,
-          child: Opacity(
-            opacity: _isSubmitEnabled ? 1 : 0.6,
-            child: CustomButtonLayout(
-              confirmButtonLabel: 'Save details',
-              onPressedConfirm: _onSaveDetails,
-              showCancelButton: false,
-              isForm: false,
-              isLoading: _isSaving,
+        child: ListenableBuilder(
+          // Re-evaluate the Save button as the user types (the enabled state is
+          // derived from the controllers); the cubit drives error/loading state.
+          listenable: Listenable.merge(<Listenable>[
+            _cardNumberController,
+            _cvvController,
+            _accountNumberController,
+            _routingNumberController,
+          ]),
+          builder: (context, _) => AbsorbPointer(
+            absorbing: !_isSubmitEnabled,
+            child: Opacity(
+              opacity: _isSubmitEnabled ? 1 : 0.6,
+              child: CustomButtonLayout(
+                confirmButtonLabel: 'Save details',
+                onPressedConfirm: _onSaveDetails,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: _isSaving,
+              ),
             ),
           ),
         ),
@@ -144,12 +160,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                             fontWeight: FontWeight.w400,
                             color: _primary,
                           ),
-                          onSelect: (value) {
-                            setState(() {
-                              _paymentMethod = _mapMethodLabelToCode(value);
-                              _fieldErrors.remove('paymentMethod');
-                            });
-                          },
+                          onSelect: (value) => _cubit.setPaymentMethod(value),
                         ),
                         _buildFieldError('paymentMethod'),
                         const SizedBox(height: 8),
@@ -193,10 +204,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                         height: 19 / 14,
                                       ),
                                       onSelect: (value) =>
-                                          setState(() {
-                                            _expMonth = value ?? '';
-                                            _fieldErrors.remove('expMonth');
-                                          }),
+                                          _cubit.setExpMonth(value),
                                     ),
                                     _buildFieldError('expMonth'),
                                   ],
@@ -229,10 +237,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                         height: 19 / 14,
                                       ),
                                       onSelect: (value) =>
-                                          setState(() {
-                                            _expYear = value ?? '';
-                                            _fieldErrors.remove('expYear');
-                                          }),
+                                          _cubit.setExpYear(value),
                                     ),
                                     _buildFieldError('expYear'),
                                   ],
@@ -290,12 +295,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                               color: _primary,
                               height: 19 / 14,
                             ),
-                            onSelect: (value) {
-                              setState(() {
-                                _accountType = _mapAccountTypeLabelToCode(value);
-                                _fieldErrors.remove('accountType');
-                              });
-                            },
+                            onSelect: (value) => _cubit.setAccountType(value),
                           ),
                           _buildFieldError('accountType'),
                         ],
@@ -352,6 +352,9 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         ),
       ),
     );
+        },
+      ),
+    );
   }
 
   Widget _buildLabel(String text, {bool required = false}) {
@@ -400,17 +403,17 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         maxLength: maxLength,
       inputFormatters: _inputFormattersFor(keyboardType),
       onChanged: (_) {
-        setState(() {
-          if (controller == _cardNumberController) {
-            _fieldErrors.remove('cardNumber');
-          } else if (controller == _cvvController) {
-            _fieldErrors.remove('cvv');
-          } else if (controller == _accountNumberController) {
-            _fieldErrors.remove('accountNumber');
-          } else if (controller == _routingNumberController) {
-            _fieldErrors.remove('routingNumber');
-          }
-        });
+        // The Save button rebuilds reactively via ListenableBuilder on the
+        // controllers; here we just clear the relevant cubit field error.
+        if (controller == _cardNumberController) {
+          _cubit.clearFieldError('cardNumber');
+        } else if (controller == _cvvController) {
+          _cubit.clearFieldError('cvv');
+        } else if (controller == _accountNumberController) {
+          _cubit.clearFieldError('accountNumber');
+        } else if (controller == _routingNumberController) {
+          _cubit.clearFieldError('routingNumber');
+        }
       },
         style: TextStyle(
           fontFamily: 'Manrope',
@@ -462,21 +465,6 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     return map[_paymentMethod];
   }
 
-  String _mapMethodLabelToCode(String? label) {
-    switch ((label ?? '').toLowerCase()) {
-      case 'visa':
-        return 'visa';
-      case 'mastercard':
-        return 'mast';
-      case 'discover':
-        return 'disc';
-      case 'ach':
-        return 'echeck';
-      default:
-        return '';
-    }
-  }
-
   String? _selectedAccountTypeLabel() {
     switch (_accountType.toLowerCase()) {
       case 'checking':
@@ -485,17 +473,6 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         return 'Savings';
       default:
         return null;
-    }
-  }
-
-  String _mapAccountTypeLabelToCode(String? label) {
-    switch ((label ?? '').toLowerCase()) {
-      case 'checking':
-        return 'checking';
-      case 'savings':
-        return 'savings';
-      default:
-        return '';
     }
   }
 
@@ -540,7 +517,12 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   Future<void> _onSaveDetails() async {
     if (_isSaving) return;
-    final isValid = _validateFields();
+    final isValid = _cubit.validate(
+      cardNumber: _cardNumberController.text,
+      cvv: _cvvController.text,
+      accountNumber: _accountNumberController.text,
+      routingNumber: _routingNumberController.text,
+    );
     if (!isValid) {
       final firstError = _fieldErrors.values.isNotEmpty
           ? _fieldErrors.values.first
@@ -552,78 +534,14 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
       );
       return;
     }
-    setState(() {
-      _isSaving = true;
-    });
 
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    await _cubit.save();
 
     if (!mounted) return;
-    setState(() {
-      _isSaving = false;
-    });
     CoreUtils.showTopSnackBar(
       context: context,
       message: 'Secure token created successfully.',
       isSuccess: true,
     );
-  }
-
-  bool _validateFields() {
-    final errors = <String, String>{};
-
-    if (_paymentMethod.isEmpty) {
-      errors['paymentMethod'] = 'Please select a payment method';
-    }
-
-    if (_isCard) {
-      final cardNumber = _cardNumberController.text.trim();
-      final cvv = _cvvController.text.trim();
-
-      if (cardNumber.isEmpty) {
-        errors['cardNumber'] = 'Card number is required';
-      } else if (cardNumber.length < 13 || cardNumber.length > 19) {
-        errors['cardNumber'] = 'Card number must be 13-19 digits';
-      }
-
-      if (_expMonth.isEmpty) {
-        errors['expMonth'] = 'Expiration month is required';
-      }
-      if (_expYear.isEmpty) {
-        errors['expYear'] = 'Expiration year is required';
-      }
-
-      if (cvv.isEmpty) {
-        errors['cvv'] = 'CVV is required';
-      } else if (cvv.length < 3 || cvv.length > 4) {
-        errors['cvv'] = 'CVV must be 3-4 digits';
-      }
-    } else if (_paymentMethod == 'echeck') {
-      final accountNumber = _accountNumberController.text.trim();
-      final routingNumber = _routingNumberController.text.trim();
-
-      if (accountNumber.isEmpty) {
-        errors['accountNumber'] = 'Account number is required';
-      } else if (accountNumber.length < 4 || accountNumber.length > 17) {
-        errors['accountNumber'] = 'Account number must be 4-17 digits';
-      }
-
-      if (routingNumber.isEmpty) {
-        errors['routingNumber'] = 'Routing number is required';
-      } else if (routingNumber.length != 9) {
-        errors['routingNumber'] = 'Routing number must be 9 digits';
-      }
-
-      if (_accountType.isEmpty) {
-        errors['accountType'] = 'Account type is required';
-      }
-    }
-
-    setState(() {
-      _fieldErrors
-        ..clear()
-        ..addAll(errors);
-    });
-    return errors.isEmpty;
   }
 }

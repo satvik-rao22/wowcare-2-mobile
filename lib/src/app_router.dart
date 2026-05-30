@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -28,6 +29,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
+import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
@@ -147,11 +149,17 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.firstScreen,
-      builder: (context, state) => const OnboardingScreen(),
+      builder: (context, state) => BlocProvider(
+        create: (_) => serviceLocator<OnboardingCubit>(),
+        child: const OnboardingScreen(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.onboarding,
-      builder: (context, state) => const OnboardingScreen(),
+      builder: (context, state) => BlocProvider(
+        create: (_) => serviceLocator<OnboardingCubit>(),
+        child: const OnboardingScreen(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.signIn,
@@ -517,7 +525,10 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.parentBilling,
-              builder: (context, state) => const ParentBillingScreen(),
+              builder: (context, state) => BlocProvider(
+                create: (_) => serviceLocator<ParentBillingCubit>(),
+                child: const ParentBillingScreen(),
+              ),
             ),
           ],
         ),

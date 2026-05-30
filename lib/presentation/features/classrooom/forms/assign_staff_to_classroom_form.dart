@@ -15,10 +15,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/staff_classroom/repositories/staff_classroom_repository.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/data/features/staff_classroom/models/staff_classroom_models.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -111,48 +109,11 @@ class _AssignStaffToClassroomFormState
   Future<List<StaffClassroomItem>> _fetchManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
-  }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffClassroomsManageStaffList,
-      ApiConstants.staffBaseUrl,
+  }) {
+    return serviceLocator<StaffClassroomRepository>().getManageStaffList(
+      schoolCode: schoolCode,
+      excludeClassroomCode: excludeClassroomCode,
     );
-
-    final dio = serviceLocator<ApiClient>().client;
-    final response = await dio.get<dynamic>(
-      endpoint,
-      queryParameters: <String, dynamic>{
-        'schoolCode': schoolCode,
-        'excludeClassroomCode': excludeClassroomCode,
-        'status': const ['ACTIVE'],
-        'sort': 'name,asc',
-      },
-    );
-
-    final body = response.data;
-    if (body is! Map<String, dynamic>) {
-      throw Exception('Unexpected manage-staff-list API response format');
-    }
-
-    final data = body['data'] as List<dynamic>? ?? const [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(StaffClassroomItemModel.fromJson)
-        .map(
-          (m) => StaffClassroomItem(
-            classroomCode: m.classroomCode,
-            staffCode: m.staffCode,
-            firstName: m.firstName,
-            lastName: m.lastName,
-            profilePictureUrl: m.profilePictureUrl,
-            status: m.status,
-            designation: m.designation,
-            expectedToday: m.expectedToday,
-            signedIn: m.signedIn,
-            absent: m.absent,
-            notMarked: m.notMarked,
-          ),
-        )
-        .toList();
   }
 
   Future<void> _loadStaffsFromApi() async {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -24,44 +26,28 @@ class TransactionDetailsScreen extends StatefulWidget {
 }
 
 class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
+  late final TransactionDetailsCubit _cubit = TransactionDetailsCubit();
   final ScrollController _scrollController = ScrollController();
 
-  // Dummy data for UI
-  List<TransactionItem> _siblingTransactions = [];
-  Map<String, dynamic> _siblingSummary = {};
-  bool _isLoadingSiblings = false;
-  bool _hasError = false;
-  String _errorMessage = '';
+  // Read-only proxies onto the cubit state so the build helpers stay unchanged.
+  List<TransactionItem> get _siblingTransactions =>
+      _cubit.state.siblingTransactions;
+  bool get _isLoadingSiblings => _cubit.state.isLoadingSiblings;
+  bool get _hasError => _cubit.state.hasError;
+  String get _errorMessage => _cubit.state.errorMessage;
+  DateTime? get _startDate => _cubit.state.startDate;
+  DateTime? get _endDate => _cubit.state.endDate;
+  bool get _isLoadingFamily => _cubit.state.isLoadingFamily;
+  List<Map<String, dynamic>> get _familyChildren => _cubit.state.familyChildren;
+  List<Map<String, dynamic>> get _familyParents => _cubit.state.familyParents;
+  String get _familyError => _cubit.state.familyError;
+  bool get _isLoadingMore => _cubit.state.isLoadingMore;
 
-  // Date range state
-  DateTime? _startDate;
-  DateTime? _endDate;
-
-  // Family members (children, parents)
-  bool _isLoadingFamily = false;
-  List<Map<String, dynamic>> _familyChildren = [];
-  List<Map<String, dynamic>> _familyParents = [];
-  String _familyError = '';
-
-  // Pagination variables
-  int _currentPage = 0;
-  int _pageSize = 10;
-  bool _hasMoreData = true;
-  bool _isLoadingMore = false;
-
-  double _summaryDouble(String key) {
-    final value = _siblingSummary[key];
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  double get _netPaidAmount => _summaryDouble('netAmountPaid');
-  double get _amountUnpaid => _summaryDouble('amountUnpaid');
-  double get _amountInProcess => _summaryDouble('amountInProcess');
-  double get _amountRefund => _summaryDouble('amountRefund');
-  double get _amountPaid => _summaryDouble('amountPaid');
-
-  double get _familyTotalInvoiced => _netPaidAmount + _amountUnpaid + _amountInProcess;
+  double get _netPaidAmount => _cubit.state.netPaidAmount;
+  double get _amountUnpaid => _cubit.state.amountUnpaid;
+  double get _amountInProcess => _cubit.state.amountInProcess;
+  double get _amountRefund => _cubit.state.amountRefund;
+  double get _familyTotalInvoiced => _cubit.state.familyTotalInvoiced;
 
   double _percentage(double value, double total) {
     if (total <= 0) return 0;
@@ -94,171 +80,30 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _initializeWithDummyData();
+    _cubit.initialize();
   }
 
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
-  Future<void> _initializeWithDummyData() async {
-    // Simulate loading
-    setState(() {
-      _isLoadingSiblings = true;
-      _isLoadingFamily = true;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (!mounted) return;
-
-    // Load dummy data
-    setState(() {
-      _startDate = null;
-      _endDate = null;
-      _siblingSummary = {
-        'netAmountPaid': 1250.0,
-        'amountUnpaid': 450.0,
-        'amountInProcess': 200.0,
-        'amountRefund': 85.0,
-        'amountPaid': 1500.0,
-      };
-      _siblingTransactions = _generateDummyTransactions();
-      _familyChildren = [
-        {'fullName': 'John Doe', 'photoUuid': null},
-        {'fullName': 'Jane Doe', 'photoUuid': null},
-      ];
-      _familyParents = [
-        {'fullName': 'Michael Doe'},
-        {'fullName': 'Sarah Doe'},
-      ];
-      _isLoadingSiblings = false;
-      _isLoadingFamily = false;
-    });
-  }
-
-  List<TransactionItem> _generateDummyTransactions() {
-    return [
-      TransactionItem(
-        id: 2001,
-        transactionType: 'Invoice',
-        date: DateTime.now().subtract(const Duration(days: 5)),
-        amount: 275.0,
-        status: 'Success',
-        description: 'Tuition Invoice November',
-        studentName: 'John Doe',
-        classroom: 'Grade 5 - A',
-        studentId: 201,
-        refTable: 'Invoice',
-        refTableId: 5001,
-        paymentMode: 'Bank Transfer',
-        balance: 0,
-        note: 'Paid in full',
-        endDate: '2025-11-10',
-        studentOpenBalance: 0,
-      ),
-      TransactionItem(
-        id: 2002,
-        transactionType: 'Payment',
-        date: DateTime.now().subtract(const Duration(days: 3)),
-        amount: 190.0,
-        status: 'In-Process',
-        description: 'After School Activities',
-        studentName: 'Jane Doe',
-        classroom: 'Grade 3 - B',
-        studentId: 202,
-        refTable: 'Payment',
-        refTableId: 6001,
-        paymentMode: 'Credit Card',
-        balance: 90.0,
-        note: 'Awaiting payment confirmation',
-        endDate: '2025-11-12',
-        studentOpenBalance: 90.0,
-      ),
-      TransactionItem(
-        id: 2003,
-        transactionType: 'Invoice',
-        date: DateTime.now().subtract(const Duration(days: 2)),
-        amount: 320.0,
-        status: 'Success',
-        description: 'Meal Plan - Quarter 4',
-        studentName: 'John Doe',
-        classroom: 'Grade 5 - A',
-        studentId: 201,
-        refTable: 'Invoice',
-        refTableId: 5002,
-        paymentMode: 'Cash',
-        balance: 0,
-        note: 'Payment received at front desk',
-        endDate: '2025-11-15',
-        studentOpenBalance: 0,
-      ),
-    ];
-  }
-
-  Future<void> _loadSiblingTransactions({bool refresh = false}) async {
-    if (refresh) {
-      setState(() {
-        _currentPage = 0;
-        _hasMoreData = true;
-        _siblingTransactions.clear();
-      });
-    }
-
-    setState(() {
-      _isLoadingSiblings = true;
-      _hasError = false;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-
-    setState(() {
-      if (refresh) {
-        _siblingTransactions = _generateDummyTransactions();
-      } else {
-        _siblingTransactions.addAll(_generateDummyTransactions());
-      }
-      _isLoadingSiblings = false;
-      _hasMoreData = false; // No more data for dummy
-    });
-  }
-
   void _onScroll() {
-    if (!_scrollController.hasClients || _isLoadingMore || !_hasMoreData) return;
-
+    if (!_scrollController.hasClients ||
+        _isLoadingMore ||
+        !_cubit.state.hasMoreData) {
+      return;
+    }
     final position = _scrollController.position;
     final threshold = position.maxScrollExtent > 200
         ? position.maxScrollExtent - 100
         : position.maxScrollExtent * 0.8;
-
     if (position.pixels >= threshold) {
-      _loadMoreTransactions();
+      _cubit.loadMore();
     }
-  }
-
-  Future<void> _loadMoreTransactions() async {
-    if (_isLoadingMore || !_hasMoreData) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isLoadingMore = false;
-      _hasMoreData = false;
-    });
   }
 
   void _openTransactionDetails(TransactionItem item) {
@@ -277,14 +122,18 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<TransactionDetailsCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<TransactionDetailsCubit, TransactionDetailsState>(
+        builder: (context, state) {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
       body: RefreshIndicator(
         onRefresh: () async {
           await Future.wait([
-            _loadSiblingTransactions(refresh: true),
-            _initializeWithDummyData(),
+            _cubit.loadSiblingTransactions(refresh: true),
+            _cubit.initialize(),
           ]);
         },
         child: SingleChildScrollView(
@@ -357,11 +206,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                               ),
                             );
                             if (result != null) {
-                              setState(() {
-                                _startDate = result['startDate'];
-                                _endDate = result['endDate'];
-                              });
-                              await _loadSiblingTransactions(refresh: true);
+                              await _cubit.applyDateRange(
+                                result['startDate'] as DateTime?,
+                                result['endDate'] as DateTime?,
+                              );
                             }
                           } catch (_) {}
                         },
@@ -415,6 +263,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
         ),
       ),
     );
+        },
+      ),
+    );
   }
 
   Widget _buildSiblingTransactionsSection() {
@@ -441,7 +292,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
                   child: const Text('Retry'),
                 ),
               ],
@@ -488,7 +339,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
                   child: const Text('Retry'),
                 ),
               ],

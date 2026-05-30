@@ -53,6 +53,12 @@ import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dar
 import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
+import '../../presentation/features/billing/cubit/parent_billing_cubit.dart';
+import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
+import '../../presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
+import '../../presentation/features/reports/cubit/reports_cubit.dart';
+import '../../presentation/features/user-profile/view_model/edit_user_profile_cubit.dart';
+import '../../presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/get_all_staff_usecase.dart';
@@ -77,6 +83,8 @@ import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
+import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
+import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -150,6 +158,10 @@ import '../../domain/features/activity/usecases/get_active_activity_types_for_sc
 import '../../presentation/features/activities/cubit/activity_filter_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_student_selection_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_daily_feed_cubit.dart';
+import '../../presentation/features/activities/cubit/medication_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -179,6 +191,10 @@ import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_edit_attendance_cubit.dart';
 import '../../presentation/features/availability/cubit/future_availability_cubit.dart';
 import '../../presentation/features/availability/cubit/individual_movements_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
@@ -434,6 +450,38 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetOnboardingContent>(
     () => GetOnboardingContent(serviceLocator()),
   );
+  serviceLocator.registerFactory<OnboardingCubit>(
+    () => OnboardingCubit(serviceLocator(), serviceLocator()),
+  );
+  serviceLocator.registerFactory<ProfileMenuHeaderCubit>(
+    () => ProfileMenuHeaderCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ParentBillingCubit>(
+    () => ParentBillingCubit(),
+  );
+  serviceLocator.registerFactory<ReportsCubit>(
+    () => ReportsCubit(
+      storageService: serviceLocator(),
+      getTagNamesForSchoolUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<EditUserProfileCubit>(
+    () => EditUserProfileCubit(
+      storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<UserProfileCubit>(
+    () => UserProfileCubit(
+      storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
+      authRemoteDataSource: serviceLocator(),
+      authLocalDataSource: serviceLocator(),
+      studentRemoteDataSource: serviceLocator(),
+      imageUploadService: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
   );
@@ -534,6 +582,35 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<MarkStudentsAbsentUseCase>(
     () => MarkStudentsAbsentUseCase(serviceLocator()),
+  );
+  // Factories so each attendance form entry gets a fresh form state.
+  serviceLocator.registerFactory<StudentMarkAbsentFormCubit>(
+    () => StudentMarkAbsentFormCubit(
+      markStudentsAbsentUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentEditAttendanceFormCubit>(
+    () => StudentEditAttendanceFormCubit(
+      updateUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffMarkAbsentFormCubit>(
+    () => StaffMarkAbsentFormCubit(
+      markStaffAbsentUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffEditAttendanceFormCubit>(
+    () => StaffEditAttendanceFormCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<GetStaffAttendanceDailyUseCase>(
     () => GetStaffAttendanceDailyUseCase(serviceLocator()),
@@ -663,6 +740,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator<StaffRepository>(),
     ),
   );
+  serviceLocator.registerFactory<ActivityModerationCubit>(
+    () => ActivityModerationCubit(
+      deleteActivityUseCase: serviceLocator<DeleteActivityUseCase>(),
+      approveActivityUseCase: serviceLocator<ApproveActivityUseCase>(),
+      rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityDailyFeedCubit>(
+    () => ActivityDailyFeedCubit(),
+  );
   serviceLocator.registerFactory<ActivityEditorCubit>(
     () => ActivityEditorCubit(
       getClassroomActivitySettingsUseCase:
@@ -680,6 +767,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GuardianParentSignatureUseCase>(),
       getGuardianNameCodeMapForSchoolUseCase:
           serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+    ),
+  );
+  // Per-form ViewModel for the Medication activity screen. Factory so each
+  // screen entry gets fresh form state; it owns its own ActivityEditorCubit.
+  serviceLocator.registerFactory<MedicationActivityCubit>(
+    () => MedicationActivityCubit(
+      editor: serviceLocator<ActivityEditorCubit>(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<BottleActivityCubit>(
+    () => BottleActivityCubit(
+      editor: serviceLocator<ActivityEditorCubit>(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
@@ -1093,6 +1194,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<PublishShiftsCubit>(
     () => PublishShiftsCubit(
       publishStaffShiftsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  // Factory so each Add Shift screen entry gets a fresh form state.
+  serviceLocator.registerFactory<AddShiftCubit>(
+    () => AddShiftCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      staffShiftRepository: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
+      createStaffShiftUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  // Factory so each Edit Shift screen entry gets a fresh form state.
+  serviceLocator.registerFactory<EditShiftCubit>(
+    () => EditShiftCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      staffShiftRepository: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
+      updateStaffShiftUseCase: serviceLocator(),
+      updateStaffShiftSeriesUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

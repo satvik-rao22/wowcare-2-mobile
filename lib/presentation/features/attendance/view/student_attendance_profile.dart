@@ -15,9 +15,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
@@ -592,12 +590,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final client = serviceLocator<ApiClient>().client;
-    final profileEndpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceProfile,
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final queryParameters = <String, dynamic>{
       'studentCode': _activeStudentCode,
       'fromAttendanceDate': fromStr,
@@ -618,13 +610,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
       _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
-      final profileResponse = await client.get<dynamic>(
-        profileEndpoint,
-        queryParameters: queryParameters,
-        options: attendanceListQueryOptions,
-      );
-
-      final profileData = profileResponse.data;
+      final profileData = await serviceLocator<AttendanceRepository>()
+          .fetchStudentAttendanceProfile(queryParameters: queryParameters);
       if (profileData is Map<String, dynamic>) {
         final root = profileData['data'] as Map<String, dynamic>? ?? {};
         final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
@@ -718,11 +705,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       }
 
       // --------- Load absent days for toggle list (profile/absent/toggle) ----------
-      final absentEndpoint = ApiPaths.urlWithBase(
-        ApiPaths.studentAttendanceProfileAbsentToggle,
-        ApiConstants.attendanceBaseUrl,
-      );
-
       final absentQueryParameters = <String, dynamic>{
         'studentCode': _activeStudentCode,
         'fromAbsenceDate': fromStr,
@@ -741,13 +723,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         allowedClassroomCodes,
       );
 
-      final absentResponse = await client.get<dynamic>(
-        absentEndpoint,
+      final absentData = await serviceLocator<AttendanceRepository>()
+          .fetchStudentAttendanceProfileAbsentToggle(
         queryParameters: absentQueryParameters,
-        options: attendanceListQueryOptions,
       );
-
-      final absentData = absentResponse.data;
 
       if (absentData is Map<String, dynamic>) {
         final root = absentData['data'] as Map<String, dynamic>? ?? {};

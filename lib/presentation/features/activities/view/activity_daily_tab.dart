@@ -32,9 +32,7 @@ import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
-import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
+import '../cubit/activity_moderation_cubit.dart';
 import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
@@ -198,9 +196,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final GetStudentAbsentRecordsActivityUseCase
       _getStudentAbsentRecordsActivityUseCase;
-  late final DeleteActivityUseCase _deleteActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityModerationCubit _moderationCubit;
+  StreamSubscription<ActivityModerationState>? _moderationSub;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   StreamSubscription<void>? _feedInvalidationSub;
@@ -2364,9 +2361,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         serviceLocator<GetStudentAttendanceDailyUseCase>();
     _getStudentAbsentRecordsActivityUseCase =
         serviceLocator<GetStudentAbsentRecordsActivityUseCase>();
-    _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _moderationCubit = serviceLocator<ActivityModerationCubit>();
+    _moderationSub = _moderationCubit.stream.listen(_onModerationState);
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -2406,9 +2402,33 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   void dispose() {
     _feedInvalidationSub?.cancel();
+    _moderationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
+    _moderationCubit.close();
     super.dispose();
+  }
+
+  /// Reacts to moderation results emitted by [ActivityModerationCubit].
+  void _onModerationState(ActivityModerationState state) {
+    if (!mounted) return;
+    if (state is ActivityModerationSuccess) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: state.message,
+        isSuccess: true,
+      );
+      // Approve/reject change the feed; delete does not refresh (matches prior).
+      if (state.action != ActivityModerationAction.delete) {
+        _loadDailyFeed(refresh: true);
+      }
+    } else if (state is ActivityModerationFailure) {
+      CoreUtils.logApiError(
+        state.message,
+        showOnScreen: true,
+        context: context,
+      );
+    }
   }
 
   void _updateAvailableStudents() {
@@ -2495,24 +2515,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       return;
     }
-    try {
-      final message = await _deleteActivityUseCase(code: code);
-      if (!mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+    _moderationCubit.delete(code);
   }
 
   Future<void> _approveActivityFromMenu(ActivityItem activity) async {
@@ -2526,23 +2530,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       return;
     }
-    try {
-      final message = await _approveActivityUseCase(code: code);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      await _loadDailyFeed(refresh: true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    _moderationCubit.approve(code);
   }
 
   Future<void> _rejectActivityFromMenu(ActivityItem activity) async {
@@ -2556,23 +2544,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       return;
     }
-    try {
-      final message = await _rejectActivityUseCase(code: code);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      await _loadDailyFeed(refresh: true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    _moderationCubit.reject(code);
   }
 
   Future<void> _showApprovalActionBottomSheet({

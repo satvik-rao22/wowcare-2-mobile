@@ -6,6 +6,7 @@ import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
+import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/entities/student_health.dart';
 import '../../../../domain/features/student/entities/student_immunization.dart';
 import '../../../../domain/features/student/entities/student_important_dates.dart';
@@ -15,6 +16,7 @@ import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
+import '../mappers/student_guardian_mapper.dart';
 import '../mappers/student_health_mapper.dart';
 import '../mappers/student_immunization_mapper.dart';
 import '../mappers/student_physical_exam_mapper.dart';
@@ -1280,7 +1282,8 @@ class StudentRepositoryImpl
     return names;
   }
 
-  Future<List<StudentGuardianModel>> getStudentGuardians({
+  @override
+  Future<List<StudentGuardian>> getStudentGuardians({
     required String studentCode,
     bool forceRefresh = false,
   }) async {
@@ -1294,7 +1297,9 @@ class StudentRepositoryImpl
             .whereType<Map<String, dynamic>>()
             .map(StudentGuardianModel.fromJson)
             .toList(growable: false);
-        if (list.isNotEmpty) return list;
+        if (list.isNotEmpty) {
+          return list.map((m) => m.toEntity()).toList(growable: false);
+        }
       }
     }
 
@@ -1311,7 +1316,7 @@ class StudentRepositoryImpl
       'items': models.map((e) => e.toJson()).toList(),
     });
 
-    return models;
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
   @override

@@ -340,5 +340,53 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       ),
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  }) {
+    return _remoteDataSource.getStudentClassroomEnrolledCount(
+      classroomCode: classroomCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.getClassroomLogoAssetCodes(
+      classroomCode: classroomCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.createClassroomLogoUploadSession(
+      classroomCode: classroomCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
+  }) {
+    return _remoteDataSource.finalizeClassroomLogo(
+      classroomCode: classroomCode,
+      assetCode: assetCode,
+    );
+  }
 }
 

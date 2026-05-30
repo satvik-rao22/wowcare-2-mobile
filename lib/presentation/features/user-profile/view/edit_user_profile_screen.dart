@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../shared/constants/location_constants.dart';
 import '../../staff/widgets/staff_form_layout.dart';
+import '../view_model/edit_user_profile_cubit.dart';
 
-class EditUserProfileScreen extends StatefulWidget {
+/// Thin wrapper that provides the [EditUserProfileCubit] (and kicks off the
+/// profile load) so the form below stays focused on rendering + input.
+class EditUserProfileScreen extends StatelessWidget {
   const EditUserProfileScreen({super.key, this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
   static const String routeName = '/edit-user-profile-details-screen';
 
@@ -30,12 +31,49 @@ class EditUserProfileScreen extends StatefulWidget {
   final String? signInPin;
   final String? initialAddressLine2;
 
-
   @override
-  State<EditUserProfileScreen> createState() => _EditUserProfileScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => serviceLocator<EditUserProfileCubit>()..loadProfile(),
+      child: _EditUserProfileForm(
+        initialFirstName: initialFirstName,
+        initialLastName: initialLastName,
+        initialEmail: initialEmail,
+        initialPhoneNo: initialPhoneNo,
+        initialStreet: initialStreet,
+        initialCity: initialCity,
+        initialState: initialState,
+        initialCountry: initialCountry,
+        initialZipCode: initialZipCode,
+        role: role,
+        signInPin: signInPin,
+        initialAddressLine2: initialAddressLine2,
+      ),
+    );
+  }
 }
 
-class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
+class _EditUserProfileForm extends StatefulWidget {
+  const _EditUserProfileForm({this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
+
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialEmail;
+  final String? initialPhoneNo;
+  final String? initialStreet;
+  final String? initialCity;
+  final String? initialState;
+  final String? initialCountry;
+  final String? initialZipCode;
+  final String? role;
+  final String? signInPin;
+  final String? initialAddressLine2;
+
+  @override
+  State<_EditUserProfileForm> createState() => _EditUserProfileFormState();
+}
+
+class _EditUserProfileFormState extends State<_EditUserProfileForm> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -47,8 +85,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
 
   String? _selectedState;
   String? _selectedCountry;
-  bool _isSubmitting = false;
   bool _hasShownProfileLoadError = false;
+  int _appliedRevision = 0;
 
   // Full lists sourced from shared `location_constants.dart`
   final List<String> _stateOptions =
@@ -81,11 +119,8 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     _zipCodeController.text = widget.initialZipCode ?? '';
     // Country is fixed to United States in this form.
     _selectedCountry = 'United States';
-
-    // Prefetch latest profile from my-profile API and hydrate controllers.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _prefillFromStaffProfile();
-    });
+    // The cubit (provided by the wrapper) prefetches the latest profile; this
+    // form hydrates its controllers from the emitted state via BlocListener.
   }
 
   @override
@@ -101,81 +136,21 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     super.dispose();
   }
 
-  /// Resolves staffCode for the currently logged-in user from local cache.
-  Future<String> _resolveLoggedInStaffCode() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-
-      final currentUserCode =
-          (await storage.getString(StorageKeys.userCode) ?? '').trim();
-      final cachedStaffCode =
-          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-      final cachedStaffUser =
-          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-
-      if (cachedStaffCode.isNotEmpty &&
-          cachedStaffUser.isNotEmpty &&
-          currentUserCode.isNotEmpty &&
-          cachedStaffUser == currentUserCode) {
-        return cachedStaffCode;
-      }
-      return '';
-    } catch (_) {
-      return '';
+  /// Hydrates the form when the cubit emits a freshly loaded profile, and
+  /// surfaces a one-time error if the load failed with no cached fallback.
+  void _onCubitState(BuildContext context, EditUserProfileState state) {
+    if (state.profile != null && state.profileRevision != _appliedRevision) {
+      _appliedRevision = state.profileRevision;
+      _applyProfileToControllers(state.profile!);
+      setState(() {});
     }
-  }
-
-  /// Prefills controllers using the staff profile fetched from the my-profile API.
-  /// Cache-first, then background refresh; no explicit loader is shown.
-  Future<void> _prefillFromStaffProfile() async {
-    final staffCode = await _resolveLoggedInStaffCode();
-    if (!mounted || staffCode.isEmpty) return;
-
-    try {
-      final repo = serviceLocator<StaffRepository>();
-      var hadCached = false;
-
-      // 1) Try cached profile first for instant UI.
-      if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
-        if (!mounted) return;
-        if (cached != null) {
-          hadCached = true;
-          _applyProfileToControllers(cached);
-          setState(() {});
-        }
-      }
-
-      // 2) Always prefetch latest via my-profile controller in background.
-      try {
-        final fresh = await repo.getStaffProfile(staffCode: staffCode);
-        if (!mounted) return;
-        _applyProfileToControllers(fresh);
-        setState(() {});
-      } catch (e) {
-        CoreUtils.logApiError(e.toString());
-        if (!hadCached && !_hasShownProfileLoadError) {
-          _hasShownProfileLoadError = true;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Failed to load profile. Please try again.',
-            isError: true,
-          );
-        }
-      }
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      if (!_hasShownProfileLoadError) {
-        _hasShownProfileLoadError = true;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Failed to load profile. Please try again.',
-          isError: true,
-        );
-      }
+    if (state.loadFailed && !_hasShownProfileLoadError) {
+      _hasShownProfileLoadError = true;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to load profile. Please try again.',
+        isError: true,
+      );
     }
   }
 
@@ -325,93 +300,40 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    // Build request body matching my-profile PATCH contract.
+    final body = <String, dynamic>{
+      'firstName': first,
+      'lastName': last,
+      'phoneNumber': '+$phoneDigits',
+      'addressStreet': street,
+      'addressLine2': address2,
+      'addressCity': city,
+      'addressState': _selectedState ?? '',
+      'addressZipCode': zipDigits,
+      'addressCountry': 'United States',
+    };
 
-    try {
-      final staffCode = await _resolveLoggedInStaffCode();
-      if (staffCode.isEmpty) {
-        setState(() {
-          _isSubmitting = false;
-        });
+    final result = await context
+        .read<EditUserProfileCubit>()
+        .saveProfile(fields: body, email: email);
+    if (!mounted) return;
+
+    switch (result) {
+      case EditProfileSaveResult.success:
+        // Pop with result so caller can refresh profile details.
+        Navigator.pop(context, true);
+      case EditProfileSaveResult.unresolvedStaff:
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Unable to resolve staff profile. Please try again.',
           isError: true,
         );
-        return;
-      }
-
-      final repo = serviceLocator<StaffRepository>();
-
-      // Build request body matching my-profile PATCH contract.
-      final body = <String, dynamic>{
-        'firstName': first,
-        'lastName': last,
-        'phoneNumber': '+$phoneDigits',
-        'addressStreet': street,
-        'addressLine2': address2,
-        'addressCity': city,
-        'addressState': _selectedState ?? '',
-        'addressZipCode': zipDigits,
-        'addressCountry': 'United States',
-      };
-
-      // If email changed, call email-change API before updating profile.
-      try {
-        final storage = serviceLocator<StorageService>();
-        final userCode =
-            (await storage.getString(StorageKeys.userCode) ?? '').trim();
-        final oldEmail =
-            (await storage.getString(StorageKeys.email) ?? '').trim();
-        final organizationCode =
-            (await storage.getString(StorageKeys.organizationCode) ?? '')
-                .trim();
-        final schoolCode =
-            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
-        if (userCode.isNotEmpty &&
-            oldEmail.isNotEmpty &&
-            oldEmail.toLowerCase() != email &&
-            organizationCode.isNotEmpty &&
-            schoolCode.isNotEmpty) {
-          await repo.changeUserEmail(
-            userCode: userCode,
-            oldEmail: oldEmail,
-            newEmail: email,
-            organizationCode: organizationCode,
-            schoolCode: schoolCode,
-          );
-          // Keep local storage in sync with new email.
-          await storage.saveString(StorageKeys.email, email);
-        }
-      } catch (_) {
-        // Non-blocking: email-change failure should not block profile save.
-      }
-
-      await repo.updateMyProfile(
-        staffCode: staffCode,
-        fields: body,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
-      // Pop with result so caller can refresh profile details.
-      Navigator.pop(context, true);
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Failed to save profile. Please try again.',
-        isError: true,
-      );
+      case EditProfileSaveResult.failed:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to save profile. Please try again.',
+          isError: true,
+        );
     }
   }
 
@@ -431,7 +353,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return StaffFormLayout(
+    final isSubmitting =
+        context.watch<EditUserProfileCubit>().state.isSubmitting;
+    return BlocListener<EditUserProfileCubit, EditUserProfileState>(
+      listener: _onCubitState,
+      child: StaffFormLayout(
       title: 'Edit My Profile',
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -573,13 +499,13 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
         child: Container(
           height: responsive.buttonHeight,
           decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
+            gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+            color: isSubmitting ? Colors.grey[300] : null,
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
           ),
           child: TextButton(
-            onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
+            onPressed: isSubmitting ? null : () => _saveProfileDetails(),
             child: Text(
               'Save',
               style: TextStyle(
@@ -591,6 +517,7 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

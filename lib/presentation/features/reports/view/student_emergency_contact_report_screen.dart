@@ -20,7 +20,14 @@ class StudentEmergencyContactReportScreen extends StatefulWidget {
 
 class _StudentEmergencyContactReportScreenState
     extends State<StudentEmergencyContactReportScreen> {
-  List<String> _selectedClassrooms = <String>[];
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
+
+  @override
+  void dispose() {
+    _selectedClassrooms.dispose();
+    super.dispose();
+  }
 
   void _onGenerate() {
     CoreUtils.showTopSnackBar(
@@ -39,12 +46,15 @@ class _StudentEmergencyContactReportScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
+          ValueListenableBuilder<List<String>>(
+            valueListenable: _selectedClassrooms,
+            builder: (_, selected, __) => CustomMultiSelectDropdown(
+              label: 'Classroom',
+              hintText: 'Select Classroom',
+              items: widget.classrooms,
+              selectedItems: selected,
+              onChanged: (s) => _selectedClassrooms.value = s,
+            ),
           ),
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',

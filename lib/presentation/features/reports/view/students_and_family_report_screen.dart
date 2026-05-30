@@ -70,54 +70,46 @@ class _StudentsAndFamilyReportScreenState
     'Inactive',
   ];
 
-  late Set<String> _selectedStudentFields;
-  late Set<String> _selectedParentFields;
-  List<String> _selectedClassrooms = <String>[];
-  List<String> _selectedTags = <String>[];
-  String _status = 'Active';
+  late final ValueNotifier<Set<String>> _selectedStudentFields =
+      ValueNotifier<Set<String>>(_defaultStudentFields.toSet());
+  late final ValueNotifier<Set<String>> _selectedParentFields =
+      ValueNotifier<Set<String>>(_defaultParentFields.toSet());
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<List<String>> _selectedTags =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _status = ValueNotifier<String>('Active');
 
   @override
-  void initState() {
-    super.initState();
-    _selectedStudentFields = _defaultStudentFields.toSet();
-    _selectedParentFields = _defaultParentFields.toSet();
+  void dispose() {
+    _selectedStudentFields.dispose();
+    _selectedParentFields.dispose();
+    _selectedClassrooms.dispose();
+    _selectedTags.dispose();
+    _status.dispose();
+    super.dispose();
   }
 
-  bool get _selectAllStudent =>
-      _selectedStudentFields.length == _studentFields.length;
-
   void _toggleSelectAll(bool checked) {
-    setState(() {
-      if (checked) {
-        _selectedStudentFields = _studentFields.toSet();
-      } else {
-        _selectedStudentFields = <String>{};
-      }
-    });
+    _selectedStudentFields.value =
+        checked ? _studentFields.toSet() : <String>{};
   }
 
   void _toggleStudentField(String field, bool checked) {
-    setState(() {
-      if (checked) {
-        _selectedStudentFields.add(field);
-      } else {
-        _selectedStudentFields.remove(field);
-      }
-    });
+    final next = Set<String>.from(_selectedStudentFields.value);
+    checked ? next.add(field) : next.remove(field);
+    _selectedStudentFields.value = next;
   }
 
   void _toggleParentField(String field, bool checked) {
-    setState(() {
-      if (checked) {
-        _selectedParentFields.add(field);
-      } else {
-        _selectedParentFields.remove(field);
-      }
-    });
+    final next = Set<String>.from(_selectedParentFields.value);
+    checked ? next.add(field) : next.remove(field);
+    _selectedParentFields.value = next;
   }
 
   void _onGenerate() {
-    if (_selectedStudentFields.isEmpty && _selectedParentFields.isEmpty) {
+    if (_selectedStudentFields.value.isEmpty &&
+        _selectedParentFields.value.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select at least one field',
@@ -162,61 +154,81 @@ class _StudentsAndFamilyReportScreenState
           SizedBox(height: responsive.verticalSpacing),
           const _SectionLabel(label: 'FIELDS'),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: CustomCheckbox(
-              value: _selectAllStudent,
-              label: 'Select All',
-              onChanged: (v) => _toggleSelectAll(v ?? false),
+          ValueListenableBuilder<Set<String>>(
+            valueListenable: _selectedStudentFields,
+            builder: (_, studentFields, __) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: CustomCheckbox(
+                    value: studentFields.length == _studentFields.length,
+                    label: 'Select All',
+                    onChanged: (v) => _toggleSelectAll(v ?? false),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _CheckboxGrid(
+                  items: _studentFields,
+                  selected: studentFields,
+                  onChanged: _toggleStudentField,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          _CheckboxGrid(
-            items: _studentFields,
-            selected: _selectedStudentFields,
-            onChanged: _toggleStudentField,
           ),
           SizedBox(height: responsive.verticalSpacing),
           const _SectionLabel(label: 'PARENT/GUARDIAN & AUTHORIZED PICKUP INFO'),
           const SizedBox(height: 8),
-          _CheckboxGrid(
-            items: _parentFields,
-            selected: _selectedParentFields,
-            onChanged: _toggleParentField,
+          ValueListenableBuilder<Set<String>>(
+            valueListenable: _selectedParentFields,
+            builder: (_, parentFields, __) => _CheckboxGrid(
+              items: _parentFields,
+              selected: parentFields,
+              onChanged: _toggleParentField,
+            ),
           ),
           const Divider(height: 32),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
+          ValueListenableBuilder<List<String>>(
+            valueListenable: _selectedClassrooms,
+            builder: (_, selected, __) => CustomMultiSelectDropdown(
+              label: 'Classroom',
+              hintText: 'Select Classroom',
+              items: widget.classrooms,
+              selectedItems: selected,
+              onChanged: (s) => _selectedClassrooms.value = s,
+            ),
           ),
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
           ),
           SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Tag',
-            hintText: 'Select Tag',
-            items: widget.tags,
-            selectedItems: _selectedTags,
-            onChanged: (s) => setState(() => _selectedTags = s),
+          ValueListenableBuilder<List<String>>(
+            valueListenable: _selectedTags,
+            builder: (_, selected, __) => CustomMultiSelectDropdown(
+              label: 'Tag',
+              hintText: 'Select Tag',
+              items: widget.tags,
+              selectedItems: selected,
+              onChanged: (s) => _selectedTags.value = s,
+            ),
           ),
           const ReportDefaultNote(
             text: 'Note: All Tags will be selected by Default.',
           ),
           SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Status',
-            hintText: 'Select',
-            items: _statusOptions,
-            selectedItem: _status,
-            labelStyle: _labelStyle(responsive),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            prependHintAsSelectableItem: false,
-            onSelect: (val) => setState(() => _status = val ?? _status),
+          ValueListenableBuilder<String>(
+            valueListenable: _status,
+            builder: (_, status, __) => CustomDropdown(
+              label: 'Status',
+              hintText: 'Select',
+              items: _statusOptions,
+              selectedItem: status,
+              labelStyle: _labelStyle(responsive),
+              showAsterisk: true,
+              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+              prependHintAsSelectableItem: false,
+              onSelect: (val) => _status.value = val ?? _status.value,
+            ),
           ),
         ],
       ),
