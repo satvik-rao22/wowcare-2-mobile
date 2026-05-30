@@ -1,10 +1,7 @@
 part of 'admin_dashboard_cubit.dart';
 
 class AdminDashboardState extends Equatable {
-  const AdminDashboardState({
-    required this.cards,
-    this.userName = 'Sarah Johnson',
-  });
+  const AdminDashboardState({required this.cards, this.userName = ''});
 
   final List<AdminDashboardCard> cards;
   final String userName;

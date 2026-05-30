@@ -53,7 +53,9 @@ Future<void> _setupFCMMessaging() async {
       final token = await messaging.getToken();
       AppLogger.d('[FCM] Device token: $token');
     } catch (e) {
-      AppLogger.d('[FCM] Could not get FCM token (no Google Play Services?): $e');
+      AppLogger.d(
+        '[FCM] Could not get FCM token (no Google Play Services?): $e',
+      );
     }
 
     // Set background message handler
@@ -100,7 +102,7 @@ Future<void> main() async {
   await _setupFCMMessaging();
 
   // Initialize WorkManager for background geofence checks
-  await Workmanager().initialize(geofenceBackgroundCallback);
+  await Workmanager().initialize(geofenceWorkmanagerCallbackDispatcher);
   // Schedule periodic geofence check (15-minute minimum on Android)
   await Workmanager().registerPeriodicTask(
     'geofence_check',

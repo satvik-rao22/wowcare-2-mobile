@@ -11,7 +11,6 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/forecast_slot_mapper.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
-
 part 'classroom_shifts_state.dart';
 
 /// One classroom row in the Classroom Shifts dashboard card.
@@ -43,15 +42,16 @@ class ClassroomShiftEntry extends Equatable {
 ///    blocks; any `underRatio` block marks the classroom as under-ratio)
 class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
   ClassroomShiftsCubit({
-    required GetRatioMonitoringClassroomsUseCase getRatioMonitoringClassroomsUseCase,
+    required GetRatioMonitoringClassroomsUseCase
+    getRatioMonitoringClassroomsUseCase,
     required GetClassroomForecastUseCase getClassroomForecastUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  })  : _getClassrooms = getRatioMonitoringClassroomsUseCase,
-        _getForecast = getClassroomForecastUseCase,
-        _staffRepository = staffRepository,
-        _storage = storageService,
-        super(const ClassroomShiftsState.initial());
+  }) : _getClassrooms = getRatioMonitoringClassroomsUseCase,
+       _getForecast = getClassroomForecastUseCase,
+       _staffRepository = staffRepository,
+       _storage = storageService,
+       super(const ClassroomShiftsState.initial());
 
   final GetRatioMonitoringClassroomsUseCase _getClassrooms;
   final GetClassroomForecastUseCase _getForecast;
@@ -92,10 +92,12 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
 
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
         if (!isClosed) {
-          emit(state.copyWith(
-            status: ClassroomShiftsStatus.error,
-            errorMessage: 'School context missing. Please sign in again.',
-          ));
+          emit(
+            state.copyWith(
+              status: ClassroomShiftsStatus.error,
+              errorMessage: 'School context missing. Please sign in again.',
+            ),
+          );
         }
         return;
       }
@@ -112,18 +114,18 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
 
       if (classrooms.isEmpty) {
         if (!isClosed) {
-          emit(state.copyWith(
-            status: ClassroomShiftsStatus.loaded,
-            entries: const [],
-          ));
+          emit(
+            state.copyWith(
+              status: ClassroomShiftsStatus.loaded,
+              entries: const [],
+            ),
+          );
         }
         return;
       }
 
       // ── Phase 2: resolve school hours for [date] ──────────────────────────
-      final resolver = SchoolHoursResolver.fromDays(
-        scheduleDays.cast(),
-      );
+      final resolver = SchoolHoursResolver.fromDays(scheduleDays.cast());
       final schoolHours = resolver.hoursFor(date);
 
       // Fall back to a full-day window when no schedule is configured.
@@ -147,14 +149,11 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       );
 
       // Group blocks by classroom code.
-      final blocksByClassroom =
-          <String, List<ClassroomForecastBlock>>{};
+      final blocksByClassroom = <String, List<ClassroomForecastBlock>>{};
       for (final block in forecastBlocks) {
         final code = block.classroomCode.trim();
         if (code.isEmpty) continue;
-        blocksByClassroom
-            .putIfAbsent(code, () => [])
-            .add(block);
+        blocksByClassroom.putIfAbsent(code, () => []).add(block);
       }
 
       // ── Phase 4: derive ratio status per classroom ────────────────────────
@@ -175,17 +174,21 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       }).toList();
 
       if (!isClosed) {
-        emit(state.copyWith(
-          status: ClassroomShiftsStatus.loaded,
-          entries: entries,
-        ));
+        emit(
+          state.copyWith(
+            status: ClassroomShiftsStatus.loaded,
+            entries: entries,
+          ),
+        );
       }
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(
-          status: ClassroomShiftsStatus.error,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e),
-        ));
+        emit(
+          state.copyWith(
+            status: ClassroomShiftsStatus.error,
+            errorMessage: ApiErrorHandler.extractErrorMessage(e),
+          ),
+        );
       }
     } finally {
       _isFetching = false;

@@ -18,6 +18,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -29,6 +31,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 // Student entity used for Sign-In UI & API payload
 class StudentEntity {
@@ -520,12 +523,34 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         ? classroomCodeByStudentCode.values.first
         : '';
 
+    GeofenceState? geofenceState;
+    try {
+      geofenceState = context.read<GeofenceCubit>().state;
+    } catch (_) {
+      geofenceState = null;
+    }
+    final bool withinGeofence = geofenceState?.isWithinGeofence ?? false;
+
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
       'method': isParent ? 'GPS' : 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
+      'latitude': position?.latitude ?? 0,
+      'longitude': position?.longitude ?? 0,
+      'withinGeofence': withinGeofence,
       'isGeofence': true,
       'timeZone': schoolTimeZone,
     };

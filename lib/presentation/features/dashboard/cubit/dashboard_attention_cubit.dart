@@ -4,7 +4,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-
 part 'dashboard_attention_state.dart';
 
 /// Aggregates the three "Need your attention" summary APIs:
@@ -21,10 +20,10 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     required AvailabilityRepository availabilityRepository,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  })  : _availabilityRepository = availabilityRepository,
-        _staffRepository = staffRepository,
-        _storageService = storageService,
-        super(const DashboardAttentionState());
+  }) : _availabilityRepository = availabilityRepository,
+       _staffRepository = staffRepository,
+       _storageService = storageService,
+       super(const DashboardAttentionState());
 
   final AvailabilityRepository _availabilityRepository;
   final StaffRepository _staffRepository;
@@ -82,62 +81,65 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
 
   Future<void> _fetch(String schoolCode) async {
     final now = DateTime.now();
-    final fromDate =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    final fromDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
     final toDate =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     // Run all three in parallel; capture individual errors so one failure
     // does not suppress the other two results.
-    final results = await Future.wait(
-      [
-        _availabilityRepository
-            .getMovementStatusCounts(
-              schoolCode: schoolCode,
-              fromDate: fromDate,
-              toDate: toDate,
-            )
-            .then<Object?>((v) => v)
-            .onError((_, __) => null),
-        _staffRepository
-            .getStaffDocumentExpirySummary(schoolCode: schoolCode)
-            .then<Object?>((v) => v)
-            .onError((_, __) => null),
-        _staffRepository
-            .getPhysicalCheckupSummary(schoolCode: schoolCode)
-            .then<Object?>((v) => v)
-            .onError((_, __) => null),
-      ],
-      eagerError: false,
-    );
+    final results = await Future.wait([
+      _availabilityRepository
+          .getMovementStatusCounts(
+            schoolCode: schoolCode,
+            fromDate: fromDate,
+            toDate: toDate,
+          )
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
+      _staffRepository
+          .getStaffDocumentExpirySummary(schoolCode: schoolCode)
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
+      _staffRepository
+          .getPhysicalCheckupSummary(schoolCode: schoolCode)
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
+    ], eagerError: false);
 
     final movementResult =
         results[0] as ({int pendingCount, int overdueCount})?;
-    final docResult = results[1]
-        as ({int expiredDocumentCount, int expiringWithinWeekCount})?;
-    final checkupResult = results[2] as ({
-      int overduePhysicalCheckupCount,
-      int staffWithoutActivePhysicalCheckupCount
-    })?;
+    final docResult =
+        results[1]
+            as ({int expiredDocumentCount, int expiringWithinWeekCount})?;
+    final checkupResult =
+        results[2]
+            as ({
+              int overduePhysicalCheckupCount,
+              int staffWithoutActivePhysicalCheckupCount,
+            })?;
 
     final anyFailed =
         movementResult == null || docResult == null || checkupResult == null;
 
-    emit(state.copyWith(
-      status: anyFailed
-          ? DashboardAttentionStatus.partialFailure
-          : DashboardAttentionStatus.loaded,
-      pendingMovements: movementResult?.pendingCount ?? state.pendingMovements,
-      overdueMovements: movementResult?.overdueCount ?? state.overdueMovements,
-      expiredDocuments:
-          docResult?.expiredDocumentCount ?? state.expiredDocuments,
-      expiringDocuments:
-          docResult?.expiringWithinWeekCount ?? state.expiringDocuments,
-      overdueCheckups:
-          checkupResult?.overduePhysicalCheckupCount ?? state.overdueCheckups,
-      missingCheckups:
-          checkupResult?.staffWithoutActivePhysicalCheckupCount ??
-              state.missingCheckups,
-    ));
+    emit(
+      state.copyWith(
+        status: anyFailed
+            ? DashboardAttentionStatus.partialFailure
+            : DashboardAttentionStatus.loaded,
+        pendingMovements:
+            movementResult?.pendingCount ?? state.pendingMovements,
+        overdueMovements:
+            movementResult?.overdueCount ?? state.overdueMovements,
+        expiredDocuments:
+            docResult?.expiredDocumentCount ?? state.expiredDocuments,
+        expiringDocuments:
+            docResult?.expiringWithinWeekCount ?? state.expiringDocuments,
+        overdueCheckups:
+            checkupResult?.overduePhysicalCheckupCount ?? state.overdueCheckups,
+        missingCheckups:
+            checkupResult?.staffWithoutActivePhysicalCheckupCount ??
+            state.missingCheckups,
+      ),
+    );
   }
 }

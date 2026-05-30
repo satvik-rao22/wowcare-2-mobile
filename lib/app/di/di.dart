@@ -75,9 +75,11 @@ import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
 import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import '../../presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
@@ -703,9 +705,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetRatioMonitoringClassroomsUseCase>(
     () => GetRatioMonitoringClassroomsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
-    () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
-  );
+  serviceLocator
+      .registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
+        () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+      );
   serviceLocator.registerFactory<GetStaffAttendanceSummaryByClassroomsUseCase>(
     () => GetStaffAttendanceSummaryByClassroomsUseCase(serviceLocator()),
   );
@@ -925,6 +928,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<MyAttendanceCubit>(
+    () => MyAttendanceCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyShiftsCubit>(
+    () => MyShiftsCubit(
+      getStaffShiftsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<AdminDashboardCubit>(
     () => AdminDashboardCubit(),
   );
@@ -953,6 +968,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentAttendanceSummaryByClassroomsUseCase: serviceLocator(),
       getStaffAttendanceSummaryByClassroomsUseCase: serviceLocator(),
       cacheManager: serviceLocator(),
+      storageService: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<SchoolStatusCubit>(
@@ -1145,12 +1162,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getMessagesUseCase: serviceLocator<GetMessagesUseCase>(),
       sendMessageUseCase: serviceLocator<SendMessageUseCase>(),
       getConversationsUseCase: serviceLocator<GetConversationsUseCase>(),
-      getCachedConversationsUseCase: serviceLocator<GetCachedConversationsUseCase>(),
+      getCachedConversationsUseCase:
+          serviceLocator<GetCachedConversationsUseCase>(),
       getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
       addReactionUseCase: serviceLocator<AddReactionUseCase>(),
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
-      clearConversationsCacheUseCase: serviceLocator<ClearConversationsCacheUseCase>(),
+      clearConversationsCacheUseCase:
+          serviceLocator<ClearConversationsCacheUseCase>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(

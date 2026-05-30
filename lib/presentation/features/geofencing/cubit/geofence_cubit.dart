@@ -17,7 +17,16 @@ import '../../../../shared/services/geofence_notification_service.dart';
 part 'geofence_state.dart';
 
 class GeofenceCubit extends Cubit<GeofenceState> {
-  static const _nativeGeofenceChannel = MethodChannel('com.wowcare.geofencing/native');
+  static const _nativeGeofenceChannel = MethodChannel(
+    'com.wowcare.geofencing/native',
+  );
+  static const _prefsSchoolLatKey = 'geofence_school_lat';
+  static const _prefsSchoolLonKey = 'geofence_school_lon';
+  static const _prefsSchoolRadiusKey = 'geofence_school_radius_m';
+  static const _prefsLastNotifiedInsideKey = 'geofence_last_notified_inside';
+  static const _prefsLastGeofenceStatusKey = 'geofence_last_status';
+  static const _prefsHysteresisExitExtraKey =
+      'geofence_exit_hysteresis_extra_m';
 
   GeofenceCubit({
     required CheckLocationPermissionUseCase checkLocationPermissionUseCase,
@@ -25,12 +34,14 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     required GetSchoolLocationUseCase getSchoolLocationUseCase,
     required WatchGeofenceUseCase watchGeofenceUseCase,
     required GeofenceNotificationService notificationService,
-  })  : _checkPerm = checkLocationPermissionUseCase,
-        _requestPerm = requestLocationPermissionUseCase,
-        _getSchoolLocation = getSchoolLocationUseCase,
-        _watchGeofence = watchGeofenceUseCase,
-        _notifications = notificationService,
-        super(const GeofenceState.initial());
+  }) : _checkPerm = checkLocationPermissionUseCase,
+       _requestPerm = requestLocationPermissionUseCase,
+       _getSchoolLocation = getSchoolLocationUseCase,
+       _watchGeofence = watchGeofenceUseCase,
+       _notifications = notificationService,
+       super(const GeofenceState.initial()) {
+    _nativeGeofenceChannel.setMethodCallHandler(_handleNativeCallbacks);
+  }
 
   final CheckLocationPermissionUseCase _checkPerm;
   final RequestLocationPermissionUseCase _requestPerm;
@@ -41,21 +52,41 @@ class GeofenceCubit extends Cubit<GeofenceState> {
   StreamSubscription<GeofenceStatus>? _subscription;
   GeofenceStatus? _lastNotifiedStatus;
   GeofenceConfig? _config;
+  Future<void> _handleNativeCallbacks(MethodCall call) async {
+    if (!Platform.isIOS) return;
+    if (call.method != 'geofenceStatusChanged') return;
+    final args = call.arguments as Map?;
+    final isInside = args?['isInside'] == true;
+    final newStatus = isInside ? GeofenceStatus.within : GeofenceStatus.outside;
+    final newCubitStatus = isInside
+        ? GeofenceCubitStatus.withinRange
+        : GeofenceCubitStatus.outsideRange;
+    if (state.status != newCubitStatus) {
+      emit(state.copyWith(status: newCubitStatus));
+      _triggerNotificationIfNeeded(newStatus);
+    }
+  }
 
   Future<void> initForSchool({required String schoolCode}) async {
-    AppLogger.d('[GeofenceCubit] initForSchool called with schoolCode: $schoolCode');
+    AppLogger.d(
+      '[GeofenceCubit] initForSchool called with schoolCode: $schoolCode',
+    );
     if (state.schoolCode == schoolCode &&
         (state.status == GeofenceCubitStatus.withinRange ||
             state.status == GeofenceCubitStatus.outsideRange)) {
-      AppLogger.d('[GeofenceCubit] Already monitoring this school, skipping init');
+      AppLogger.d(
+        '[GeofenceCubit] Already monitoring this school, skipping init',
+      );
       return;
     }
 
     stopMonitoring();
-    emit(GeofenceState(
-      status: GeofenceCubitStatus.checkingPermission,
-      schoolCode: schoolCode,
-    ));
+    emit(
+      GeofenceState(
+        status: GeofenceCubitStatus.checkingPermission,
+        schoolCode: schoolCode,
+      ),
+    );
     AppLogger.d('[GeofenceCubit] Emitted checkingPermission status');
 
     await _checkAndStartMonitoring(schoolCode: schoolCode);
@@ -82,9 +113,13 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       AppLogger.d('[GeofenceCubit] Requesting NOTIFICATION permission');
       try {
         final notificationStatus = await Permission.notification.request();
-        AppLogger.d('[GeofenceCubit] Notification permission: $notificationStatus');
+        AppLogger.d(
+          '[GeofenceCubit] Notification permission: $notificationStatus',
+        );
       } catch (e) {
-        AppLogger.d('[GeofenceCubit] Error requesting notification permission: $e');
+        AppLogger.d(
+          '[GeofenceCubit] Error requesting notification permission: $e',
+        );
       }
     }
   }
@@ -93,7 +128,9 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     try {
       AppLogger.d('[GeofenceCubit] _checkAndStartMonitoring started');
       final permCheck = await _checkPerm();
-      AppLogger.d('[GeofenceCubit] permCheck - hasPermission: ${permCheck.hasPermission}, serviceEnabled: ${permCheck.serviceEnabled}');
+      AppLogger.d(
+        '[GeofenceCubit] permCheck - hasPermission: ${permCheck.hasPermission}, serviceEnabled: ${permCheck.serviceEnabled}',
+      );
 
       if (!permCheck.serviceEnabled) {
         AppLogger.d('[GeofenceCubit] Location services disabled');
@@ -101,44 +138,52 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         return;
       }
       if (!permCheck.hasPermission) {
-        AppLogger.d('[GeofenceCubit] Requesting all permissions (location + notifications)');
+        AppLogger.d(
+          '[GeofenceCubit] Requesting all permissions (location + notifications)',
+        );
         await _requestAllPermissions();
 
         // Re-check after permission request
         final permCheckAgain = await _checkPerm();
-        AppLogger.d('[GeofenceCubit] Permission check after request: ${permCheckAgain.hasPermission}');
+        AppLogger.d(
+          '[GeofenceCubit] Permission check after request: ${permCheckAgain.hasPermission}',
+        );
         if (!permCheckAgain.hasPermission) {
           emit(state.copyWith(status: GeofenceCubitStatus.permissionDenied));
           return;
         }
       }
 
-      AppLogger.d('[GeofenceCubit] 🏫 Fetching school location for schoolCode: "$schoolCode"');
-      AppLogger.d('[GeofenceCubit] API Call: GET /api/v1/schools/$schoolCode/timezone');
+      AppLogger.d(
+        '[GeofenceCubit] 🏫 Fetching school location for schoolCode: "$schoolCode"',
+      );
+      AppLogger.d(
+        '[GeofenceCubit] API Call: GET /api/v1/schools/$schoolCode/timezone',
+      );
       emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
       _config = await _getSchoolLocation(schoolCode: schoolCode);
-      AppLogger.d('[GeofenceCubit] ✅ School location fetched: schoolCode=${_config?.schoolCode}, lat=${_config?.latitude}, lon=${_config?.longitude}');
+      AppLogger.d(
+        '[GeofenceCubit] ✅ School location fetched: schoolCode=${_config?.schoolCode}, lat=${_config?.latitude}, lon=${_config?.longitude}',
+      );
 
-      // Cache school coordinates for background task and notify iOS native plugin
       if (_config != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setDouble('geofence_school_lat', _config!.latitude);
-        await prefs.setDouble('geofence_school_lon', _config!.longitude);
-
-        // iOS: Initialize native region monitoring
+        await _persistConfig(_config!);
         await _updateNativeGeofence(_config!);
       }
 
-      emit(state.copyWith(status: GeofenceCubitStatus.checking));
+      final restored = await _restoreLastKnownStatus();
+      emit(state.copyWith(status: restored ?? GeofenceCubitStatus.checking));
       _startStream();
     } catch (e) {
       AppLogger.d('[GeofenceCubit] ❌ ERROR during initialization: $e');
       AppLogger.d('[GeofenceCubit] Error type: ${e.runtimeType}');
       AppLogger.d('[GeofenceCubit] Full stack trace: ${StackTrace.current}');
-      emit(state.copyWith(
-        status: GeofenceCubitStatus.error,
-        errorMessage: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          status: GeofenceCubitStatus.error,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
@@ -148,39 +193,53 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       return;
     }
     final config = _config!;
-    AppLogger.d('[GeofenceCubit] _startStream starting with config: schoolCode=${config.schoolCode}, lat=${config.latitude}, lon=${config.longitude}, radius=${config.radiusMeters}m');
+    AppLogger.d(
+      '[GeofenceCubit] _startStream starting with config: schoolCode=${config.schoolCode}, lat=${config.latitude}, lon=${config.longitude}, radius=${config.radiusMeters}m',
+    );
 
     _subscription = _watchGeofence(config: config)
         .distinct((prev, curr) {
           final isSame = prev == curr;
           if (!isSame) {
-            AppLogger.d('[GeofenceCubit] distinct() found change: $prev → $curr');
+            AppLogger.d(
+              '[GeofenceCubit] distinct() found change: $prev → $curr',
+            );
           }
           return isSame;
         })
         .listen(
           (geofenceStatus) {
-            AppLogger.d('[GeofenceCubit] ✅ Position stream emitted status: $geofenceStatus');
+            AppLogger.d(
+              '[GeofenceCubit] ✅ Position stream emitted status: $geofenceStatus',
+            );
             final newCubitStatus = geofenceStatus == GeofenceStatus.within
                 ? GeofenceCubitStatus.withinRange
                 : GeofenceCubitStatus.outsideRange;
 
-            AppLogger.d('[GeofenceCubit] Current state status: ${state.status}, new status: $newCubitStatus');
+            AppLogger.d(
+              '[GeofenceCubit] Current state status: ${state.status}, new status: $newCubitStatus',
+            );
 
             if (state.status != newCubitStatus) {
-              AppLogger.d('[GeofenceCubit] 🔄 STATE CHANGE: Emitting $newCubitStatus');
+              AppLogger.d(
+                '[GeofenceCubit] 🔄 STATE CHANGE: Emitting $newCubitStatus',
+              );
               emit(state.copyWith(status: newCubitStatus));
               _triggerNotificationIfNeeded(geofenceStatus);
             } else {
-              AppLogger.d('[GeofenceCubit] ℹ️  Status unchanged, no emit needed');
+              AppLogger.d(
+                '[GeofenceCubit] ℹ️  Status unchanged, no emit needed',
+              );
             }
           },
           onError: (Object e) {
             AppLogger.d('[GeofenceCubit] ❌ Stream error: $e');
-            emit(state.copyWith(
-              status: GeofenceCubitStatus.error,
-              errorMessage: e.toString(),
-            ));
+            emit(
+              state.copyWith(
+                status: GeofenceCubitStatus.error,
+                errorMessage: e.toString(),
+              ),
+            );
           },
         );
   }
@@ -199,6 +258,16 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         AppLogger.d('Failed to show exited zone notification: $e');
       });
     }
+
+    SharedPreferences.getInstance()
+        .then((prefs) {
+          prefs.setString(_prefsLastGeofenceStatusKey, newStatus.name);
+          prefs.setBool(
+            _prefsLastNotifiedInsideKey,
+            newStatus == GeofenceStatus.within,
+          );
+        })
+        .catchError((_) {});
   }
 
   void stopMonitoring() {
@@ -219,6 +288,36 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       });
     } catch (e) {
       AppLogger.d('Error updating native geofence: $e');
+    }
+  }
+
+  Future<void> _persistConfig(GeofenceConfig config) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_prefsSchoolLatKey, config.latitude);
+      await prefs.setDouble(_prefsSchoolLonKey, config.longitude);
+      await prefs.setDouble(_prefsSchoolRadiusKey, config.radiusMeters);
+      await prefs.setDouble(_prefsHysteresisExitExtraKey, 30.0);
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] Failed to persist geofence config: $e');
+    }
+  }
+
+  Future<GeofenceCubitStatus?> _restoreLastKnownStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsLastGeofenceStatusKey);
+      if (raw == null || raw.isEmpty) return null;
+      switch (raw) {
+        case 'within':
+          return GeofenceCubitStatus.withinRange;
+        case 'outside':
+          return GeofenceCubitStatus.outsideRange;
+        default:
+          return null;
+      }
+    } catch (_) {
+      return null;
     }
   }
 

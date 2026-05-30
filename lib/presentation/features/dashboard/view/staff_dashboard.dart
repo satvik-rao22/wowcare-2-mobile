@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
@@ -30,6 +32,8 @@ class _StaffDashboardState extends State<StaffDashboard> {
   late final GeofenceCubit _geofenceCubit;
   late final RatioMonitoringCubit _ratioMonitoringCubit;
   late final MyDayCubit _myDayCubit;
+  late final MyAttendanceCubit _myAttendanceCubit;
+  late final MyShiftsCubit _myShiftsCubit;
 
   static const double _maxContentWidth = 640;
 
@@ -40,6 +44,8 @@ class _StaffDashboardState extends State<StaffDashboard> {
     _geofenceCubit = serviceLocator<GeofenceCubit>();
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
     _myDayCubit = serviceLocator<MyDayCubit>();
+    _myAttendanceCubit = serviceLocator<MyAttendanceCubit>();
+    _myShiftsCubit = serviceLocator<MyShiftsCubit>();
     // ignore: discarded_futures
     _initGeofence();
     // ignore: discarded_futures
@@ -64,6 +70,10 @@ class _StaffDashboardState extends State<StaffDashboard> {
     _ratioMonitoringCubit.close();
     // ignore: discarded_futures
     _myDayCubit.close();
+    // ignore: discarded_futures
+    _myAttendanceCubit.close();
+    // ignore: discarded_futures
+    _myShiftsCubit.close();
     super.dispose();
   }
 
@@ -101,6 +111,8 @@ class _StaffDashboardState extends State<StaffDashboard> {
         BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
         BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
         BlocProvider<MyDayCubit>.value(value: _myDayCubit),
+        BlocProvider<MyAttendanceCubit>.value(value: _myAttendanceCubit),
+        BlocProvider<MyShiftsCubit>.value(value: _myShiftsCubit),
       ],
       child: _buildScaffold(),
     );
@@ -115,7 +127,11 @@ class _StaffDashboardState extends State<StaffDashboard> {
         child: BlocBuilder<StaffDashboardCubit, StaffDashboardState>(
           builder: (context, dashState) {
             return CustomRefreshIndicator(
-              onRefresh: () => _myDayCubit.refresh(),
+              onRefresh: () => Future.wait([
+                _myDayCubit.refresh(),
+                _myAttendanceCubit.refresh(),
+                _myShiftsCubit.load(forceRefresh: true),
+              ]),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final double gutter = constraints.maxWidth < 360 ? 12 : 16;
@@ -123,21 +139,20 @@ class _StaffDashboardState extends State<StaffDashboard> {
                   return Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: _maxContentWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: _maxContentWidth,
+                      ),
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                            padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
                             sliver: SliverToBoxAdapter(
                               child: _buildHeader(dashState.userName),
                             ),
                           ),
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(
                               itemCount: dashState.cards.length,
                               onReorder: context
@@ -149,8 +164,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
                                   key: ValueKey(card),
                                   index: index,
                                   child: Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 16),
+                                    padding: const EdgeInsets.only(bottom: 16),
                                     child: Material(
                                       type: MaterialType.transparency,
                                       child: _cardFor(card),
