@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_color_theme.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_float_image_text_layout.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_media_image.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_rich_html_text.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Renders ordered newsletter layout components with theme-aware styling.
 class NewsletterComponentList extends StatelessWidget {
@@ -66,7 +64,10 @@ class _NewsletterComponentTile extends StatelessWidget {
           theme: theme,
         );
       case 'IMAGE':
-        return _ImageBlock(part: _firstImagePart(parts));
+        return _ImageBlock(
+          slotKey: '${component.id}-0',
+          part: _firstImageSlotPart(parts),
+        );
       case 'TEXT':
       case 'TEXT_BLOCK':
         return _TextBlock(
@@ -75,29 +76,33 @@ class _NewsletterComponentTile extends StatelessWidget {
         );
       case 'TEXT_IMAGE':
         return _SideBySideBlock(
+          componentId: component.id,
           textPart: _firstTextPart(parts),
-          imagePart: _firstImagePart(parts),
+          imagePart: _firstImageSlotPart(parts),
           imageOnRight: true,
           theme: theme,
         );
       case 'IMAGE_TEXT':
         return _SideBySideBlock(
+          componentId: component.id,
           textPart: _firstTextPart(parts),
-          imagePart: _firstImagePart(parts),
+          imagePart: _firstImageSlotPart(parts),
           imageOnRight: false,
           theme: theme,
         );
       case 'IMAGE_TOP_TEXT':
         return _StackedBlock(
+          componentId: component.id,
           textPart: _firstTextPart(parts),
-          imagePart: _firstImagePart(parts),
+          imagePart: _firstImageSlotPart(parts),
           imageOnTop: true,
           theme: theme,
         );
       case 'TEXT_TOP_IMAGE':
         return _StackedBlock(
+          componentId: component.id,
           textPart: _firstTextPart(parts),
-          imagePart: _firstImagePart(parts),
+          imagePart: _firstImageSlotPart(parts),
           imageOnTop: false,
           theme: theme,
         );
@@ -149,6 +154,7 @@ class _NewsletterComponentTile extends StatelessWidget {
             p.type == NewsletterPartType.text && p.hasText,
       );
       return _SideBySideBlock(
+        componentId: component.id,
         textPart: textParts.first,
         imagePart: imageParts.first,
         imageOnRight: firstImageIndex > firstTextIndex,
@@ -157,7 +163,10 @@ class _NewsletterComponentTile extends StatelessWidget {
     }
 
     if (imageParts.isNotEmpty) {
-      return _ImageBlock(part: imageParts.first);
+      return _ImageBlock(
+        slotKey: '${component.id}-seq',
+        part: imageParts.first,
+      );
     }
     if (textParts.isNotEmpty) {
       return _TextBlock(part: textParts.first, theme: theme);
@@ -176,8 +185,37 @@ class _NewsletterComponentTile extends StatelessWidget {
     final bool secondIsImage =
         second != null && second.type == NewsletterPartType.image;
 
+    if (firstIsImage && secondIsImage) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _ImageBlock(
+              slotKey: '${component.id}-col0',
+              part: first,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _ImageBlock(
+              slotKey: '${component.id}-col1',
+              part: second,
+            ),
+          ),
+        ],
+      );
+    }
     if (firstIsImage && second != null && !secondIsImage) {
+      final bool textIsEmpty =
+          second.type == NewsletterPartType.text && !second.hasText;
+      if (textIsEmpty) {
+        return _ImageBlock(
+          slotKey: '${component.id}-col-image',
+          part: first,
+        );
+      }
       return _SideBySideBlock(
+        componentId: component.id,
         textPart: second,
         imagePart: first,
         imageOnRight: false,
@@ -185,7 +223,16 @@ class _NewsletterComponentTile extends StatelessWidget {
       );
     }
     if (!firstIsImage && secondIsImage) {
+      final bool textIsEmpty = first.type == NewsletterPartType.text &&
+          !first.hasText;
+      if (textIsEmpty) {
+        return _ImageBlock(
+          slotKey: '${component.id}-col-image',
+          part: second,
+        );
+      }
       return _SideBySideBlock(
+        componentId: component.id,
         textPart: first,
         imagePart: second,
         imageOnRight: true,
@@ -200,7 +247,10 @@ class _NewsletterComponentTile extends StatelessWidget {
       );
     }
     if (firstIsImage) {
-      return _ImageBlock(part: first);
+      return _ImageBlock(
+        slotKey: '${component.id}-solo',
+        part: first,
+      );
     }
     return _TextBlock(part: first, theme: theme);
   }
@@ -212,9 +262,9 @@ class _NewsletterComponentTile extends StatelessWidget {
     return null;
   }
 
-  NewsletterContentPart? _firstImagePart(List<NewsletterContentPart> parts) {
+  NewsletterContentPart? _firstImageSlotPart(List<NewsletterContentPart> parts) {
     for (final part in parts) {
-      if (part.type == NewsletterPartType.image && part.hasImage) return part;
+      if (part.type == NewsletterPartType.image) return part;
     }
     return null;
   }
@@ -275,12 +325,14 @@ class _TextBlock extends StatelessWidget {
 
 class _SideBySideBlock extends StatelessWidget {
   const _SideBySideBlock({
+    required this.componentId,
     required this.textPart,
     required this.imagePart,
     required this.imageOnRight,
     required this.theme,
   });
 
+  final int componentId;
   final NewsletterContentPart? textPart;
   final NewsletterContentPart? imagePart;
   final bool imageOnRight;
@@ -294,6 +346,7 @@ class _SideBySideBlock extends StatelessWidget {
       imageOnRight: imageOnRight,
       theme: theme,
       imageBuilder: (double width) => _ImageBlock(
+        slotKey: '$componentId-float',
         part: imagePart,
         fixedWidth: width,
       ),
@@ -303,12 +356,14 @@ class _SideBySideBlock extends StatelessWidget {
 
 class _StackedBlock extends StatelessWidget {
   const _StackedBlock({
+    required this.componentId,
     required this.textPart,
     required this.imagePart,
     required this.imageOnTop,
     required this.theme,
   });
 
+  final int componentId;
   final NewsletterContentPart? textPart;
   final NewsletterContentPart? imagePart;
   final bool imageOnTop;
@@ -316,8 +371,13 @@ class _StackedBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget? imageWidget =
-        imagePart != null && imagePart!.hasImage ? _ImageBlock(part: imagePart) : null;
+    final Widget? imageWidget = imagePart != null &&
+            imagePart!.type == NewsletterPartType.image
+        ? _ImageBlock(
+            slotKey: '$componentId-stacked',
+            part: imagePart,
+          )
+        : null;
     final Widget? textWidget = textPart != null && textPart!.hasText
         ? _TextBlock(part: textPart, theme: theme)
         : null;
@@ -399,163 +459,36 @@ class _DividerBlock extends StatelessWidget {
 
 class _ImageBlock extends StatelessWidget {
   const _ImageBlock({
+    required this.slotKey,
     required this.part,
     this.fixedWidth,
   });
 
+  final String slotKey;
   final NewsletterContentPart? part;
   final double? fixedWidth;
 
   @override
   Widget build(BuildContext context) {
-    final Widget content;
-    if (part == null || !part!.hasImage) {
-      content = ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Image.asset(
-            MediaRes.deafultNewsletterImage,
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
-    } else {
-      content = _NewsletterComponentImage(
-        imageUrl: part!.imageUrl,
-        assetCode: part!.assetCode,
-        alt: part!.alt,
-      );
-    }
+    final String code = (part?.assetCode ?? '').trim();
+    final String delivery = (part?.resolvedImageUrl ?? '').trim();
+    final String storagePath = (part?.imageUrl ?? '').trim();
+    final bool storageIsHttp = storagePath.startsWith('http://') ||
+        storagePath.startsWith('https://');
+    final Widget content = NewsletterMediaImage(
+      key: ValueKey<String>(
+        'newsletter-image-$slotKey-$code-$delivery-$storagePath',
+      ),
+      assetUrl: delivery.isNotEmpty ? delivery : null,
+      assetCode: delivery.isEmpty && code.isNotEmpty ? code : null,
+      directUrl: delivery.isEmpty && storageIsHttp ? storagePath : null,
+      aspectRatio: 16 / 9,
+      borderRadius: 10,
+      onImageTap: (String resolvedUrl) =>
+          showNewsletterImagePreview(context, imageUrl: resolvedUrl),
+    );
 
     if (fixedWidth == null) return content;
     return SizedBox(width: fixedWidth, child: content);
-  }
-}
-
-class _NewsletterComponentImage extends StatefulWidget {
-  const _NewsletterComponentImage({
-    required this.imageUrl,
-    required this.assetCode,
-    required this.alt,
-  });
-
-  final String imageUrl;
-  final String assetCode;
-  final String alt;
-
-  @override
-  State<_NewsletterComponentImage> createState() =>
-      _NewsletterComponentImageState();
-}
-
-class _NewsletterComponentImageState extends State<_NewsletterComponentImage> {
-  late Future<String> _urlFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _urlFuture = _resolveUrl();
-  }
-
-  @override
-  void didUpdateWidget(covariant _NewsletterComponentImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl ||
-        oldWidget.assetCode != widget.assetCode) {
-      _urlFuture = _resolveUrl();
-    }
-  }
-
-  Future<String> _resolveUrl() async {
-    final direct = widget.imageUrl.trim();
-    if (direct.isNotEmpty) return direct;
-
-    final code = widget.assetCode.trim();
-    if (code.isEmpty) return '';
-
-    try {
-      final ImageUploadService service = serviceLocator<ImageUploadService>();
-      return await service.getMediaAssetUrlByCode(assetCode: code);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _urlFuture,
-      builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-        final String url = (snapshot.data ?? '').trim();
-        final bool isLoading =
-            snapshot.connectionState == ConnectionState.waiting;
-
-        if (isLoading) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: ColoredBox(
-                color: Colors.grey.shade100,
-                child: const Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-
-        if (url.isEmpty) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Image.asset(
-                MediaRes.deafultNewsletterImage,
-                fit: BoxFit.cover,
-              ),
-            ),
-          );
-        }
-
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: GestureDetector(
-              onTap: () => showNewsletterImagePreview(context, imageUrl: url),
-              child: Image.network(
-                url,
-                key: ValueKey<String>(url),
-                fit: BoxFit.cover,
-                gaplessPlayback: false,
-                loadingBuilder: (_, child, progress) {
-                  if (progress == null) return child;
-                  return ColoredBox(
-                    color: Colors.grey.shade100,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  );
-                },
-                errorBuilder: (_, __, ___) => Image.asset(
-                  MediaRes.deafultNewsletterImage,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 }

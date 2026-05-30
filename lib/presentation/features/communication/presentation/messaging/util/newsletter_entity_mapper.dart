@@ -74,7 +74,10 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
     ),
     colorTheme: entity.colorTheme,
     backgroundPattern: entity.backgroundPattern,
-    components: parsedComponents,
+    components: enrichNewsletterComponentsWithAttachments(
+      components: parsedComponents,
+      attachments: attachments,
+    ),
     attachments: attachments,
   );
 }

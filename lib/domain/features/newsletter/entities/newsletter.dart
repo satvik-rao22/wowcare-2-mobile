@@ -1,5 +1,6 @@
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_recipient.dart';
 
 class Newsletter {
   const Newsletter({
@@ -19,6 +20,7 @@ class Newsletter {
     this.backgroundPattern = 'plain',
     this.components = const <NewsletterComponent>[],
     this.attachments = const <NewsletterAttachment>[],
+    this.recipients = const <NewsletterRecipient>[],
   });
 
   final int id;
@@ -37,6 +39,7 @@ class Newsletter {
   final String backgroundPattern;
   final List<NewsletterComponent> components;
   final List<NewsletterAttachment> attachments;
+  final List<NewsletterRecipient> recipients;
 }
 
 class NewsletterPage {

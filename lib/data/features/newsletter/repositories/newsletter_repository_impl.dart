@@ -4,6 +4,7 @@ import 'package:wowcare/data/features/newsletter/datasources/newsletter_remote_d
 import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_recipient.dart';
 import 'package:wowcare/domain/features/newsletter/repositories/newsletter_repository.dart';
 import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
 
@@ -88,9 +89,25 @@ class NewsletterRepositoryImpl
   }
 
   Newsletter _mapModelToEntity(NewsletterModel model) {
-    final components = parseNewsletterComponents(
-      components: model.components,
-      layoutJson: model.layoutJson,
+    final List<NewsletterAttachment> attachments = model.attachments
+        .map(
+          (NewsletterAttachmentModel attachment) => NewsletterAttachment(
+            id: attachment.id,
+            mediaCode: attachment.mediaCode,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            assetUrl: attachment.assetUrl,
+            sortOrder: attachment.sortOrder,
+          ),
+        )
+        .toList();
+
+    final components = enrichNewsletterComponentsWithAttachments(
+      components: parseNewsletterComponents(
+        components: model.components,
+        layoutJson: model.layoutJson,
+      ),
+      attachments: attachments,
     );
 
     return Newsletter(
@@ -113,15 +130,14 @@ class NewsletterRepositoryImpl
       colorTheme: model.colorTheme,
       backgroundPattern: model.backgroundPattern,
       components: components,
-      attachments: model.attachments
+      attachments: attachments,
+      recipients: model.recipients
           .map(
-            (NewsletterAttachmentModel attachment) => NewsletterAttachment(
-              id: attachment.id,
-              mediaCode: attachment.mediaCode,
-              fileName: attachment.fileName,
-              mimeType: attachment.mimeType,
-              assetUrl: attachment.assetUrl,
-              sortOrder: attachment.sortOrder,
+            (NewsletterRecipientModel recipient) => NewsletterRecipient(
+              id: recipient.id,
+              studentCode: recipient.studentCode,
+              studentName: recipient.studentName,
+              classroomCode: recipient.classroomCode,
             ),
           )
           .toList(),

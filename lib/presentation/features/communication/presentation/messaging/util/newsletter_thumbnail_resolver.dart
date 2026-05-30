@@ -1,3 +1,6 @@
+import 'package:wowcare/data/features/newsletter/util/newsletter_image_url_resolver.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
 
 /// Thumbnail source for newsletter list cards.
@@ -48,6 +51,9 @@ NewsletterThumbnailInfo resolveNewsletterThumbnail(NewsletterEntity entity) {
     if (!_isImageComponent(component.type)) continue;
     final data = component.data;
     final String url = _firstNonEmpty([
+      data['assetUrl'],
+      data['deliveryUrl'],
+      data['artifactUrl'],
       data['url'],
       data['imageUrl'],
       data['src'],
@@ -75,6 +81,77 @@ NewsletterThumbnailInfo resolveNewsletterThumbnail(NewsletterEntity entity) {
   final RegExp codePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
   final String text = '${entity.subtitle}\n${entity.layoutJson}';
   final RegExpMatch? match = codePattern.firstMatch(text);
+  if (match != null) {
+    final String code = (match.group(0) ?? '').trim();
+    if (code.isNotEmpty) {
+      return NewsletterThumbnailInfo(assetCode: code, mimeType: 'image/*');
+    }
+  }
+
+  return const NewsletterThumbnailInfo();
+}
+
+/// Resolves list/preview thumbnail for the shared [Newsletter] model.
+NewsletterThumbnailInfo resolveNewsletterListThumbnail(Newsletter newsletter) {
+  for (final attachment in newsletter.attachments) {
+    final String code = attachment.mediaCode.trim();
+    final String url = attachment.resolvedUrl;
+    if (code.isNotEmpty || url.isNotEmpty) {
+      return NewsletterThumbnailInfo(
+        assetCode: code,
+        directUrl: url,
+        mimeType: _resolveMimeType(
+          mimeType: attachment.mimeType,
+          url: url,
+          fileName: attachment.fileName,
+          assetCode: code,
+        ),
+      );
+    }
+  }
+
+  for (final NewsletterComponent component in newsletter.components) {
+    for (final part in component.parts) {
+      if (part.type != NewsletterPartType.image || !part.hasImage) continue;
+      final String deliveryUrl = part.resolvedImageUrl.isNotEmpty
+          ? part.resolvedImageUrl
+          : resolveNewsletterImageDeliveryUrl(
+              part: part,
+              attachments: newsletter.attachments,
+            );
+      final String assetCode = part.assetCode.trim().isNotEmpty
+          ? part.assetCode.trim()
+          : extractNewsletterAssetCode(part.imageUrl);
+      return NewsletterThumbnailInfo(
+        assetCode: assetCode,
+        directUrl: deliveryUrl,
+        mimeType: _resolveMimeType(
+          mimeType: '',
+          url: deliveryUrl,
+          fileName: part.alt,
+          assetCode: part.assetCode,
+        ),
+      );
+    }
+  }
+
+  final RegExp codePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
+  final StringBuffer searchBuffer = StringBuffer()
+    ..writeln(newsletter.subtitle)
+    ..writeln(newsletter.bodyHtml);
+  for (final component in newsletter.components) {
+    for (final part in component.parts) {
+      if (part.type == NewsletterPartType.text) {
+        searchBuffer.writeln(part.text);
+      } else {
+        searchBuffer
+          ..writeln(part.assetUrl)
+          ..writeln(part.imageUrl)
+          ..writeln(part.assetCode);
+      }
+    }
+  }
+  final RegExpMatch? match = codePattern.firstMatch(searchBuffer.toString());
   if (match != null) {
     final String code = (match.group(0) ?? '').trim();
     if (code.isNotEmpty) {

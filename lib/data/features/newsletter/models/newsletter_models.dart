@@ -97,17 +97,20 @@ class NewsletterRecipientModel extends Equatable {
     this.id = 0,
     this.classroomCode = '',
     this.studentCode = '',
+    this.studentName = '',
   });
 
   final int id;
   final String classroomCode;
   final String studentCode;
+  final String studentName;
 
   factory NewsletterRecipientModel.fromJson(Map<String, dynamic> json) {
     return NewsletterRecipientModel(
       id: json['id'] as int? ?? 0,
       classroomCode: (json['classroomCode'] as String? ?? '').trim(),
       studentCode: (json['studentCode'] as String? ?? '').trim(),
+      studentName: (json['studentName'] as String? ?? '').trim(),
     );
   }
 
@@ -115,10 +118,11 @@ class NewsletterRecipientModel extends Equatable {
         'id': id,
         'classroomCode': classroomCode,
         'studentCode': studentCode,
+        'studentName': studentName,
       };
 
   @override
-  List<Object?> get props => [id, classroomCode, studentCode];
+  List<Object?> get props => [id, classroomCode, studentCode, studentName];
 }
 
 class NewsletterModel extends Equatable {

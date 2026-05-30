@@ -10,7 +10,7 @@ import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_classroom_display.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_list_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
@@ -372,8 +372,8 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                           letter.createdByName.trim().isNotEmpty
                                           ? letter.createdByName
                                           : 'Demo Test';
-                                      final primaryAttachment =
-                                          pickPrimaryListAttachment(letter);
+                                      final thumbnail =
+                                          resolveNewsletterListThumbnail(letter);
                                       final List<String> derivedAssetCodes =
                                           _extractAssetCodesFromNewsletter(
                                             letter,
@@ -385,13 +385,7 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                         ...derivedAssetCodes,
                                       };
                                       final String primaryAssetCode =
-                                          (primaryAttachment?.mediaCode ?? '')
-                                              .trim()
-                                              .isNotEmpty
-                                          ? primaryAttachment!.mediaCode
-                                          : (derivedAssetCodes.isNotEmpty
-                                                ? derivedAssetCodes.first
-                                                : '');
+                                          thumbnail.assetCode.trim();
                                       final int additionalAttachmentCount =
                                           allCodes.length > 1
                                           ? allCodes.length - 1
@@ -418,20 +412,21 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                             createdBy: createdBy,
                                             recipientCount:
                                                 letter.recipientCount,
+                                            newsletterCode: letter.code,
+                                            recipients: letter.recipients,
+                                            cachedNewsletter: letter,
                                             primaryAttachmentAssetCode:
-                                                primaryAssetCode,
-                                            primaryAttachmentMimeType: () {
-                                              final mime =
-                                                  (primaryAttachment
-                                                              ?.mimeType ??
-                                                          '')
-                                                      .trim();
-                                              if (mime.isNotEmpty) return mime;
-                                              if (primaryAssetCode.isNotEmpty) {
-                                                return 'image/*';
-                                              }
-                                              return null;
-                                            }(),
+                                                primaryAssetCode.isNotEmpty
+                                                    ? primaryAssetCode
+                                                    : null,
+                                            primaryAttachmentDirectUrl:
+                                                thumbnail.directUrl.isNotEmpty
+                                                    ? thumbnail.directUrl
+                                                    : null,
+                                            primaryAttachmentMimeType:
+                                                thumbnail.mimeType.isNotEmpty
+                                                    ? thumbnail.mimeType
+                                                    : null,
                                             additionalAttachmentCount:
                                                 additionalAttachmentCount,
                                           ),

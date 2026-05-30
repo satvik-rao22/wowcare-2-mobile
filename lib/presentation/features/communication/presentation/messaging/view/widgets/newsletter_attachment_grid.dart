@@ -125,17 +125,20 @@ class _AttachmentTileState extends State<_AttachmentTile> {
   }
 
   Future<String> _resolveAssetUrl() async {
-    final String direct = widget.attachment.resolvedUrl;
-    if (direct.isNotEmpty) return direct;
-
+    final ImageUploadService uploadService =
+        serviceLocator<ImageUploadService>();
     final String code = widget.attachment.mediaCode.trim();
-    if (code.isEmpty) return '';
-    try {
-      final ImageUploadService uploadService = serviceLocator<ImageUploadService>();
-      return await uploadService.getMediaAssetUrlByCode(assetCode: code);
-    } catch (_) {
-      return '';
+    if (code.isNotEmpty) {
+      try {
+        final String resolved =
+            await uploadService.getMediaAssetUrlByCode(assetCode: code);
+        if (resolved.trim().isNotEmpty) return resolved.trim();
+      } catch (_) {}
     }
+
+    final String direct = widget.attachment.resolvedUrl.trim();
+    if (direct.isNotEmpty) return direct;
+    return '';
   }
 
   Future<void> _openExternalUrl(String url) async {
@@ -249,9 +252,12 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     }
 
     if (attachment.isImage && hasUrl) {
+      final String cacheKey = attachment.mediaCode.trim().isNotEmpty
+          ? attachment.mediaCode.trim()
+          : url;
       return Image.network(
         url,
-        key: ValueKey<String>(url),
+        key: ValueKey<String>('attachment-${attachment.id}-$cacheKey'),
         fit: BoxFit.cover,
         width: double.infinity,
         gaplessPlayback: false,

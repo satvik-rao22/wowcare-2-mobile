@@ -56,6 +56,10 @@ class _NewsletterFloatImageTextLayoutState
       _blockHeights = null;
       _splitIndex = 0;
     }
+    if (oldWidget.imagePart?.assetCode != widget.imagePart?.assetCode ||
+        oldWidget.imagePart?.imageUrl != widget.imagePart?.imageUrl) {
+      setState(() {});
+    }
   }
 
   double _imageWidthForContainer(double containerWidth) {
@@ -143,7 +147,8 @@ class _NewsletterFloatImageTextLayoutState
     final List<String> besideBlocks = _blocks.take(_splitIndex).toList();
     final List<String> belowBlocks = _blocks.skip(_splitIndex).toList();
     final bool hasImage =
-        widget.imagePart != null && widget.imagePart!.hasImage;
+        widget.imagePart != null &&
+        widget.imagePart!.type == NewsletterPartType.image;
     final bool hasText = _blocks.isNotEmpty;
 
     if (!hasImage && !hasText) return const SizedBox.shrink();
