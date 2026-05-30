@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
@@ -52,22 +53,70 @@ class ParentChildRef {
   }
 }
 
-class ParentChildProvider extends ChangeNotifier {
-  ParentChildRef? _selectedChild;
-  List<ParentChildRef> _children = const <ParentChildRef>[];
-  bool _isLoading = false;
-  bool _isLoaded = false;
+class ParentChildState extends Equatable {
+  const ParentChildState({
+    this.selectedChild,
+    this.children = const <ParentChildRef>[],
+    this.isLoading = false,
+    this.isLoaded = false,
+  });
 
-  /// Last session we successfully loaded for (user|org|school). Drives reload on context change.
+  final ParentChildRef? selectedChild;
+  final List<ParentChildRef> children;
+  final bool isLoading;
+  final bool isLoaded;
+
+  ParentChildState copyWith({
+    ParentChildRef? selectedChild,
+    bool clearSelectedChild = false,
+    List<ParentChildRef>? children,
+    bool? isLoading,
+    bool? isLoaded,
+  }) {
+    return ParentChildState(
+      selectedChild:
+          clearSelectedChild ? null : (selectedChild ?? this.selectedChild),
+      children: children ?? this.children,
+      isLoading: isLoading ?? this.isLoading,
+      isLoaded: isLoaded ?? this.isLoaded,
+    );
+  }
+
+  @override
+  List<Object?> get props => <Object?>[
+        selectedChild?.code,
+        children.map((c) => c.code).toList(),
+        isLoading,
+        isLoaded,
+      ];
+}
+
+/// Bloc replacement for the old `ParentChildCubit` (a `ChangeNotifier`).
+///
+/// Behaviour is preserved exactly; only the state-propagation mechanism changed
+/// from `notifyListeners()` to `_safeEmit()`. The previous public getters/methods
+/// are kept (getters delegate to [state]) so consumers can switch from
+/// `context.watch/read<ParentChildCubit>()` to the cubit with minimal churn.
+class ParentChildCubit extends Cubit<ParentChildState> {
+  ParentChildCubit() : super(const ParentChildState());
+
+  /// Last session we successfully loaded for (user|org|school). Drives reload
+  /// on context change.
   String _lastLoadedContextKey = '';
 
-  ParentChildRef? get selectedChild => _selectedChild;
-  List<ParentChildRef> get children => _children;
-  bool get isLoading => _isLoading;
-  bool get isLoaded => _isLoaded;
+  ParentChildRef? get selectedChild => state.selectedChild;
+  List<ParentChildRef> get children => state.children;
+  bool get isLoading => state.isLoading;
+  bool get isLoaded => state.isLoaded;
 
   List<String> get childNames =>
-      _children.map((e) => e.name).toList(growable: false);
+      state.children.map((e) => e.name).toList(growable: false);
+
+  /// Emits only while open — so an emit after `close()` (e.g. an in-flight
+  /// [ensureLoaded] resolving after teardown) never throws "emit after close".
+  void _safeEmit(ParentChildState state) {
+    if (!isClosed) emit(state);
+  }
 
   static String _contextKey(
     String userCode,
@@ -76,47 +125,36 @@ class ParentChildProvider extends ChangeNotifier {
   ) =>
       '${userCode.toLowerCase()}|${orgCode.toLowerCase()}|${schoolCode.toLowerCase()}';
 
-  /// Clears cached children so the next [ensureLoaded] runs a full fetch (e.g. logout, manual refresh).
+  /// Clears cached children so the next [ensureLoaded] runs a full fetch
+  /// (e.g. logout, manual refresh).
   void invalidate() {
-    _isLoaded = false;
-    _isLoading = false;
     _lastLoadedContextKey = '';
-    _children = const <ParentChildRef>[];
-    _selectedChild = null;
-    notifyListeners();
+    _safeEmit(const ParentChildState());
   }
 
   Future<void> ensureLoaded({bool force = false}) async {
-    if (_isLoading) return;
+    if (state.isLoading) return;
 
     final storage = serviceLocator<StorageService>();
-    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
+    final userCode =
+        (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     final orgCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
 
     if (userCode.isEmpty) {
-      _children = const <ParentChildRef>[];
-      _selectedChild = null;
-      _isLoaded = false;
       _lastLoadedContextKey = '';
-      _isLoading = false;
-      notifyListeners();
+      _safeEmit(const ParentChildState());
       return;
     }
 
     // Parent/guardian child scope is not applicable for staff/admin personas.
     final bool hasGuardianPersona = _hasGuardianPersona(rolesRaw);
     if (!hasGuardianPersona) {
-      _children = const <ParentChildRef>[];
-      _selectedChild = null;
-      _isLoaded = true;
       _lastLoadedContextKey = '';
-      _isLoading = false;
-      notifyListeners();
+      _safeEmit(const ParentChildState(isLoaded: true));
       return;
     }
 
@@ -132,17 +170,21 @@ class ParentChildProvider extends ChangeNotifier {
       } catch (_) {}
     }
 
-    if (_isLoaded && !force && !contextChanged) {
+    if (state.isLoaded && !force && !contextChanged) {
       return;
     }
 
-    _isLoading = true;
-    notifyListeners();
+    _safeEmit(state.copyWith(isLoading: true));
+
+    // Local accumulators mirror the old mutable fields; emitted once at the end.
+    List<ParentChildRef> resultChildren = state.children;
+    ParentChildRef? resultSelected = state.selectedChild;
+    bool resultLoaded = state.isLoaded;
+    String resultContextKey = _lastLoadedContextKey;
 
     try {
       final remote = serviceLocator<StudentRemoteDataSource>();
       final studentPage = serviceLocator<GetStudentPageUseCase>();
-      final storage = serviceLocator<StorageService>();
       var guardianCode =
           (await storage.getString(StorageKeys.guardianCode) ?? '').trim();
       if (guardianCode.isEmpty) {
@@ -153,10 +195,10 @@ class ParentChildProvider extends ChangeNotifier {
           schoolCode.isEmpty ||
           orgCode.isEmpty ||
           userCode.isEmpty) {
-        _children = const <ParentChildRef>[];
-        _selectedChild = null;
-        _isLoaded = true;
-        _lastLoadedContextKey = '';
+        resultChildren = const <ParentChildRef>[];
+        resultSelected = null;
+        resultLoaded = true;
+        resultContextKey = '';
         return;
       }
 
@@ -167,9 +209,8 @@ class ParentChildProvider extends ChangeNotifier {
       );
       final byCode = <String, ParentChildRef>{};
       for (final row in rawChildren) {
-        final code = (row['code'] ?? row['studentCode'] ?? '')
-            .toString()
-            .trim();
+        final code =
+            (row['code'] ?? row['studentCode'] ?? '').toString().trim();
         if (code.isEmpty) continue;
         final firstName = (row['firstName'] ?? '').toString().trim();
         final lastName = (row['lastName'] ?? '').toString().trim();
@@ -202,32 +243,39 @@ class ParentChildProvider extends ChangeNotifier {
 
       final loadedChildren = byCode.values.toList(growable: false);
 
-      _children = loadedChildren;
-      if (_children.isEmpty) {
-        _selectedChild = null;
+      resultChildren = loadedChildren;
+      if (loadedChildren.isEmpty) {
+        resultSelected = null;
       } else {
-        final selectedCode = _selectedChild?.code.trim();
+        final selectedCode = state.selectedChild?.code.trim();
         ParentChildRef? matching;
         if (selectedCode != null && selectedCode.isNotEmpty) {
-          for (final child in _children) {
+          for (final child in loadedChildren) {
             if (child.code.trim() == selectedCode) {
               matching = child;
               break;
             }
           }
         }
-        _selectedChild = matching ?? _children.first;
+        resultSelected = matching ?? loadedChildren.first;
       }
-      _isLoaded = true;
-      _lastLoadedContextKey = contextKey;
+      resultLoaded = true;
+      resultContextKey = contextKey;
     } catch (_) {
-      _children = const <ParentChildRef>[];
-      _selectedChild = null;
-      _isLoaded = true;
-      _lastLoadedContextKey = '';
+      resultChildren = const <ParentChildRef>[];
+      resultSelected = null;
+      resultLoaded = true;
+      resultContextKey = '';
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _lastLoadedContextKey = resultContextKey;
+      _safeEmit(
+        ParentChildState(
+          selectedChild: resultSelected,
+          children: resultChildren,
+          isLoading: false,
+          isLoaded: resultLoaded,
+        ),
+      );
     }
   }
 
@@ -254,32 +302,31 @@ class ParentChildProvider extends ChangeNotifier {
     final trimmed = (name ?? '').trim();
     if (trimmed.isEmpty) return;
     ParentChildRef? next;
-    for (final child in _children) {
+    for (final child in state.children) {
       if (child.name == trimmed) {
         next = child;
         break;
       }
     }
     if (next == null) return;
-    if (_selectedChild?.code == next.code) return;
-    _selectedChild = next;
-    notifyListeners();
+    if (state.selectedChild?.code == next.code) return;
+    _safeEmit(state.copyWith(selectedChild: next));
   }
 
-  /// Selects the child matching [code] (e.g. after parent sign-in/out for a specific student).
+  /// Selects the child matching [code] (e.g. after parent sign-in/out for a
+  /// specific student).
   void selectByCode(String? code) {
     final trimmed = (code ?? '').trim();
     if (trimmed.isEmpty) return;
     ParentChildRef? next;
-    for (final child in _children) {
+    for (final child in state.children) {
       if (child.code.trim() == trimmed) {
         next = child;
         break;
       }
     }
     if (next == null) return;
-    if (_selectedChild?.code == next.code) return;
-    _selectedChild = next;
-    notifyListeners();
+    if (state.selectedChild?.code == next.code) return;
+    _safeEmit(state.copyWith(selectedChild: next));
   }
 }

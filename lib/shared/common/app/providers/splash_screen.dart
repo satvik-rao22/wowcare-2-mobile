@@ -13,8 +13,8 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
 // Avoid silencing `forgot_password_screen.dart`/`sign_in_screen.dart` analyzer
@@ -139,12 +139,12 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     if (!mounted) return;
 
     if (hasCachedLogin) {
-      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
 
       try {
-        if (mounted && context.read<RoleProvider>().isParent) {
-          context.read<ParentChildProvider>().invalidate();
-          await context.read<ParentChildProvider>().ensureLoaded(force: true);
+        if (mounted && context.read<RoleCubit>().isParent) {
+          context.read<ParentChildCubit>().invalidate();
+          await context.read<ParentChildCubit>().ensureLoaded(force: true);
         }
       } catch (_) {
         // Non-blocking.

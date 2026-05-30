@@ -168,7 +168,7 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 class GlobalScaffold extends StatefulWidget {
@@ -216,7 +216,7 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final roleProvider = context.watch<RoleProvider>();
+    final roleProvider = context.watch<RoleCubit>();
     final isParentRole = roleProvider.isParent;
 
     final appBar = CustomAppBar(

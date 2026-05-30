@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:flutter/services.dart';
@@ -235,7 +236,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         });
       }
     } catch (e) {
-      print('Error opening calendar dialog: $e');
+      AppLogger.d('Error opening calendar dialog: $e');
     }
   }
 
@@ -262,7 +263,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         await _uploadSelectedFile(file);
       }
     } catch (e) {
-      print('Error picking file: $e');
+      AppLogger.d('Error picking file: $e');
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Error selecting file. Please try again.',

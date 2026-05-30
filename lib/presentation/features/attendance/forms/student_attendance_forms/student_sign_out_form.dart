@@ -22,11 +22,11 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // Student entity for Sign-Out UI & API payload
@@ -160,7 +160,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
+    if (context.read<RoleCubit>().isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
@@ -409,7 +409,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
-            context.read<ParentChildProvider>().selectByCode(s.studentCode);
+            context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute<void>(

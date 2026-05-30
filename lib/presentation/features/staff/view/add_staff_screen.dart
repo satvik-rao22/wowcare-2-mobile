@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -481,13 +482,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Debug logging to diagnose email validation issues
     final raw = value ?? '';
     final trimmed = raw.trim().toLowerCase();
-    print('[Email Validation] raw: "$raw"');
-    print('[Email Validation] trimmed: "$trimmed"');
-    print('[Email Validation] strict regex: ${_emailRegexStrict.pattern}');
-    print('[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}');
+    AppLogger.d('[Email Validation] raw: "$raw"');
+    AppLogger.d('[Email Validation] trimmed: "$trimmed"');
+    AppLogger.d('[Email Validation] strict regex: ${_emailRegexStrict.pattern}');
+    AppLogger.d('[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}');
 
     if (trimmed.isEmpty) {
-      print('[Email Validation] FAIL: empty');
+      AppLogger.d('[Email Validation] FAIL: empty');
       return 'Email is required';
     }
 
@@ -496,19 +497,19 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final strictMatch = _emailRegexStrict.hasMatch(trimmed);
     final permissiveMatch = _emailRegexPermissive.hasMatch(trimmed);
     final matches = strictMatch || permissiveMatch || (hasAt && hasDot && trimmed.length >= 6);
-    print('[Email Validation] hasAt: $hasAt, hasDotAfterAt: $hasDot');
-    print('[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch');
-    print('[Email Validation] final hasMatch: $matches');
+    AppLogger.d('[Email Validation] hasAt: $hasAt, hasDotAfterAt: $hasDot');
+    AppLogger.d('[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch');
+    AppLogger.d('[Email Validation] final hasMatch: $matches');
     if (!matches) {
       // Pinpoint common issues
       if (trimmed.contains(' ')) {
-        print('[Email Validation] contains spaces');
+        AppLogger.d('[Email Validation] contains spaces');
       }
       if (!trimmed.contains('@')) {
-        print('[Email Validation] missing @');
+        AppLogger.d('[Email Validation] missing @');
       }
       if (!trimmed.contains('.')) {
-        print('[Email Validation] missing dot in domain');
+        AppLogger.d('[Email Validation] missing dot in domain');
       }
       return 'Please enter a valid email address';
     }
@@ -518,20 +519,20 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   String? _validatePhoneNumber(String? value) {
     final raw = (value ?? '').trim();
     final digits = raw.replaceAll(RegExp(r'\D'), '');
-    print('[Phone Validation] raw: "$raw"');
-    print('[Phone Validation] digitsOnly: "$digits"');
-    print('[Phone Validation] regex: ${_phoneRegex.pattern}');
+    AppLogger.d('[Phone Validation] raw: "$raw"');
+    AppLogger.d('[Phone Validation] digitsOnly: "$digits"');
+    AppLogger.d('[Phone Validation] regex: ${_phoneRegex.pattern}');
 
     if (raw.isEmpty) {
       return 'Phone number is required';
     }
     if (digits.length != 10) {
-      print('[Phone Validation] FAIL: digits length = ${digits.length}');
+      AppLogger.d('[Phone Validation] FAIL: digits length = ${digits.length}');
       return 'Please enter a valid 10-digit phone number';
     }
     // Accept either formatted string OR any 10-digit input (formatter will format on type)
     final formattedMatch = _phoneRegex.hasMatch(raw);
-    print('[Phone Validation] formattedMatch: $formattedMatch');
+    AppLogger.d('[Phone Validation] formattedMatch: $formattedMatch');
     return null; // digits == 10 is sufficient
   }
 

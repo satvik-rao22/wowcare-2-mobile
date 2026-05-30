@@ -41,7 +41,7 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 
@@ -473,7 +473,7 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
 
-        // Branch 3 — Messaging. Persona is derived from RoleProvider so the
+        // Branch 3 — Messaging. Persona is derived from RoleCubit so the
         // same branch serves both parent and staff/admin without having to
         // pass arguments through the URL.
         StatefulShellBranch(
@@ -481,7 +481,7 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: AppRoutes.messaging,
               builder: (context, state) {
-                final isParent = context.read<RoleProvider>().isParent;
+                final isParent = context.read<RoleCubit>().isParent;
                 final tab = state.uri.queryParameters['tab']?.trim().toLowerCase();
                 final initialTabIndex = tab == 'newsletter' ? 1 : 0;
                 return MessagingScreen(

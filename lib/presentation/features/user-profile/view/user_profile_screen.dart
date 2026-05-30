@@ -28,8 +28,8 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
@@ -168,7 +168,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     // For guardian/parent persona, load guardian profile fields for phone/address
     // and skip staff profile fetches.
     try {
-      if (mounted && context.read<RoleProvider>().isParent) {
+      if (mounted && context.read<RoleCubit>().isParent) {
         await _loadGuardianProfileForParent();
         if (!mounted) return;
         setState(() => _profile = null);
@@ -320,18 +320,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       await authLocal.clearPersonaVolatileCaches();
       await authLocal.persistActiveSchoolPersonaRole(backendRole);
       if (!mounted) return;
-      context.read<ParentChildProvider>().invalidate();
-      // Preload guardian data BEFORE RoleProvider flips to parent so the global
+      context.read<ParentChildCubit>().invalidate();
+      // Preload guardian data BEFORE RoleCubit flips to parent so the global
       // dropdown doesn't show a loading state.
       final targetIsGuardian = roleStringIsGuardianPersona(backendRole);
       if (targetIsGuardian) {
         // Also fetch guardian profile so phone/address appear immediately.
         await _loadGuardianProfileForParent();
         if (!mounted) return;
-        await context.read<ParentChildProvider>().ensureLoaded(force: true);
+        await context.read<ParentChildCubit>().ensureLoaded(force: true);
       }
       if (!mounted) return;
-      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
       final org = (_organizationCode ?? '').trim();
       final school = (_schoolCode ?? '').trim();
       if (org.isNotEmpty && school.isNotEmpty) {
@@ -557,7 +557,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // endpoints, keyed by the guardian code resolved from the guardian
       // profile GET — not the staff endpoints.
       if (!mounted) return;
-      if (context.read<RoleProvider>().isParent) {
+      if (context.read<RoleCubit>().isParent) {
         await _uploadGuardianProfilePhoto(image);
         return;
       }
@@ -916,7 +916,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _viewStudentProfileForParent() async {
-    final parentChild = context.read<ParentChildProvider>();
+    final parentChild = context.read<ParentChildCubit>();
     if (!parentChild.isLoaded && !parentChild.isLoading) {
       await parentChild.ensureLoaded();
     }
@@ -930,7 +930,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
 
-    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+    await context.read<RoleCubit>().refreshAccessFromServer(force: true);
     if (!mounted) return;
 
     final resolvedClassroom =
@@ -988,7 +988,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final responsive = ResponsiveHelper(context);
-    final isParentPersona = context.watch<RoleProvider>().isParent;
+    final isParentPersona = context.watch<RoleCubit>().isParent;
     final String displayName =
         _profile?.fullName.isNotEmpty == true
             ? _profile!.fullName

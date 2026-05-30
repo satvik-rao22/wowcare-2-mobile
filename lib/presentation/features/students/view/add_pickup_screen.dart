@@ -10,7 +10,6 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -129,7 +128,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
       final names =
           await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
-      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final repo = serviceLocator<StudentRepository>();
       final rawGuardians =
           await repo.getGuardiansRawForSchool(schoolCode: schoolCode);
       final details = <String, Map<String, String>>{};
@@ -212,8 +211,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             .trim()
             .toUpperCase()
             .replaceAll(' ', '_');
-        final repo =
-            serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+        final repo = serviceLocator<StudentRepository>();
         final message = await repo.addPickup(
           studentCode: widget.studentCode,
           firstName: first,
@@ -321,7 +319,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     try {
       final normalizedPhone = digits;
 
-      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final repo = serviceLocator<StudentRepository>();
       final String message;
       if (_isEditLikeMode) {
         // Edit card flow must update existing pickup only.

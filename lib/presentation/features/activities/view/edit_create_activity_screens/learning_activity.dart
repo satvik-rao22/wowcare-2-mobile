@@ -19,13 +19,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_dropdown.dart';
@@ -115,13 +109,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
       .length;
 
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityEditorCubit _editor;
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
@@ -146,15 +134,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -222,7 +202,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -248,7 +228,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
     try {
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -270,7 +250,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      final detail = await _editor.getActivity(code: code);
       if (!mounted) return;
       final item = activityItemFromActivityDetail(
         detail,
@@ -357,7 +337,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+      final List<ActivitySetting> settings = await _editor.getClassroomActivitySettings(
         classroomCode: classroomCode,
       );
       ActivitySetting? learningSetting;
@@ -466,7 +446,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (code == null || code.isEmpty || !mounted) return;
     setState(() => _loadingLearningOptions = true);
     try {
-      final details = await _getActivityTypeDetailsUseCase(code: code);
+      final details = await _editor.getActivityTypeDetails(code: code);
       if (!mounted) return;
       final activityParam = _findActivityNameParameter(details.parameters);
       final categoryParam = _findCategoryParameter(details.parameters);
@@ -891,7 +871,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details = await _getActivityTypeDetailsUseCase(
+      final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
 
@@ -963,7 +943,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         if (categoryEntry != null) categoryEntry,
       ];
 
-      final message = await _createActivityUseCase(
+      final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -1173,7 +1153,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
-      final details = await _getActivityTypeDetailsUseCase(
+      final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
 
@@ -1266,7 +1246,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())
@@ -1287,7 +1267,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
           attachments: patchAttachments,
         );
         try {
-          await _getActivityUseCase(code: code);
+          await _editor.getActivity(code: code);
         } catch (_) {}
       }
 
@@ -1339,6 +1319,7 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _editor.close();
     super.dispose();
   }
 

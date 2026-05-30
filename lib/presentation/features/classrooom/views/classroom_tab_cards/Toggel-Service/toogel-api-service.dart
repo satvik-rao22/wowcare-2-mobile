@@ -53,7 +53,7 @@
 //       // Send request
 //       // final url = Uri.parse(
 //       //     'https://qa.childcarewow.app/wowcare-qa/api/students-by-room/$roomId');
-//       print('Fetching napping status for URL: $url');
+//       AppLogger.d('Fetching napping status for URL: $url');
 //       final response = await http.get(url, headers: headers).timeout(
 //         const Duration(seconds: 10),
 //         onTimeout: () {

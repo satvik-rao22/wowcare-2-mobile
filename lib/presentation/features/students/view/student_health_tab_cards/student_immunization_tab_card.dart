@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -40,7 +39,7 @@ class StudentImmunizationTabCard extends StatefulWidget {
 }
 
 class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard> {
-  late Future<List<StudentImmunizationModel>> _immunizationFuture;
+  late Future<List<StudentImmunization>> _immunizationFuture;
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
@@ -99,7 +98,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
   }
 
   Future<void> _openEditImmunizationBottomSheet({
-    required StudentImmunizationModel model,
+    required StudentImmunization model,
   }) async {
     DateTime? selectedDate = _parseIsoDate(model.administeredDate) ??
         _parseIsoDate(model.dueDate);
@@ -303,8 +302,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                                 setLocalState(() => isSaving = true);
                                 try {
                                   final repo =
-                                      serviceLocator<StudentRepository>()
-                                          as StudentRepositoryImpl;
+                                      serviceLocator<StudentRepository>();
                                   await repo.updateStudentImmunizationRecord(
                                     studentCode: model.studentCode,
                                     record: model,
@@ -325,8 +323,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                                   if (!mounted) return;
                                   setState(() {
                                     _immunizationFuture =
-                                        (serviceLocator<StudentRepository>()
-                                                as StudentRepositoryImpl)
+                                        serviceLocator<StudentRepository>()
                                             .getStudentImmunizations(
                                       studentCode: model.studentCode,
                                       forceRefresh: true,
@@ -361,12 +358,12 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
     );
   }
 
-  Future<List<StudentImmunizationModel>> _buildImmunizationFuture() async {
+  Future<List<StudentImmunization>> _buildImmunizationFuture() async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return const <StudentImmunizationModel>[];
+      return const <StudentImmunization>[];
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final repo = serviceLocator<StudentRepository>();
     try {
       return await repo.getStudentImmunizations(studentCode: code);
     } catch (_) {
@@ -376,21 +373,18 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canMutateStudent =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
-          _immunizationFuture =
-              serviceLocator<StudentRepository>() is StudentRepositoryImpl
-                  ? (serviceLocator<StudentRepository>() as StudentRepositoryImpl)
-                      .getStudentImmunizations(
-                      studentCode: widget.studentCode ?? '',
-                      forceRefresh: true,
-                    )
-                  : _buildImmunizationFuture();
+          _immunizationFuture = serviceLocator<StudentRepository>()
+              .getStudentImmunizations(
+            studentCode: widget.studentCode ?? '',
+            forceRefresh: true,
+          );
           _hasShownErrorSnackBar = false;
         });
         try {
@@ -402,7 +396,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentImmunizationModel>>(
+        child: FutureBuilder<List<StudentImmunization>>(
           future: _immunizationFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -429,7 +423,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
               return const SizedBox.shrink();
             }
 
-            final items = snapshot.data ?? const <StudentImmunizationModel>[];
+            final items = snapshot.data ?? const <StudentImmunization>[];
             if (items.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.only(top: 24),
@@ -441,7 +435,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
             }
 
             // Group by vaccine name
-            final Map<String, List<StudentImmunizationModel>> grouped = {};
+            final Map<String, List<StudentImmunization>> grouped = {};
             for (final m in items) {
               grouped.putIfAbsent(m.vaccineName, () => []).add(m);
             }
@@ -483,8 +477,8 @@ class _ImmunizationCard extends StatelessWidget {
   });
 
   final String vaccineName;
-  final List<StudentImmunizationModel> doses;
-  final ValueChanged<StudentImmunizationModel> onMore;
+  final List<StudentImmunization> doses;
+  final ValueChanged<StudentImmunization> onMore;
   final bool showActions;
 
   @override
@@ -553,7 +547,7 @@ class _ImmunizationCard extends StatelessWidget {
 
 class _DoseRow extends StatelessWidget {
   const _DoseRow({required this.model, required this.onMore});
-  final StudentImmunizationModel model;
+  final StudentImmunization model;
   final VoidCallback? onMore;
 
   @override
@@ -633,7 +627,7 @@ class _DoseRow extends StatelessWidget {
     return const Color(0xFFF3F4FB);
   }
 
-  String _doseDateText(StudentImmunizationModel model) {
+  String _doseDateText(StudentImmunization model) {
     if ((model.administeredDate ?? '').isNotEmpty) {
       return model.administeredDate!;
     }

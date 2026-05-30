@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -49,7 +50,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
@@ -1274,7 +1275,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         ),
                       ),
                       if (ModuleAccess.mayWrite(
-                        context.watch<RoleProvider>(),
+                        context.watch<RoleCubit>(),
                         AppAccessModules.student,
                       ))
                         GradientAddButton(
@@ -1284,7 +1285,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             MaterialPageRoute(builder: (_) => const AddStudentWizardScreen()),
                           );
                           if (!mounted) return;
-                          print('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
+                          AppLogger.d('[StudentScreen] Received result from AddStudentWizardScreen: ' + result.toString());
                           if (result is Map && (result['showPostAddPrompt'] == true)) {
                             final studentName = (result['studentName'] as String?) ?? '';
                             final studentCode = (result['studentCode'] as String?) ?? '';

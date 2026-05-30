@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/student/models/student_pickup_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -43,7 +42,7 @@ class StudentPickupTabCard extends StatefulWidget {
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   static const int _maxPickupsPerStudent = 4;
 
-  late Future<List<StudentPickupModel>> _pickupsFuture;
+  late Future<List<StudentPickup>> _pickupsFuture;
   bool _isMutating = false;
 
   @override
@@ -52,12 +51,12 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     _pickupsFuture = _buildPickupsFuture();
   }
 
-  Future<List<StudentPickupModel>> _buildPickupsFuture({bool forceRefresh = false}) {
+  Future<List<StudentPickup>> _buildPickupsFuture({bool forceRefresh = false}) {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPickupModel>[]);
+      return Future.value(const <StudentPickup>[]);
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final repo = serviceLocator<StudentRepository>();
     return repo.getStudentPickups(studentCode: code, forceRefresh: forceRefresh);
   }
 
@@ -75,7 +74,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
@@ -106,8 +105,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         onTap: () async {
                           final code = widget.studentCode ?? '';
                           if (code.isEmpty) return;
-                          final repo =
-                              serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+                          final repo = serviceLocator<StudentRepository>();
                           final current =
                               await repo.getStudentPickups(studentCode: code);
                           if (current.length >= _maxPickupsPerStudent) {
@@ -139,7 +137,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentPickupModel>>(
+              FutureBuilder<List<StudentPickup>>(
                 future: _pickupsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -165,7 +163,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     );
                   }
 
-                  final pickups = snapshot.data ?? const <StudentPickupModel>[];
+                  final pickups = snapshot.data ?? const <StudentPickup>[];
                   if (pickups.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -340,7 +338,7 @@ class _PickupCardState extends State<_PickupCard> {
             }
             widget.onSetLoading(true);
             try {
-              final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+              final repo = serviceLocator<StudentRepository>();
               final message = await repo.deletePickup(
                 code: widget.pickupCode,
                 studentCode: widget.studentCode,

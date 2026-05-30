@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -208,14 +209,14 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> loadNextPage() async {
     // ignore: avoid_print
-    print('[StaffCubit] loadNextPage called: '
+    AppLogger.d('[StaffCubit] loadNextPage called: '
         'isLoadingMore=${state.isLoadingMore}, '
         'hasMore=${state.hasMore}, '
         'currentPage=${state.currentPage}, '
         'items=${state.items.length}');
     if (state.isLoadingMore || !state.hasMore) {
       // ignore: avoid_print
-      print('[StaffCubit] loadNextPage aborted due to guard.');
+      AppLogger.d('[StaffCubit] loadNextPage aborted due to guard.');
       return;
     }
 
@@ -227,7 +228,7 @@ class StaffCubit extends Cubit<StaffState> {
     try {
       final nextPageIndex = state.currentPage + 1;
       // ignore: avoid_print
-      print('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
+      AppLogger.d('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
       final page = await _getStaffPageUseCase(
         organizationCode: organizationCode,
         schoolCode: schoolCode,
@@ -244,7 +245,7 @@ class StaffCubit extends Cubit<StaffState> {
       if (isClosed) return;
 
       // ignore: avoid_print
-      print('[StaffCubit] loaded page=${page.page}, '
+      AppLogger.d('[StaffCubit] loaded page=${page.page}, '
           'itemsAdded=${page.items.length}, '
           'hasMore=${page.hasMore}');
       emit(

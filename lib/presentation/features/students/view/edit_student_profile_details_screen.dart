@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -730,7 +731,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         });
       }
     } catch (e) {
-      print('Error opening calendar dialog: $e');
+      AppLogger.d('Error opening calendar dialog: $e');
     }
   }
 

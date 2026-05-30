@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
@@ -141,6 +142,9 @@ import '../../domain/features/student/usecases/get_guardian_name_code_map_for_sc
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
+import '../../presentation/features/activities/cubit/activity_filter_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_student_selection_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -635,6 +639,44 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetActiveActivityTypesForSchoolUseCase>(
     () => GetActiveActivityTypesForSchoolUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<ActivityFilterCubit>(
+    () => ActivityFilterCubit(
+      tagMapUseCase: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      activityTypesUseCase:
+          serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
+      cacheManager: CacheManager(serviceLocator<StorageService>()),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityStudentSelectionCubit>(
+    () => ActivityStudentSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityEditorCubit>(
+    () => ActivityEditorCubit(
+      getClassroomActivitySettingsUseCase:
+          serviceLocator<GetClassroomActivitySettingsUseCase>(),
+      getActivityTypeDetailsUseCase:
+          serviceLocator<GetActivityTypeDetailsUseCase>(),
+      createActivityUseCase: serviceLocator<CreateActivityUseCase>(),
+      getActivityUseCase: serviceLocator<GetActivityUseCase>(),
+      updateActivityUseCase: serviceLocator<UpdateActivityUseCase>(),
+      approveActivityUseCase: serviceLocator<ApproveActivityUseCase>(),
+      rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
+      createSharedActivitiesUseCase:
+          serviceLocator<CreateSharedActivitiesUseCase>(),
+      guardianParentSignatureUseCase:
+          serviceLocator<GuardianParentSignatureUseCase>(),
+      getGuardianNameCodeMapForSchoolUseCase:
+          serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+    ),
+  );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
     () => GetActivityTypeDetailsUseCase(serviceLocator()),
   );
@@ -1090,6 +1132,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
     await serviceLocator<GeofenceNotificationService>().init();
   } catch (e) {
     // Native plugin might not be loaded yet - will retry when geofence cubit initializes
-    print('Warning: Notification service initialization deferred: $e');
+    AppLogger.d('Warning: Notification service initialization deferred: $e');
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -23,8 +25,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
@@ -319,7 +321,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   _AttendanceReportModel? attendanceReport;
 
   late String _activeStudentCode;
-  ParentChildProvider? _parentChildProvider;
+  ParentChildCubit? _parentChildProvider;
+  StreamSubscription<ParentChildState>? _parentChildSub;
   String? _todayStatusRaw;
   bool _isTodayStatusLoading = false;
 
@@ -492,14 +495,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
       return;
     }
-    final p = context.read<ParentChildProvider>();
+    final p = context.read<ParentChildCubit>();
     _parentChildProvider = p;
-    p.addListener(_onParentChildSelectionChanged);
+    _parentChildSub = p.stream.listen((_) => _onParentChildSelectionChanged());
   }
 
   @override
   void dispose() {
-    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
+    _parentChildSub?.cancel();
     super.dispose();
   }
 
@@ -991,7 +994,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
-    final isParentPersona = context.watch<RoleProvider>().isParent;
+    final isParentPersona = context.watch<RoleCubit>().isParent;
 
     return GlobalScaffold(
       hasBackButton: true,

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -13,7 +14,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_but
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -140,7 +141,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final parentChildProvider = Provider.of<ParentChildProvider>(context);
+    final parentChildProvider = Provider.of<ParentChildCubit>(context);
     final selectedChild = parentChildProvider.selectedChild;
     final nextChildCode = (selectedChild?.code ?? '').trim();
     if (nextChildCode != _selectedChildCode) {
@@ -410,21 +411,21 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     final bool isEnabled = geofenceState.isLocationEnabled;
     final bool enabled = isWithin && isEnabled;
 
-    print('[SignInButton] ═══════════════════════════════════════');
-    print('[SignInButton] Status: ${geofenceState.status}');
-    print(
+    AppLogger.d('[SignInButton] ═══════════════════════════════════════');
+    AppLogger.d('[SignInButton] Status: ${geofenceState.status}');
+    AppLogger.d(
       '[SignInButton] isWithinGeofence (${geofenceState.status} == withinRange): $isWithin',
     );
-    print(
+    AppLogger.d(
       '[SignInButton] isLocationEnabled (check against denied/disabled/initial/error): $isEnabled',
     );
-    print(
+    AppLogger.d(
       '[SignInButton] Final enabled state ($isWithin && $isEnabled): $enabled',
     );
-    print(
+    AppLogger.d(
       '[SignInButton] Button will be: ${enabled ? "🟦 ENABLED (BLUE)" : "⬜ DISABLED (GREY)"}',
     );
-    print('[SignInButton] ═══════════════════════════════════════');
+    AppLogger.d('[SignInButton] ═══════════════════════════════════════');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -644,9 +645,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               color: Colors.white,
             ),
-            child: Consumer<ParentChildProvider>(
-              builder: (context, parentChildProvider, _) {
-                final selectedChild = parentChildProvider.selectedChild;
+            child: BlocBuilder<ParentChildCubit, ParentChildState>(
+              builder: (context, state) {
+                final selectedChild = state.selectedChild;
                 if (!_didLoadCommunication) {
                   _didLoadCommunication = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -663,12 +664,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       prev.schoolTimeZone != curr.schoolTimeZone ||
                       prev.schoolCode != curr.schoolCode,
                   listener: (context, state) {
-                    print(
+                    AppLogger.d(
                       '[MyChildsDayCard] MyChildsDayState changed: status=${state.status}, schoolCode=${state.schoolCode}',
                     );
                     if (state.status == MyChildsDayStatus.loaded &&
                         state.schoolTimeZone.trim().isNotEmpty) {
-                      print(
+                      AppLogger.d(
                         '[MyChildsDayCard] Dashboard loaded, triggering geofence init',
                       );
                       _startCountdownTimer(
@@ -677,19 +678,19 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       );
                       // Trigger geofence monitoring when school code is available
                       if (state.schoolCode.isNotEmpty) {
-                        print(
+                        AppLogger.d(
                           '[MyChildsDayCard] Calling GeofenceCubit.initForSchool with schoolCode: ${state.schoolCode}',
                         );
                         context.read<GeofenceCubit>().initForSchool(
                           schoolCode: state.schoolCode,
                         );
                       } else {
-                        print(
+                        AppLogger.d(
                           '[MyChildsDayCard] WARNING: schoolCode is empty!',
                         );
                       }
                     } else {
-                      print('[MyChildsDayCard] Dashboard not loaded yet');
+                      AppLogger.d('[MyChildsDayCard] Dashboard not loaded yet');
                       _stopCountdownTimer();
                       _statusText.value = 'Loading schedule...';
                       _duration.value = Duration.zero;
@@ -724,8 +725,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           ),
                           if (!_isMinimized) ...[
                             const SizedBox(height: 12),
-                            if ((parentChildProvider.isLoading &&
-                                    parentChildProvider.children.isEmpty) ||
+                            if ((state.isLoading &&
+                                    state.children.isEmpty) ||
                                 isLoading)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 16),
@@ -811,7 +812,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                               const SizedBox(height: 16),
                               BlocBuilder<GeofenceCubit, GeofenceState>(
                                 builder: (context, geofenceState) {
-                                  print(
+                                  AppLogger.d(
                                     '[SignInButton-BlocBuilder] Rebuilding with state: ${geofenceState.status}',
                                   );
                                   return Column(

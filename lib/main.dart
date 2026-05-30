@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -10,9 +11,9 @@ import 'package:sizer/sizer.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
-import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 import 'package:wowcare/shared/services/geofence_notification_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/core/background/geofence_background_task.dart';
@@ -22,10 +23,10 @@ import 'src/app_router.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print('[FCM] Background message received: ${message.messageId}');
-  print('[FCM] Title: ${message.notification?.title}');
-  print('[FCM] Body: ${message.notification?.body}');
-  print('[FCM] Data: ${message.data}');
+  AppLogger.d('[FCM] Background message received: ${message.messageId}');
+  AppLogger.d('[FCM] Title: ${message.notification?.title}');
+  AppLogger.d('[FCM] Body: ${message.notification?.body}');
+  AppLogger.d('[FCM] Data: ${message.data}');
 }
 
 /// Setup Firebase Cloud Messaging for push notifications
@@ -43,16 +44,16 @@ Future<void> _setupFCMMessaging() async {
       provisional: false,
       sound: true,
     );
-    print(
+    AppLogger.d(
       '[FCM] Notification permission status: ${settings.authorizationStatus}',
     );
 
     // Get FCM token — may fail on devices without Google Play Services
     try {
       final token = await messaging.getToken();
-      print('[FCM] Device token: $token');
+      AppLogger.d('[FCM] Device token: $token');
     } catch (e) {
-      print('[FCM] Could not get FCM token (no Google Play Services?): $e');
+      AppLogger.d('[FCM] Could not get FCM token (no Google Play Services?): $e');
     }
 
     // Set background message handler
@@ -60,23 +61,23 @@ Future<void> _setupFCMMessaging() async {
 
     // Handle messages when app is in foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('[FCM] Foreground message: ${message.notification?.title}');
+      AppLogger.d('[FCM] Foreground message: ${message.notification?.title}');
       try {
         serviceLocator<GeofenceNotificationService>().showCustomNotification(
           title: message.notification?.title ?? 'School Alert',
           body: message.notification?.body ?? 'You have a new notification',
         );
       } catch (e) {
-        print('[FCM] Error showing notification: $e');
+        AppLogger.d('[FCM] Error showing notification: $e');
       }
     });
 
     // Handle notification tap when app was in background
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('[FCM] Notification tapped: ${message.messageId}');
+      AppLogger.d('[FCM] Notification tapped: ${message.messageId}');
     });
   } catch (e) {
-    print(
+    AppLogger.d(
       '[FCM] FCM setup failed (app will continue without push notifications): $e',
     );
   }
@@ -125,12 +126,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => RoleProvider()),
-        ChangeNotifierProvider(create: (_) => ParentChildProvider()),
+        BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
+        BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
+        BlocProvider<ParentChildCubit>(create: (_) => ParentChildCubit()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) {
+      child: BlocBuilder<ThemeCubit, ThemeData>(
+        builder: (context, currentTheme) {
           final systemTextScaleFactor = MediaQuery.of(
             context,
           ).textScaler.scale(1);
@@ -163,7 +164,7 @@ class MyApp extends StatelessWidget {
                   child: MaterialApp.router(
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
-                    theme: themeProvider.currentTheme,
+                    theme: currentTheme,
                     routerConfig: appRouter,
                   ),
                 );
