@@ -4,6 +4,7 @@ import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
 
 /// Maps student-newsletter API entities to the shared preview/list [Newsletter] model.
 Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
@@ -13,11 +14,16 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
           id: c.id ?? 0,
           componentType: c.type,
           sortOrder: c.order ?? 0,
-          contentJson: jsonEncode(c.data),
+          contentJson: c.data.isNotEmpty ? jsonEncode(c.data) : '',
         ),
       )
       .toList()
     ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+  final parsedComponents = parseNewsletterComponents(
+    components: components,
+    layoutJson: entity.layoutJson,
+  );
 
   final attachments = entity.attachments
       .map(
@@ -26,9 +32,13 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
           mediaCode: _attachmentMediaCode(a.code, entity.assetCode),
           fileName: a.name,
           mimeType: a.mimeType,
+          assetUrl: a.url,
         ),
       )
-      .where((a) => a.mediaCode.trim().isNotEmpty)
+      .where(
+        (a) =>
+            a.mediaCode.trim().isNotEmpty || a.assetUrl.trim().isNotEmpty,
+      )
       .toList();
 
   final assetCode = (entity.assetCode ?? '').trim();
@@ -62,6 +72,9 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
       subtitle: entity.subtitle,
       components: components,
     ),
+    colorTheme: entity.colorTheme,
+    backgroundPattern: entity.backgroundPattern,
+    components: parsedComponents,
     attachments: attachments,
   );
 }
