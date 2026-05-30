@@ -12,10 +12,8 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -227,11 +225,6 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsTransfer,
-      ApiConstants.attendanceBaseUrl,
-    );
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -336,23 +329,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     };
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(endpoint, data: body);
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Transferred successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStaffTransfer(payload: payload);
+      final success = result.success;
+      final message = result.message;
 
       if (!mounted) return;
 

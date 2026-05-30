@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -21,15 +23,11 @@ class ReceivePaymentIssueRefundScreen extends StatefulWidget {
 
 class _ReceivePaymentIssueRefundScreenState
     extends State<ReceivePaymentIssueRefundScreen> {
+  late final ReceivePaymentRefundCubit _cubit = ReceivePaymentRefundCubit();
   late final TextEditingController _amountController;
   late final TextEditingController _internalNoteController;
   late final TextEditingController _staffNoteController;
   late final TextEditingController _chequeNumberController;
-
-  bool _isSubmitting = false;
-  bool _amountError = false;
-  bool _sendEmailNotification = true;
-  String? _selectedPaymentType;
 
   double? _amountUnpaid;
 
@@ -39,6 +37,12 @@ class _ReceivePaymentIssueRefundScreenState
     'Online',
     'Others',
   ];
+
+  // Read-only proxies onto the cubit state.
+  bool get _isSubmitting => _cubit.state.isSubmitting;
+  bool get _amountError => _cubit.state.amountError;
+  bool get _sendEmailNotification => _cubit.state.sendEmailNotification;
+  String? get _selectedPaymentType => _cubit.state.selectedPaymentType;
 
   @override
   void initState() {
@@ -60,6 +64,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   @override
   void dispose() {
+    _cubit.close();
     _amountController.dispose();
     _internalNoteController.dispose();
     _staffNoteController.dispose();
@@ -75,44 +80,26 @@ class _ReceivePaymentIssueRefundScreenState
   }
 
   Future<void> _onSave() async {
-    if (_amountController.text.trim().isEmpty) {
-      setState(() {
-        _amountError = true;
-      });
-      _showSnackBar('Please enter an amount');
-      return;
-    }
-
-    if (_selectedPaymentType == null) {
-      _showSnackBar('Please select a payment type');
-      return;
-    }
-
-    if (_selectedPaymentType == 'Cheque' &&
-        _chequeNumberController.text.trim().isEmpty) {
-      _showSnackBar('Please enter cheque number');
-      return;
-    }
-
-    setState(() {
-      _amountError = false;
-      _isSubmitting = true;
-    });
-
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isSubmitting = false;
-    });
-
-    _showSnackBar(
-      widget.isRefund
-          ? 'Refund saved (UI only).'
-          : 'Payment saved (UI only).',
+    final result = await _cubit.validateAndSave(
+      amount: _amountController.text,
+      chequeNumber: _chequeNumberController.text,
     );
-    Navigator.of(context).maybePop(true);
+    if (!mounted) return;
+    switch (result) {
+      case ReceivePaymentRefundResult.missingAmount:
+        _showSnackBar('Please enter an amount');
+      case ReceivePaymentRefundResult.missingType:
+        _showSnackBar('Please select a payment type');
+      case ReceivePaymentRefundResult.missingCheque:
+        _showSnackBar('Please enter cheque number');
+      case ReceivePaymentRefundResult.success:
+        _showSnackBar(
+          widget.isRefund
+              ? 'Refund saved (UI only).'
+              : 'Payment saved (UI only).',
+        );
+        Navigator.of(context).maybePop(true);
+    }
   }
 
   void _showSnackBar(String message) {
@@ -125,6 +112,10 @@ class _ReceivePaymentIssueRefundScreenState
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<ReceivePaymentRefundCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<ReceivePaymentRefundCubit, ReceivePaymentRefundState>(
+        builder: (context, state) {
     final ResponsiveHelper responsive = ResponsiveHelper(context);
     final Size screenSize = MediaQuery.of(context).size;
     final bool isTablet = responsive.isTablet;
@@ -350,13 +341,8 @@ class _ReceivePaymentIssueRefundScreenState
                                                             .numberWithOptions(
                                                       decimal: true,
                                                     ),
-                                                    onChanged: (_) {
-                                                      if (_amountError) {
-                                                        setState(() {
-                                                          _amountError = false;
-                                                        });
-                                                      }
-                                                    },
+                                                    onChanged: (_) =>
+                                                        _cubit.clearAmountError(),
                                                     decoration:
                                                         InputDecoration(
                                                       hintText:
@@ -500,11 +486,8 @@ class _ReceivePaymentIssueRefundScreenState
                                                   );
                                                 },
                                               ).toList(),
-                                              onChanged: (String? value) {
-                                                setState(() {
-                                                  _selectedPaymentType = value;
-                                                });
-                                              },
+                                              onChanged: (String? value) =>
+                                                  _cubit.setPaymentType(value),
                                             ),
                                           ),
                                         ],
@@ -646,12 +629,8 @@ class _ReceivePaymentIssueRefundScreenState
                                   children: <Widget>[
                                     Checkbox(
                                       value: _sendEmailNotification,
-                                      onChanged: (bool? value) {
-                                        setState(() {
-                                          _sendEmailNotification =
-                                              value ?? true;
-                                        });
-                                      },
+                                      onChanged: (bool? value) => _cubit
+                                          .setSendEmailNotification(value ?? true),
                                       activeColor: const Color(0xFF6B73FF),
                                       checkColor: AppColors.billingButtonTextColor,
                                     ),
@@ -807,6 +786,9 @@ class _ReceivePaymentIssueRefundScreenState
             ),
           ),
         ),
+      ),
+    );
+        },
       ),
     );
   }

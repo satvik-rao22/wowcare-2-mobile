@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
+import '../../../../core/util/attendance_classroom_scope.dart';
 import '../models/student_attendance_models.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/staff_absence_record_models.dart';
@@ -323,6 +324,74 @@ abstract class AttendanceRemoteDataSource {
   Future<String> createStudentSignInRecords({
     required Map<String, dynamic> payload,
     required List<String> allowedClassroomCodes,
+  });
+
+  /// Posts a student sign-in request and returns the raw response map.
+  ///
+  /// Selects the parent or staff sign-in endpoint based on [isParent].
+  Future<Map<String, dynamic>?> postStudentSignIn({
+    required Map<String, dynamic> body,
+    Map<String, dynamic>? queryParameters,
+    required bool isParent,
+  });
+
+  /// Posts a student sign-out request (parent or staff endpoint).
+  Future<Map<String, dynamic>?> postStudentSignOut({
+    required Map<String, dynamic> body,
+    Map<String, dynamic>? queryParameters,
+    required bool isParent,
+  });
+
+  /// Posts a student classroom transfer request.
+  Future<Map<String, dynamic>?> postStudentTransfer({
+    required Map<String, dynamic> body,
+  });
+
+  /// Posts a staff sign-in request (admin bulk or teacher-self endpoint).
+  Future<Map<String, dynamic>?> postStaffSignIn({
+    required Map<String, dynamic> body,
+    required bool isSelf,
+  });
+
+  /// Posts a staff sign-out request.
+  Future<Map<String, dynamic>?> postStaffSignOut({
+    required Map<String, dynamic> body,
+  });
+
+  /// Posts a staff classroom transfer request.
+  Future<Map<String, dynamic>?> postStaffTransfer({
+    required Map<String, dynamic> body,
+  });
+
+  /// Patches a staff daily attendance record identified by [rowCode].
+  Future<Map<String, dynamic>?> patchStaffAttendanceDailyRecord({
+    required String rowCode,
+    required Map<String, dynamic> body,
+  });
+
+  /// GET student attendance profile (present-day summary + records).
+  Future<Map<String, dynamic>?> getStudentAttendanceProfileRaw({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET student attendance profile absent-toggle list.
+  Future<Map<String, dynamic>?> getStudentAttendanceProfileAbsentToggleRaw({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET staff attendance profile (present-day summary + records).
+  Future<Map<String, dynamic>?> getStaffAttendanceProfileRaw({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET staff attendance profile absent-toggle list.
+  Future<Map<String, dynamic>?> getStaffAttendanceProfileAbsentToggleRaw({
+    required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET student absent view list (paginated, filterable).
+  Future<Map<String, dynamic>?> getStudentAttendanceAbsentViewRaw({
+    required Map<String, dynamic> queryParameters,
   });
 
   Future<QrValidationResponseModel> validateQrCode({
@@ -1636,6 +1705,171 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
     return (data['message'] ?? 'Signed in successfully').toString();
   }
+
+  @override
+  Future<Map<String, dynamic>?> postStudentSignIn({
+    required Map<String, dynamic> body,
+    Map<String, dynamic>? queryParameters,
+    required bool isParent,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      isParent
+          ? ApiPaths.studentAttendanceRecordsParentSignIn
+          : ApiPaths.studentAttendanceRecordsSignIn,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      data: body,
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> postStudentSignOut({
+    required Map<String, dynamic> body,
+    Map<String, dynamic>? queryParameters,
+    required bool isParent,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      isParent
+          ? ApiPaths.studentAttendanceRecordsParentSignOut
+          : ApiPaths.studentAttendanceRecordsSignOut,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      data: body,
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> postStudentTransfer({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceRecordsTransfer,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.post<dynamic>(endpoint, data: body);
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> postStaffSignIn({
+    required Map<String, dynamic> body,
+    required bool isSelf,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      isSelf
+          ? ApiPaths.staffAttendanceRecordsSignInSelf
+          : ApiPaths.staffAttendanceRecordsSignIn,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.post<dynamic>(endpoint, data: body);
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> postStaffSignOut({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceRecordsSignOut,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.post<dynamic>(endpoint, data: body);
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> postStaffTransfer({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceRecordsTransfer,
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.post<dynamic>(endpoint, data: body);
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> patchStaffAttendanceDailyRecord({
+    required String rowCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceDailyRecordByRowCode(rowCode),
+      ApiConstants.attendanceBaseUrl,
+    );
+    final response = await _client.patch<Map<String, dynamic>>(
+      endpoint,
+      data: body,
+    );
+    return response.data;
+  }
+
+  /// Performs an attendance list GET with the shared query options and returns
+  /// the raw response map (or null when the payload is not a JSON object).
+  Future<Map<String, dynamic>?> _attendanceListGet(
+    String path,
+    Map<String, dynamic> queryParameters,
+  ) async {
+    final endpoint = ApiPaths.urlWithBase(path, ApiConstants.attendanceBaseUrl);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: attendanceListQueryOptions,
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getStudentAttendanceProfileRaw({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _attendanceListGet(ApiPaths.studentAttendanceProfile, queryParameters);
+
+  @override
+  Future<Map<String, dynamic>?> getStudentAttendanceProfileAbsentToggleRaw({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _attendanceListGet(
+        ApiPaths.studentAttendanceProfileAbsentToggle,
+        queryParameters,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> getStaffAttendanceProfileRaw({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _attendanceListGet(ApiPaths.staffAttendanceProfile, queryParameters);
+
+  @override
+  Future<Map<String, dynamic>?> getStaffAttendanceProfileAbsentToggleRaw({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _attendanceListGet(
+        ApiPaths.staffAttendanceProfileAbsentToggle,
+        queryParameters,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> getStudentAttendanceAbsentViewRaw({
+    required Map<String, dynamic> queryParameters,
+  }) =>
+      _attendanceListGet(ApiPaths.studentAttendanceAbsentView, queryParameters);
 
   @override
   Future<QrValidationResponseModel> validateQrCode({

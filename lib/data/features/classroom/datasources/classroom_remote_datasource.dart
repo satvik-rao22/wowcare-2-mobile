@@ -52,6 +52,33 @@ abstract class ClassroomRemoteDataSource {
   Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
   });
+
+  /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
+  /// classroom. Optional [organizationCode]/[schoolCode] are sent as headers.
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  });
+
+  /// GET the logo asset codes list for a school's classrooms.
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  });
+
+  /// POST to create a classroom-logo upload session.
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// POST to finalize a classroom logo with the uploaded [assetCode].
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
+  });
 }
 
 class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
@@ -267,5 +294,96 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final data = body['data'];
     if (data is Map<String, dynamic>) return data;
     return <String, dynamic>{};
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(
+      '/api/v1/student-classroom/enrolled-count/$classroomCode',
+    );
+    final org = (organizationCode ?? '').trim();
+    final school = (schoolCode ?? '').trim();
+
+    final Response<dynamic> response;
+    if (org.isEmpty && school.isEmpty) {
+      response = await _client.get<dynamic>(endpoint);
+    } else {
+      response = await _client.get<dynamic>(
+        endpoint,
+        options: Options(
+          headers: <String, dynamic>{
+            'accept': 'application/json',
+            if (org.isNotEmpty) ...{
+              'X-Organization-Code': org,
+              'x-organization-code': org,
+              'organizationCode': org,
+            },
+            if (school.isNotEmpty) ...{
+              'X-School-Code': school,
+              'x-school-code': school,
+              'schoolCode': school,
+            },
+          },
+        ),
+      );
+    }
+
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'classroomCode': classroomCode,
+        'schoolCode': schoolCode,
+      },
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint =
+        ApiPaths.url(ApiPaths.classroomLogoUploadSessionPath(classroomCode));
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
+  }) async {
+    final endpoint =
+        ApiPaths.url(ApiPaths.classroomLogoFinalizePath(classroomCode));
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'assetCode': assetCode},
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
   }
 }

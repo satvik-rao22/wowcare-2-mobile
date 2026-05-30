@@ -12,21 +12,19 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // Student entity for Sign-Out UI & API payload
@@ -160,7 +158,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
+    if (context.read<RoleCubit>().isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
@@ -213,14 +211,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
     final isParent = await _resolveIsParentSession();
-    final endpoint = ApiPaths.urlWithBase(
-      isParent
-          ? ApiPaths.studentAttendanceRecordsParentSignOut
-          : ApiPaths.studentAttendanceRecordsSignOut,
-      ApiConstants.attendanceBaseUrl,
-    );
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -361,34 +352,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     }
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      Map<String, dynamic>? queryParameters;
-      if (isParent) {
-        final g = body.remove('guardianCode');
-        if (g != null && g.toString().trim().isNotEmpty) {
-          queryParameters = {'guardianCode': g.toString().trim()};
-        }
-      }
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(
-        endpoint,
-        queryParameters: queryParameters,
-        data: body,
-      );
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Signed-Out successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStudentSignOut(payload: payload, isParent: isParent);
+      final success = result.success;
+      final message = result.message;
 
       if (!mounted) return;
 
@@ -409,7 +376,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
-            context.read<ParentChildProvider>().selectByCode(s.studentCode);
+            context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute<void>(

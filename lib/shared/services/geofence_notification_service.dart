@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class GeofenceNotificationService {
@@ -43,7 +44,7 @@ class GeofenceNotificationService {
             ),
           );
     } catch (e) {
-      print('GeofenceNotificationService init failed: $e');
+      AppLogger.d('GeofenceNotificationService init failed: $e');
       // Continue without notifications - geofencing still works
       _initialized = false;
     }

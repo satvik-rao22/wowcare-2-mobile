@@ -8,7 +8,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
@@ -92,12 +92,12 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     });
   }
 
-  /// Forwards [RoleProvider]'s persona decision into the cubit so the roster +
+  /// Forwards [RoleCubit]'s persona decision into the cubit so the roster +
   /// add/publish/edit/delete affordances stay in sync with the rest of the app
   /// (the cubit is a singleton — running this on every screen mount also
   /// covers persona switches that happened while the screen was off-stack).
   Future<void> _applyPersonaScope() async {
-    final isStaff = context.read<RoleProvider>().isStaff;
+    final isStaff = context.read<RoleCubit>().isStaff;
     final loggedInStaffCode = isStaff
         ? (await serviceLocator<StorageService>()
                     .getString(StorageKeys.staffCode) ??

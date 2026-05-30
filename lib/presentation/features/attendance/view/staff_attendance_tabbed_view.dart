@@ -24,7 +24,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -83,7 +83,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
+    if (context.read<RoleCubit>().isParent) return true;
     try {
       final storage = serviceLocator<StorageService>();
       final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();

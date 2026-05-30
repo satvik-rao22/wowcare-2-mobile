@@ -4,7 +4,7 @@ import 'package:wowcare/presentation/features/activities/view/activity_custom_ta
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../core/util/core_utils.dart';
@@ -54,7 +54,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
   }
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final staffLike = !role.isParent;
     final allowWrite = widget.allowActivityWrite &&
         ModuleAccess.mayWrite(role, AppAccessModules.dailyActivity);

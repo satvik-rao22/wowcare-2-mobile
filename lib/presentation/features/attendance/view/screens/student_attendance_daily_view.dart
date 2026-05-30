@@ -26,14 +26,12 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_d
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
-import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
-import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
@@ -126,14 +124,7 @@ class _StudentAttendanceDailyViewScreenState
     if (serviceLocator.isRegistered<StudentAttendanceDailyCubit>()) {
       _cubit = serviceLocator<StudentAttendanceDailyCubit>();
     } else {
-      final remote = AttendanceRemoteDataSourceImpl(
-        serviceLocator<ApiClient>().client,
-      );
-      final repo = AttendanceRepositoryImpl(
-        remote,
-        serviceLocator(),
-        serviceLocator<ApiClient>(),
-      );
+      final repo = serviceLocator<AttendanceRepository>();
 
       _cubit = StudentAttendanceDailyCubit(
         getStudentAttendanceDailyUseCase: GetStudentAttendanceDailyUseCase(
@@ -148,18 +139,7 @@ class _StudentAttendanceDailyViewScreenState
     if (serviceLocator.isRegistered<StudentAttendanceAbsentToggleCubit>()) {
       _absentToggleCubit = serviceLocator<StudentAttendanceAbsentToggleCubit>();
     } else {
-      final repo = serviceLocator.isRegistered<AttendanceRepositoryImpl>()
-          ? serviceLocator<AttendanceRepositoryImpl>()
-          : (() {
-              final remote = AttendanceRemoteDataSourceImpl(
-                serviceLocator<ApiClient>().client,
-              );
-              return AttendanceRepositoryImpl(
-                remote,
-                serviceLocator(),
-                serviceLocator<ApiClient>(),
-              );
-            })();
+      final repo = serviceLocator<AttendanceRepository>();
 
       _absentToggleCubit = StudentAttendanceAbsentToggleCubit(
         getStudentAttendanceAbsentToggleViewUseCase:

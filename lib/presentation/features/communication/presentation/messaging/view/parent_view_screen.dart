@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -200,7 +201,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
   void _scrollToMessage(String messageId) {
     final index = _getReversedIndex(messageId);
     if (index == null) {
-      print("Message $messageId not found");
+      AppLogger.d("Message $messageId not found");
       return;
     }
     final scrollController = _getActiveScrollController();
@@ -795,7 +796,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                       [])
                                                   .isNotEmpty;
                                         });
-                                        print(parentInfo['privateModeParents']);
+                                        AppLogger.d(parentInfo['privateModeParents']);
                                         return;
                                       }
 
@@ -833,7 +834,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                       [])
                                                   .isNotEmpty;
                                         });
-                                        print(parentInfo['privateModeParents']);
+                                        AppLogger.d(parentInfo['privateModeParents']);
                                       }
                                     },
                                   ),
@@ -1187,7 +1188,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                         [])
                                                     .isNotEmpty;
                                           });
-                                          print(
+                                          AppLogger.d(
                                             parentInfo['privateModeParents'],
                                           );
                                           return;
@@ -1229,7 +1230,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                         [])
                                                     .isNotEmpty;
                                           });
-                                          print(
+                                          AppLogger.d(
                                             parentInfo['privateModeParents'],
                                           );
                                         }

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/parent_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/staff_dashboard.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Entry point for the `/dashboard` route.
 ///
@@ -18,7 +18,7 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
 
     if (role.isParent) {
       return const ParentDashboard();

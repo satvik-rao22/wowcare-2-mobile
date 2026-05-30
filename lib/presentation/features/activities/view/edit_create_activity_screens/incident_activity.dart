@@ -22,15 +22,8 @@ import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../domain/features/activity/repositories/activity_repository.dart';
-import '../../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -190,16 +183,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
       .length;
 
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final GuardianParentSignatureUseCase _guardianParentSignatureUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityEditorCubit _editor;
   late final ImageUploadService _imageUploadService;
-  late final GetGuardianNameCodeMapForSchoolUseCase
-      _getGuardianNameCodeMapForSchoolUseCase;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -579,7 +564,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (wanted.isEmpty) return;
     if (wanted.every(_guardianNameByCode.containsKey)) return;
     try {
-      final nameToCode = await _getGuardianNameCodeMapForSchoolUseCase(
+      final nameToCode = await _editor.getGuardianNameCodeMapForSchool(
         schoolCode: school,
       );
       if (!mounted) return;
@@ -793,22 +778,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
-    // Note: hot-reload doesn't rerun DI setup; avoid crashing if not registered yet.
-    _guardianParentSignatureUseCase =
-        serviceLocator.isRegistered<GuardianParentSignatureUseCase>()
-            ? serviceLocator<GuardianParentSignatureUseCase>()
-            : GuardianParentSignatureUseCase(serviceLocator<ActivityRepository>());
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
     _imageUploadService = serviceLocator<ImageUploadService>();
-    _getGuardianNameCodeMapForSchoolUseCase =
-        serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -883,7 +854,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -922,7 +893,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     setState(() => _isApprovingOrRejecting = true);
     try {
       await _patchAdminSignBeforeDecision();
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -950,7 +921,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     final activityTypeCode = (_activityTypeCode ?? '').trim();
     if (activityTypeCode.isEmpty) return;
-    final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+    final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
     var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
     staffCode = (staffCode ?? '').trim();
     if (staffCode.isEmpty) return;
@@ -1051,7 +1022,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       remainingNormalizedDeliveryUrls: remainingNorm,
     );
     final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
-    await _updateActivityUseCase(
+    await _editor.updateActivity(
       code: code,
       studentCodes: studentCodes,
       applyToStudentCodes: studentCodes,
@@ -1092,7 +1063,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (activityTypeCode.isNotEmpty) {
         try {
           final typeDetails =
-              await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+              await _editor.getActivityTypeDetails(code: activityTypeCode);
           schemaParams = typeDetails.parameters;
         } catch (_) {}
       }
@@ -1335,7 +1306,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (activityTypeCode.isEmpty) {
         throw Exception('Unable to resolve activity type for parent signature');
       }
-      final details = await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
       final parentSignSchema = _findIncidentSchemaParameter(
         details.parameters,
         const ['Click to Sign - Parent'],
@@ -1357,7 +1328,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           signingRecordCode: g,
         );
       }
-      await _guardianParentSignatureUseCase(
+      await _editor.guardianParentSignature(
         code: code,
         parameterCode: parentSignParamCode.trim(),
         guardianCode: parentSignerCode,
@@ -1446,7 +1417,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings = await _getActivitySettingsUseCase(
+      final List<ActivitySetting> settings = await _editor.getClassroomActivitySettings(
         classroomCode: classroomCode,
       );
       ActivitySetting? incidentSetting;
@@ -1650,7 +1621,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details = await _getActivityTypeDetailsUseCase(
+      final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
 
@@ -1775,7 +1746,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       ];
       _debugIncidentParameterValues('create', parameterValues);
 
-      final message = await _createActivityUseCase(
+      final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -2029,7 +2000,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final patchAttachments =
           attachmentsForActivityPatchRequest(mergedRows);
 
-      final details = await _getActivityTypeDetailsUseCase(
+      final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
 
@@ -2206,7 +2177,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())
@@ -2511,6 +2482,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void dispose() {
     _descriptionController.dispose();
     _addNotesController.dispose();
+    _editor.close();
     super.dispose();
   }
 

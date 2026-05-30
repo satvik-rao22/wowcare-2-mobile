@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class LedgerCard extends StatefulWidget {
@@ -23,11 +25,21 @@ class LedgerCard extends StatefulWidget {
 }
 
 class _LedgerCardState extends State<LedgerCard> {
-  bool _isExpanded = false;
+  late final BoolToggleCubit _cubit = BoolToggleCubit();
+  bool get _isExpanded => _cubit.state;
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) => LayoutBuilder(
       builder: (context, constraints) {
         return IntrinsicHeight(
           child: Container(
@@ -53,11 +65,7 @@ class _LedgerCardState extends State<LedgerCard> {
             child: Material(
               color: AppColors.billingTransparentColor,
               child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
-                },
+                onTap: () => _cubit.toggle(),
                 child: Column(
                   children: [
                     Container(
@@ -201,6 +209,8 @@ class _LedgerCardState extends State<LedgerCard> {
           ),
         );
       },
+    ),
+      ),
     );
   }
 }

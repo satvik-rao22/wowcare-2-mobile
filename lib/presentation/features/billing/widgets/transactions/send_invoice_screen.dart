@@ -57,16 +57,15 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
       };
     }
 
-    setState(() {
-      _addressEntity = {
-        'line': '123 Main Street',
-        'city': 'New York',
-        'state': 'NY',
-        'country': 'USA',
-        'zipcode': '10001',
-      };
-      _invoiceDetails = invoiceData;
-    });
+    // Set once during init (no rebuild needed: build runs after initState).
+    _addressEntity = {
+      'line': '123 Main Street',
+      'city': 'New York',
+      'state': 'NY',
+      'country': 'USA',
+      'zipcode': '10001',
+    };
+    _invoiceDetails = invoiceData;
 
     // Update form with invoice data if available
     if (invoiceData != null) {

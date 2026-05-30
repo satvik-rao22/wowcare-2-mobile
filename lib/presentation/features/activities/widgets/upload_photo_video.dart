@@ -590,7 +590,7 @@
 //     );
 //
 //     if (picked == null) return;
-//     print('${picked.path}');
+//     AppLogger.d('${picked.path}');
 //
 //     final ext = picked.path.split('.').last.toLowerCase();
 //     if (ext == 'gif') {

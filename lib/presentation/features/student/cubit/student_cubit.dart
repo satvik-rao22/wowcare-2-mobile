@@ -12,7 +12,7 @@ part 'student_state.dart';
 
 /// List/pagination and mutations for the student roster.
 ///
-/// Permission-aware screens should use [RoleProvider] with
+/// Permission-aware screens should use [RoleCubit] with
 /// `package:wowcare/presentation/features/student/module_access.dart` ([ModuleAccess])
 /// so guardians, staff, and admins respect the same API module rows.
 class StudentCubit extends Cubit<StudentState> {

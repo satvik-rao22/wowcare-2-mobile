@@ -29,7 +29,7 @@ import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -43,7 +43,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
@@ -353,11 +353,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
       organizationCode: _currentOrgCode!,
       schoolCode: schoolCode,
     );
-    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+    await context.read<RoleCubit>().refreshAccessFromServer(force: true);
 
     if (!mounted) return;
-    context.read<ParentChildProvider>().invalidate();
-    await context.read<ParentChildProvider>().ensureLoaded(force: true);
+    context.read<ParentChildCubit>().invalidate();
+    await context.read<ParentChildCubit>().ensureLoaded(force: true);
 
     if (!mounted) return;
     setState(() {
@@ -431,7 +431,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   /// [ensureLoaded], so we must not rely on [mounted] or this widget's [context].
   Future<void> _openParentAttendanceProfile(
     NavigatorState navigator,
-    ParentChildProvider parentChild,
+    ParentChildCubit parentChild,
   ) async {
     try {
       await parentChild.ensureLoaded();
@@ -502,7 +502,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   /// [context] (same pattern as [_openParentAttendanceProfile]).
   Future<void> _openParentStudentProfile(
     NavigatorState navigator,
-    ParentChildProvider parentChild,
+    ParentChildCubit parentChild,
   ) async {
     try {
       await parentChild.ensureLoaded();
@@ -516,7 +516,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       }
 
       if (!navigator.context.mounted) return;
-      await navigator.context.read<RoleProvider>().refreshAccessFromServer(
+      await navigator.context.read<RoleCubit>().refreshAccessFromServer(
         force: true,
       );
 
@@ -677,7 +677,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final roleProvider = context.watch<RoleProvider>();
+    final roleProvider = context.watch<RoleCubit>();
     final isParent = roleProvider.isParent;
     final isStaff = roleProvider.isStaff;
     final canViewStudents = roleProvider.canAccessAny([
@@ -727,7 +727,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showSettingsMenu =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.settings);
-    final parentChildProvider = context.watch<ParentChildProvider>();
+    final parentChildProvider = context.watch<ParentChildCubit>();
     if (isParent &&
         !parentChildProvider.isLoaded &&
         !parentChildProvider.isLoading) {
@@ -780,7 +780,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           onTap: () {
                             final nav = Navigator.of(context);
                             final parentChild = context
-                                .read<ParentChildProvider>();
+                                .read<ParentChildCubit>();
                             final alreadyHere =
                                 _currentRoute == StudentProfileScreen.routeName;
                             Navigator.pop(context);
@@ -798,7 +798,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             onTap: () {
                               final nav = Navigator.of(context);
                               final parentChild = context
-                                  .read<ParentChildProvider>();
+                                  .read<ParentChildCubit>();
                               final alreadyHere =
                                   _currentRoute ==
                                   StudentAttendanceProfile.routeName;

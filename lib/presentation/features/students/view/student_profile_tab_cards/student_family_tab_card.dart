@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -44,17 +44,11 @@ class StudentFamilyTabCard extends StatefulWidget {
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   static const int _maxParentsPerStudent = 4;
 
-  late Future<List<Map<String, dynamic>>> _guardiansFuture;
+  late Future<List<StudentGuardian>> _guardiansFuture;
   bool _isMutating = false;
 
-  String _extractGuardianClockPin(Map<String, dynamic> guardian) {
-    final raw =
-        (guardian['clockPin'] ??
-                guardian['clockInPin'] ??
-                guardian['clockinPin'] ??
-                '')
-            .toString()
-            .trim();
+  String _extractGuardianClockPin(StudentGuardian guardian) {
+    final raw = (guardian.clockPin ?? '').trim();
     return raw.isEmpty ? '—' : raw;
   }
 
@@ -84,26 +78,20 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     _guardiansFuture = _loadGuardians();
   }
 
-  Future<List<Map<String, dynamic>>> _loadGuardians({
+  Future<List<StudentGuardian>> _loadGuardians({
     bool forceRefresh = false,
   }) async {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
-      return const <Map<String, dynamic>>[];
+      return const <StudentGuardian>[];
     }
 
     // Use repository, which already applies caching via CacheManager.
     final repo = serviceLocator<StudentRepository>();
-    if (repo is! StudentRepositoryImpl) {
-      // Fallback: no data if repository implementation is not available.
-      return const <Map<String, dynamic>>[];
-    }
-
-    final models = await repo.getStudentGuardians(
+    return repo.getStudentGuardians(
       studentCode: studentCode,
       forceRefresh: forceRefresh,
     );
-    return models.map((e) => e.toJson()).toList(growable: false);
   }
 
   Future<void> _onAddParent() async {
@@ -119,18 +107,16 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     }
 
     final repo = serviceLocator<StudentRepository>();
-    if (repo is StudentRepositoryImpl) {
-      final existing = await repo.getStudentGuardians(studentCode: studentCode);
-      if (existing.length >= _maxParentsPerStudent) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message:
-              'You can add up to $_maxParentsPerStudent parents or guardians per student.',
-          isError: true,
-        );
-        return;
-      }
+    final existing = await repo.getStudentGuardians(studentCode: studentCode);
+    if (existing.length >= _maxParentsPerStudent) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'You can add up to $_maxParentsPerStudent parents or guardians per student.',
+        isError: true,
+      );
+      return;
     }
 
     final result = await Navigator.of(context).push<bool>(
@@ -151,12 +137,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     await widget.onRefresh?.call();
   }
 
-  Future<void> _onEditParent(Map<String, dynamic> guardian) async {
+  Future<void> _onEditParent(StudentGuardian guardian) async {
     final studentCode = widget.studentCode ?? '';
     final schoolCode = widget.schoolCode ?? '';
-    final guardianCode = (guardian['guardianCode'] ?? guardian['code'] ?? '')
-        .toString()
-        .trim();
+    final guardianCode = guardian.guardianCode.trim();
     if (studentCode.isEmpty || schoolCode.isEmpty || guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -166,7 +150,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return;
     }
 
-    final rawRelation = (guardian['relationToStudent'] ?? '').toString().trim();
+    final rawRelation = guardian.relationToStudent.trim();
     const relationOptions = <String>{
       'Mother',
       'Father',
@@ -190,18 +174,17 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
           schoolCode: schoolCode,
           createGuardianDirectly: true,
           editGuardianCode: guardianCode,
-          initialUserCode: (guardian['userCode'] ?? '').toString().trim(),
-          initialFirstName: (guardian['firstName'] ?? '').toString(),
-          initialLastName: (guardian['lastName'] ?? '').toString(),
-          initialEmail: (guardian['email'] ?? '').toString(),
-          initialPhoneNumber: (guardian['mobile'] ?? '').toString(),
+          initialUserCode: guardian.userCode.trim(),
+          initialFirstName: guardian.firstName,
+          initialLastName: guardian.lastName,
+          initialEmail: guardian.email,
+          initialPhoneNumber: guardian.mobile,
           initialRelation: isKnownRelation ? normalizedRelation : 'Other',
           initialRelationOther: isKnownRelation
               ? null
               : (rawRelation.isEmpty ? null : rawRelation),
-          initialIsEmergencyContact:
-              (guardian['primaryContact'] as bool?) ?? true,
-          initialIsChildCustody: (guardian['legalCustody'] as bool?) ?? true,
+          initialIsEmergencyContact: guardian.primaryContact,
+          initialIsChildCustody: guardian.legalCustody,
         ),
       ),
     );
@@ -213,13 +196,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     await widget.onRefresh?.call();
   }
 
-  Future<void> _onDeleteParent(Map<String, dynamic> guardian) async {
+  Future<void> _onDeleteParent(StudentGuardian guardian) async {
     final studentCode = widget.studentCode ?? '';
-    final guardianCode = (guardian['guardianCode'] ?? guardian['code'] ?? '')
-        .toString()
-        .trim();
-    final guardianName =
-        '${guardian['firstName'] ?? ''} ${guardian['lastName'] ?? ''}'.trim();
+    final guardianCode = guardian.guardianCode.trim();
+    final guardianName = guardian.fullName;
 
     if (studentCode.isEmpty || guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -281,7 +261,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
@@ -325,7 +305,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<Map<String, dynamic>>>(
+              FutureBuilder<List<StudentGuardian>>(
                 future: _guardiansFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -363,15 +343,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                     children: [
                       for (int i = 0; i < data.length; i++) ...[
                         _FamilyCard(
-                          name:
-                              '${data[i]['firstName'] ?? ''} ${data[i]['lastName'] ?? ''}'
-                                  .trim(),
-                          relation: (data[i]['relationToStudent'] ?? '')
-                              .toString(),
-                          email: (data[i]['email'] ?? '').toString(),
-                          phone: _formatPhoneNumber(
-                            (data[i]['mobile'] ?? '').toString(),
-                          ),
+                          name: data[i].fullName,
+                          relation: data[i].relationToStudent,
+                          email: data[i].email,
+                          phone: _formatPhoneNumber(data[i].mobile),
                           pin: _extractGuardianClockPin(data[i]),
                           isLoading: _isMutating,
                           showActionButtons: canStudentWrite,

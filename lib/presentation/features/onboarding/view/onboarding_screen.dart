@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/domain/features/onboarding/entities/page_content.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
 
 import '../../../../app/theme/colors.dart';
 
@@ -21,16 +19,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController pageController = PageController();
 
   @override
-  void initState() {
-    super.initState();
-    // context.read<OnBoardingCubit>().checkIfUserIsFirstTimer();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
+    return BlocListener<OnboardingCubit, OnboardingState>(
+      listener: (context, state) {
+        if (state is OnboardingCompleted) {
+          context.go(SignInScreen.routeName);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
         children: [
           PageView(
             controller: pageController,
@@ -89,7 +87,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -174,16 +173,11 @@ class OnboardingBody extends StatelessWidget {
                   vertical: 14,
                 ),
               ),
-              onPressed: () async {
+              onPressed: () {
                 if (isLastPage) {
-                  // Ensure we start fresh after onboarding so user always sees Login next.
-                  // This avoids jumping straight to Dashboard due to stale token/flags.
-                  await serviceLocator<AuthLocalDataSource>().clearCache();
-
-                  // Mark onboarding as seen (only show once)
-                  serviceLocator<StorageService>()
-                      .saveBool(StorageKeys.onboardingSeen, true);
-                  context.go(SignInScreen.routeName);
+                  // Completion logic (clear stale cache, mark seen) lives in the
+                  // cubit; the screen's BlocListener navigates on completion.
+                  context.read<OnboardingCubit>().complete();
                 } else {
                   onNextPressed?.call();
                 }

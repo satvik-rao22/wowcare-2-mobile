@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transaction_card_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -50,30 +52,30 @@ class BillingTransactionCard extends StatefulWidget {
 }
 
 class _BillingTransactionCardState extends State<BillingTransactionCard> {
-  bool _isExpanded = false;
-  late bool _localSelected;
+  late final TransactionCardCubit _cubit =
+      TransactionCardCubit(initialSelected: widget.isSelected);
+  bool get _isExpanded => _cubit.state.isExpanded;
+  bool get _localSelected => _cubit.state.localSelected;
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
   bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
-  void initState() {
-    super.initState();
-    _localSelected = widget.isSelected;
-  }
-
-  @override
   void didUpdateWidget(covariant BillingTransactionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isSelectionControlled && widget.isSelected != oldWidget.isSelected) {
-      _localSelected = widget.isSelected;
+      _cubit.setSelected(widget.isSelected);
     }
   }
 
-  void _toggleExpanded() {
-    setState(() => _isExpanded = !_isExpanded);
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
+
+  void _toggleExpanded() => _cubit.toggleExpanded();
 
   BillingPopupType? _popupTypeFor(String type) {
     switch (type) {
@@ -161,9 +163,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   void _handleSelectionChanged(BuildContext context, bool? value, String type) {
     if (!_isSelectionControlled) {
-      setState(() {
-        _localSelected = value ?? false;
-      });
+      _cubit.setSelected(value ?? false);
     }
     widget.onSelected?.call(value);
     widget.onToggleSelection?.call(value ?? false);
@@ -178,9 +178,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   void _clearSelection() {
     if (!_isSelectionControlled) {
-      setState(() {
-        _localSelected = false;
-      });
+      _cubit.setSelected(false);
     }
     widget.onSelected?.call(false);
     widget.onToggleSelection?.call(false);
@@ -188,6 +186,10 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<TransactionCardCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<TransactionCardCubit, TransactionCardState>(
+        builder: (context, state) {
     final String type = widget.transaction.transactionType.toLowerCase();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -224,6 +226,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
             ),
           ),
         ),
+      ),
+    );
+        },
       ),
     );
   }

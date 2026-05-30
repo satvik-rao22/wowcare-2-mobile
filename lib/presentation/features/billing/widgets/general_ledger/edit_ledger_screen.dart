@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/ledger_form_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -20,6 +22,7 @@ class EditLedgerScreen extends StatefulWidget {
 }
 
 class _EditLedgerScreenState extends State<EditLedgerScreen> {
+  late final LedgerFormCubit _cubit;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
@@ -29,20 +32,23 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
     '(Legacy) Subsidy/Agency',
   ];
 
-  String? _selectedType;
-  bool _isSubmitting = false;
-  bool _isLoading = false;
-  bool _titleError = false;
-  bool _typeError = false;
+  // Read-only proxies onto the cubit's form state.
+  String? get _selectedType => _cubit.state.selectedType;
+  bool get _isSubmitting => _cubit.state.isSubmitting;
+  bool get _isLoading => _cubit.state.isLoading;
+  bool get _titleError => _cubit.state.titleError;
+  bool get _typeError => _cubit.state.typeError;
 
   @override
   void initState() {
     super.initState();
+    _cubit = LedgerFormCubit(initialType: widget.ledger.type);
     _loadLedgerData();
   }
 
   @override
   void dispose() {
+    _cubit.close();
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -51,67 +57,40 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
   void _loadLedgerData() {
     _titleController.text = widget.ledger.name;
     _descriptionController.text = widget.ledger.description ?? '';
-    _selectedType = widget.ledger.type;
-  }
-
-  Future<void> _initializeLedgerUpdateWithSchoolTimezone() async {
-    try {
-      debugPrint('🕐 === INITIALIZING LEDGER UPDATE WITH SCHOOL TIMEZONE ===');
-      final DateTime schoolNow = DateTime.now();
-      debugPrint('🏫 School Time: ${schoolNow.toIso8601String()}');
-      debugPrint('✅ Ledger update initialization complete');
-    } catch (e) {
-      debugPrint('❌ Error initializing ledger update: $e');
-    }
   }
 
   Future<void> _onSave() async {
-    await _initializeLedgerUpdateWithSchoolTimezone();
-    setState(() {
-      _titleError = _titleController.text.trim().isEmpty;
-      _typeError = _selectedType == null;
-    });
-
-    if (_titleError || _typeError) return;
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      if (!mounted) return;
-
-      final LedgerAccountModel updatedLedger = widget.ledger.copyWith(
-        name: _titleController.text.trim(),
-        type: _selectedType,
-        description: _descriptionController.text.trim().isEmpty
-            ? _titleController.text.trim()
-            : _descriptionController.text.trim(),
-      );
-
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Ledger updated successfully!',
-        isSuccess: true,
-      );
-
-      Navigator.of(context).pop(updatedLedger);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'An unexpected error occurred. Please try again.',
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+    final result = await _cubit.submit(
+      original: widget.ledger,
+      title: _titleController.text,
+      description: _descriptionController.text,
+    );
+    if (!mounted) return;
+    switch (result.status) {
+      case LedgerFormStatus.invalid:
+        break;
+      case LedgerFormStatus.success:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Ledger updated successfully!',
+          isSuccess: true,
+        );
+        Navigator.of(context).pop(result.ledger);
+      case LedgerFormStatus.error:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'An unexpected error occurred. Please try again.',
+          isError: true,
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<LedgerFormCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<LedgerFormCubit, LedgerFormState>(
+        builder: (context, state) {
     final ResponsiveHelper responsive = ResponsiveHelper(context);
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth > 600;
@@ -215,12 +194,7 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                                     label: 'Type',
                                     value: _selectedType,
                                     items: _types,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _selectedType = val;
-                                        _typeError = false;
-                                      });
-                                    },
+                                    onChanged: (val) => _cubit.setType(val),
                                     error: _typeError
                                         ? '*This field is required.'
                                         : null,
@@ -296,6 +270,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                   ),
                 ),
               ),
+      ),
+    );
+        },
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
@@ -26,24 +28,26 @@ class AccountingDateRangeSelector extends StatefulWidget {
 
 class _AccountingDateRangeSelectorState
     extends State<AccountingDateRangeSelector> {
-  DateTime? _startDate;
-  DateTime? _endDate;
-
-  @override
-  void initState() {
-    super.initState();
-    _startDate = widget.initialStartDate;
-    _endDate = widget.initialEndDate;
-  }
+  late final DateRangeCubit _cubit = DateRangeCubit(
+    start: widget.initialStartDate,
+    end: widget.initialEndDate,
+  );
+  DateTime? get _startDate => _cubit.state.startDate;
+  DateTime? get _endDate => _cubit.state.endDate;
 
   @override
   void didUpdateWidget(covariant AccountingDateRangeSelector oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.initialStartDate != oldWidget.initialStartDate ||
         widget.initialEndDate != oldWidget.initialEndDate) {
-      _startDate = widget.initialStartDate;
-      _endDate = widget.initialEndDate;
+      _cubit.setRange(widget.initialStartDate, widget.initialEndDate);
     }
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   String _formatShort(DateTime d) {
@@ -86,16 +90,20 @@ class _AccountingDateRangeSelectorState
     );
     if (!mounted) return;
     if (result != null) {
-      setState(() {
-        _startDate = result['startDate'] as DateTime?;
-        _endDate = result['endDate'] as DateTime?;
-      });
+      _cubit.setRange(
+        result['startDate'] as DateTime?,
+        result['endDate'] as DateTime?,
+      );
       widget.onRangeChanged?.call(_startDate, _endDate);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<DateRangeCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<DateRangeCubit, DateRangeState>(
+        builder: (context, _) {
     return Card(
       elevation: 0,
       color: Colors.white,
@@ -160,6 +168,9 @@ class _AccountingDateRangeSelectorState
             ),
           ),
         ],
+      ),
+    );
+        },
       ),
     );
   }

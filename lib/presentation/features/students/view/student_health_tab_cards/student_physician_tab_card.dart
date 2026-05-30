@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/models/student_physician_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_physician.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -40,7 +39,7 @@ class StudentPhysicianTabCard extends StatefulWidget {
 }
 
 class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
-  late Future<List<StudentPhysicianModel>> _physiciansFuture;
+  late Future<List<StudentPhysician>> _physiciansFuture;
 
   @override
   void initState() {
@@ -48,12 +47,12 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     _physiciansFuture = _buildPhysiciansFuture();
   }
 
-  Future<List<StudentPhysicianModel>> _buildPhysiciansFuture() {
+  Future<List<StudentPhysician>> _buildPhysiciansFuture() {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPhysicianModel>[]);
+      return Future.value(const <StudentPhysician>[]);
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final repo = serviceLocator<StudentRepository>();
     // Repository handles cache via CacheManager; first call may use cache,
     // subsequent ones will hit API when cache is invalidated after mutations.
     return repo.getStudentPhysicians(studentCode: code);
@@ -89,7 +88,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
@@ -128,7 +127,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentPhysicianModel>>(
+              FutureBuilder<List<StudentPhysician>>(
                 future: _physiciansFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -155,7 +154,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                   }
 
                   final physicians =
-                      snapshot.data ?? const <StudentPhysicianModel>[];
+                      snapshot.data ?? const <StudentPhysician>[];
                   if (physicians.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -454,8 +453,7 @@ class _PhysicianCard extends StatelessWidget{
                             type: 'physician',
                             onDelete: () async {
                               try {
-                                final repo = serviceLocator<StudentRepository>()
-                                    as StudentRepositoryImpl;
+                                final repo = serviceLocator<StudentRepository>();
                                 final message = await repo.deletePhysician(
                                   code: code,
                                   studentCode: studentCode,

@@ -230,7 +230,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletter
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
@@ -257,7 +257,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final parentChildProvider = Provider.of<ParentChildProvider>(context);
+    final parentChildProvider = Provider.of<ParentChildCubit>(context);
     final nextCode = (parentChildProvider.selectedChild?.code ?? '').trim();
     if (nextCode != _selectedChildCode) {
       _selectedChildCode = nextCode;
@@ -351,7 +351,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
                       final accentColor = _newsletterAccentColors[
                           index % _newsletterAccentColors.length];
                       final selectedChild =
-                          Provider.of<ParentChildProvider>(context).selectedChild;
+                          Provider.of<ParentChildCubit>(context).selectedChild;
                       final classroomName = (selectedChild?.primaryClassroomName ??
                               selectedChild?.classroom ??
                               '')

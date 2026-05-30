@@ -19,7 +19,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'guardian_student_selection_scope.dart';
 import 'student_sign_in_form.dart';
 
@@ -71,7 +71,7 @@ class _StudentSelectionSignInFormState
   @override
   void initState() {
     super.initState();
-    _restrictToGuardianChildren = context.read<RoleProvider>().isParent;
+    _restrictToGuardianChildren = context.read<RoleCubit>().isParent;
     _getStudentSignInFormListUseCase =
         serviceLocator<GetStudentSignInFormListUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>();

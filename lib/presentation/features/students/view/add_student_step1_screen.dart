@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -181,7 +182,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         _calculateAge(selectedDate);
       }
     } catch (e) {
-      print('Error opening calendar dialog: $e');
+      AppLogger.d('Error opening calendar dialog: $e');
     }
   }
 
@@ -225,7 +226,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         });
       }
     } catch (e) {
-      print('Error opening calendar dialog: $e');
+      AppLogger.d('Error opening calendar dialog: $e');
     }
   }
 

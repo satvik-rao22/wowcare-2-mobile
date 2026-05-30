@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/common/widgets/expandable_info_card.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
@@ -54,31 +56,30 @@ class BillingStudentCard extends StatefulWidget {
 }
 
 class _BillingStudentCardState extends State<BillingStudentCard> {
-  late bool _localSelected;
+  late final BoolToggleCubit _cubit = BoolToggleCubit(initial: widget.isSelected);
+  bool get _localSelected => _cubit.state;
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
   bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
-  void initState() {
-    super.initState();
-    _localSelected = widget.isSelected;
-  }
-
-  @override
   void didUpdateWidget(covariant BillingStudentCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isSelectionControlled && widget.isSelected != oldWidget.isSelected) {
-      _localSelected = widget.isSelected;
+      _cubit.set(widget.isSelected);
     }
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   void _handleSelectionChanged(BuildContext context, bool? value) {
     if (!_isSelectionControlled) {
-      setState(() {
-        _localSelected = value ?? false;
-      });
+      _cubit.set(value ?? false);
     }
     widget.onSelected?.call(value);
     widget.onToggleSelection?.call(_checkboxValue);
@@ -87,9 +88,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
 
   void _clearSelection() {
     if (!_isSelectionControlled) {
-      setState(() {
-        _localSelected = false;
-      });
+      _cubit.set(false);
     }
     widget.onSelected?.call(false);
     widget.onToggleSelection?.call(false);
@@ -124,6 +123,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) {
     Color statusColor;
     switch (widget.lastPaymentStatus) {
       case 'Success':
@@ -196,6 +199,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
           valueText: '\$${widget.openBalance.toStringAsFixed(0)}',
         ),
       ],
+    );
+        },
+      ),
     );
   }
 }
