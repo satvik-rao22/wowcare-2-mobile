@@ -53,6 +53,7 @@ class NewsletterAttachmentModel extends Equatable {
     this.mimeType = '',
     this.fileSize = 0,
     this.sortOrder = 0,
+    this.assetUrl = '',
   });
 
   final int id;
@@ -61,9 +62,18 @@ class NewsletterAttachmentModel extends Equatable {
   final String mimeType;
   final int fileSize;
   final int sortOrder;
+  final String assetUrl;
 
   factory NewsletterAttachmentModel.fromJson(Map<String, dynamic> json) {
     final mediaCode = (json['mediaCode'] ?? json['assetCode'] ?? '')
+        .toString()
+        .trim();
+    final assetUrl = (json['assetUrl'] ??
+            json['url'] ??
+            json['downloadUrl'] ??
+            json['fileUrl'] ??
+            json['publicUrl'] ??
+            '')
         .toString()
         .trim();
     return NewsletterAttachmentModel(
@@ -73,12 +83,13 @@ class NewsletterAttachmentModel extends Equatable {
       mimeType: (json['mimeType'] as String? ?? '').trim(),
       fileSize: json['fileSize'] as int? ?? 0,
       sortOrder: json['sortOrder'] as int? ?? 0,
+      assetUrl: assetUrl,
     );
   }
 
   @override
   List<Object?> get props =>
-      [id, mediaCode, fileName, mimeType, fileSize, sortOrder];
+      [id, mediaCode, fileName, mimeType, fileSize, sortOrder, assetUrl];
 }
 
 class NewsletterRecipientModel extends Equatable {
@@ -129,6 +140,8 @@ class NewsletterModel extends Equatable {
     required this.components,
     required this.attachments,
     this.layoutJson = '',
+    this.colorTheme = '',
+    this.backgroundPattern = 'plain',
   });
 
   final int id;
@@ -138,6 +151,8 @@ class NewsletterModel extends Equatable {
   final String title;
   final String subtitle;
   final String layoutJson;
+  final String colorTheme;
+  final String backgroundPattern;
   final String status;
   final DateTime? scheduledAt;
   final DateTime? sentAt;
@@ -173,6 +188,9 @@ class NewsletterModel extends Equatable {
       title: (json['title'] as String? ?? '').trim(),
       subtitle: subtitle.isNotEmpty ? subtitle : _summaryFromComponents(components),
       layoutJson: (json['layoutJson'] as String? ?? '').trim(),
+      colorTheme: (json['colorTheme'] as String? ?? '').trim(),
+      backgroundPattern:
+          (json['backgroundPattern'] as String? ?? 'plain').trim(),
       status: (json['status'] as String? ?? '').trim(),
       scheduledAt: _parseDateTime(json['scheduledAt']),
       sentAt: _parseDateTime(json['sentAt']),
@@ -194,7 +212,8 @@ class NewsletterModel extends Equatable {
               e as Map<String, dynamic>,
             ),
           )
-          .toList(),
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)),
     );
   }
 
@@ -206,6 +225,8 @@ class NewsletterModel extends Equatable {
         'title': title,
         'subtitle': subtitle,
         'layoutJson': layoutJson,
+        'colorTheme': colorTheme,
+        'backgroundPattern': backgroundPattern,
         'status': status,
         'scheduledAt': scheduledAt?.toIso8601String(),
         'sentAt': sentAt?.toIso8601String(),
@@ -233,6 +254,7 @@ class NewsletterModel extends Equatable {
                 'mimeType': a.mimeType,
                 'fileSize': a.fileSize,
                 'sortOrder': a.sortOrder,
+                'assetUrl': a.assetUrl,
               },
             )
             .toList(),
@@ -255,6 +277,8 @@ class NewsletterModel extends Equatable {
         title,
         subtitle,
         layoutJson,
+        colorTheme,
+        backgroundPattern,
         status,
         scheduledAt,
         sentAt,
