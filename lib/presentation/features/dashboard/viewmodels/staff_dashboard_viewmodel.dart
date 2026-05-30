@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 enum StaffDashboardCard {
   myDay,
   ratioMonitoring,
-  events,
-  todo,
+  // events,
+  // todo,
   myShifts,
   myAttendance,
-  classroomProgress,
+  // classroomProgress,
 }
 
 /// View-model for [StaffDashboard].
@@ -19,8 +19,9 @@ enum StaffDashboardCard {
 /// signed-in staff member's authorities without the view needing any change.
 class StaffDashboardViewModel extends ChangeNotifier {
   /// Live, user-reorderable card order. Seeded from the enum's default order.
-  final List<StaffDashboardCard> _cards =
-      List<StaffDashboardCard>.of(StaffDashboardCard.values);
+  final List<StaffDashboardCard> _cards = List<StaffDashboardCard>.of(
+    StaffDashboardCard.values,
+  );
 
   bool _isRefreshing = false;
 

@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/todo_card.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/staff_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -37,6 +38,7 @@ class StaffDashboard extends StatefulWidget {
 class _StaffDashboardState extends State<StaffDashboard> {
   final StaffDashboardViewModel _viewModel = StaffDashboardViewModel();
   late final GeofenceCubit _geofenceCubit;
+  late final RatioMonitoringCubit _ratioMonitoringCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens.
   static const double _maxContentWidth = 640;
@@ -45,6 +47,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
   void initState() {
     super.initState();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
+    _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
     _initGeofence();
   }
 
@@ -59,6 +62,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
   @override
   void dispose() {
     _geofenceCubit.close();
+    _ratioMonitoringCubit.close();
     _viewModel.dispose();
     super.dispose();
   }
@@ -70,16 +74,16 @@ class _StaffDashboardState extends State<StaffDashboard> {
         return const MyDayCard();
       case StaffDashboardCard.ratioMonitoring:
         return const RatioMonitoringCard();
-      case StaffDashboardCard.events:
-        return const EventsCard();
-      case StaffDashboardCard.todo:
-        return const TodoCard();
+      // case StaffDashboardCard.events:
+      //   return const EventsCard();
+      // case StaffDashboardCard.todo:
+      //   return const TodoCard();
       case StaffDashboardCard.myShifts:
         return const MyShiftsCard();
       case StaffDashboardCard.myAttendance:
         return const MyAttendanceCard();
-      case StaffDashboardCard.classroomProgress:
-        return const ClassroomProgressCard();
+      // case StaffDashboardCard.classroomProgress:
+      //   return const ClassroomProgressCard();
     }
   }
 
@@ -103,8 +107,11 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<GeofenceCubit>.value(
-      value: _geofenceCubit,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
+        BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
+      ],
       child: _buildScaffold(),
     );
   }
@@ -138,15 +145,12 @@ class _StaffDashboardState extends State<StaffDashboard> {
                         slivers: [
                           // Fixed (non-reorderable) header section.
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                            sliver:
-                                SliverToBoxAdapter(child: _buildHeader()),
+                            padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                            sliver: SliverToBoxAdapter(child: _buildHeader()),
                           ),
                           // Reorderable cards — long-press a card to drag it.
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(
                               itemCount: cards.length,
                               onReorder: _viewModel.reorderCard,
@@ -156,8 +160,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
                                   key: ValueKey(card),
                                   index: index,
                                   child: Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 16),
+                                    padding: const EdgeInsets.only(bottom: 16),
                                     // Transparent Material so InkWell ripples
                                     // in the card have an ancestor.
                                     child: Material(

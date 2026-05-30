@@ -67,6 +67,7 @@ import '../../presentation/features/dashboard/cubit/student_attendance_profile_c
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
 import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -768,6 +769,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cubits (factory - new instance each time for UI)
+  serviceLocator.registerFactory<ClassroomShiftsCubit>(
+    () => ClassroomShiftsCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getClassroomForecastUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<RatioMonitoringCubit>(
     () => RatioMonitoringCubit(
       getRatioMonitoringClassroomsUseCase: serviceLocator(),
@@ -878,7 +887,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
   );
   serviceLocator.registerFactory<QrValidationCubit>(
-    () => QrValidationCubit(validateQrCodeUseCase: serviceLocator()),
+    () => QrValidationCubit(
+      validateQrCodeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
 
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(

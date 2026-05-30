@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -522,12 +523,7 @@ class _MyDayCardState extends State<MyDayCard> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                IconButton(
-                  onPressed: () {
-                    // QR scan navigation — no-op in UI-only port
-                  },
-                  icon: SvgPicture.asset(MediaRes.scannerGradientIcon),
-                ),
+                const QrScanButton(),
               ],
             ),
             const SizedBox(height: 16),

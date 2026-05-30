@@ -6,6 +6,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/billing_card.dart';
@@ -49,6 +50,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   late final RatioMonitoringCubit _ratioMonitoringCubit;
   late final IndividualMovementsCubit _movementsCubit;
   late final FutureAvailabilityCubit _availabilityCubit;
+  late final ClassroomShiftsCubit _classroomShiftsCubit;
 
   /// Max content width so the feed stays readable on tablets / large screens
   /// instead of stretching cards edge to edge.
@@ -62,6 +64,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
     _movementsCubit = serviceLocator<IndividualMovementsCubit>();
     _availabilityCubit = serviceLocator<FutureAvailabilityCubit>();
+    _classroomShiftsCubit = serviceLocator<ClassroomShiftsCubit>();
     // ignore: discarded_futures
     _initGeofence();
     // ignore: discarded_futures
@@ -116,6 +119,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _movementsCubit.close();
     // ignore: discarded_futures
     _availabilityCubit.close();
+    // ignore: discarded_futures
+    _classroomShiftsCubit.close();
     _viewModel.dispose();
     super.dispose();
   }
@@ -164,7 +169,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DashboardWelcomeHeader(userName: _viewModel.userName),
+          DashboardWelcomeHeader(
+            userName: _viewModel.userName,
+            showSectionLabel: false,
+          ),
           const SizedBox(height: 16),
           const AttentionGrid(),
           const SizedBox(height: 16),
@@ -180,6 +188,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
         BlocProvider<SchoolStatusCubit>.value(value: _schoolStatusCubit),
         BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
+        BlocProvider<ClassroomShiftsCubit>.value(value: _classroomShiftsCubit),
         BlocProvider<IndividualMovementsCubit>.value(value: _movementsCubit),
         BlocProvider<FutureAvailabilityCubit>.value(value: _availabilityCubit),
       ],

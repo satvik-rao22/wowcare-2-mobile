@@ -8,10 +8,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
-import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -521,9 +519,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           },
         ),
         const SizedBox(height: 12),
-        QrScanButton(
-          args: QrScannerArgs(useCase: QrAttendanceUseCase.guardianSignIn),
-        ),
+        const QrScanButton(),
       ],
     );
   }
