@@ -296,27 +296,28 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'NULL';
+        _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NOT_NULL';
         _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'NULL';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
-        _showAbsentOnly = false;
+        _showAbsentOnly = true;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
+        _showAbsentOnly = false;
     }
   }
 
@@ -598,7 +599,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                                 _applyLegendApiFilters(normalized);
                               }
                             });
-                            _loadAttendanceData(context, reset: false);
+                            _loadAttendanceData(context, reset: true);
                           },
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -608,6 +609,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                           hasActiveFilters: _hasActiveFilters() ||
                               _signInAtFilter != null ||
                               _signOutAtFilter != null ||
+                              _isExpectedNotMarkedFilter == true ||
+                              _showAbsentOnly ||
                               _statusLegendFilter != null ||
                               _searchController.text.trim().isNotEmpty,
                         ),

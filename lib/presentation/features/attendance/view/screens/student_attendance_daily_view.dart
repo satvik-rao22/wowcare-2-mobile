@@ -528,27 +528,28 @@ class _StudentAttendanceDailyViewScreenState
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'NULL';
+        _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NOT_NULL';
         _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'NULL';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
-        _showAbsentOnly = false;
+        _showAbsentOnly = true;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
+        _showAbsentOnly = false;
     }
   }
 
@@ -981,7 +982,7 @@ class _StudentAttendanceDailyViewScreenState
                                   _applyLegendApiFilters(normalized);
                                 }
                               });
-                              _loadAttendanceData();
+                              _loadAttendanceData(reset: true);
                             },
                           ),
                           SizedBox(height: responsive.verticalSpacing),
@@ -1426,6 +1427,8 @@ class _StudentAttendanceDailyViewScreenState
         _statusLegendFilter != null ||
         _signInAtFilter != null ||
         _signOutAtFilter != null ||
+        _isExpectedNotMarkedFilter == true ||
+        _showAbsentOnly ||
         _studentFilters != null ||
         _selectedClassroomNames.isNotEmpty ||
         _selectedTagNames.isNotEmpty ||
@@ -1518,7 +1521,7 @@ class _StudentAttendanceDailyViewScreenState
                           _signOutAtFilter = null;
                           _isExpectedNotMarkedFilter = null;
                         });
-                        _loadAttendanceData(reset: false);
+                        _loadAttendanceData(reset: true);
                       }
                     : null,
               ),

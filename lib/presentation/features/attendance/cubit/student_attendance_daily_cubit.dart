@@ -48,8 +48,10 @@ class StudentAttendanceDailyCubit
     final hasServerTimeFilter = (signInAtFilter != null &&
             signInAtFilter.trim().isNotEmpty) ||
         (signOutAtFilter != null && signOutAtFilter.trim().isNotEmpty);
+    final hasServerLegendFilter =
+        hasServerTimeFilter || isExpectedNotMarked == true;
 
-    if (hasServerTimeFilter) {
+    if (hasServerLegendFilter) {
       await refresh(
         attendanceDate: attendanceDate,
         classroomCodes: classroomCodes,
