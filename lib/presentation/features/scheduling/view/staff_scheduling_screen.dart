@@ -41,18 +41,44 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 /// disk cache); pull-to-refresh re-pulls staff + classroom data. Shift list
 /// remains placeholder until the shift-API cubit is wired in.
 class StaffSchedulingScreen extends StatelessWidget {
-  const StaffSchedulingScreen({super.key});
+  const StaffSchedulingScreen({
+    super.key,
+    this.initialDate,
+    this.initialStaffCode,
+    this.highlightShiftCode,
+  });
 
   static const String routeName = '/dashboard/staff-scheduling';
 
+  /// Notification deep-link: jump to this day on open (shift's date).
+  final DateTime? initialDate;
+
+  /// Notification deep-link: pre-select this staff member once the roster loads.
+  final String? initialStaffCode;
+
+  /// Notification deep-link: flash the shift block with this code.
+  final String? highlightShiftCode;
+
   @override
   Widget build(BuildContext context) {
-    return const _StaffSchedulingView();
+    return _StaffSchedulingView(
+      initialDate: initialDate,
+      initialStaffCode: initialStaffCode,
+      highlightShiftCode: highlightShiftCode,
+    );
   }
 }
 
 class _StaffSchedulingView extends StatefulWidget {
-  const _StaffSchedulingView();
+  const _StaffSchedulingView({
+    this.initialDate,
+    this.initialStaffCode,
+    this.highlightShiftCode,
+  });
+
+  final DateTime? initialDate;
+  final String? initialStaffCode;
+  final String? highlightShiftCode;
 
   @override
   State<_StaffSchedulingView> createState() => _StaffSchedulingViewState();
@@ -78,6 +104,11 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
   /// the POST every rebuild when the roster is unchanged.
   Set<String> _lastRequestedStaffCodes = const <String>{};
 
+  /// Notification deep-link state: applied once each (date immediately, staff
+  /// once the roster contains the wanted code).
+  bool _deepLinkDateApplied = false;
+  bool _deepLinkStaffApplied = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,7 +120,28 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
       _applyPersonaScope();
       _silentlyRefreshStaffIfDirty();
       _bootstrapSchoolZone();
+      _applyDeepLink();
     });
+  }
+
+  /// Applies the notification deep-link (date + staff). Called from initState
+  /// and again from the [BlocListener] so the staff selection lands as soon as
+  /// the roster finishes loading. Each part applies at most once.
+  void _applyDeepLink() {
+    if (!mounted) return;
+    final cubit = context.read<StaffSchedulingCubit>();
+    final date = widget.initialDate;
+    if (!_deepLinkDateApplied && date != null) {
+      _deepLinkDateApplied = true;
+      cubit.selectDay(date);
+    }
+    final code = widget.initialStaffCode?.trim() ?? '';
+    if (!_deepLinkStaffApplied &&
+        code.isNotEmpty &&
+        cubit.state.staffList.any((s) => s.code == code)) {
+      _deepLinkStaffApplied = true;
+      cubit.selectStaffByCode(code);
+    }
   }
 
   /// Forwards [RoleCubit]'s persona decision into the cubit so the roster +
@@ -593,7 +645,9 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
+    return BlocConsumer<StaffSchedulingCubit, StaffSchedulingState>(
+      // Re-attempt the deep-link staff selection as the roster streams in.
+      listener: (context, state) => _applyDeepLink(),
       builder: (context, state) {
         final cubit = context.read<StaffSchedulingCubit>();
         final staff = state.selectedStaff;
@@ -761,12 +815,14 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                                 key: ValueKey(
                                   '${staff.code}_${dayColumnLabel}_'
                                   '${state.schoolStartTime}_${state.schoolEndTime}_'
-                                  '${state.classroomNamesByCode.length}',
+                                  '${state.classroomNamesByCode.length}_'
+                                  '${widget.highlightShiftCode}',
                                 ),
                                 dayColumnLabel: dayColumnLabel,
                                 schoolStartTime: state.schoolStartTime!,
                                 schoolEndTime: state.schoolEndTime!,
                                 classroomResolver: state.classroomResolver,
+                                highlightShiftCode: widget.highlightShiftCode,
                                 dailyRoomSchedule:
                                     DailyShifts(shifts: calendarShifts),
                                 onShiftTap: (shift) => _openViewShiftScreen(

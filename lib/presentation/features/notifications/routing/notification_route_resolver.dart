@@ -47,14 +47,16 @@ class NotificationRouteResolver {
   static const String _staff = '/dashboard/staff';
   static const String _billing = '/dashboard/billing';
   static const String _scheduling = '/dashboard/scheduling';
+  static const String _staffScheduling = '/dashboard/staff-scheduling';
   static const String _studentProfileByCode =
       '/dashboard/student-profile-by-code';
-  static const String _studentAttendance =
-      '/dashboard/student-attendance-tabbed-view';
-  static const String _staffAttendance =
-      '/dashboard/staff-attendance-tabbed-view';
   static const String _individualMovement = '/dashboard/individual-movement';
   static const String _futureAvailability = '/dashboard/future-availability';
+  static const String _classroomInfo = '/dashboard/classroom-info-screen';
+  static const String _studentAttendanceProfileByCode =
+      '/dashboard/student-attendance-profile-by-code';
+  static const String _staffAttendanceProfileByCode =
+      '/dashboard/staff-attendance-profile-by-code';
 
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
@@ -108,6 +110,60 @@ class NotificationRouteResolver {
     return c == null ? const {} : {'classroomCode': c};
   }
 
+  /// Activity date (`date`/`activityDate` payload key) → `date=yyyy-MM-dd` so the
+  /// Activity Feed opens on the activity's day, where its card can be flashed.
+  static Map<String, String> _activityDateParam(PushNotification n) {
+    final raw = (n.data['date'] ?? n.data['activityDate'] ?? '').trim();
+    if (raw.isEmpty) return const {};
+    final parsed = DateTime.tryParse(raw);
+    final ymd = parsed != null
+        ? '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}'
+        : raw;
+    return {'date': ymd};
+  }
+
+  static const _kShiftDate = ['shiftDate', 'shift_date'];
+  static const _kBlockDate = ['blockDate', 'block_date'];
+
+  /// Normalises the first non-empty date among [keys] to `yyyy-MM-dd`, or null.
+  static String? _ymd(PushNotification n, List<String> keys) {
+    final raw = _firstCode(n, keys);
+    if (raw == null || raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw.length >= 10 ? raw.substring(0, 10) : raw;
+    return '${parsed.year.toString().padLeft(4, '0')}-'
+        '${parsed.month.toString().padLeft(2, '0')}-'
+        '${parsed.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Shift notifications (publish/upcoming/edit/delete) open the per-staff Staff
+  /// Scheduling day view: jump to the shift's day, select its staff member, and
+  /// flash the shift block (`highlightCode` = shiftCode).
+  static NotificationDestination _staffShift(PushNotification n) {
+    final query = <String, String>{};
+    final date = _ymd(n, _kShiftDate);
+    if (date != null) query['date'] = date;
+    final staff = _firstCode(n, _kStaff);
+    if (staff != null) query['staffCode'] = staff;
+    final shift = _firstCode(n, _kShift);
+    if (shift != null) query[NotificationDestination.highlightParam] = shift;
+    return NotificationDestination(path: _staffScheduling, queryParameters: query);
+  }
+
+  /// SHIFT_UNDER_RATIO opens the main Scheduling screen forced into DAY view on
+  /// the block's date and flashes the under-ratio classroom block
+  /// (`highlightCode` = classroomCode — under-ratio blocks carry no shift code).
+  static NotificationDestination _shiftUnderRatio(PushNotification n) {
+    final query = <String, String>{'view': 'day'};
+    final date = _ymd(n, _kBlockDate);
+    if (date != null) query['date'] = date;
+    final classroom = _firstCode(n, _kClassroom);
+    if (classroom != null) {
+      query[NotificationDestination.highlightParam] = classroom;
+    }
+    return NotificationDestination(path: _scheduling, queryParameters: query);
+  }
+
   /// Open a student's profile by code on a specific tab (0 Profile, 1 Health,
   /// 2 Dates, 3 Documents), optionally highlighting a row inside it.
   static NotificationDestination _studentProfile(
@@ -115,12 +171,14 @@ class NotificationRouteResolver {
     String tab, {
     List<String> highlight = const <String>[],
     String? profileSubTab, // 0 About, 1 Family, 2 Pickup (Profile tab only)
+    String? healthSubTab, // 0 Health, 1 Physician, 2 Physical Dates, 3 Immun.
   }) {
     final params = <String, String>{
       'code': _firstCode(n, _kStudent) ?? '',
       'tab': tab,
     };
     if (profileSubTab != null) params['profileTab'] = profileSubTab;
+    if (healthSubTab != null) params['healthTab'] = healthSubTab;
     final hl = _firstCode(n, highlight);
     if (hl != null) params['highlightCode'] = hl;
     return NotificationDestination(
@@ -147,6 +205,20 @@ class NotificationRouteResolver {
     return NotificationDestination(
         path: _staffProfileByCode, queryParameters: params);
   }
+
+  /// Open a student's ATTENDANCE profile by code (self-loads identity + data).
+  static NotificationDestination _studentAttendanceProfile(PushNotification n) =>
+      NotificationDestination(
+        path: _studentAttendanceProfileByCode,
+        queryParameters: {'code': _firstCode(n, _kStudent) ?? ''},
+      );
+
+  /// Open a staff member's ATTENDANCE profile by code.
+  static NotificationDestination _staffAttendanceProfile(PushNotification n) =>
+      NotificationDestination(
+        path: _staffAttendanceProfileByCode,
+        queryParameters: {'code': _firstCode(n, _kStaff) ?? ''},
+      );
 
   static final Map<String, NotificationDestination Function(PushNotification)>
       _table = <String, NotificationDestination Function(PushNotification)>{
@@ -181,13 +253,20 @@ class NotificationRouteResolver {
     NotificationAction.studentParentNotAdded: (n) =>
         _studentProfile(n, '0', profileSubTab: '1'),
     NotificationAction.studentScheduleNotAdded: (n) => _studentProfile(n, '0'),
-    NotificationAction.studentPhysicalNotAdded: (n) => _studentProfile(n, '1'),
-    NotificationAction.studentPhysicalDue: (n) => _studentProfile(n, '1'),
-    NotificationAction.studentPhysicalOverdue: (n) => _studentProfile(n, '1'),
+    // Physical alerts open Health → "Physical Examination Dates" sub-tab (2).
+    NotificationAction.studentPhysicalNotAdded: (n) =>
+        _studentProfile(n, '1', healthSubTab: '2'),
+    NotificationAction.studentPhysicalDue: (n) =>
+        _studentProfile(n, '1', healthSubTab: '2'),
+    NotificationAction.studentPhysicalOverdue: (n) =>
+        _studentProfile(n, '1', healthSubTab: '2'),
+    // Immunization alerts open Health → "Immunization" sub-tab (3).
     NotificationAction.studentImmunizationDueOverdue: (n) =>
-        _studentProfile(n, '1'),
+        _studentProfile(n, '1', healthSubTab: '3'),
+    // "Birthdate not added" lands on the Profile tab's About sub-tab (0), where
+    // the Birth Date field lives.
     NotificationAction.studentBirthdateNotAdded: (n) =>
-        _studentProfile(n, '2'),
+        _studentProfile(n, '0'),
     NotificationAction.studentDocumentChanged: (n) =>
         _studentProfile(n, '3', highlight: _kDocument),
 
@@ -217,42 +296,45 @@ class NotificationRouteResolver {
         const NotificationDestination(path: AppRoutes.dashboard),
 
     // ── Scheduling ───────────────────────────────────────────────────────────
-    NotificationAction.publishShift: (n) =>
-        _dest(_scheduling, n, highlight: _kShift),
-    NotificationAction.upcomingShift: (n) =>
-        _dest(_scheduling, n, highlight: _kShift),
-    NotificationAction.shiftUnderRatio: (n) =>
-        _dest(_scheduling, n, highlight: _kShift),
-    NotificationAction.editShift: (n) =>
-        _dest(_scheduling, n, highlight: _kShift),
-    NotificationAction.deleteShift: (n) =>
-        _dest(_scheduling, n, highlight: _kShift),
+    // Shift mutations open the per-staff Staff Scheduling day view (jump to the
+    // shift's day, select its staff, flash the shift block).
+    NotificationAction.publishShift: (n) => _staffShift(n),
+    NotificationAction.upcomingShift: (n) => _staffShift(n),
+    NotificationAction.editShift: (n) => _staffShift(n),
+    NotificationAction.deleteShift: (n) => _staffShift(n),
+    // Under-ratio opens the main Scheduling day view, flashing the classroom.
+    NotificationAction.shiftUnderRatio: (n) => _shiftUnderRatio(n),
 
     // ── Attendance ───────────────────────────────────────────────────────────
+    // Ratio breached opens the Classroom Info screen for that classroom.
     NotificationAction.ratioBreached: (n) =>
-        _dest(_studentAttendance, n, highlight: _kClassroom),
-    NotificationAction.studentSignInOut: (n) =>
-        _dest(_studentAttendance, n, highlight: _kStudent),
-    NotificationAction.studentMarkedAbsent: (n) =>
-        _dest(_studentAttendance, n, highlight: _kStudent),
-    NotificationAction.attendanceNotMarked: (n) {
-      final isStudent = _firstCode(n, _kStudent) != null;
-      return isStudent
-          ? _dest(_studentAttendance, n, highlight: _kStudent)
-          : _dest(_staffAttendance, n, highlight: _kStaff);
-    },
+        _dest(_classroomInfo, n, params: _classroomParam(n)),
+    // Sign-in/out & marked-absent open the person's ATTENDANCE PROFILE screen.
+    NotificationAction.studentSignInOut: (n) => _studentAttendanceProfile(n),
+    NotificationAction.studentMarkedAbsent: (n) => _studentAttendanceProfile(n),
+    NotificationAction.staffSignInOut: (n) => _staffAttendanceProfile(n),
+    NotificationAction.staffMarkedAbsent: (n) => _staffAttendanceProfile(n),
+    // Attendance not marked opens the person's attendance PROFILE screen
+    // (student or staff), which self-loads its data by code.
+    NotificationAction.attendanceNotMarked: (n) =>
+        _firstCode(n, _kStudent) != null
+            ? _studentAttendanceProfile(n)
+            : _staffAttendanceProfile(n),
+    // Capacity exceeded opens the Classroom Info screen for that classroom.
     NotificationAction.capacityExceeded: (n) =>
-        _dest(_studentAttendance, n, highlight: _kClassroom),
+        _dest(_classroomInfo, n, params: _classroomParam(n)),
 
-    // ── Activities ───────────────────────────────────────────────────────────
-    NotificationAction.activityRecorded: (n) =>
-        _dest(AppRoutes.activityFeed, n, highlight: _kActivity),
-    NotificationAction.incidentApprovalPending: (n) =>
-        _dest(AppRoutes.activityFeed, n, highlight: _kActivity),
-    NotificationAction.incidentAcknowledgementPending: (n) =>
-        _dest(AppRoutes.activityFeed, n, highlight: _kActivity),
-    NotificationAction.napAlert: (n) =>
-        _dest(AppRoutes.activityFeed, n, highlight: _kActivity),
+    // ── Activities (open the Activity Feed on the activity's date + flash it) ──
+    NotificationAction.activityRecorded: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityDateParam(n)),
+    NotificationAction.incidentApprovalPending: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityDateParam(n)),
+    NotificationAction.incidentAcknowledgementPending: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityDateParam(n)),
+    NotificationAction.napAlert: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityDateParam(n)),
 
     // ── Availability (room movements) ────────────────────────────────────────
     NotificationAction.createRule: (n) =>

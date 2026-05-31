@@ -575,12 +575,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     // Asset codes are scoped to a specific upload session. Reusing a previous
     // session's cached assetCode causes polling on a new session with no assets.
     _uploadedAssetCodeByPath.clear();
+    // Single student → PER_STUDENT, multiple → SHARED. Owner follows the same
+    // rule: STUDENT/studentCode for per-student, CLASSROOM/classroomCode shared.
+    final isShared = studentCodes.length > 1;
+    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
+    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+    final ownerCode = isShared ? classroomCode : studentCodes.first;
     final uploadSession = await _uploadService.createActivityUploadSession(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       classroomCode: classroomCode,
       activityTypeCode: activityTypeCode,
-      bindingMode: 'SHARED',
+      bindingMode: bindingMode,
       studentCodes: studentCodes,
     );
     final uploadedCodes = <String>[];
@@ -617,8 +623,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         contentLengthBytes: await file.length(),
         checksumSha256: checksumSha256,
         mediaType: isVideo ? 'VIDEO' : 'IMAGE',
-        ownerType: 'CLASSROOM',
-        ownerCode: classroomCode,
+        ownerType: ownerType,
+        ownerCode: ownerCode,
       );
       await _uploadService.uploadFileToPresignedUrl(
         file: file,
@@ -655,7 +661,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       assetCodes: uploadedCodes,
       persist: true,
     );
-    return uploadedCodes.map((code) => <String, dynamic>{'assetCode': code}).toList();
+    return uploadedCodes.map((code) {
+      if (isShared) {
+        return <String, dynamic>{'assetCode': code};
+      }
+      return <String, dynamic>{
+        'assetCode': code,
+        'studentCode': ownerCode,
+        'bindingMode': bindingMode,
+      };
+    }).toList();
   }
 
   Future<void> _restorePendingProcessingPollIfAny() async {

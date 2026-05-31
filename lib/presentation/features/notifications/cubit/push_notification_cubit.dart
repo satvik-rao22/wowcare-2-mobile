@@ -41,6 +41,9 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
   /// isn't emitted before anyone is listening.
   Future<void> init() async {
     try {
+      // Note: the killed-state launch tap is captured in main() (before runApp)
+      // and stashed as `pendingNotificationDeepLink` for the splash to consume —
+      // doing it here (post-frame) would race the splash's auth timer.
       await _repository.requestPermission();
 
       final token = await _repository.getToken();
@@ -69,10 +72,6 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
 
       // Tap while app was in the background.
       _onTapSub = _repository.onNotificationTap.listen(_requestNavigation);
-
-      // Tap that launched the app from a killed state.
-      final initial = await _repository.getInitialMessage();
-      if (initial != null) _requestNavigation(initial);
     } catch (e) {
       AppLogger.d('[FCM] setup failed (continuing without push): $e');
     }

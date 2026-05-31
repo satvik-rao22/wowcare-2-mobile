@@ -103,11 +103,16 @@ class ActivityDailyTab extends StatefulWidget {
     this.isNotParent = true,
     this.allowActivityWrite = true,
     this.highlightCode,
+    this.highlightDate,
   });
 
   /// Activity code from a notification deep-link; the matching feed card is
   /// scrolled into view and briefly flashed.
   final String? highlightCode;
+
+  /// Date of the deep-linked activity (yyyy-MM-dd) so the feed opens on that
+  /// day rather than today — otherwise the highlighted card isn't in view.
+  final DateTime? highlightDate;
 
   final bool fromStudentProfile;
 
@@ -2360,6 +2365,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   void initState() {
     super.initState();
+    // Deep-linked activity: open its date from the first load (avoids a
+    // today-then-jump flash before the timezone resolves).
+    if (widget.highlightDate != null) {
+      _selectedDate = widget.highlightDate;
+    }
     _getDailyActivityFeedUseCase =
         serviceLocator<GetDailyActivityFeedUseCase>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
@@ -2409,7 +2419,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _schoolIana = z;
-        _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(z);
+        // A deep-linked activity's date wins so its card is on the open day.
+        _selectedDate =
+            widget.highlightDate ?? SchoolZoneDateTime.schoolCalendarTodayOnly(z);
       });
     } catch (_) {}
   }

@@ -623,6 +623,13 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
 
+    // Single student → PER_STUDENT, multiple → SHARED. Owner follows suit so the
+    // session, presign owner, and attachment payload all agree.
+    final isShared = studentCodes.length > 1;
+    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
+    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+    final ownerCode = isShared ? classroomCode : studentCodes.first;
+
     if (missing.isNotEmpty) {
       setState(() {
         _isUploadingMedia = true;
@@ -637,7 +644,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           schoolCode: schoolCode,
           classroomCode: classroomCode,
           activityTypeCode: activityTypeCode,
-          bindingMode: 'SHARED',
+          bindingMode: bindingMode,
           studentCodes: studentCodes,
         );
 
@@ -660,8 +667,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
             contentLengthBytes: contentLengthBytes,
             checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
-            ownerType: 'CLASSROOM',
-            ownerCode: classroomCode,
+            ownerType: ownerType,
+            ownerCode: ownerCode,
           );
           await _imageUploadService.uploadFileToPresignedUrl(
             file: photo,
@@ -702,8 +709,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       }
     }
 
-    final isShared = studentCodes.length > 1;
-    final ownerCode = studentCodes.first;
     final attachments = <Map<String, dynamic>>[];
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
@@ -714,7 +719,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           attachments.add({
             'assetCode': assetCode,
             'studentCode': ownerCode,
-            'bindingMode': 'PER_STUDENT',
+            'bindingMode': bindingMode,
           });
         }
       }

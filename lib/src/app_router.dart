@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/billing/view/parent_billing_screen
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
@@ -138,6 +139,20 @@ int tabIndexForBranchIndex({required bool isParent, required int branchIndex}) {
     }
   }
   return 0;
+}
+
+/// Deep-link captured from a notification that cold-launched the app (killed
+/// state). On a killed-state tap the app starts at the splash, which runs an
+/// auth check and then navigates to the dashboard — clobbering the deep-link if
+/// we `go()` immediately. So [PushNotificationCubit] stashes the destination
+/// here (from `getInitialMessage()`) and the splash routes to it instead of the
+/// dashboard. Read-once via [consumePendingNotificationDeepLink].
+String? pendingNotificationDeepLink;
+
+String? consumePendingNotificationDeepLink() {
+  final value = pendingNotificationDeepLink;
+  pendingNotificationDeepLink = null;
+  return value;
 }
 
 final GoRouter appRouter = GoRouter(
@@ -344,8 +359,18 @@ final GoRouter appRouter = GoRouter(
                         ),
                       ],
                       child: SchedulingScreen(
+                        // `highlightCode` may be a shiftCode (shift deep-link) or
+                        // a classroomCode (SHIFT_UNDER_RATIO) — pass to both;
+                        // only the matching card flashes. `view=day` forces the
+                        // day view; `date=yyyy-MM-dd` jumps to the block's day.
                         highlightShiftCode:
                             state.uri.queryParameters['highlightCode'],
+                        highlightClassroomCode:
+                            state.uri.queryParameters['highlightCode'],
+                        initialDate: _parseYmd(
+                            state.uri.queryParameters['date']),
+                        forceDayView:
+                            state.uri.queryParameters['view'] == 'day',
                       ),
                     ),
                   ),
@@ -376,7 +401,17 @@ final GoRouter appRouter = GoRouter(
                             ..loadActiveClassrooms(onlyTypeClassroom: false),
                         ),
                       ],
-                      child: const StaffSchedulingScreen(),
+                      child: StaffSchedulingScreen(
+                        // Shift deep-links (PUBLISH/UPCOMING/EDIT/DELETE_SHIFT):
+                        // jump to the shift's day, select its staff, and flash
+                        // the shift block (`highlightCode` = shiftCode).
+                        initialDate: _parseYmd(
+                            state.uri.queryParameters['date']),
+                        initialStaffCode:
+                            state.uri.queryParameters['staffCode'],
+                        highlightShiftCode:
+                            state.uri.queryParameters['highlightCode'],
+                      ),
                     ),
                   ),
                 ),
@@ -437,6 +472,18 @@ final GoRouter appRouter = GoRouter(
                     );
                   },
                 ),
+                // Notification deep-link: open the Classroom Info screen with a
+                // classroom pre-selected by code (e.g. RATIO_BREACHED).
+                GoRoute(
+                  path: 'classroom-info-screen',
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    ClassroomInfoScreen(
+                      initialClassroomCode:
+                          state.uri.queryParameters['classroomCode'],
+                    ),
+                  ),
+                ),
                 GoRoute(
                   path: 'userProfile',
                   pageBuilder: (context, state) {
@@ -490,6 +537,8 @@ final GoRouter appRouter = GoRouter(
                               int.tryParse(q['tab'] ?? '') ?? 0,
                           initialProfileSubTabIndex:
                               int.tryParse(q['profileTab'] ?? '') ?? 0,
+                          initialHealthSubTabIndex:
+                              int.tryParse(q['healthTab'] ?? '') ?? 0,
                           highlightCode: q['highlightCode'],
                         ),
                       ),
@@ -534,6 +583,39 @@ final GoRouter appRouter = GoRouter(
                     _staffAttendanceProfileScreen(state.extra),
                   ),
                 ),
+                // Notification deep-link: open a student's attendance profile
+                // from just a code (e.g. ATTENDANCE_NOT_MARKED). The screen
+                // self-loads its data by studentCode.
+                GoRoute(
+                  path: 'student-attendance-profile-by-code',
+                  pageBuilder: (context, state) {
+                    final q = state.uri.queryParameters;
+                    return _fastPage(
+                      state,
+                      StudentAttendanceProfile(
+                        studentCode: q['code'] ?? '',
+                        studentId: 0,
+                        studentName: q['name'] ?? '',
+                        roomName: '—',
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'staff-attendance-profile-by-code',
+                  pageBuilder: (context, state) {
+                    final q = state.uri.queryParameters;
+                    return _fastPage(
+                      state,
+                      StaffAttendanceProfile(
+                        staffCode: q['code'] ?? '',
+                        staffId: 0,
+                        staffName: q['name'] ?? '-',
+                        roomName: '-',
+                      ),
+                    );
+                  },
+                ),
                 GoRoute(
                   path: 'student-selection-sign-in-form',
                   pageBuilder: (context, state) =>
@@ -575,6 +657,9 @@ final GoRouter appRouter = GoRouter(
               path: AppRoutes.activityFeed,
               builder: (context, state) => ActivityFeedScreen(
                 highlightCode: state.uri.queryParameters['highlightCode'],
+                highlightDate: DateTime.tryParse(
+                  state.uri.queryParameters['date'] ?? '',
+                ),
               ),
             ),
           ],
@@ -733,6 +818,16 @@ Page<dynamic> _fastPage(GoRouterState state, Widget child) {
     },
     child: child,
   );
+}
+
+/// Parses a `yyyy-MM-dd` (or ISO) query param into a local date, or null.
+/// Used by notification deep-links that jump the schedule to a specific day.
+DateTime? _parseYmd(String? raw) {
+  final value = raw?.trim() ?? '';
+  if (value.isEmpty) return null;
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return null;
+  return DateTime(parsed.year, parsed.month, parsed.day);
 }
 
 /// InheritedWidget so CustomNavigationBar can find the

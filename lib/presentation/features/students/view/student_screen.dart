@@ -130,22 +130,30 @@ class _StudentScreenState extends State<StudentScreen> {
     _searchController.addListener(_onSearchChanged);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final cubit = context.read<StudentCubit>();
-        cubit.loadInitial();
-        context.read<ClassroomCubit>().loadActiveClassrooms(
-          onlyTypeClassroom: false,
-          applyAttendanceStaffScope: true,
-        );
-        _applyFiltersToCubit();
-        _ensureHighlightVisible();
-        _loadTagNameCodeMap();
-        _loadGuardianNameCodeMap();
-        _loadStudentCounts();
-        _loadExpectedStudentsSummary();
-        _resolveSummaryVisibilityForPersona();
-      }
+      if (mounted) _bootstrapList();
     });
+  }
+
+  Future<void> _bootstrapList() async {
+    // If a deep-link highlights a student, resolve their status FIRST and set
+    // the filter so the very first list load fetches the right bucket. Doing it
+    // after loadInitial() caused a race where the default Active load finished
+    // after the Inactive refetch and clobbered it (chip showed Inactive but the
+    // Active list remained).
+    await _applyHighlightStatusFilter();
+    if (!mounted) return;
+    final cubit = context.read<StudentCubit>();
+    context.read<ClassroomCubit>().loadActiveClassrooms(
+      onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
+    );
+    cubit.loadInitial();
+    await _applyFiltersToCubit();
+    _loadTagNameCodeMap();
+    _loadGuardianNameCodeMap();
+    _loadStudentCounts();
+    _loadExpectedStudentsSummary();
+    _resolveSummaryVisibilityForPersona();
   }
 
   Future<void> _resolveSummaryVisibilityForPersona() async {
@@ -215,8 +223,10 @@ class _StudentScreenState extends State<StudentScreen> {
   /// studentCode and lands on the Active list. If that student is actually
   /// Inactive/Upcoming they won't appear here — so the highlight can't find
   /// them. Resolve the target's status and switch the Status filter to the
-  /// matching bucket so the deep-linked student becomes visible & highlightable.
-  Future<void> _ensureHighlightVisible() async {
+  /// matching bucket. Runs BEFORE the first list load (and sets the cubit's
+  /// status filter too) so the single initial fetch uses the right bucket —
+  /// avoiding a race where the default Active load clobbers an Inactive refetch.
+  Future<void> _applyHighlightStatusFilter() async {
     final code = (_highlightStudentCode ?? '').trim();
     if (code.isEmpty) return;
     final current = (_currentFilters['Status']?.isNotEmpty == true)
@@ -240,7 +250,9 @@ class _StudentScreenState extends State<StudentScreen> {
         _currentFilters['Status'] = [label];
         _syncShowInactiveFromStatus(label);
       });
-      await _applyFiltersToCubit();
+      // Set the cubit's status filter now so the upcoming loadInitial() fetches
+      // this bucket (not Active), preventing the override race.
+      context.read<StudentCubit>().updateFilters(status: label);
     } catch (_) {
       // Couldn't resolve status — leave the default Active filter in place.
     }

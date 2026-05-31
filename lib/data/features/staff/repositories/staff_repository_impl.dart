@@ -684,6 +684,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       jobTag: model.jobTag,
       clockPin: model.clockPin,
       primaryClassroomCode: model.primaryClassroomCode,
+      primaryClassroomName: model.primaryClassroomName,
       allowedClassroomCodes: model.allowedClassroomCodes,
       address: StaffProfileAddress(
         street: model.address.street,

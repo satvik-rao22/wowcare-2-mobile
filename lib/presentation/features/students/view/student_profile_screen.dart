@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/util/logger_service.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -46,6 +48,7 @@ class StudentProfileScreen extends StatefulWidget {
     this.syncWithParentChildSelection = false,
     this.initialTabIndex = 0,
     this.initialProfileSubTabIndex = 0,
+    this.initialHealthSubTabIndex = 0,
     this.highlightCode,
   });
 
@@ -66,6 +69,13 @@ class StudentProfileScreen extends StatefulWidget {
   /// by notification deep-links so e.g. a "parent not added" alert lands on
   /// Family. Only applies when [initialTabIndex] is 0 (Profile).
   final int initialProfileSubTabIndex;
+
+  /// Sub-tab to open inside the Health tab (0 Health, 1 Physician,
+  /// 2 Physical Examination Dates, 3 Immunization) — set by notification
+  /// deep-links so e.g. a "physical overdue" alert lands on Physical Exam Dates
+  /// and an immunization alert lands on Immunization. Only applies when
+  /// [initialTabIndex] is 1 (Health).
+  final int initialHealthSubTabIndex;
 
   /// Row code to highlight inside the opened tab (e.g. documentCode on the
   /// Documents tab). Null for normal navigation.
@@ -158,6 +168,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   void _onProfileChanged(StudentProfileModel profile) {
     if (!mounted) return;
+    AppLogger.d(
+      '[ProfileHeader] student=${profile.code} name="${profile.fullName}" '
+      'classroom="${profile.classroom}"',
+    );
     setState(() {
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;
@@ -606,6 +620,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   key: ValueKey<String>(
                     'health_tab_${_activeStudentCode ?? 'none'}',
                   ),
+                  initialTabIndex:
+                      widget.initialHealthSubTabIndex.clamp(0, 3),
                   scrollController: _healthScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,

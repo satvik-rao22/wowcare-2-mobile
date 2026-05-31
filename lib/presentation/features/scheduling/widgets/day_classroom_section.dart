@@ -141,11 +141,16 @@ class DayClassroomSection extends StatefulWidget {
     this.onStaffSlotTap,
     this.staffAttendanceStatusByCode,
     this.highlightShiftCode,
+    this.highlightClassroomCode,
   });
 
   /// Shift code from a notification deep-link; the matching shift row scrolls
   /// into view and flashes.
   final String? highlightShiftCode;
+
+  /// Classroom code from a notification deep-link (SHIFT_UNDER_RATIO); in DAY
+  /// view the matching classroom row scrolls into view and flashes.
+  final String? highlightClassroomCode;
 
   final ClassroomDaySchedule classroom;
   final SchedulingViewMode viewMode;
@@ -206,38 +211,46 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SchedulingDayGanttRow(
-          left: InkWell(
-            onTap: hasStaff ? () => setState(() => _expanded = !_expanded) : null,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: ClassroomRowLeft(
-                      classroomCode: widget.classroom.classroomCode,
-                      classroomName: widget.classroom.classroomName,
+        // Flash the classroom row when it's the under-ratio notification target.
+        HighlightableCard(
+          code: widget.classroom.classroomCode,
+          highlightCode: widget.highlightClassroomCode,
+          scrollOnHighlight: true,
+          borderRadius: 8,
+          child: SchedulingDayGanttRow(
+            left: InkWell(
+              onTap:
+                  hasStaff ? () => setState(() => _expanded = !_expanded) : null,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: ClassroomRowLeft(
+                        classroomCode: widget.classroom.classroomCode,
+                        classroomName: widget.classroom.classroomName,
+                      ),
                     ),
                   ),
-                ),
-                if (hasStaff)
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    size: 18,
-                    color: AppColors.primaryColor,
-                  ),
-              ],
+                  if (hasStaff)
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: AppColors.primaryColor,
+                    ),
+                ],
+              ),
             ),
-          ),
-          right: SchedulingClassroomDayTimeline(
-            slots: widget.classroom.daySlots,
-            slotDetails: widget.classroom.slotDetails,
-            day: widget.day,
-            classroomName: widget.classroom.classroomName,
-            dayStartMinutes: widget.classroom.timelineStartMinutes,
-            dayEndMinutes: widget.classroom.timelineEndMinutes,
-            slotMinutes: widget.classroom.slotMinutes,
+            right: SchedulingClassroomDayTimeline(
+              slots: widget.classroom.daySlots,
+              slotDetails: widget.classroom.slotDetails,
+              day: widget.day,
+              classroomName: widget.classroom.classroomName,
+              dayStartMinutes: widget.classroom.timelineStartMinutes,
+              dayEndMinutes: widget.classroom.timelineEndMinutes,
+              slotMinutes: widget.classroom.slotMinutes,
+            ),
           ),
         ),
         if (_expanded)

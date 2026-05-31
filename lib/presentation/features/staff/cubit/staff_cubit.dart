@@ -108,6 +108,12 @@ class StaffCubit extends Cubit<StaffState> {
       ),
     );
 
+    // Snapshot the status this refresh is fetching. If the filter changes while
+    // we're in flight (e.g. a deep-link resolves a deactivated staff and flips
+    // to INACTIVE while the route's default ACTIVE load is still running), the
+    // older result must NOT clobber the newer one — we drop it before emitting.
+    final requestedStatus = _effectiveStatusFilter();
+
     try {
       final organizationCode = await _resolveOrganizationCode();
       // Start both requests in parallel.
@@ -120,7 +126,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: _effectiveStatusFilter(),
+        status: requestedStatus,
         designation: state.designationFilter,
         search: state.searchQuery,
         primaryClassroomCodes: state.primaryClassroomCodes,
@@ -151,7 +157,7 @@ class StaffCubit extends Cubit<StaffState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: _effectiveStatusFilter(),
+          status: requestedStatus,
           designation: state.designationFilter,
           search: state.searchQuery,
           primaryClassroomCodes: state.primaryClassroomCodes,
@@ -165,6 +171,9 @@ class StaffCubit extends Cubit<StaffState> {
       }
 
       if (isClosed) return;
+      // Drop a stale result: the filter changed while this load was in flight,
+      // so a newer refresh owns the list now.
+      if (_effectiveStatusFilter() != requestedStatus) return;
       emit(
         state.copyWith(
           items: items,

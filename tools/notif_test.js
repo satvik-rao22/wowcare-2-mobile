@@ -68,6 +68,31 @@ const staffProfile = (d, tab, hlKeys = []) => {
   const h = first(d, hlKeys); if (h) params.highlightCode = h;
   return qs('/dashboard/staff-profile-by-code', params);
 };
+// Attendance: sign-in/out & marked-absent open the person's attendance PROFILE
+// (by `code`); ratio/capacity open the Classroom Info screen (by classroomCode).
+const studentAttendanceProfile = (d) => qs('/dashboard/student-attendance-profile-by-code', { code: first(d, K.student) || '' });
+const staffAttendanceProfile = (d) => qs('/dashboard/staff-attendance-profile-by-code', { code: first(d, K.staff) || '' });
+const classroomInfo = (d) => qs('/dashboard/classroom-info-screen', classroomParam(d));
+// Activities open the Activity Feed on the activity's day (date/activityDate → yyyy-MM-dd) and flash the card.
+const activityDateParam = (d) => { const raw = (d.date || d.activityDate || '').trim(); return raw ? { date: raw.slice(0, 10) } : {}; };
+const activityFeed = (d) => hl('/activity-feed', d, K.activity, activityDateParam(d));
+// Scheduling: shift mutations open the per-staff Staff Scheduling day view
+// (jump to the shift's day, select its staff, flash the shift block).
+const ymd = (s) => { const v = (s || '').trim(); return v ? v.slice(0, 10) : ''; };
+const staffShiftRoute = (d) => {
+  const q = {};
+  const date = ymd(d.shiftDate || d.shift_date); if (date) q.date = date;
+  const sc = first(d, K.staff); if (sc) q.staffCode = sc;
+  const sh = first(d, K.shift); if (sh) q.highlightCode = sh;
+  return qs('/dashboard/staff-scheduling', q);
+};
+// Under-ratio opens the main Scheduling day view, flashing the classroom block.
+const underRatioRoute = (d) => {
+  const q = { view: 'day' };
+  const date = ymd(d.blockDate || d.block_date); if (date) q.date = date;
+  const cc = first(d, K.classroom); if (cc) q.highlightCode = cc;
+  return qs('/dashboard/scheduling', q);
+};
 
 // title/body are generic, human-readable defaults; override with --title/--body.
 const A = {
@@ -88,7 +113,7 @@ const A = {
   STUDENT_PHYSICAL_DUE:       { mod: 'Student', keys: K.student, title: 'Student', body: d => `Physical due for ${d.studentCode}.`, route: d => studentProfile(d, '1') },
   STUDENT_PHYSICAL_OVERDUE:   { mod: 'Student', keys: K.student, title: 'Student', body: d => `Physical overdue for ${d.studentCode}.`, route: d => studentProfile(d, '1') },
   STUDENT_IMMUNIZATION_DUE_OVERDUE: { mod: 'Student', keys: K.student, title: 'Student', body: d => `Immunization due/overdue for ${d.studentCode}.`, route: d => studentProfile(d, '1') },
-  STUDENT_BIRTHDATE_NOT_ADDED: { mod: 'Student', keys: K.student, title: 'Student', body: d => `Birthdate not added for ${d.studentCode}.`, route: d => studentProfile(d, '2') },
+  STUDENT_BIRTHDATE_NOT_ADDED: { mod: 'Student', keys: K.student, title: 'Student', body: d => `Birthdate not added for ${d.studentCode}.`, route: d => studentProfile(d, '0') },
   STUDENT_DOCUMENT_CHANGED:    { mod: 'Student', keys: [...K.student, ...K.document], title: 'Student', body: d => `A document was added/deleted for ${d.studentCode}.`, route: d => studentProfile(d, '3', K.document) },
 
   // ── Staff ──
@@ -106,24 +131,26 @@ const A = {
   TASK_OVERDUE:   { mod: 'Events', keys: [], title: 'Tasks', body: () => `A task is overdue.`, route: () => '/dashboard' },
 
   // ── Scheduling ──
-  PUBLISH_SHIFT:     { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${d.shift_code} published.`, route: d => hl('/dashboard/scheduling', d, K.shift) },
-  UPCOMING_SHIFT:    { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Upcoming shift ${d.shift_code}.`, route: d => hl('/dashboard/scheduling', d, K.shift) },
-  SHIFT_UNDER_RATIO: { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${d.shift_code} is under ratio.`, route: d => hl('/dashboard/scheduling', d, K.shift) },
-  EDIT_SHIFT:        { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${d.shift_code} was edited.`, route: d => hl('/dashboard/scheduling', d, K.shift) },
-  DELETE_SHIFT:      { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${d.shift_code} was deleted.`, route: d => hl('/dashboard/scheduling', d, K.shift) },
+  PUBLISH_SHIFT:     { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${first(d, K.shift)} published.`, route: d => staffShiftRoute(d) },
+  UPCOMING_SHIFT:    { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Upcoming shift ${first(d, K.shift)}.`, route: d => staffShiftRoute(d) },
+  SHIFT_UNDER_RATIO: { mod: 'Scheduling', keys: K.classroom, title: 'Scheduling', body: d => `Classroom ${first(d, K.classroom)} is under ratio.`, route: d => underRatioRoute(d) },
+  EDIT_SHIFT:        { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${first(d, K.shift)} was edited.`, route: d => staffShiftRoute(d) },
+  DELETE_SHIFT:      { mod: 'Scheduling', keys: K.shift, title: 'Scheduling', body: d => `Shift ${first(d, K.shift)} was deleted.`, route: d => staffShiftRoute(d) },
 
   // ── Attendance ──
-  RATIO_BREACHED:      { mod: 'Attendance', keys: K.classroom, title: 'Attendance', body: d => `Student-to-staff ratio breached in ${d.classroomCode}.`, route: d => hl('/dashboard/student-attendance-tabbed-view', d, K.classroom) },
-  STUDENT_SIGN_IN_OUT: { mod: 'Attendance', keys: K.student, title: 'Attendance', body: d => `Student ${d.studentCode} signed in/out.`, route: d => hl('/dashboard/student-attendance-tabbed-view', d, K.student) },
-  STUDENT_MARKED_ABSENT:{ mod: 'Attendance', keys: K.student, title: 'Attendance', body: d => `Student ${d.studentCode} marked absent.`, route: d => hl('/dashboard/student-attendance-tabbed-view', d, K.student) },
-  ATTENDANCE_NOT_MARKED:{ mod: 'Attendance', keys: [...K.student, ...K.staff], title: 'Attendance', body: () => `Attendance not marked yet.`, route: d => first(d, K.student) ? hl('/dashboard/student-attendance-tabbed-view', d, K.student) : hl('/dashboard/staff-attendance-tabbed-view', d, K.staff) },
-  CAPACITY_EXCEEDED:   { mod: 'Attendance', keys: K.classroom, title: 'Attendance', body: d => `Capacity exceeded in ${d.classroomCode}.`, route: d => hl('/dashboard/student-attendance-tabbed-view', d, K.classroom) },
+  RATIO_BREACHED:      { mod: 'Attendance', keys: K.classroom, title: 'Attendance', body: d => `Student-to-staff ratio breached in ${d.classroomCode}.`, route: d => classroomInfo(d) },
+  STUDENT_SIGN_IN_OUT: { mod: 'Attendance', keys: K.student, title: 'Attendance', body: d => `Student ${d.studentCode} signed in/out.`, route: d => studentAttendanceProfile(d) },
+  STUDENT_MARKED_ABSENT:{ mod: 'Attendance', keys: K.student, title: 'Attendance', body: d => `Student ${d.studentCode} marked absent.`, route: d => studentAttendanceProfile(d) },
+  STAFF_SIGN_IN_OUT:    { mod: 'Attendance', keys: K.staff, title: 'Attendance', body: d => `Staff ${d.staffCode} signed in/out.`, route: d => staffAttendanceProfile(d) },
+  STAFF_MARKED_ABSENT:  { mod: 'Attendance', keys: K.staff, title: 'Attendance', body: d => `Staff ${d.staffCode} marked absent.`, route: d => staffAttendanceProfile(d) },
+  ATTENDANCE_NOT_MARKED:{ mod: 'Attendance', keys: [...K.student, ...K.staff], title: 'Attendance', body: () => `Attendance not marked yet.`, route: d => first(d, K.student) ? studentAttendanceProfile(d) : staffAttendanceProfile(d) },
+  CAPACITY_EXCEEDED:   { mod: 'Attendance', keys: K.classroom, title: 'Attendance', body: d => `Capacity exceeded in ${d.classroomCode}.`, route: d => classroomInfo(d) },
 
   // ── Activities ──
-  ACTIVITY_RECORDED:                { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Activity ${d.activityCode} recorded.`, route: d => hl('/activity-feed', d, K.activity) },
-  INCIDENT_APPROVAL_PENDING:        { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Incident ${d.activityCode} pending approval.`, route: d => hl('/activity-feed', d, K.activity) },
-  INCIDENT_ACKNOWLEDGEMENT_PENDING: { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Incident ${d.activityCode} pending acknowledgement.`, route: d => hl('/activity-feed', d, K.activity) },
-  NAP_ALERT:                        { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Nap alert for activity ${d.activityCode}.`, route: d => hl('/activity-feed', d, K.activity) },
+  ACTIVITY_RECORDED:                { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Activity ${d.activityCode} recorded.`, route: d => activityFeed(d) },
+  INCIDENT_APPROVAL_PENDING:        { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Incident ${d.activityCode} pending approval.`, route: d => activityFeed(d) },
+  INCIDENT_ACKNOWLEDGEMENT_PENDING: { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Incident ${d.activityCode} pending acknowledgement.`, route: d => activityFeed(d) },
+  NAP_ALERT:                        { mod: 'Activities', keys: K.activity, title: 'Activities', body: d => `Nap alert for activity ${d.activityCode}.`, route: d => activityFeed(d) },
 
   // ── Availability (movements) ──
   CREATE_RULE:       { mod: 'Availability', keys: [], title: 'Availability', body: () => `A movement rule was created.`, route: () => '/dashboard/future-availability' },
@@ -204,7 +231,8 @@ const DEFAULTS = {
   documentCode: 'AST_D4C23AB2-2', documentUuid: 'AST_D4C23AB2-2',
   movement_id: '18', movement_code: 'MOV-DB2B9AF0-B', movement_date: '2026-05-15',
   shift_code: 'SHF_TEST_0001', shift_date: '2026-05-31',
-  activityCode: 'ACT_TEST_0001', activityType: 'INCIDENT',
+  shiftCode: 'SFT-348896A3-2', shiftDate: '2026-05-26', blockDate: '2026-05-31',
+  activityCode: 'ACT_TEST_0001', activityType: 'INCIDENT', activityDate: '2026-05-31',
   attendance_date: '2026-05-31',
 };
 // Full data field list per action (mirrors the redirection-details column); falls
@@ -219,20 +247,20 @@ const PAYLOAD = {
   STUDENT_SIGN_IN_OUT: ['studentCode', 'attendance_date'],
   STUDENT_MARKED_ABSENT: ['studentCode', 'attendance_date'],
   ATTENDANCE_NOT_MARKED: ['student_code', 'attendance_date'],
-  PUBLISH_SHIFT: ['shift_code', 'shift_date', 'staff_code', 'classroom_code'],
-  UPCOMING_SHIFT: ['shift_code', 'shift_date', 'staff_code', 'classroom_code'],
-  SHIFT_UNDER_RATIO: ['shift_code', 'shift_date', 'staff_code', 'classroom_code'],
-  EDIT_SHIFT: ['shift_code', 'shift_date', 'staff_code', 'classroom_code'],
-  DELETE_SHIFT: ['shift_code', 'shift_date', 'staff_code', 'classroom_code'],
+  PUBLISH_SHIFT: ['shiftCode', 'shiftDate', 'staffCode', 'classroomCode'],
+  UPCOMING_SHIFT: ['shiftCode', 'shiftDate', 'staffCode', 'classroomCode'],
+  SHIFT_UNDER_RATIO: ['classroomCode', 'blockDate'],
+  EDIT_SHIFT: ['shiftCode', 'shiftDate', 'staffCode', 'classroomCode'],
+  DELETE_SHIFT: ['shiftCode', 'shiftDate', 'staffCode', 'classroomCode'],
   CREATE_MOVEMENT: ['movement_id', 'movement_code', 'student_code', 'classroom_code', 'movement_date'],
   UPCOMING_MOVEMENT: ['movement_id', 'movement_code', 'student_code', 'classroom_code', 'movement_date'],
   CONFIRMED_MOVEMENT: ['movement_id', 'movement_code', 'student_code', 'classroom_code', 'movement_date'],
   MOVEMENT_OVERDUE: ['movement_id', 'movement_code', 'student_code', 'classroom_code', 'movement_date'],
   MOVEMENT_REJECTED: ['movement_id', 'movement_code', 'student_code', 'classroom_code', 'movement_date'],
-  ACTIVITY_RECORDED: ['activityCode', 'activityType', 'studentCode'],
-  INCIDENT_APPROVAL_PENDING: ['activityCode', 'activityType', 'studentCode'],
-  INCIDENT_ACKNOWLEDGEMENT_PENDING: ['activityCode', 'activityType', 'studentCode'],
-  NAP_ALERT: ['activityCode', 'activityType', 'studentCode'],
+  ACTIVITY_RECORDED: ['activityCode', 'activityType', 'studentCode', 'activityDate'],
+  INCIDENT_APPROVAL_PENDING: ['activityCode', 'activityType', 'studentCode', 'activityDate'],
+  INCIDENT_ACKNOWLEDGEMENT_PENDING: ['activityCode', 'activityType', 'studentCode', 'activityDate'],
+  NAP_ALERT: ['activityCode', 'activityType', 'studentCode', 'activityDate'],
   BIRTHDAY: ['studentCode'],
 };
 

@@ -173,12 +173,18 @@ class StudentCubit extends Cubit<StudentState> {
       ),
     );
 
+    // Snapshot the status this load is fetching. If the filter changes while
+    // we're in flight (e.g. a deep-link resolves a deactivated student and flips
+    // to Inactive while the route's default Active load is still running), the
+    // older result must NOT clobber the newer one — drop it before emitting.
+    final requestedStatus = state.statusFilter;
+
     try {
       final firstPageFuture = _getStudentPageUseCase(
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: state.statusFilter,
+        status: requestedStatus,
         classroomCodes: effectiveClassroomCodes,
         tagCodes: state.tagCodesFilter,
         guardianCodes: state.guardianCodesFilter,
@@ -202,7 +208,7 @@ class StudentCubit extends Cubit<StudentState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: state.statusFilter,
+          status: requestedStatus,
           classroomCodes: effectiveClassroomCodes,
           tagCodes: state.tagCodesFilter,
           guardianCodes: state.guardianCodesFilter,
@@ -220,6 +226,9 @@ class StudentCubit extends Cubit<StudentState> {
       }
 
       if (isClosed) return;
+      // Drop a stale result: the filter changed while this load was in flight,
+      // so a newer refresh owns the list now.
+      if (state.statusFilter != requestedStatus) return;
 
       emit(
         state.copyWith(

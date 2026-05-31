@@ -8,6 +8,11 @@ class GeofenceNotificationService {
   static const int _enteredId = 1001;
   static const int _exitedId = 1002;
 
+  // Push notifications must each get a UNIQUE id — a fixed id makes every new
+  // push replace the previous one in the tray, so firing 5 in a row leaves only
+  // 1 visible. Start above the reserved geofence ids and increment per push.
+  static int _nextPushId = 2000;
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -70,7 +75,8 @@ class GeofenceNotificationService {
     required String body,
     String? payload,
   }) => _show(
-    id: 1003,
+    // Unique id per push so multiple notifications stack instead of replacing.
+    id: _nextPushId++,
     title: title,
     body: body,
     isCritical: true,

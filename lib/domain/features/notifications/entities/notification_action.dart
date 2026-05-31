@@ -60,6 +60,8 @@ class NotificationAction {
   static const String ratioBreached = 'RATIO_BREACHED';
   static const String studentSignInOut = 'STUDENT_SIGN_IN_OUT';
   static const String studentMarkedAbsent = 'STUDENT_MARKED_ABSENT';
+  static const String staffSignInOut = 'STAFF_SIGN_IN_OUT';
+  static const String staffMarkedAbsent = 'STAFF_MARKED_ABSENT';
   static const String attendanceNotMarked = 'ATTENDANCE_NOT_MARKED';
   static const String capacityExceeded = 'CAPACITY_EXCEEDED';
 

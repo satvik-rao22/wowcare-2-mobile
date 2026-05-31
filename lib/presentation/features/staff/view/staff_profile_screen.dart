@@ -146,7 +146,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         final photo = profile.profilePhotoUrl.trim();
         if (photo.isNotEmpty) _profilePhotoUrl = photo;
       });
-      _applyHeaderClassroomFromProfile(profile.primaryClassroomCode);
+      // Prefer the human-readable name the API already returns; fall back to the
+      // code (which _applyHeaderClassroomFromProfile then resolves to a name).
+      final classroomName = profile.primaryClassroomName.trim();
+      _applyHeaderClassroomFromProfile(
+        classroomName.isNotEmpty ? classroomName : profile.primaryClassroomCode,
+      );
     } catch (_) {
       // Profile tab's own load still surfaces errors when visited.
     }
@@ -468,7 +473,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       DocumentImageWidget(
                         fileUuid: widget.staffCode,
                         imageUrl: _profilePhotoUrl,
-                        name: widget.name,
+                        // Use the resolved display name so the no-photo branch
+                        // renders the coloured initials avatar. On a deep-link
+                        // widget.name starts empty, which fell back to the grey
+                        // placeholder instead of initials.
+                        name: _displayName.trim().isNotEmpty
+                            ? _displayName
+                            : widget.name,
                         staffCode: widget.staffCode,
                         staffEmploymentStatus: widget.employmentStatus,
                         size: 90,
