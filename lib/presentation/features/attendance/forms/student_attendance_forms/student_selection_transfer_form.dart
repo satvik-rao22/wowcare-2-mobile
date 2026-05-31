@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
@@ -303,7 +304,7 @@ class _StudentSelectionTransferFormState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: Colors.grey),
             ),
@@ -422,7 +423,7 @@ class _StudentSelectionTransferFormState
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          mainAxisExtent: 52,
+                          mainAxisExtent: 72,
                         ),
                     itemCount: _filteredStudents.length,
                     itemBuilder: (context, index) {
@@ -520,9 +521,10 @@ class StudentListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.fullName.split(' ').first,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: student.fullName,
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,
@@ -648,27 +650,20 @@ class _CustomMultiSelectDropdownAssignStudentState
                   },
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: (bool? checked) {
-                            setMenuItemState(() {
-                              if (checked == true) {
-                                _localSelectedItems.add(item);
-                              } else {
-                                _localSelectedItems.remove(item);
-                              }
-                            });
-                            setState(() {});
-                            widget.onChanged(_localSelectedItems);
-                          },
-                          activeColor: Theme.of(context).primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
+                      CustomCheckbox(
+                        value: isSelected,
+                        borderColor: AppColors.themeColor,
+                        onChanged: (bool? checked) {
+                          setMenuItemState(() {
+                            if (checked == true) {
+                              _localSelectedItems.add(item);
+                            } else {
+                              _localSelectedItems.remove(item);
+                            }
+                          });
+                          setState(() {});
+                          widget.onChanged(_localSelectedItems);
+                        },
                       ),
                       const SizedBox(width: 8),
                       Flexible(

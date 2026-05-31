@@ -27,6 +27,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
@@ -79,7 +80,8 @@ class StudentAttendanceAbsentView extends StatefulWidget {
   State<StudentAttendanceAbsentView> createState() => _StudentAttendanceAbsentViewState();
 }
 
-class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentView> {
+class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentView>
+    implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
@@ -133,6 +135,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadInitialData(reset: true);
   }
 
   Future<void> _loadClassroomData() async {

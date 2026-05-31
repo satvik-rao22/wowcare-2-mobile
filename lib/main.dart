@@ -14,7 +14,8 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
-import 'package:wowcare/shared/services/geofence_notification_service.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/core/background/geofence_background_task.dart';
 import 'src/app_router.dart';
@@ -27,60 +28,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   AppLogger.d('[FCM] Title: ${message.notification?.title}');
   AppLogger.d('[FCM] Body: ${message.notification?.body}');
   AppLogger.d('[FCM] Data: ${message.data}');
-}
-
-/// Setup Firebase Cloud Messaging for push notifications
-Future<void> _setupFCMMessaging() async {
-  try {
-    final messaging = FirebaseMessaging.instance;
-
-    // Request notification permissions
-    final settings = await messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-    AppLogger.d(
-      '[FCM] Notification permission status: ${settings.authorizationStatus}',
-    );
-
-    // Get FCM token — may fail on devices without Google Play Services
-    try {
-      final token = await messaging.getToken();
-      AppLogger.d('[FCM] Device token: $token');
-    } catch (e) {
-      AppLogger.d('[FCM] Could not get FCM token (no Google Play Services?): $e');
-    }
-
-    // Set background message handler
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // Handle messages when app is in foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      AppLogger.d('[FCM] Foreground message: ${message.notification?.title}');
-      try {
-        serviceLocator<GeofenceNotificationService>().showCustomNotification(
-          title: message.notification?.title ?? 'School Alert',
-          body: message.notification?.body ?? 'You have a new notification',
-        );
-      } catch (e) {
-        AppLogger.d('[FCM] Error showing notification: $e');
-      }
-    });
-
-    // Handle notification tap when app was in background
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      AppLogger.d('[FCM] Notification tapped: ${message.messageId}');
-    });
-  } catch (e) {
-    AppLogger.d(
-      '[FCM] FCM setup failed (app will continue without push notifications): $e',
-    );
-  }
 }
 
 Future<void> main() async {
@@ -96,8 +43,10 @@ Future<void> main() async {
     await Firebase.initializeApp();
   }
 
-  // Setup FCM messaging
-  await _setupFCMMessaging();
+  // Register the background/terminated isolate handler (must be a top-level
+  // function). Foreground messages, token and tap-navigation are owned by
+  // PushNotificationCubit, wired up via NotificationNavigator at the app root.
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // Initialize WorkManager for background geofence checks
   await Workmanager().initialize(geofenceBackgroundCallback);
@@ -160,12 +109,17 @@ class MyApp extends StatelessWidget {
                     BlocProvider<AuthCubit>(
                       create: (_) => serviceLocator<AuthCubit>()..initialize(),
                     ),
+                    BlocProvider<PushNotificationCubit>(
+                      create: (_) => serviceLocator<PushNotificationCubit>(),
+                    ),
                   ],
-                  child: MaterialApp.router(
-                    debugShowCheckedModeBanner: false,
-                    title: 'WowCare',
-                    theme: currentTheme,
-                    routerConfig: appRouter,
+                  child: NotificationNavigator(
+                    child: MaterialApp.router(
+                      debugShowCheckedModeBanner: false,
+                      title: 'WowCare',
+                      theme: currentTheme,
+                      routerConfig: appRouter,
+                    ),
                   ),
                 );
               },

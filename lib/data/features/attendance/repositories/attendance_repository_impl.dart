@@ -1116,10 +1116,11 @@ class AttendanceRepositoryImpl
   getStudentAttendanceExpectedSummary({
     String? classroomCode,
     bool schoolWide = false,
+    bool forceRefresh = false,
   }) async {
     if (schoolWide) {
       final cacheKey = _studentAttendanceSummaryCacheKey('school_wide');
-      final cached = await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1155,7 +1156,7 @@ class AttendanceRepositoryImpl
     final fromArg = classroomCode?.trim() ?? '';
     if (fromArg.isNotEmpty) {
       final cacheKey = _studentAttendanceSummaryCacheKey(fromArg);
-      final cached = await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1192,7 +1193,7 @@ class AttendanceRepositoryImpl
     final effective = _effectiveClassroomCodeForSummary(null, allowed);
     final cacheKey = _studentAttendanceSummaryCacheKey(effective);
 
-    final cached = await _cacheManager.loadCache(cacheKey);
+    final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
     if (cached != null) {
       return StudentAttendanceExpectedSummary(
         expected: cached['expected'] as int? ?? 0,
@@ -1229,10 +1230,11 @@ class AttendanceRepositoryImpl
   Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary({
     String? classroomCode,
     bool schoolWide = false,
+    bool forceRefresh = false,
   }) async {
     if (schoolWide) {
       final cacheKey = _staffAttendanceSummaryCacheKey('school_wide');
-      final cached = await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1267,7 +1269,7 @@ class AttendanceRepositoryImpl
     final fromArg = classroomCode?.trim() ?? '';
     if (fromArg.isNotEmpty) {
       final cacheKey = _staffAttendanceSummaryCacheKey(fromArg);
-      final cached = await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1303,7 +1305,7 @@ class AttendanceRepositoryImpl
     final effective = _effectiveClassroomCodeForSummary(null, allowed);
     final cacheKey = _staffAttendanceSummaryCacheKey(effective);
 
-    final cached = await _cacheManager.loadCache(cacheKey);
+    final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
     if (cached != null) {
       return StudentAttendanceExpectedSummary(
         expected: cached['expected'] as int? ?? 0,

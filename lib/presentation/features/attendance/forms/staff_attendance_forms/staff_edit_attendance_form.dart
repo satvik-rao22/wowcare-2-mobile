@@ -98,7 +98,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     final staff = widget.staffAttendance;
 
     final titleName = staff.staffName.isNotEmpty
-        ? staff.staffName.split(' ').first
+        ? staff.staffName
         : 'Staff';
 
     return StaffFormLayout(

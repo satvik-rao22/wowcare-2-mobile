@@ -697,7 +697,7 @@ class RemoveStudentTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    student.fullName.split(' ').first,
+                    student.fullName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

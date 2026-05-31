@@ -21,6 +21,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
@@ -40,7 +41,8 @@ class StudentAttendanceCustomView extends StatefulWidget {
   State<StudentAttendanceCustomView> createState() => _StudentAttendanceCustomViewState();
 }
 
-class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomView> {
+class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomView>
+    implements AttendanceTabRefresh {
   final TextEditingController _customSearchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -84,6 +86,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _initializeDefaultRange();
     // Initial load should use cached data when available.
     _loadAttendanceData(reset: false);
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAttendanceData(reset: true);
   }
 
   Future<void> _loadClassroomData() async {

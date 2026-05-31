@@ -18,10 +18,14 @@ class ActivityFeedScreen extends StatefulWidget {
     this.fromStudentProfile = false,
     this.studentName,
     this.allowActivityWrite = true,
+    this.highlightCode,
   });
 
   final bool fromStudentProfile;
   final Map<String, dynamic>? studentName;
+
+  /// Activity code from a notification deep-link, forwarded to the Daily tab.
+  final String? highlightCode;
   /// When false, hide add / edit / delete (from [DAILY_ACTIVITY] `write` permission).
   final bool allowActivityWrite;
 
@@ -139,6 +143,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                             : null,
                         isNotParent: true,
                         allowActivityWrite: allowWrite,
+                        highlightCode: widget.highlightCode,
                       ),
                       ActivityCustomTab(
                         fromStudentProfile: widget.fromStudentProfile,
@@ -177,6 +182,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                       ActivityDailyTab(
                         isNotParent: false,
                         allowActivityWrite: allowWrite,
+                        highlightCode: widget.highlightCode,
                       ),
                       ActivityCustomTab(
                         isNotParent: false,

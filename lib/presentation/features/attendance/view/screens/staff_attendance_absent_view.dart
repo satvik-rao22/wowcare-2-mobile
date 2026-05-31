@@ -19,6 +19,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -74,7 +75,8 @@ class StaffAttendanceAbsentView extends StatefulWidget {
   State<StaffAttendanceAbsentView> createState() => _StaffAttendanceAbsentViewState();
 }
 
-class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
+class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
+    implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
@@ -116,6 +118,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAbsentStaff(reset: true);
     });
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAbsentStaff(reset: true);
   }
 
   Future<void> _loadClassroomData() async {

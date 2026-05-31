@@ -17,6 +17,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -33,7 +34,8 @@ class StaffAttendanceCustomView extends StatefulWidget {
   State<StaffAttendanceCustomView> createState() => _StaffAttendanceCustomViewState();
 }
 
-class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
+class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
+    implements AttendanceTabRefresh {
   final TextEditingController _customSearchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -63,6 +65,12 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     // Staff screens intentionally load all ACTIVE locations (not just type=CLASSROOM).
     // Guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
+    _loadAttendanceData(reset: true);
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
     _loadAttendanceData(reset: true);
   }
 

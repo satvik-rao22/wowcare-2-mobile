@@ -24,7 +24,11 @@ import '../widgets/week_classroom_row.dart';
 import 'add_shift_screen.dart';
 
 class SchedulingScreen extends StatelessWidget {
-  const SchedulingScreen({super.key});
+  const SchedulingScreen({super.key, this.highlightShiftCode});
+
+  /// Shift code from a notification deep-link; the matching shift row scrolls
+  /// into view and flashes.
+  final String? highlightShiftCode;
 
   static const String routeName = '/dashboard/scheduling';
 
@@ -37,13 +41,15 @@ class SchedulingScreen extends StatelessWidget {
     // times mid-load, which would otherwise re-enter the full visible load).
     return BlocProvider<SchedulingCubit>.value(
       value: serviceLocator<SchedulingCubit>(),
-      child: const _SchedulingScreenContent(),
+      child: _SchedulingScreenContent(highlightShiftCode: highlightShiftCode),
     );
   }
 }
 
 class _SchedulingScreenContent extends StatefulWidget {
-  const _SchedulingScreenContent();
+  const _SchedulingScreenContent({this.highlightShiftCode});
+
+  final String? highlightShiftCode;
 
   @override
   State<_SchedulingScreenContent> createState() =>
@@ -383,6 +389,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
+                      highlightShiftCode: widget.highlightShiftCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                         context,
@@ -399,6 +406,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
+                      highlightShiftCode: widget.highlightShiftCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                         context,
@@ -496,6 +504,7 @@ class _ClassroomListCard extends StatelessWidget {
     required this.onToggleExpandAll,
     required this.onStaffShiftTap,
     this.staffAttendanceStatusByCode,
+    this.highlightShiftCode,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -506,6 +515,7 @@ class _ClassroomListCard extends StatelessWidget {
   final void Function(StaffScheduleEntry entry, String classroomName)
       onStaffShiftTap;
   final Map<String, String>? staffAttendanceStatusByCode;
+  final String? highlightShiftCode;
 
   @override
   Widget build(BuildContext context) {
@@ -534,6 +544,7 @@ class _ClassroomListCard extends StatelessWidget {
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
                 staffAttendanceStatusByCode: staffAttendanceStatusByCode,
+                highlightShiftCode: highlightShiftCode,
                 onStaffShiftTap: (entry) =>
                     onStaffShiftTap(entry, classrooms[i].classroomName),
               ),
@@ -553,6 +564,7 @@ class _DailyClassroomListCard extends StatelessWidget {
     required this.onStaffShiftTap,
     required this.onStaffSlotTap,
     this.staffAttendanceStatusByCode,
+    this.highlightShiftCode,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -567,6 +579,7 @@ class _DailyClassroomListCard extends StatelessWidget {
     String classroomName,
   ) onStaffSlotTap;
   final Map<String, String>? staffAttendanceStatusByCode;
+  final String? highlightShiftCode;
 
   @override
   Widget build(BuildContext context) {
@@ -594,6 +607,7 @@ class _DailyClassroomListCard extends StatelessWidget {
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
                 staffAttendanceStatusByCode: staffAttendanceStatusByCode,
+                highlightShiftCode: highlightShiftCode,
                 onStaffShiftTap: (entry) =>
                     onStaffShiftTap(entry, classrooms[i].classroomName),
                 onStaffSlotTap: (entry, detail) =>

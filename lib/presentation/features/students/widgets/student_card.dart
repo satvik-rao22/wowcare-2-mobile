@@ -37,6 +37,7 @@ class StudentCard extends StatefulWidget {
     this.isSelected = false,
     this.onSelected,
     this.isNapping = false,
+    this.initiallyExpanded = false,
   });
 
   final String studentCode;
@@ -60,12 +61,16 @@ class StudentCard extends StatefulWidget {
   /// From nap-start API (current classroom roster); shown on avatar like classroom list.
   final bool isNapping;
 
+  /// Opens the card pre-expanded — used when a notification deep-link targets
+  /// this student so the details are visible without a manual tap.
+  final bool initiallyExpanded;
+
   @override
   State<StudentCard> createState() => _StudentCardState();
 }
 
 class _StudentCardState extends State<StudentCard> {
-  bool isExpanded = false;
+  late bool isExpanded = widget.initiallyExpanded;
 
   /// Shared across all StudentCard instances — every card in a list shares
   /// the same school, so we only hit `/regular-schedule` once per app load.

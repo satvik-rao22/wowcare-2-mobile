@@ -359,7 +359,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           .toList();
       if (withCode.isEmpty) {
         throw Exception(
-          'Cannot sign in ${s.fullName.split(' ').first}: marked absent for '
+          'Cannot sign in ${s.fullName}: marked absent for '
           'this day but the absence record could not be resolved. Refresh and try again.',
         );
       }
@@ -810,7 +810,7 @@ class RemoveStudentTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: AppText.value(
-                    student.fullName.split(' ').first,
+                    student.fullName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),

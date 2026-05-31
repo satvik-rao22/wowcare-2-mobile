@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -240,7 +241,7 @@ class _StaffSelectionSignOutFormState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: Colors.grey),
             ),
@@ -352,7 +353,7 @@ class _StaffSelectionSignOutFormState
                               crossAxisCount: 2,
                               crossAxisSpacing: isTablet ? 16 : 12,
                               mainAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisExtent: 52,
+                              mainAxisExtent: 72,
                             ),
                             itemCount: _filteredStaff.length,
                             itemBuilder: (context, index) {
@@ -431,9 +432,10 @@ class StaffListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  staff.name.split(' ').first,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: staff.name,
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,

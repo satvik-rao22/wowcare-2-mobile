@@ -1,0 +1,109 @@
+/// Canonical set of backend notification `action` values.
+///
+/// The backend sends one of these verbatim inside the FCM `data` map, e.g.
+/// `{action: EDIT_CLASSROOM, type: CLASSROOM, classroomCode: CLS_5739679F-D}`.
+///
+/// This is the single source of truth for the action vocabulary. The
+/// redirection table (`NotificationRouteResolver`) maps each constant to an
+/// in-app destination, and the backend keys its notifications off the same
+/// strings — so adding a new notification type is: add a constant here, add one
+/// row to the resolver table.
+///
+/// Naming follows `VERB_NOUN` for mutations (`ADD_`/`EDIT_`/`DELETE_`) and
+/// `NOUN_STATE` for state/alert events (e.g. `MOVEMENT_OVERDUE`).
+class NotificationAction {
+  NotificationAction._();
+
+  // ── Classrooms ──────────────────────────────────────────────────────────
+  static const String addClassroom = 'ADD_CLASSROOM';
+  static const String editClassroom = 'EDIT_CLASSROOM';
+  static const String deleteClassroom = 'DELETE_CLASSROOM';
+  static const String assignStudentToClassroom = 'ASSIGN_STUDENT_TO_CLASSROOM';
+  static const String assignStaffToClassroom = 'ASSIGN_STAFF_TO_CLASSROOM';
+  static const String addClassroomNote = 'ADD_CLASSROOM_NOTE';
+
+  // ── Students ────────────────────────────────────────────────────────────
+  static const String addStudent = 'ADD_STUDENT';
+  static const String deleteStudent = 'DELETE_STUDENT';
+  static const String studentParentNotAdded = 'STUDENT_PARENT_NOT_ADDED';
+  static const String studentPhysicalNotAdded = 'STUDENT_PHYSICAL_NOT_ADDED';
+  static const String studentBirthdateNotAdded = 'STUDENT_BIRTHDATE_NOT_ADDED';
+  static const String studentDocumentChanged = 'STUDENT_DOCUMENT_CHANGED';
+  static const String studentPhysicalDue = 'STUDENT_PHYSICAL_DUE';
+  static const String studentPhysicalOverdue = 'STUDENT_PHYSICAL_OVERDUE';
+  static const String studentImmunizationDueOverdue =
+      'STUDENT_IMMUNIZATION_DUE_OVERDUE';
+  static const String studentScheduleNotAdded = 'STUDENT_SCHEDULE_NOT_ADDED';
+
+  // ── Staff ───────────────────────────────────────────────────────────────
+  static const String deleteStaff = 'DELETE_STAFF';
+  static const String staffPhysicalNotAdded = 'STAFF_PHYSICAL_NOT_ADDED';
+  static const String staffDocumentExpiry = 'STAFF_DOCUMENT_EXPIRY';
+  static const String staffScheduleNotAdded = 'STAFF_SCHEDULE_NOT_ADDED';
+
+  // ── Events & To-Dos ─────────────────────────────────────────────────────
+  static const String birthday = 'BIRTHDAY';
+  static const String upcomingClassroomEvent = 'UPCOMING_CLASSROOM_EVENT';
+  static const String upcomingEvent = 'UPCOMING_EVENT';
+  static const String assignTask = 'ASSIGN_TASK';
+  static const String taskDue = 'TASK_DUE';
+  static const String taskOverdue = 'TASK_OVERDUE';
+
+  // ── Scheduling ──────────────────────────────────────────────────────────
+  static const String publishShift = 'PUBLISH_SHIFT';
+  static const String upcomingShift = 'UPCOMING_SHIFT';
+  static const String shiftUnderRatio = 'SHIFT_UNDER_RATIO';
+  static const String editShift = 'EDIT_SHIFT';
+  static const String deleteShift = 'DELETE_SHIFT';
+
+  // ── Attendance ──────────────────────────────────────────────────────────
+  static const String ratioBreached = 'RATIO_BREACHED';
+  static const String studentSignInOut = 'STUDENT_SIGN_IN_OUT';
+  static const String studentMarkedAbsent = 'STUDENT_MARKED_ABSENT';
+  static const String attendanceNotMarked = 'ATTENDANCE_NOT_MARKED';
+  static const String capacityExceeded = 'CAPACITY_EXCEEDED';
+
+  // ── Activities ──────────────────────────────────────────────────────────
+  static const String activityRecorded = 'ACTIVITY_RECORDED';
+  static const String incidentApprovalPending = 'INCIDENT_APPROVAL_PENDING';
+  static const String incidentAcknowledgementPending =
+      'INCIDENT_ACKNOWLEDGEMENT_PENDING';
+  static const String napAlert = 'NAP_ALERT';
+
+  // ── Availability (room movements) ───────────────────────────────────────
+  static const String createRule = 'CREATE_RULE';
+  static const String deactivateRule = 'DEACTIVATE_RULE';
+  static const String createMovement = 'CREATE_MOVEMENT';
+  static const String upcomingMovement = 'UPCOMING_MOVEMENT';
+  static const String confirmedMovement = 'CONFIRMED_MOVEMENT';
+  static const String movementOverdue = 'MOVEMENT_OVERDUE';
+  static const String movementRejected = 'MOVEMENT_REJECTED';
+
+  // ── Communication ───────────────────────────────────────────────────────
+  static const String messageToStaff = 'MESSAGE_TO_STAFF';
+  static const String messageToStudent = 'MESSAGE_TO_STUDENT';
+  static const String newsletterSent = 'NEWSLETTER_SENT';
+
+  // ── Billing ─────────────────────────────────────────────────────────────
+  static const String invoiceGenerated = 'INVOICE_GENERATED';
+  static const String invoiceDue = 'INVOICE_DUE';
+  static const String paymentSuccess = 'PAYMENT_SUCCESS';
+  static const String billingPlanChanged = 'BILLING_PLAN_CHANGED';
+  static const String feeStructureChanged = 'FEE_STRUCTURE_CHANGED';
+
+  // ── Settings ────────────────────────────────────────────────────────────
+  static const String schoolSettingsChanged = 'SCHOOL_SETTINGS_CHANGED';
+
+  /// Backend variants that should be treated as a known action above.
+  static const Map<String, String> aliases = <String, String>{
+    'CREATE_CLASSROOM': addClassroom,
+    'EDIT_STUDENT': addStudent, // edits land on the student list, highlighted
+    'EDIT_STAFF': deleteStaff, // (DELETE_* here just means "staff list" target)
+  };
+
+  /// Normalises a raw backend action to its canonical constant.
+  static String canonical(String? raw) {
+    final a = (raw ?? '').trim().toUpperCase();
+    return aliases[a] ?? a;
+  }
+}

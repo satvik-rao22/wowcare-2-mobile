@@ -1,5 +1,9 @@
-/// Implemented by student/staff daily attendance screens so a parent tab shell
-/// can reload the list after attendance flows complete (e.g. form → pop).
-abstract interface class DailyAttendanceParentRefresh {
+/// Implemented by student/staff attendance tab screens (Daily, Custom, Absent)
+/// so the tabbed shell can reload each tab's list/counts after an attendance
+/// flow completes (e.g. form → pop, inline edit/delete).
+abstract interface class AttendanceTabRefresh {
   void refreshAfterReturningFromAttendanceFlow();
 }
+
+/// Backwards-compatible alias for the original name.
+typedef DailyAttendanceParentRefresh = AttendanceTabRefresh;

@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/activities/view/activity_custom_ta
     show PopupItem;
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -129,7 +130,11 @@ class IndividualMovementPager extends StatelessWidget {
     this.onDragStarted,
     this.onDragEnded,
     this.onDragGlobalUpdate,
+    this.highlightCode,
   });
+
+  /// Movement id (as string) from a notification deep-link, forwarded to rows.
+  final String? highlightCode;
 
   final List<MovementSection> sections;
   final int currentSectionIndex;
@@ -178,6 +183,7 @@ class IndividualMovementPager extends StatelessWidget {
                         onDragStarted: onDragStarted,
                         onDragEnded: onDragEnded,
                         onDragGlobalUpdate: onDragGlobalUpdate,
+                        highlightCode: highlightCode,
                       ),
                     );
                   },
@@ -243,7 +249,10 @@ class _MovementSectionCard extends StatelessWidget {
     this.onDragStarted,
     this.onDragEnded,
     this.onDragGlobalUpdate,
+    this.highlightCode,
   });
+
+  final String? highlightCode;
 
   final MovementSection section;
   final void Function(MovementItem item, IndividualMovementAction action)
@@ -322,6 +331,7 @@ class _MovementSectionCard extends StatelessWidget {
                             onDragStarted: onDragStarted,
                             onDragEnded: onDragEnded,
                             onDragGlobalUpdate: onDragGlobalUpdate,
+                            highlightCode: highlightCode,
                           );
                         },
                       ),
@@ -345,7 +355,11 @@ class _MovementRow extends StatelessWidget {
     this.onDragStarted,
     this.onDragEnded,
     this.onDragGlobalUpdate,
+    this.highlightCode,
   });
+
+  /// Movement id (as string) from a notification deep-link; matching row flashes.
+  final String? highlightCode;
 
   final MovementItem item;
   final MovementBucket bucket;
@@ -513,7 +527,12 @@ class _MovementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = Container(
+    final card = HighlightableCard(
+      code: item.id.toString(),
+      highlightCode: highlightCode,
+      scrollOnHighlight: true,
+      borderRadius: 14,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -619,6 +638,7 @@ class _MovementRow extends StatelessWidget {
             ),
           ],
         ],
+      ),
       ),
     );
     if (!canDrag) return card;

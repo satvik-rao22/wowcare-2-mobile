@@ -48,6 +48,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -61,6 +62,7 @@ class StudentScreen extends StatefulWidget {
     super.key,
     this.incomingStatusFilter,
     this.incomingClassroomSelections,
+    this.incomingHighlightCode,
   });
 
   static const String routeName = '/dashboard/students';
@@ -68,6 +70,10 @@ class StudentScreen extends StatefulWidget {
 
   /// Classroom names or codes (same as filter sheet / [StudentCubit] — both resolve).
   final List<String>? incomingClassroomSelections;
+
+  /// Student code from a notification deep-link; the matching card is scrolled
+  /// into view, pre-expanded, and briefly flashed. Null for normal navigation.
+  final String? incomingHighlightCode;
 
   @override
   State<StudentScreen> createState() => _StudentScreenState();
@@ -105,9 +111,20 @@ class _StudentScreenState extends State<StudentScreen> {
   final Set<String> _classroomDetailFetchFailed = <String>{};
   String _lastClassroomPrefetchFingerprint = '';
 
+  /// Notification deep-link target; cleared after the card scrolls/flashes once
+  /// so later rebuilds (search, pagination) don't re-trigger the highlight.
+  String? _highlightStudentCode;
+  final GlobalKey _highlightCardKey = GlobalKey();
+
+  bool _isHighlightTarget(String code) {
+    final target = (_highlightStudentCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
+
   @override
   void initState(){
     super.initState();
+    _highlightStudentCode = widget.incomingHighlightCode?.trim();
     _applyIncomingStatusFilter();
     _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
@@ -121,6 +138,7 @@ class _StudentScreenState extends State<StudentScreen> {
           applyAttendanceStaffScope: true,
         );
         _applyFiltersToCubit();
+        _ensureHighlightVisible();
         _loadTagNameCodeMap();
         _loadGuardianNameCodeMap();
         _loadStudentCounts();
@@ -191,6 +209,41 @@ class _StudentScreenState extends State<StudentScreen> {
     final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
     _currentFilters['Status'] = [statusLabel];
     _syncShowInactiveFromStatus(statusLabel);
+  }
+
+  /// A notification deep-link (e.g. "student deactivated") only carries the
+  /// studentCode and lands on the Active list. If that student is actually
+  /// Inactive/Upcoming they won't appear here — so the highlight can't find
+  /// them. Resolve the target's status and switch the Status filter to the
+  /// matching bucket so the deep-linked student becomes visible & highlightable.
+  Future<void> _ensureHighlightVisible() async {
+    final code = (_highlightStudentCode ?? '').trim();
+    if (code.isEmpty) return;
+    final current = (_currentFilters['Status']?.isNotEmpty == true)
+        ? _currentFilters['Status']!.first.trim().toUpperCase()
+        : 'ACTIVE';
+    // A non-Active bucket was already chosen (deep-link status filter or user
+    // filter) — respect it.
+    if (current != 'ACTIVE') return;
+    try {
+      final profile =
+          await serviceLocator<StudentRemoteDataSource>().getStudentProfile(code);
+      if (!mounted) return;
+      final status = profile.status.trim().toUpperCase();
+      if (status.isEmpty || status == 'ACTIVE' || status == 'A') return;
+      final label = (status == 'INACTIVE' || status == 'I')
+          ? 'Inactive'
+          : (status == 'UPCOMING')
+              ? 'Upcoming'
+              : status[0] + status.substring(1).toLowerCase();
+      setState(() {
+        _currentFilters['Status'] = [label];
+        _syncShowInactiveFromStatus(label);
+      });
+      await _applyFiltersToCubit();
+    } catch (_) {
+      // Couldn't resolve status — leave the default Active filter in place.
+    }
   }
 
   void _applyIncomingClassroomSelections() {
@@ -1725,11 +1778,34 @@ class _StudentScreenState extends State<StudentScreen> {
                         );
                         final isActive =
                             (student.status).toUpperCase() == 'ACTIVE';
+                        final studentCode = studentMap['code'] as String;
+                        final isHighlightTarget =
+                            _isHighlightTarget(studentCode);
 
                         return Column(
                           children: [
-                            StudentCard(
-                              studentCode: studentMap['code'] as String,
+                            HighlightableCard(
+                              key: isHighlightTarget
+                                  ? _highlightCardKey
+                                  : null,
+                              code: studentCode,
+                              highlightCode: _highlightStudentCode,
+                              borderRadius: 12,
+                              onHighlighted: () {
+                                final ctx = _highlightCardKey.currentContext;
+                                if (ctx != null) {
+                                  Scrollable.ensureVisible(
+                                    ctx,
+                                    duration:
+                                        const Duration(milliseconds: 400),
+                                    alignment: 0.1,
+                                    curve: Curves.easeOut,
+                                  );
+                                }
+                              },
+                              child: StudentCard(
+                              initiallyExpanded: isHighlightTarget,
+                              studentCode: studentCode,
                               name: studentMap['name'] as String,
                               profileImage:
                                   studentMap['profileImage'] as String?,
@@ -1812,6 +1888,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   );
                                 }
                               },
+                            ),
                             ),
                             if (index != students.length - 1)
                               const SizedBox(height: 10),

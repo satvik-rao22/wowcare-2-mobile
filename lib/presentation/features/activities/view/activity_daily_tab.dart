@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/activities/view/edit_create_activi
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -101,7 +102,12 @@ class ActivityDailyTab extends StatefulWidget {
     this.studentProfile,
     this.isNotParent = true,
     this.allowActivityWrite = true,
+    this.highlightCode,
   });
+
+  /// Activity code from a notification deep-link; the matching feed card is
+  /// scrolled into view and briefly flashed.
+  final String? highlightCode;
 
   final bool fromStudentProfile;
 
@@ -125,6 +131,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
+  /// Notification deep-link target activity; applied once (scroll + flash).
+  final GlobalKey _highlightCardKey = GlobalKey();
+  bool _highlightApplied = false;
+  bool _isHighlightTarget(String? code) {
+    final target = (widget.highlightCode ?? '').trim();
+    final c = (code ?? '').trim();
+    return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
+  }
 
   //final TextEditingController _searchController = TextEditingController();
   late bool isNotParent;
@@ -2989,8 +3004,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         final students = activity.studentList;
                         final Color activityColor =
                             _colorPalette[index % _colorPalette.length];
+                        final bool isHighlightTarget =
+                            _isHighlightTarget(activity.activityCode);
+                        if (isHighlightTarget && !_highlightApplied) {
+                          _highlightApplied = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            final ctx = _highlightCardKey.currentContext;
+                            if (ctx != null) {
+                              Scrollable.ensureVisible(
+                                ctx,
+                                duration: const Duration(milliseconds: 400),
+                                alignment: 0.1,
+                                curve: Curves.easeOut,
+                              );
+                            }
+                          });
+                        }
 
-                        return Column(
+                        return HighlightableCard(
+                          key: isHighlightTarget ? _highlightCardKey : null,
+                          code: activity.activityCode,
+                          highlightCode: widget.highlightCode,
+                          borderRadius: 12,
+                          child: Column(
                           children: [
                             Row(
                               children: [
@@ -3570,6 +3606,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               ],
                             ),
                           ],
+                          ),
                         );
                       }, childCount: _activities.length + (_loadingMoreFeed ? 1 : 0)),
                     ),
@@ -4564,8 +4601,34 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                 final students = activity.studentList;
                                 final Color activityColor =
                                     _colorPalette[index % _colorPalette.length];
+                                final bool isHighlightTarget =
+                                    _isHighlightTarget(activity.activityCode);
+                                if (isHighlightTarget && !_highlightApplied) {
+                                  _highlightApplied = true;
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    final ctx =
+                                        _highlightCardKey.currentContext;
+                                    if (ctx != null) {
+                                      Scrollable.ensureVisible(
+                                        ctx,
+                                        duration:
+                                            const Duration(milliseconds: 400),
+                                        alignment: 0.1,
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  });
+                                }
 
-                                return Column(
+                                return HighlightableCard(
+                                  key: isHighlightTarget
+                                      ? _highlightCardKey
+                                      : null,
+                                  code: activity.activityCode,
+                                  highlightCode: widget.highlightCode,
+                                  borderRadius: 12,
+                                  child: Column(
                                   children: [
                                     Row(
                                       children: [
@@ -5180,6 +5243,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                       ],
                                     ),
                                   ],
+                                ),
                                 );
                               },
                             ),

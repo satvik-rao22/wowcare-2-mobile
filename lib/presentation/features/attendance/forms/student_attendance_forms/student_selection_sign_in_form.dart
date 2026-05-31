@@ -5,9 +5,11 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -363,7 +365,7 @@ class _StudentSelectionSignInFormState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: Colors.grey),
             ),
@@ -452,7 +454,7 @@ class _StudentSelectionSignInFormState
           const SizedBox(height: 12),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _errorMessage != null
                 ? Center(
                     child: Column(
@@ -487,7 +489,7 @@ class _StudentSelectionSignInFormState
                       crossAxisCount: 2,
                       crossAxisSpacing: isTablet ? 16 : 12,
                       mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: 52,
+                      mainAxisExtent: 72,
                     ),
                     itemCount: _filteredStudents.length,
                     itemBuilder: (context, index) {
@@ -563,9 +565,10 @@ class StudentListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.fullName.split(' ').first,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: student.fullName,
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,

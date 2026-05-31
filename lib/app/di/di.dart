@@ -1,8 +1,20 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_center_data_source.dart';
+import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
+import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
+import '../../domain/features/notifications/repositories/notification_center_repository.dart';
+import '../../domain/features/notifications/repositories/push_notification_repository.dart';
+import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
+import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
+import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
+import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
+import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -1214,6 +1226,49 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<GeofenceNotificationService>(
     () => GeofenceNotificationService(),
+  );
+
+  // Push notifications (FCM) — domain → data → presentation.
+  serviceLocator.registerLazySingleton<FirebaseMessaging>(
+    () => FirebaseMessaging.instance,
+  );
+  serviceLocator.registerLazySingleton<FcmRemoteDataSource>(
+    () => FcmRemoteDataSourceImpl(serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<PushNotificationRepository>(
+    () => PushNotificationRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<PushNotificationCubit>(
+    () => PushNotificationCubit(
+      repository: serviceLocator(),
+      localNotifications: serviceLocator(),
+    ),
+  );
+
+  // Notification center (bell-icon inbox) — domain → data → presentation.
+  // Currently backed by an in-memory mock data source; swapping in a real REST
+  // data source is a one-line change here.
+  serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
+    () => MockNotificationCenterDataSource(),
+  );
+  serviceLocator.registerLazySingleton<NotificationCenterRepository>(
+    () => NotificationCenterRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNotificationsUseCase>(
+    () => GetNotificationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkNotificationReadUseCase>(
+    () => MarkNotificationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkAllNotificationsReadUseCase>(
+    () => MarkAllNotificationsReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NotificationCenterCubit>(
+    () => NotificationCenterCubit(
+      getNotificationsUseCase: serviceLocator(),
+      markNotificationReadUseCase: serviceLocator(),
+      markAllNotificationsReadUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
     () => CheckLocationPermissionUseCase(serviceLocator()),

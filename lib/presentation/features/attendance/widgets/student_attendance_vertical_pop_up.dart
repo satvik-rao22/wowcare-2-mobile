@@ -49,6 +49,10 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
   }
 
   void _showActionMenu(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 600;
+    final bool isLargeTablet = screenWidth >= 900;
+    final double buttonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -56,35 +60,43 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          // Pin to the top-right so the menu sits flush below the + button
+          // instead of being vertically centered in the inset band.
+          alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
-            top: topPosition ?? 100,
-            bottom: bottomPosition ?? MediaQuery.of(context).size.height * 0.45,
+            top: (topPosition ?? 100) + buttonSize,
             left: leftPosition ?? MediaQuery.of(context).size.width * 0.75,
             right: rightPosition ?? 16,
           ),
           child: Container(
-            width: 50,
-            constraints: const BoxConstraints(maxHeight: 400),
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+              gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-                const SizedBox(height: 5),
-                _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-                const SizedBox(height: 5),
-                _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-                const SizedBox(height: 5),
-                _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
-              ],
+            child: Container(
+              width: 50,
+              constraints: const BoxConstraints(maxHeight: 400),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+                  const SizedBox(height: 5),
+                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+                  const SizedBox(height: 5),
+                  _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                  const SizedBox(height: 5),
+                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+                ],
+              ),
             ),
           ),
         );

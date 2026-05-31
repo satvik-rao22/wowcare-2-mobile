@@ -47,11 +47,17 @@ class StaffAttendanceDailyViewScreen extends StatefulWidget {
     this.incomingFilter,
     this.contentOnly = false,
     this.classroomFilter,
+    this.onAttendanceMutated,
   });
 
   final String? incomingFilter;
   final bool contentOnly;
   final FilterData? classroomFilter;
+
+  /// Called by the tabbed shell after an attendance action so the whole page
+  /// (all tabs) can reload, not just this Daily tab. When null, this screen
+  /// just reloads itself.
+  final VoidCallback? onAttendanceMutated;
 
   @override
   State<StaffAttendanceDailyViewScreen> createState() => _StaffAttendanceDailyViewScreenState();
@@ -128,8 +134,12 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   @override
   void refreshAfterReturningFromAttendanceFlow() {
     if (!mounted) return;
+    // Reload this Daily tab's list and counts...
     _loadAttendanceData(context, reset: true);
     unawaited(_loadStaffCounts());
+    // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
+    // Absent) so the whole page reflects the action.
+    widget.onAttendanceMutated?.call();
   }
 
   Future<void> _loadStaffCounts() async {
@@ -543,6 +553,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                   },
                   child: SingleChildScrollView(
                     controller: _scrollController,
+                    // Always scrollable so pull-to-refresh fires even when the
+                    // list is short and the content fits the viewport.
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.symmetric(
                       horizontal: contentPadding.left,
                       vertical: responsive.verticalSpacing / 4,
@@ -967,6 +980,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                           content: Text(
                             'Unable to delete: missing attendance record code.',
                           ),
+                          backgroundColor: AppColors.errorColor,
                         ),
                       );
                       return;
@@ -986,6 +1000,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                             content: Text(
                               'Unable to delete: invalid attendance record code.',
                             ),
+                            backgroundColor: AppColors.errorColor,
                           ),
                         );
                         return;
@@ -1006,6 +1021,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                             content: Text(
                               'Unable to resolve staffCode. Please re-login.',
                             ),
+                            backgroundColor: AppColors.errorColor,
                           ),
                         );
                         return;
@@ -1022,6 +1038,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                         context: context,
                         snackBar: const SnackBar(
                           content: Text('Attendance deleted'),
+                          backgroundColor: AppColors.successColor,
                         ),
                       );
                       _loadAttendanceData(context, reset: true);
@@ -1032,6 +1049,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                         context: context,
                         snackBar: SnackBar(
                           content: Text(message),
+                          backgroundColor: AppColors.errorColor,
                         ),
                       );
                     }

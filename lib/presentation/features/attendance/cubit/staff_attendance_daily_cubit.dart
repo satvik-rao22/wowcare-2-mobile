@@ -93,6 +93,10 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       final summary =
           await _getStaffAttendanceExpectedSummaryUseCase(
         classroomCode: _classroomCodeForSummary(classroomCodes),
+        // refresh() is the explicit-reload path (pull-to-refresh, after an
+        // attendance action, filter change), so bypass the cached summary —
+        // otherwise the counts never change from their first cached value.
+        forceRefresh: true,
       );
 
       if (isClosed) return;

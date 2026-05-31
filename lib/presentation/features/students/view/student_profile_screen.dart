@@ -44,6 +44,9 @@ class StudentProfileScreen extends StatefulWidget {
     /// Raw API status (e.g. ACTIVE, UPCOMING) so the header dot is correct before the profile tab loads.
     this.initialEnrollmentStatus,
     this.syncWithParentChildSelection = false,
+    this.initialTabIndex = 0,
+    this.initialProfileSubTabIndex = 0,
+    this.highlightCode,
   });
 
   final String name;
@@ -54,6 +57,19 @@ class StudentProfileScreen extends StatefulWidget {
   final String? studentCode;
 
   final String? initialEnrollmentStatus;
+
+  /// Tab to open on entry (0 Profile, 1 Health, 2 Dates, 3 Documents) — set by
+  /// notification deep-links so e.g. an immunization alert lands on Health.
+  final int initialTabIndex;
+
+  /// Sub-tab to open inside the Profile tab (0 About, 1 Family, 2 Pickup) — set
+  /// by notification deep-links so e.g. a "parent not added" alert lands on
+  /// Family. Only applies when [initialTabIndex] is 0 (Profile).
+  final int initialProfileSubTabIndex;
+
+  /// Row code to highlight inside the opened tab (e.g. documentCode on the
+  /// Documents tab). Null for normal navigation.
+  final String? highlightCode;
 
   /// When true (e.g. parent opens My Child from drawer), child dropdown updates this screen.
   final bool syncWithParentChildSelection;
@@ -92,7 +108,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   void initState() {
     super.initState();
     _cacheManager = CacheManager(serviceLocator<StorageService>());
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
+    );
     _activeStudentCode = widget.studentCode;
     _profileTags = List<String>.from(widget.tags);
     _profileSchedule = List<String>.from(widget.schedule);
@@ -103,6 +123,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _profileStatusUpper =
         widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
+    // Deep-link case: opened by code straight to a non-Profile tab. The profile
+    // fetch that fills the header (name/classroom) lives inside the Profile tab,
+    // which TabBarView builds lazily — so it never runs when we land on another
+    // tab. Fetch here too so the header loads regardless of the initial tab.
+    _ensureHeaderProfileLoaded();
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,6 +138,22 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         // If no ClassroomCubit is provided above, build() will wrap with one.
       }
     });
+  }
+
+  /// Loads the student's profile at the screen level so the header (name,
+  /// classroom, status, photo) populates even when the user deep-links straight
+  /// to a tab other than Profile. Only runs when we were opened by code without
+  /// a pre-supplied name (i.e. the notification-redirect path).
+  Future<void> _ensureHeaderProfileLoaded() async {
+    final code = (_activeStudentCode ?? '').trim();
+    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    try {
+      final profile =
+          await serviceLocator<StudentRemoteDataSource>().getStudentProfile(code);
+      _onProfileChanged(profile);
+    } catch (_) {
+      // Profile tab's FutureBuilder still surfaces load errors when visited.
+    }
   }
 
   void _onProfileChanged(StudentProfileModel profile) {
@@ -557,6 +598,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   schedule: _profileSchedule,
                   sibling: _profileSibling,
                   studentCode: _activeStudentCode,
+                  initialTabIndex:
+                      widget.initialProfileSubTabIndex.clamp(0, 2),
                   onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
@@ -586,6 +629,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  highlightCode: widget.highlightCode,
                 )
 
               ],

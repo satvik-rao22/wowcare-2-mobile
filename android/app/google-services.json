@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "42664912819",
-    "project_id": "wowcare2-qa-579de",
-    "storage_bucket": "wowcare2-qa-579de.firebasestorage.app"
+    "project_number": "861387942693",
+    "project_id": "wowcare2-atoconn",
+    "storage_bucket": "wowcare2-atoconn.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:42664912819:android:d02593231b69071ad78dc6",
+        "mobilesdk_app_id": "1:861387942693:android:2fbd1cd64e4171275548cc",
         "android_client_info": {
           "package_name": "com.wiseowl.wowcareapp"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCXQYICirJde5yV6_4kFrBCT_yiJOmkSIw"
+          "current_key": "AIzaSyDkhMORPMLcJKiG76zYRGWRPGQqB5pNu1w"
         }
       ],
       "services": {

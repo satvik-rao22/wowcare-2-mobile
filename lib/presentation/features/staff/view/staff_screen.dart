@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
@@ -46,10 +47,15 @@ class StaffScreen extends StatefulWidget {
   const StaffScreen({
     super.key,
     this.incomingStatusFilter,
+    this.incomingHighlightCode,
   });
 
   static const String routeName = '/dashboard/staff';
   final String? incomingStatusFilter;
+
+  /// Staff code from a notification deep-link; the matching card is scrolled
+  /// into view, pre-expanded, and briefly flashed. Null for normal navigation.
+  final String? incomingHighlightCode;
 
   @override
   State<StaffScreen> createState() => _StaffScreenState();
@@ -75,9 +81,20 @@ class _StaffScreenState extends State<StaffScreen> {
   int _expectedSignedOut = 0;
   int _expectedNotMarked = 0;
 
+  /// Notification deep-link target; the matching staff card scrolls into view,
+  /// pre-expands, and flashes once.
+  String? _highlightStaffCode;
+  final GlobalKey _highlightCardKey = GlobalKey();
+
+  bool _isHighlightTarget(String code) {
+    final target = (_highlightStaffCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
+
   @override
   void initState() {
     super.initState();
+    _highlightStaffCode = widget.incomingHighlightCode?.trim();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -1320,9 +1337,32 @@ class _StaffScreenState extends State<StaffScreen> {
                                                   : '');
                                     final isSelected = _selectedStaffCodes
                                         .contains(staff.code);
+                                    final isHighlightTarget =
+                                        _isHighlightTarget(staff.code);
                                     return Column(
                                       children: [
-                                        StaffCard(
+                                        HighlightableCard(
+                                          key: isHighlightTarget
+                                              ? _highlightCardKey
+                                              : null,
+                                          code: staff.code,
+                                          highlightCode: _highlightStaffCode,
+                                          borderRadius: 12,
+                                          onHighlighted: () {
+                                            final ctx = _highlightCardKey
+                                                .currentContext;
+                                            if (ctx != null) {
+                                              Scrollable.ensureVisible(
+                                                ctx,
+                                                duration: const Duration(
+                                                    milliseconds: 400),
+                                                alignment: 0.1,
+                                                curve: Curves.easeOut,
+                                              );
+                                            }
+                                          },
+                                          child: StaffCard(
+                                          initiallyExpanded: isHighlightTarget,
                                           staffCode: staff.code,
                                           name: staff.name,
                                           classroom: primaryClassroomNameForCard,
@@ -1397,6 +1437,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             });
                                             _refreshAttendanceStatusForSelection();
                                           },
+                                        ),
                                         ),
                                         if (index != state.items.length - 1)
                                           const SizedBox(height: 8),

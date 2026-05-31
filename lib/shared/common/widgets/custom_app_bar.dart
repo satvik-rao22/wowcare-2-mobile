@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -172,7 +173,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 width: 22,
                 height: 22,
               ),
-              onPressed: () {},
+              onPressed: () {
+                // Don't stack a second notification page when the bell is
+                // tapped again while already on it.
+                if (currentRoute == NotificationCenterScreen.routeName) return;
+                context.push(NotificationCenterScreen.routeName);
+              },
             ),
             if (notificationCount > 0)
               Positioned(

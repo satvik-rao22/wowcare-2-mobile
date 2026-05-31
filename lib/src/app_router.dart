@@ -27,6 +27,8 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
@@ -210,6 +212,21 @@ final GoRouter appRouter = GoRouter(
         return ClassroomOverviewScreen(initialStudentFilter: filter);
       },
     ),
+    // Notification center (bell-icon inbox). Top-level so it can be pushed as
+    // an overlay from any screen's app bar, preserving the back stack. Uses
+    // `_fastPage` so the page's route name is the matched location
+    // (`/notifications`) — the app bar reads that to avoid pushing a duplicate.
+    GoRoute(
+      path: NotificationCenterScreen.routeName,
+      pageBuilder: (context, state) => _fastPage(
+        state,
+        BlocProvider<NotificationCenterCubit>(
+          create: (_) =>
+              serviceLocator<NotificationCenterCubit>()..loadInitial(),
+          child: const NotificationCenterScreen(),
+        ),
+      ),
+    ),
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
@@ -249,7 +266,10 @@ final GoRouter appRouter = GoRouter(
                             ..loadActiveClassrooms(onlyTypeClassroom: false),
                         ),
                       ],
-                      child: const StaffScreen(),
+                      child: StaffScreen(
+                        incomingHighlightCode:
+                            state.uri.queryParameters['highlightCode'],
+                      ),
                     ),
                   ),
                 ),
@@ -259,6 +279,9 @@ final GoRouter appRouter = GoRouter(
                     final args = state.extra as Map<String, dynamic>?;
                     final filter = args?['filter'] as String?;
                     final classrooms = args?['classrooms'] as List<String>?;
+                    // Notification deep-link: highlight + scroll to a student.
+                    final highlightCode =
+                        state.uri.queryParameters['highlightCode'];
                     return _fastPage(
                       state,
                       MultiBlocProvider(
@@ -276,6 +299,7 @@ final GoRouter appRouter = GoRouter(
                         child: StudentScreen(
                           incomingStatusFilter: filter,
                           incomingClassroomSelections: classrooms,
+                          incomingHighlightCode: highlightCode,
                         ),
                       ),
                     );
@@ -319,7 +343,10 @@ final GoRouter appRouter = GoRouter(
                             ..loadActiveClassrooms(onlyTypeClassroom: false),
                         ),
                       ],
-                      child: const SchedulingScreen(),
+                      child: SchedulingScreen(
+                        highlightShiftCode:
+                            state.uri.queryParameters['highlightCode'],
+                      ),
                     ),
                   ),
                 ),
@@ -360,8 +387,13 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'individual-movement',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const IndividualMovementScreen()),
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    IndividualMovementScreen(
+                      highlightCode:
+                          state.uri.queryParameters['highlightCode'],
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'edit-important-dates-screen',
@@ -386,7 +418,11 @@ final GoRouter appRouter = GoRouter(
                     final filter = args?['filter'] as String?;
                     return _fastPage(
                       state,
-                      StudentAttendanceTabbedView(dailyIncomingFilter: filter),
+                      StudentAttendanceTabbedView(
+                        dailyIncomingFilter: filter,
+                        highlightCode:
+                            state.uri.queryParameters['highlightCode'],
+                      ),
                     );
                   },
                 ),
@@ -427,10 +463,62 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) =>
                       _fastPage(state, _studentProfileScreen(state.extra)),
                 ),
+                // Notification deep-link: open a student's profile from just a
+                // code. The tabs self-load by studentCode, so header fields can
+                // start empty and fill in once the profile loads.
+                GoRoute(
+                  path: 'student-profile-by-code',
+                  pageBuilder: (context, state) {
+                    final q = state.uri.queryParameters;
+                    return _fastPage(
+                      state,
+                      BlocProvider<ClassroomCubit>(
+                        create: (_) => serviceLocator<ClassroomCubit>()
+                          ..loadActiveClassrooms(),
+                        child: StudentProfileScreen(
+                          studentCode: q['code'],
+                          name: '',
+                          classroom: '',
+                          tags: const <String>[],
+                          schedule: const <String>[],
+                          sibling: const <String, dynamic>{
+                            'name': <dynamic>[],
+                            'relation': <dynamic>[],
+                            'status': <dynamic>[],
+                          },
+                          initialTabIndex:
+                              int.tryParse(q['tab'] ?? '') ?? 0,
+                          initialProfileSubTabIndex:
+                              int.tryParse(q['profileTab'] ?? '') ?? 0,
+                          highlightCode: q['highlightCode'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 GoRoute(
                   path: 'staff-profile',
                   pageBuilder: (context, state) =>
                       _fastPage(state, _staffProfileScreen(state.extra)),
+                ),
+                // Notification deep-link: open a staff profile from just a code.
+                GoRoute(
+                  path: 'staff-profile-by-code',
+                  pageBuilder: (context, state) {
+                    final q = state.uri.queryParameters;
+                    return _fastPage(
+                      state,
+                      StaffProfileScreen(
+                        staffCode: q['code'] ?? '',
+                        name: '',
+                        classroom: '',
+                        designation: '',
+                        phoneNumber: '',
+                        initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
+                        highlightCode: q['highlightCode'],
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'student-attendance-profile',
@@ -466,7 +554,16 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.classroom,
-              builder: (context, state) => const ClassroomScreen(),
+              builder: (context, state) => ClassroomScreen(
+                initialClassroomCode:
+                    state.uri.queryParameters['classroomCode'],
+                // Assign-to-classroom notifications highlight a row inside a
+                // specific tab (0 students, 1 staff, 2 notes).
+                initialTabIndex:
+                    int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+                initialHighlightCode:
+                    state.uri.queryParameters['highlightCode'],
+              ),
             ),
           ],
         ),
@@ -476,7 +573,9 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
-              builder: (context, state) => const ActivityFeedScreen(),
+              builder: (context, state) => ActivityFeedScreen(
+                highlightCode: state.uri.queryParameters['highlightCode'],
+              ),
             ),
           ],
         ),

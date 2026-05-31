@@ -78,6 +78,10 @@ class StudentAttendanceDailyCubit
         final summary =
             await _getStudentAttendanceExpectedSummaryUseCase(
           classroomCode: _classroomCodeForSummary(classroomCodes),
+          // Even when the list comes from cache, the summary counts must be
+          // live — otherwise a cached load re-emits stale counts and reverts
+          // the numbers the refresh() path just fetched.
+          forceRefresh: true,
         );
         if (isClosed) return;
         emit(StudentAttendanceDailyState.loaded(
@@ -166,6 +170,10 @@ class StudentAttendanceDailyCubit
       final summary =
           await _getStudentAttendanceExpectedSummaryUseCase(
         classroomCode: _classroomCodeForSummary(classroomCodes),
+        // refresh() is the explicit-reload path (pull-to-refresh, after an
+        // attendance action, filter change), so bypass the cached summary —
+        // otherwise the counts never change from their first cached value.
+        forceRefresh: true,
       );
 
       if (isClosed) return;

@@ -34,7 +34,17 @@ class StaffProfileScreen extends StatefulWidget {
     this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
+    this.initialTabIndex = 0,
+    this.highlightCode,
   });
+
+  /// Tab to open on entry (0 Profile, 1 Dates, 2 Documents) — set by
+  /// notification deep-links.
+  final int initialTabIndex;
+
+  /// Row code to highlight inside the opened tab (e.g. documentCode on the
+  /// Documents tab). Null for normal navigation.
+  final String? highlightCode;
 
   final String staffCode;
   final String name;
@@ -93,17 +103,53 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _displayName = widget.name;
     _displayDesignation = _formatEnumLabel(widget.designation);
     _displayClassroom = widget.classroom;
     _loadUploadContext();
+    // Deep-link case: opened by code straight to a non-Profile tab. The summary
+    // (name/designation/classroom) is normally pushed up by the Profile tab,
+    // which TabBarView builds lazily — so it never runs when we land on Dates or
+    // Documents. Fetch here too so the header loads regardless of the tab.
+    _ensureHeaderProfileLoaded();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // If classroom is a code (or not present in passed cache), resolve using
       // classrooms API WITHOUT type=CLASSROOM filter.
       _ensureClassroomResolved();
     });
+  }
+
+  /// Loads the staff profile at the screen level so the header (name,
+  /// designation, classroom, photo) populates even when the user deep-links
+  /// straight to a tab other than Profile. Only runs when we were opened by code
+  /// without a pre-supplied name (the notification-redirect path).
+  Future<void> _ensureHeaderProfileLoaded() async {
+    final code = widget.staffCode.trim();
+    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    try {
+      final profile =
+          await serviceLocator<StaffRepository>().getStaffProfile(staffCode: code);
+      if (!mounted) return;
+      setState(() {
+        final name = profile.fullName.trim();
+        if (name.isNotEmpty) _displayName = name;
+        final designation = profile.designation.trim();
+        if (designation.isNotEmpty) {
+          _displayDesignation = _formatEnumLabel(designation);
+        }
+        final photo = profile.profilePhotoUrl.trim();
+        if (photo.isNotEmpty) _profilePhotoUrl = photo;
+      });
+      _applyHeaderClassroomFromProfile(profile.primaryClassroomCode);
+    } catch (_) {
+      // Profile tab's own load still surfaces errors when visited.
+    }
   }
 
   Future<void> _loadUploadContext() async {
@@ -392,7 +438,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   },
                 ),
                 StaffDatesTab(staffCode: widget.staffCode),
-                StaffDocumentsTab(staffCode: widget.staffCode),
+                StaffDocumentsTab(
+                  staffCode: widget.staffCode,
+                  highlightCode: widget.highlightCode,
+                ),
               ],
             ),
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../shared/common/widgets/highlightable_card.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_block_status_style.dart';
 import 'scheduling_day_timeline.dart';
@@ -139,7 +140,12 @@ class DayClassroomSection extends StatefulWidget {
     this.onStaffShiftTap,
     this.onStaffSlotTap,
     this.staffAttendanceStatusByCode,
+    this.highlightShiftCode,
   });
+
+  /// Shift code from a notification deep-link; the matching shift row scrolls
+  /// into view and flashes.
+  final String? highlightShiftCode;
 
   final ClassroomDaySchedule classroom;
   final SchedulingViewMode viewMode;
@@ -301,20 +307,26 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
         ),
         if (_expanded)
           for (int i = 0; i < staff.length; i++)
-            SchedulingTableRow(
-              isLast: widget.isLast && i == staff.length - 1,
-              left: StaffRowLeft(
-                entry: staff[i],
-                attendanceStatus:
-                    widget._attendanceStatusForStaff(staff[i].staffCode),
-              ),
-              right: StaffTimeRangePill(
-                startTime: staff[i].startTime,
-                endTime: staff[i].endTime,
-                isPublished: staff[i].isPublished,
-                onTap: widget.onStaffShiftTap == null
-                    ? null
-                    : () => widget.onStaffShiftTap!(staff[i]),
+            HighlightableCard(
+              code: staff[i].shiftCode,
+              highlightCode: widget.highlightShiftCode,
+              scrollOnHighlight: true,
+              borderRadius: 8,
+              child: SchedulingTableRow(
+                isLast: widget.isLast && i == staff.length - 1,
+                left: StaffRowLeft(
+                  entry: staff[i],
+                  attendanceStatus:
+                      widget._attendanceStatusForStaff(staff[i].staffCode),
+                ),
+                right: StaffTimeRangePill(
+                  startTime: staff[i].startTime,
+                  endTime: staff[i].endTime,
+                  isPublished: staff[i].isPublished,
+                  onTap: widget.onStaffShiftTap == null
+                      ? null
+                      : () => widget.onStaffShiftTap!(staff[i]),
+                ),
               ),
             ),
       ],
