@@ -533,8 +533,11 @@ class AuthCubit extends Cubit<AuthState> {
     } catch (_) {
       // Even if API logout fails, we still clear local session (session end UX).
     } finally {
+      // NOTE: clearCache() now preserves the "Remember me" username + flag so the
+      // sign-in form can pre-fill after logout. The password itself stays in the
+      // biometric-gated secure store. We intentionally do NOT call
+      // clearCredentials() here — that would defeat the pre-fill requirement.
       await _localDataSource.clearCache();
-      await _localDataSource.clearCredentials();
       final navCtx = CoreUtils.rootNavigatorKey.currentContext;
       if (navCtx != null && navCtx.mounted) {
         try {

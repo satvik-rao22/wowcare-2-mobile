@@ -20,6 +20,7 @@ import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/auth/secure_credential_store.dart';
 import '../../core/util/api_constants.dart';
 import '../../core/cache/cache_service.dart';
 import '../../core/cache/isar_cache_service.dart';
@@ -280,6 +281,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
+  );
+  // Biometric-gated secure store for the "Remember me" password (Keychain /
+  // EncryptedSharedPreferences) — never the plaintext SharedPreferences.
+  serviceLocator.registerLazySingleton<SecureCredentialStore>(
+    () => SecureCredentialStore(),
   );
 
   // Cache

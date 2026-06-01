@@ -73,6 +73,14 @@ class _HighlightableCardState extends State<HighlightableCard>
     duration: widget.duration,
   );
 
+  /// The (code|highlightCode) pair we've already flashed for. Prevents the
+  /// highlight from re-firing on every rebuild (e.g. each swipe of a bucket
+  /// board) while the same deep-link highlightCode is still set.
+  String? _flashedKey;
+
+  String get _matchKey =>
+      '${(widget.code ?? '').trim().toUpperCase()}|${(widget.highlightCode ?? '').trim().toUpperCase()}';
+
   @override
   void initState() {
     super.initState();
@@ -82,17 +90,16 @@ class _HighlightableCardState extends State<HighlightableCard>
   @override
   void didUpdateWidget(covariant HighlightableCard old) {
     super.didUpdateWidget(old);
-    // Re-flash when this card newly becomes the target — e.g. the list finished
-    // loading and the matching row only now exists, or a fresh notification
-    // points at a different code.
-    final becameTarget = widget._matches &&
-        (old.code != widget.code ||
-            old.highlightCode != widget.highlightCode ||
-            (!_controller.isAnimating && _controller.value == 0));
-    if (becameTarget) _trigger();
+    // Re-flash only when this card NEWLY becomes the target for a pair we
+    // haven't flashed yet — e.g. the list finished loading and the matching row
+    // only now exists, or a fresh notification points at a different code.
+    // Crucially, do NOT re-flash on every rebuild (swipes/scroll) while the same
+    // highlightCode is still set: gate on _flashedKey.
+    if (widget._matches && _flashedKey != _matchKey) _trigger();
   }
 
   void _trigger() {
+    _flashedKey = _matchKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.scrollOnHighlight) {
