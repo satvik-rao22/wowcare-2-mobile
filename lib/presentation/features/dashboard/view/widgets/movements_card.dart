@@ -56,17 +56,21 @@ class _GroupedMovement {
 }
 
 // ---------------------------------------------------------------------------
-// Grouping + sort/cap helper
+// Priority & filtering helpers
 // ---------------------------------------------------------------------------
 
-/// Converts [board] into display rows, **sorted newest-first** and capped at
-/// [maxRows]. Sorting and capping happen here (not in the build method) so the
-/// widget tree stays free of expensive transformations.
-List<_GroupedMovement> _buildGroupedRows(
+/// Check if a movement is within the last 30 days from today.
+bool _isWithinLastMonth(DateTime movementDate) {
+  final now = DateTime.now();
+  final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+  return movementDate.isAfter(thirtyDaysAgo);
+}
+
+/// Filter priority movements: overdue → upcoming → confirmed, max 3 items.
+List<_GroupedMovement> _filterPriorityMovements(
   IndividualMovementBoard board, {
-  int maxRows = 5,
+  int maxRows = 3,
 }) {
-  // Insertion-ordered map: overdue → upcoming → confirmed → rejected.
   final map = <String, _GroupedMovement>{};
 
   void addBucket(List<IndividualMovement> movements, String label) {
@@ -97,18 +101,36 @@ List<_GroupedMovement> _buildGroupedRows(
     }
   }
 
-  addBucket(board.overdue, 'Overdue');
-  addBucket(board.upcoming, 'Upcoming');
-  addBucket(board.confirmed, 'Confirmed');
-  addBucket(board.rejected, 'Rejected');
+  // Priority: Overdue > Upcoming > Confirmed
+  // Step 1: Check for overdue within last 1 month
+  final recentOverdue = board.overdue.where((m) => _isWithinLastMonth(m.movementDate)).toList();
+  if (recentOverdue.isNotEmpty) {
+    addBucket(recentOverdue, 'Overdue');
+    final rows = map.values.toList(growable: false);
+    // Sort overdue: oldest first
+    rows.sort((a, b) => a.movementDate.compareTo(b.movementDate));
+    return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
+  }
 
-  final rows = map.values.toList(growable: false);
+  // Step 2: No overdue, check upcoming
+  if (board.upcoming.isNotEmpty) {
+    addBucket(board.upcoming, 'Upcoming');
+    final rows = map.values.toList(growable: false);
+    // Sort upcoming: nearest first
+    rows.sort((a, b) => a.movementDate.compareTo(b.movementDate));
+    return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
+  }
 
-  // Sort newest first so the most relevant movements appear at the top.
-  rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
+  // Step 3: No overdue/upcoming, show confirmed
+  if (board.confirmed.isNotEmpty) {
+    addBucket(board.confirmed, 'Confirmed');
+    final rows = map.values.toList(growable: false);
+    // Sort confirmed: latest first
+    rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
+    return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
+  }
 
-  // Cap to the requested maximum.
-  return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
+  return [];
 }
 
 _MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
@@ -490,9 +512,8 @@ class _MovementsCardState extends State<MovementsCard> {
         }
 
         if (state.board != null) {
-          // Sorting and capping (latest 5) happen in _buildGroupedRows — not
-          // here — so the build method stays O(1) on rebuilds.
-          final rows = _buildGroupedRows(state.board!, maxRows: 5);
+          // Priority filtering and sorting (max 3 items) happen in _filterPriorityMovements.
+          final rows = _filterPriorityMovements(state.board!);
           if (rows.isEmpty) return _buildEmptyState();
 
           return Column(

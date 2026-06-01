@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
@@ -19,16 +20,19 @@ part 'dashboard_attention_state.dart';
 /// [DashboardAttentionStatus.partialFailure] so the dashboard stays useful.
 class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   DashboardAttentionCubit({
+    required ActivityRepository activityRepository,
     required AvailabilityRepository availabilityRepository,
     required StaffRepository staffRepository,
     required StudentRepository studentRepository,
     required StorageService storageService,
-  }) : _availabilityRepository = availabilityRepository,
+  }) : _activityRepository = activityRepository,
+       _availabilityRepository = availabilityRepository,
        _staffRepository = staffRepository,
        _studentRepository = studentRepository,
        _storageService = storageService,
        super(const DashboardAttentionState());
 
+  final ActivityRepository _activityRepository;
   final AvailabilityRepository _availabilityRepository;
   final StaffRepository _staffRepository;
   final StudentRepository _studentRepository;
@@ -96,9 +100,13 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     final toDate =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    // Run all four in parallel; capture individual errors so one failure
+    // Run all five in parallel; capture individual errors so one failure
     // does not suppress the other results.
     final results = await Future.wait([
+      _activityRepository
+          .getPendingIncidentCount()
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
       _availabilityRepository
           .getMovementStatusCounts(
             schoolCode: schoolCode,
@@ -121,26 +129,28 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
           .onError((_, __) => null),
     ], eagerError: false);
 
+    final incidentResult = results[0] as int?;
     final movementResult =
-        results[0] as ({int pendingCount, int overdueCount})?;
+        results[1] as ({int pendingCount, int overdueCount})?;
     final staffDocResult =
-        results[1]
+        results[2]
             as ({int expiredDocumentCount, int expiringWithinWeekCount})?;
     final checkupResult =
-        results[2]
+        results[3]
             as ({
               int overduePhysicalCheckupCount,
               int staffWithoutActivePhysicalCheckupCount,
             })?;
     final studentDocResult =
-        results[3]
+        results[4]
             as ({
               int expiredDocumentCount,
               int expiringWithinWeekCount,
               int totalDocumentsWithExpiry,
             })?;
 
-    final anyFailed = movementResult == null ||
+    final anyFailed = incidentResult == null ||
+        movementResult == null ||
         staffDocResult == null ||
         checkupResult == null ||
         studentDocResult == null;
@@ -150,6 +160,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
         status: anyFailed
             ? DashboardAttentionStatus.partialFailure
             : DashboardAttentionStatus.loaded,
+        pendingIncidents: incidentResult ?? state.pendingIncidents,
         pendingMovements:
             movementResult?.pendingCount ?? state.pendingMovements,
         overdueMovements:

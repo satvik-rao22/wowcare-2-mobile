@@ -12,6 +12,7 @@ enum DashboardAttentionStatus {
 class DashboardAttentionState extends Equatable {
   const DashboardAttentionState({
     this.status = DashboardAttentionStatus.initial,
+    this.pendingIncidents = 0,
     this.pendingMovements = 0,
     this.overdueMovements = 0,
     this.expiredDocuments = 0,
@@ -24,6 +25,7 @@ class DashboardAttentionState extends Equatable {
   });
 
   final DashboardAttentionStatus status;
+  final int pendingIncidents;
   final int pendingMovements;
   final int overdueMovements;
   final int expiredDocuments;
@@ -43,6 +45,7 @@ class DashboardAttentionState extends Equatable {
 
   DashboardAttentionState copyWith({
     DashboardAttentionStatus? status,
+    int? pendingIncidents,
     int? pendingMovements,
     int? overdueMovements,
     int? expiredDocuments,
@@ -55,6 +58,7 @@ class DashboardAttentionState extends Equatable {
   }) {
     return DashboardAttentionState(
       status: status ?? this.status,
+      pendingIncidents: pendingIncidents ?? this.pendingIncidents,
       pendingMovements: pendingMovements ?? this.pendingMovements,
       overdueMovements: overdueMovements ?? this.overdueMovements,
       expiredDocuments: expiredDocuments ?? this.expiredDocuments,
@@ -72,6 +76,7 @@ class DashboardAttentionState extends Equatable {
   @override
   List<Object?> get props => [
     status,
+    pendingIncidents,
     pendingMovements,
     overdueMovements,
     expiredDocuments,

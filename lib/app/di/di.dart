@@ -971,6 +971,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
     () => DashboardAttentionCubit(
+      activityRepository: serviceLocator(),
       availabilityRepository: serviceLocator(),
       staffRepository: serviceLocator(),
       studentRepository: serviceLocator(),

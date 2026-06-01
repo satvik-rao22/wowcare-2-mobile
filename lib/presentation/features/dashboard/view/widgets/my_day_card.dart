@@ -20,10 +20,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-
 import '../../../../../core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 
 // TODO: replace _mockIsSignedIn with real sign-in state from attendance cubit.
 const bool _mockIsSignedIn = false;

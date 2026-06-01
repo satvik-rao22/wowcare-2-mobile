@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -47,30 +48,43 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona; // Admin can change time to past, but not future.
+  bool? _isAdminRole; // Determines if staff can select other staff or only themselves
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
   int _unexpectedGateToken = 0;
+  String? _currentStaffCode; // Current user's staff code - for self-only validation
 
   @override
   void initState() {
     super.initState();
-    if (widget.staffList != null && widget.staffList!.isNotEmpty) {
-      _selectedStaff = List<StaffEntity>.from(widget.staffList!);
-    } else if (widget.staff != null) {
-      _selectedStaff = <StaffEntity>[widget.staff!];
-    } else {
-      _selectedStaff = <StaffEntity>[
-        StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1),
-      ];
-    }
+    // Initialize with empty list - will be populated after role check
+    _selectedStaff = <StaffEntity>[];
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeSchoolAndPersona();
+      unawaited(_initializeFormData());
     });
   }
 
   String _naiveCalendarYyyyMmDd(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Initializes form data in proper order:
+  /// 1. Load current staff code from storage
+  /// 2. Initialize school/persona settings
+  /// This ensures staff code is available before applying restrictions
+  Future<void> _initializeFormData() async {
+    // First: Load the current staff code
+    final staffCode = (await serviceLocator<StorageService>()
+            .getString(StorageKeys.staffCode))
+        ?.trim() ?? '';
+    if (!mounted) return;
+    setState(() {
+      _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
+    });
+
+    // Then: Initialize school and persona
+    await _initializeSchoolAndPersona();
+  }
 
   Future<void> _initializeSchoolAndPersona() async {
     final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
@@ -83,12 +97,73 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     });
     _setCurrentDateTimeFromSchool();
 
+    // Check if user is admin - determines if staff selection is allowed
     final isAdmin = await _resolveIsStaffAdminPersona();
+    final isAdminRole = await _checkIsAdminRole();
     if (!mounted) return;
     setState(() {
       _isStaffAdminPersona = isAdmin;
+      _isAdminRole = isAdminRole;
     });
+
+    // Apply staff selection restrictions based on role
+    _applyStaffSelectionRestrictions(isAdminRole);
+
     await _runUnexpectedSignInGate();
+  }
+
+  /// Checks if the current user has admin role (director, admin, principal).
+  /// Regular staff can only sign in themselves after QR validation.
+  Future<bool> _checkIsAdminRole() async {
+    final storage = serviceLocator<StorageService>();
+    final role = (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+        .trim()
+        .toUpperCase();
+    return role.contains('DIRECTOR') ||
+        role.contains('ADMIN') ||
+        role.contains('PRINCIPAL');
+  }
+
+  /// Applies staff selection restrictions:
+  /// - Admin: Can select multiple staff members
+  /// - Regular Staff: Can ONLY sign in themselves (self-only)
+  void _applyStaffSelectionRestrictions(bool isAdmin) {
+    if (isAdmin) {
+      // Admin can sign in multiple staff members
+      if (widget.staffList != null && widget.staffList!.isNotEmpty) {
+        setState(() {
+          _selectedStaff = List<StaffEntity>.from(widget.staffList!);
+        });
+      } else if (widget.staff != null) {
+        setState(() {
+          _selectedStaff = <StaffEntity>[widget.staff!];
+        });
+      }
+    } else {
+      // Regular staff: SELF-ONLY sign-in after QR validation
+      // Find the current staff member from the staff list
+      StaffEntity? currentStaff;
+      if (_currentStaffCode != null &&
+          _currentStaffCode!.isNotEmpty &&
+          widget.staffList != null) {
+        try {
+          currentStaff = widget.staffList!.firstWhere(
+            (staff) => (staff.staffCode ?? '').trim() == _currentStaffCode,
+          );
+        } catch (_) {
+          // Staff not found in list
+          currentStaff = widget.staff;
+        }
+      } else {
+        currentStaff = widget.staff;
+      }
+
+      if (currentStaff != null) {
+        setState(() {
+          _selectedStaff = <StaffEntity>[currentStaff!];
+        });
+      }
+    }
   }
 
   void _setCurrentDateTimeFromSchool() {

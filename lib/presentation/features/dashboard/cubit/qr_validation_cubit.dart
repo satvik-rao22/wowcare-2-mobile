@@ -123,6 +123,16 @@ class QrValidationCubit extends Cubit<QrValidationState> {
     return role.contains('GUARDIAN') || role.contains('PARENT');
   }
 
+  /// Returns true when the active school role is admin.
+  /// Regular staff should NOT have access to multi-staff sign-in after QR validation.
+  Future<bool> _isAdminRole() async {
+    final role = (await _readStorage(StorageKeys.activeSchoolRole)).toUpperCase();
+    // Admin roles typically contain 'DIRECTOR', 'ADMIN', 'SCHOOL_ADMIN'
+    return role.contains('DIRECTOR') ||
+           role.contains('ADMIN') ||
+           role.contains('PRINCIPAL');
+  }
+
   /// Returns true when the staff member's today sign-in status is SIGNED_IN.
   Future<bool> _isStaffSignedIn(String staffCode) async {
     if (staffCode.isEmpty) return false;

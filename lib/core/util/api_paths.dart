@@ -636,6 +636,8 @@ class ApiPaths {
   static String adminRejectActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/reject';
   static const String activityTypesRoot = '/api/v1/activity-types';
+  static const String pendingIncidentCount =
+      '/api/v2/activities/admin/activities/pending-incident-count';
 
   // —— Document host (base path returned by upload-session response) ——
 

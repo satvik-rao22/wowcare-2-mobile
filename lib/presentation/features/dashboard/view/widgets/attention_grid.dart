@@ -13,6 +13,22 @@ import 'package:wowcare/presentation/features/scheduling/model/scheduling_models
 
 enum _AttentionTone { danger, warning }
 
+// ── Card routing types ─────────────────────────────────────────────────────────
+
+enum _AttentionCardRoute {
+  incidentApproval,
+  classroomRatio,
+  classroomShifts,
+  pendingMovements,
+  overdueMovements,
+  expiredStudentDocs,
+  expiringStudentDocs,
+  expiredStaffDocs,
+  expiringStaffDocs,
+  overdueCheckups,
+  missingCheckups,
+}
+
 // ── Card model ────────────────────────────────────────────────────────────────
 
 /// Data model for one "Need your attention" card.
@@ -21,6 +37,7 @@ class AttentionCardModel {
     required this.label,
     required this.count,
     required this.pillText,
+    required this.route,
     this.tone = _AttentionTone.danger,
     this.showThumbDown = false,
     this.isCurrency = false,
@@ -36,6 +53,7 @@ class AttentionCardModel {
   final String pillText;
   final _AttentionTone tone;
   final bool showThumbDown;
+  final _AttentionCardRoute route;
 
   /// True for the "Total Outstanding" financial card.
   final bool isCurrency;
@@ -79,7 +97,8 @@ class _AttentionGridState extends State<AttentionGrid> {
 
     // Treat "initial" as loading: with isSilent:true the cubit never emits
     // a loading status, but the data hasn't arrived yet.
-    final isLoading = ratioState.isLoading ||
+    final isLoading =
+        ratioState.isLoading ||
         shiftsState.isLoading ||
         attentionState.isLoading ||
         attentionState.isInitial;
@@ -108,7 +127,7 @@ class _AttentionGridState extends State<AttentionGrid> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildGrid(initialCards),
+        _buildGrid(initialCards, _handleCardTap),
         if (hasMore) ...[
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
@@ -116,7 +135,7 @@ class _AttentionGridState extends State<AttentionGrid> {
             child: _expanded
                 ? Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: _buildGrid(extraCards),
+                    child: _buildGrid(extraCards, _handleCardTap),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -131,7 +150,47 @@ class _AttentionGridState extends State<AttentionGrid> {
     );
   }
 
-  Widget _buildGrid(List<AttentionCardModel> cards) {
+  void _handleCardTap(_AttentionCardRoute route) {
+    // Navigation logic for different card types
+    switch (route) {
+      case _AttentionCardRoute.incidentApproval:
+        break;
+      case _AttentionCardRoute.classroomRatio:
+        break;
+      case _AttentionCardRoute.classroomShifts:
+        // TODO: Navigate to classroom shifts screen
+        break;
+      case _AttentionCardRoute.pendingMovements:
+        // TODO: Navigate to movements screen with pending filter
+        break;
+      case _AttentionCardRoute.overdueMovements:
+        // TODO: Navigate to movements screen with overdue filter
+        break;
+      case _AttentionCardRoute.expiredStudentDocs:
+        // TODO: Navigate to student screen with expired docs filter
+        break;
+      case _AttentionCardRoute.expiringStudentDocs:
+        // TODO: Navigate to student screen with expiring docs filter
+        break;
+      case _AttentionCardRoute.expiredStaffDocs:
+        // TODO: Navigate to staff screen with expired docs filter
+        break;
+      case _AttentionCardRoute.expiringStaffDocs:
+        // TODO: Navigate to staff screen with expiring docs filter
+        break;
+      case _AttentionCardRoute.overdueCheckups:
+        // TODO: Navigate to staff screen with overdue checkups filter
+        break;
+      case _AttentionCardRoute.missingCheckups:
+        // TODO: Navigate to staff screen with missing checkups filter
+        break;
+    }
+  }
+
+  Widget _buildGrid(
+    List<AttentionCardModel> cards,
+    Function(_AttentionCardRoute) onCardTap,
+  ) {
     final rows = <Widget>[];
     for (var i = 0; i < cards.length; i += 2) {
       if (i > 0) rows.add(const SizedBox(height: 12));
@@ -141,13 +200,21 @@ class _AttentionGridState extends State<AttentionGrid> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _AttentionCard(model: cards[i])),
+              Expanded(
+                child: _AttentionCard(
+                  model: cards[i],
+                  onTap: () => onCardTap(cards[i].route),
+                ),
+              ),
               const SizedBox(width: 12),
               // Invisible placeholder keeps left card from stretching full width
               // when the row has an odd card.
               Expanded(
                 child: hasRight
-                    ? _AttentionCard(model: cards[i + 1])
+                    ? _AttentionCard(
+                        model: cards[i + 1],
+                        onTap: () => onCardTap(cards[i + 1].route),
+                      )
                     : const SizedBox.shrink(),
               ),
             ],
@@ -155,10 +222,7 @@ class _AttentionGridState extends State<AttentionGrid> {
         ),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rows,
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
   }
 
   Widget _buildLoadingSection() {
@@ -210,71 +274,90 @@ class _AttentionGridState extends State<AttentionGrid> {
 
     final shiftsCount = shiftsState.isLoaded
         ? shiftsState.entries
-            .where((e) => e.ratioStatus == ClassroomRatioStatus.underRatio)
-            .length
+              .where((e) => e.ratioStatus == ClassroomRatioStatus.underRatio)
+              .length
         : 0;
 
     return [
+      // Incident Approvals - new card
+      AttentionCardModel(
+        label: 'Pending Incident Approvals',
+        count: attentionState.pendingIncidents,
+        pillText: 'Pending Review',
+        tone: _AttentionTone.danger,
+        route: _AttentionCardRoute.incidentApproval,
+      ),
+      // Existing cards
       AttentionCardModel(
         label: 'Classrooms',
         count: classroomCount,
         pillText: 'Not in Ratio',
         tone: _AttentionTone.danger,
         showThumbDown: true,
+        route: _AttentionCardRoute.classroomRatio,
       ),
       AttentionCardModel(
         label: 'Classroom Shifts',
         count: shiftsCount,
         pillText: 'Need Attention',
         tone: _AttentionTone.danger,
+        route: _AttentionCardRoute.classroomShifts,
       ),
       AttentionCardModel(
         label: 'Pending Movements',
         count: attentionState.pendingMovements,
         pillText: 'Needs Review',
         tone: _AttentionTone.warning,
+        route: _AttentionCardRoute.pendingMovements,
       ),
       AttentionCardModel(
         label: 'Overdue Movements',
         count: attentionState.overdueMovements,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
+        route: _AttentionCardRoute.overdueMovements,
       ),
       AttentionCardModel(
         label: 'Expired Student Docs',
         count: attentionState.expiredStudentDocuments,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
+        route: _AttentionCardRoute.expiredStudentDocs,
       ),
       AttentionCardModel(
         label: 'Student Docs Expiring',
         count: attentionState.expiringStudentDocuments,
         pillText: 'Expiring Soon',
         tone: _AttentionTone.warning,
+        route: _AttentionCardRoute.expiringStudentDocs,
       ),
       AttentionCardModel(
         label: 'Expired Staff Docs',
         count: attentionState.expiredDocuments,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
+        route: _AttentionCardRoute.expiredStaffDocs,
       ),
       AttentionCardModel(
         label: 'Expiring Soon Docs',
         count: attentionState.expiringDocuments,
         pillText: 'Expiring Soon',
         tone: _AttentionTone.warning,
+        route: _AttentionCardRoute.expiringStaffDocs,
       ),
       AttentionCardModel(
         label: 'Overdue Checkups',
         count: attentionState.overdueCheckups,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
+        route: _AttentionCardRoute.overdueCheckups,
       ),
       AttentionCardModel(
         label: 'Missing Checkups',
         count: attentionState.missingCheckups,
         pillText: 'No Record',
         tone: _AttentionTone.warning,
+        route: _AttentionCardRoute.missingCheckups,
       ),
     ].where((c) => c.shouldShow).toList();
   }
@@ -379,69 +462,74 @@ class _ShimmerCard extends StatelessWidget {
 // ── Attention card ────────────────────────────────────────────────────────────
 
 class _AttentionCard extends StatelessWidget {
-  const _AttentionCard({required this.model});
+  const _AttentionCard({required this.model, this.onTap});
 
   final AttentionCardModel model;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (model.isCurrency)
-                _CurrencyBadge()
-              else
-                Text(
-                  '${model.count}',
-                  style: const TextStyle(
-                    color: AppColors.themeColor,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.cardBorderColor),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (model.isCurrency)
+                  _CurrencyBadge()
+                else
+                  Text(
+                    '${model.count}',
+                    style: const TextStyle(
+                      color: AppColors.themeColor,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    model.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  model.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (model.valueText != null)
-            Text(
-              model.valueText!,
-              style: const TextStyle(
-                color: AppColors.themeColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          else
-            _StatusPill(
-              text: model.pillText,
-              tone: model.tone,
-              showThumbDown: model.showThumbDown,
+              ],
             ),
-        ],
+            const SizedBox(height: 10),
+            if (model.valueText != null)
+              Text(
+                model.valueText!,
+                style: const TextStyle(
+                  color: AppColors.themeColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              _StatusPill(
+                text: model.pillText,
+                tone: model.tone,
+                showThumbDown: model.showThumbDown,
+              ),
+          ],
+        ),
       ),
     );
   }

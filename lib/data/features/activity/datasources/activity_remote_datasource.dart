@@ -139,6 +139,10 @@ abstract class ActivityRemoteDataSource {
     int page = 0,
     int size = 200,
   });
+
+  /// Count of pending incident approvals:
+  /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
+  Future<int> getPendingIncidentCount();
 }
 
 class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
@@ -779,6 +783,28 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
 
     return ActivityFeedPageModel.fromJson(body);
+  }
+
+  @override
+  Future<int> getPendingIncidentCount() async {
+    final url = ApiPaths.urlWithBase(
+      ApiPaths.pendingIncidentCount,
+      ApiConstants.activityBaseUrl,
+    );
+    final response = await _client.get<dynamic>(url);
+    final body = response.data;
+
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected pending incident count API response format');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data field in pending incident count response');
+    }
+
+    final count = data['count'];
+    return count is int ? count : 0;
   }
 }
 
