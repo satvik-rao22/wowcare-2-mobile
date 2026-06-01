@@ -30,10 +30,16 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 class StaffSignInForm extends StatefulWidget {
-  const StaffSignInForm({super.key, this.staff, this.staffList});
+  const StaffSignInForm({
+    super.key,
+    this.staff,
+    this.staffList,
+    this.qrToken = '',
+  });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
+  final String qrToken;
 
   static const String routeName = '/staff-sign-in-form';
 
@@ -48,12 +54,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona; // Admin can change time to past, but not future.
-  bool? _isAdminRole; // Determines if staff can select other staff or only themselves
+  bool?
+  _isAdminRole; // Determines if staff can select other staff or only themselves
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
   int _unexpectedGateToken = 0;
-  String? _currentStaffCode; // Current user's staff code - for self-only validation
+  String?
+  _currentStaffCode; // Current user's staff code - for self-only validation
 
   @override
   void initState() {
@@ -71,12 +79,15 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   /// Initializes form data in proper order:
   /// 1. Load current staff code from storage
   /// 2. Initialize school/persona settings
+  /// 3. Auto-submit if coming from QR scan (self sign-in only)
   /// This ensures staff code is available before applying restrictions
   Future<void> _initializeFormData() async {
     // First: Load the current staff code
-    final staffCode = (await serviceLocator<StorageService>()
-            .getString(StorageKeys.staffCode))
-        ?.trim() ?? '';
+    final staffCode =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.staffCode,
+        ))?.trim() ??
+        '';
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -84,6 +95,32 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     // Then: Initialize school and persona
     await _initializeSchoolAndPersona();
+
+    // Auto-submit if coming from QR scan (self sign-in only)
+    if (mounted && widget.qrToken.isNotEmpty && _currentStaffCode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        // Create a staff entity for the current user and auto-submit
+        final currentStaff = StaffEntity(
+          id: 0,
+          name: '',
+          primaryRoomId: 0,
+          classroomCode: '',
+          classroomName: '',
+          photoUuid: '',
+          designation: 'Staff',
+          staffCode: _currentStaffCode,
+          isExpectedToday: true,
+        );
+        setState(() {
+          _selectedStaff = [currentStaff];
+        });
+        // Wait a frame for state to update
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (!mounted) return;
+        await _handleSubmit();
+      });
+    }
   }
 
   Future<void> _initializeSchoolAndPersona() async {
@@ -502,11 +539,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
 
     late final Map<String, dynamic> payload;
+    final bool isQrSignIn = widget.qrToken.isNotEmpty;
+    final String signInMethod = isQrSignIn ? 'QR' : 'APP';
+
     if (!isStaffAdmin) {
       // Self sign-in for teacher persona.
       payload = <String, dynamic>{
         'staffCode': staffCode,
-        'method': 'APP',
+        'method': signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,
@@ -517,6 +557,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           expectedFromApi,
         ),
       };
+      // Include QR token if this is a QR scan
+      if (isQrSignIn) {
+        payload['qrToken'] = widget.qrToken;
+      }
     } else {
       // Admin sign-in: supports signing in other staff in a bulk-like request.
       final staffCodes = targetStaffCodes;
@@ -540,13 +584,17 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'staffCodes': staffCodes,
         'classroomCode': classroomCode,
         'classroomCodeByStaffCode': classroomCodeByStaffCode,
-        'method': 'APP',
+        'method': signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,
         'timeZone': schoolTimeZone,
         'occurredAt': occurredAt.toUtc().toIso8601String(),
       };
+      // Include QR token if this is a QR scan
+      if (isQrSignIn) {
+        payload['qrToken'] = widget.qrToken;
+      }
     }
 
     try {

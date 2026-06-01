@@ -89,7 +89,8 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         (state.status == GeofenceCubitStatus.withinRange ||
             state.status == GeofenceCubitStatus.outsideRange ||
             state.status == GeofenceCubitStatus.gpsDisabledByAdmin ||
-            state.status == GeofenceCubitStatus.checking)) {
+            state.status == GeofenceCubitStatus.checking ||
+            state.status == GeofenceCubitStatus.fetchingSchoolLocation)) {
       AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
       return;
     }
@@ -296,8 +297,14 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           : GeofenceCubitStatus.outsideRange;
       if (state.status != nextStatus) {
         emit(state.copyWith(status: nextStatus));
+        final newGeofenceStatus = isInside
+            ? GeofenceStatus.within
+            : GeofenceStatus.outside;
+        _triggerNotificationIfNeeded(newGeofenceStatus);
       }
-    }, onError: (_) {});
+    }, onError: (Object e) {
+      AppLogger.d('[GeofenceCubit] Native event stream error: $e');
+    });
   }
 
   void _triggerNotificationIfNeeded(GeofenceStatus newStatus) {
@@ -312,12 +319,12 @@ class GeofenceCubit extends Cubit<GeofenceState> {
 
     unawaited(
       SharedPreferences.getInstance()
-          .then((prefs) {
-            unawaited(prefs.setString(_prefsLastGeofenceStatusKey, newStatus.name));
-            unawaited(prefs.setBool(
+          .then((prefs) async {
+            await prefs.setString(_prefsLastGeofenceStatusKey, newStatus.name);
+            await prefs.setBool(
               _prefsLastNotifiedInsideKey,
               newStatus == GeofenceStatus.within,
-            ));
+            );
           })
           .catchError((_) {}),
     );

@@ -28,9 +28,14 @@ import 'student_sign_out_form.dart';
 class StudentSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-out-form';
 
-  const StudentSelectionSignOutForm({super.key, this.isQrScan = false});
+  const StudentSelectionSignOutForm({
+    super.key,
+    this.isQrScan = false,
+    this.qrToken = '',
+  });
 
   final bool isQrScan;
+  final String qrToken;
 
   @override
   State<StudentSelectionSignOutForm> createState() =>
@@ -321,6 +326,7 @@ class _StudentSelectionSignOutFormState
         builder: (context) => StudentSignOutForm(
           students: selectedStudents.toList(),
           isQrScan: widget.isQrScan,
+          qrToken: widget.qrToken,
         ),
       ),
     );

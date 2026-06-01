@@ -5,6 +5,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/qr_validation_result.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 
 part 'qr_validation_state.dart';
@@ -36,14 +37,17 @@ class QrValidationCubit extends Cubit<QrValidationState> {
   QrValidationCubit({
     required ValidateQrCodeUseCase validateQrCodeUseCase,
     required GetStaffTodaySignInStatusUseCase getStaffTodaySignInStatusUseCase,
+    required GetStudentTodaySignInStatusMapUseCase getStudentTodaySignInStatusMapUseCase,
     required StorageService storageService,
   })  : _validateQrCodeUseCase = validateQrCodeUseCase,
         _getStaffTodaySignInStatus = getStaffTodaySignInStatusUseCase,
+        _getStudentSignInStatusMap = getStudentTodaySignInStatusMapUseCase,
         _storage = storageService,
         super(const QrValidationInitial());
 
   final ValidateQrCodeUseCase _validateQrCodeUseCase;
   final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatus;
+  final GetStudentTodaySignInStatusMapUseCase _getStudentSignInStatusMap;
   final StorageService _storage;
 
   bool _isFetching = false;
@@ -54,7 +58,13 @@ class QrValidationCubit extends Cubit<QrValidationState> {
   ///
   /// The [qrToken] must be the raw token string — NOT the full QR JSON payload.
   /// Use [QrTokenExtractor.extract] in the scanner before calling this method.
-  Future<void> validate({required String qrToken}) async {
+  ///
+  /// [guardianChildCodes] should be provided for guardian roles to enable smart
+  /// sign-in/sign-out routing (all children signed in → sign-out, otherwise → sign-in).
+  Future<void> validate({
+    required String qrToken,
+    List<String> guardianChildCodes = const [],
+  }) async {
     if (_isFetching) return;
     _isFetching = true;
     emit(const QrValidationLoading());
@@ -75,11 +85,33 @@ class QrValidationCubit extends Cubit<QrValidationState> {
       QrNavigationRoute route;
 
       if (isGuardian) {
-        // Guardian useCase is always SIGN_IN at the validation level.
-        // The downstream attendance form (StudentSelectionSignInForm) determines
-        // whether to show sign-in or sign-out based on student state.
-        useCase = QrAttendanceUseCase.guardianSignIn;
-        route = QrNavigationRoute.guardianSignIn;
+        // For guardians: check if all children are signed in.
+        // If all signed in → sign-out. Otherwise → sign-in.
+        if (guardianChildCodes.isNotEmpty) {
+          try {
+            final statusMap = await _getStudentSignInStatusMap(
+              studentCodes: guardianChildCodes,
+            );
+            final allSignedIn = guardianChildCodes.every(
+              (code) => statusMap[code]?.toUpperCase() == 'SIGNED_IN',
+            );
+            if (allSignedIn) {
+              useCase = QrAttendanceUseCase.guardianSignOut;
+              route = QrNavigationRoute.guardianSignOut;
+            } else {
+              useCase = QrAttendanceUseCase.guardianSignIn;
+              route = QrNavigationRoute.guardianSignIn;
+            }
+          } catch (_) {
+            // If status check fails, default to sign-in.
+            useCase = QrAttendanceUseCase.guardianSignIn;
+            route = QrNavigationRoute.guardianSignIn;
+          }
+        } else {
+          // No children codes provided; default to sign-in.
+          useCase = QrAttendanceUseCase.guardianSignIn;
+          route = QrNavigationRoute.guardianSignIn;
+        }
       } else {
         final staffCode = await _readStorage(StorageKeys.staffCode);
         final isSignedIn = await _isStaffSignedIn(staffCode);
@@ -98,7 +130,7 @@ class QrValidationCubit extends Cubit<QrValidationState> {
         useCase: useCase,
       );
 
-      if (!isClosed) emit(QrValidationSuccess(result, route: route));
+      if (!isClosed) emit(QrValidationSuccess(result, route: route, qrToken: qrToken));
     } catch (e) {
       if (!isClosed) {
         emit(QrValidationFailure(ApiErrorHandler.extractErrorMessage(e)));
@@ -121,16 +153,6 @@ class QrValidationCubit extends Cubit<QrValidationState> {
   Future<bool> _isGuardianRole() async {
     final role = (await _readStorage(StorageKeys.activeSchoolRole)).toUpperCase();
     return role.contains('GUARDIAN') || role.contains('PARENT');
-  }
-
-  /// Returns true when the active school role is admin.
-  /// Regular staff should NOT have access to multi-staff sign-in after QR validation.
-  Future<bool> _isAdminRole() async {
-    final role = (await _readStorage(StorageKeys.activeSchoolRole)).toUpperCase();
-    // Admin roles typically contain 'DIRECTOR', 'ADMIN', 'SCHOOL_ADMIN'
-    return role.contains('DIRECTOR') ||
-           role.contains('ADMIN') ||
-           role.contains('PRINCIPAL');
   }
 
   /// Returns true when the staff member's today sign-in status is SIGNED_IN.

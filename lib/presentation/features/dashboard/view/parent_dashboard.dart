@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -46,15 +47,16 @@ class _ParentDashboardState extends State<ParentDashboard> {
     _communicationCubit = serviceLocator<CommunicationCubit>();
     _studentNewslettersCubit = serviceLocator<StudentNewslettersCubit>();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
-    // ignore: discarded_futures
-    _initGeofence();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initGeofence());
+    });
   }
 
   Future<void> _initGeofence() async {
     final storage = serviceLocator<StorageService>();
     final schoolCode = await storage.getString(StorageKeys.schoolCode);
     if (schoolCode != null && schoolCode.isNotEmpty) {
-      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+      await _geofenceCubit.initForSchool(schoolCode: schoolCode);
     }
   }
 

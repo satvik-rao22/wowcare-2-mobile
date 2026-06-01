@@ -19,10 +19,11 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
-
+import 'package:wowcare/shared/services/geofence_notification_service.dart';
 import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,6 +116,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   String _selectedChildCode = '';
   bool _didLoadCommunication = false;
 
+  // Children sign-in status map
+  Map<String, String> _childrenSignInStatusMap = {};
+  bool _loadingSignInStatus = false;
+
   Timer? _countdownTimer;
   final ValueNotifier<String> _statusText = ValueNotifier<String>(
     'Loading schedule...',
@@ -125,6 +130,13 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // Reminder toggle
   bool _isReminder = false;
+
+  /// Returns true when the selected child is currently signed in.
+  bool get _isSelectedChildSignedIn {
+    final code = _selectedChildCode;
+    if (code.isEmpty) return false;
+    return (_childrenSignInStatusMap[code] ?? '').toUpperCase() == 'SIGNED_IN';
+  }
 
   @override
   void initState() {
@@ -147,6 +159,51 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           ),
         );
       });
+    }
+    // Load sign-in status for all children
+    final allChildCodes = parentChildProvider.children
+        .map((c) => c.code)
+        .toList();
+    if (allChildCodes.isNotEmpty) {
+      unawaited(_loadChildrenSignInStatus(allChildCodes));
+    }
+
+    // Initialize GPS geofencing for the current school
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_initializeGeofencing());
+    });
+  }
+
+  Future<void> _initializeGeofencing() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+      if (schoolCode.isEmpty || !mounted) return;
+
+      // Initialize GPS geofencing with the school code
+      await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
+    } catch (_) {
+      // Silently fail - GPS is optional
+    }
+  }
+
+  Future<void> _loadChildrenSignInStatus(List<String> childCodes) async {
+    if (childCodes.isEmpty) return;
+    setState(() => _loadingSignInStatus = true);
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: childCodes);
+      if (!mounted) return;
+      setState(() {
+        _childrenSignInStatusMap = map;
+        _loadingSignInStatus = false;
+      });
+    } catch (_) {
+      // If status check fails, keep empty map
+      if (!mounted) return;
+      setState(() => _loadingSignInStatus = false);
     }
   }
 
@@ -384,28 +441,34 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   Widget _buildSignInOutButton({required GeofenceState geofenceState}) {
     final bool enabled =
         geofenceState.status == GeofenceCubitStatus.withinRange;
+    final String buttonLabel = _isSelectedChildSignedIn
+        ? 'Sign-Out'
+        : 'Sign-In';
+    final String route = _isSelectedChildSignedIn
+        ? '/dashboard/student-selection-sign-out-form'
+        : '/dashboard/student-selection-sign-in-form';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: CustomButtonLayout(
         isForm: false,
         showCancelButton: false,
-        confirmButtonLabel: 'Sign-In / Out',
+        confirmButtonLabel: buttonLabel,
         confirmButtonChild: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(
+          children: [
+            const Icon(
               Icons.location_on_outlined,
               size: 18,
               color: AppColors.billingBackgroundColor,
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Sign-In / Out',
+                buttonLabel,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingBackgroundColor,
@@ -414,15 +477,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
           ],
         ),
-        onPressedConfirm: enabled
-            ? () => context.go('/dashboard/student-selection-sign-in-form')
-            : null,
+        onPressedConfirm: enabled ? () => context.go(route) : null,
         disabledConfirmTooltip: 'You are not within  geofencing Range',
         onDisabledConfirmTap: () {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
             isWarning: true,
-
             message: 'You are not within geofencing Range',
             context: context,
           );
@@ -569,13 +629,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                             schoolTimeZone: s.schoolTimeZone,
                             todayScheduleRange: s.todayScheduleRange,
                           );
-                          if (s.schoolCode.isNotEmpty) {
-                            unawaited(
-                              context.read<GeofenceCubit>().initForSchool(
-                                schoolCode: s.schoolCode,
-                              ),
-                            );
-                          }
+                          // Geofence is already initialized in didChangeDependencies
+                          // Don't reinitialize here to avoid duplicate setup
                         } else {
                           _stopCountdownTimer();
                           _statusText.value = 'Loading schedule...';
@@ -589,11 +644,16 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           prev.status != GeofenceCubitStatus.withinRange &&
                           curr.status == GeofenceCubitStatus.withinRange,
                       listener: (context, _) {
+                        // Show push notification when entering geofence
+                        unawaited(
+                          GeofenceNotificationService()
+                              .showEnteredZoneNotification(),
+                        );
                         unawaited(
                           GeofenceSignInSheet.show(
                             context,
                             role: 'parent',
-                            isSignedIn: false,
+                            isSignedIn: _isSelectedChildSignedIn,
                             studentName: selectedChild?.name,
                           ),
                         );
@@ -820,8 +880,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           ),
 
           // if (!_isMinimized) _buildCommunicationSection(),
-          if (!_isMinimized)
-            const _CommunicationRowWidget(),
+          if (!_isMinimized) const _CommunicationRowWidget(),
         ],
       ),
     );

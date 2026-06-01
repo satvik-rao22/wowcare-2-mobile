@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -50,7 +51,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _dashboardCubit = serviceLocator<AdminDashboardCubit>();
-    // ignore: discarded_futures
     _dashboardCubit.loadUserName();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
     _schoolStatusCubit = serviceLocator<SchoolStatusCubit>();
@@ -60,18 +60,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _classroomShiftsCubit = serviceLocator<ClassroomShiftsCubit>();
     _attentionCubit = serviceLocator<DashboardAttentionCubit>();
     _myDayCubit = serviceLocator<MyDayCubit>();
-    // ignore: discarded_futures
-    _initGeofence();
-    // ignore: discarded_futures
-    _initRatioMonitoring();
-    // ignore: discarded_futures
-    _initMovements();
-    // ignore: discarded_futures
-    _initAvailability();
-    // ignore: discarded_futures
-    _attentionCubit.load(isSilent: true);
-    // ignore: discarded_futures
-    _myDayCubit.load(isSilent: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initGeofence());
+      unawaited(_initRatioMonitoring());
+      unawaited(_initMovements());
+      unawaited(_initAvailability());
+      unawaited(_attentionCubit.load(isSilent: true));
+      unawaited(_myDayCubit.load(isSilent: true));
+    });
   }
 
   Future<void> _initMovements() async {
@@ -99,7 +95,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final storage = serviceLocator<StorageService>();
     final schoolCode = await storage.getString(StorageKeys.schoolCode);
     if (schoolCode != null && schoolCode.isNotEmpty) {
-      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+      await _geofenceCubit.initForSchool(schoolCode: schoolCode);
     }
   }
 

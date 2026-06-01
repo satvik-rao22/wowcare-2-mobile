@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 
 /// Full-screen QR scanner.
 ///
@@ -65,20 +66,26 @@ class _QrScanViewState extends State<_QrScanView> {
   }
 
   /// Routes to the correct attendance form based on the cubit-resolved route.
-  void _navigateAfterSuccess(QrNavigationRoute route) {
+  void _navigateAfterSuccess(QrNavigationRoute route, String qrToken) {
     if (_hasNavigated) return;
     _hasNavigated = true;
 
     final Widget destination;
     switch (route) {
       case QrNavigationRoute.guardianSignIn:
-        destination = const StudentSelectionSignInForm(isQrScan: true);
+        destination = StudentSelectionSignInForm(
+          isQrScan: true,
+          qrToken: qrToken,
+        );
       case QrNavigationRoute.guardianSignOut:
-        destination = const StudentSelectionSignOutForm(isQrScan: true);
+        destination = StudentSelectionSignOutForm(
+          isQrScan: true,
+          qrToken: qrToken,
+        );
       case QrNavigationRoute.staffSignIn:
-        destination = const StaffSignInForm();
+        destination = StaffSignInForm(qrToken: qrToken);
       case QrNavigationRoute.staffSignOut:
-        destination = const StaffSignOutForm();
+        destination = StaffSignOutForm(qrToken: qrToken);
     }
 
     Navigator.push(context, MaterialPageRoute(builder: (_) => destination));
@@ -91,17 +98,19 @@ class _QrScanViewState extends State<_QrScanView> {
       listener: (context, state) {
         if (state is QrValidationSuccess) {
           if (state.result.valid) {
-            _navigateAfterSuccess(state.route);
+            _navigateAfterSuccess(state.route, state.qrToken);
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.result.reason ?? 'QR code is not valid')),
+              SnackBar(
+                content: Text(state.result.reason ?? 'QR code is not valid'),
+              ),
             );
             _resetScan();
           }
         } else if (state is QrValidationFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
           _resetScan();
         }
       },
@@ -121,7 +130,9 @@ class _QrScanViewState extends State<_QrScanView> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             Text(
-                              _result != null ? 'Validating...' : 'Scan a QR code',
+                              _result != null
+                                  ? 'Validating...'
+                                  : 'Scan a QR code',
                               style: const TextStyle(fontSize: 16),
                             ),
                             Row(
@@ -148,7 +159,8 @@ class _QrScanViewState extends State<_QrScanView> {
   }
 
   Widget _buildQrView() {
-    final scanArea = (MediaQuery.of(context).size.width < 400 ||
+    final scanArea =
+        (MediaQuery.of(context).size.width < 400 ||
             MediaQuery.of(context).size.height < 400)
         ? 150.0
         : 300.0;
@@ -291,9 +303,9 @@ class _QrScanViewState extends State<_QrScanView> {
       final token = _extractToken(raw);
       if (token == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid QR code')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid QR code')));
         _resetScan();
         return;
       }
@@ -301,7 +313,20 @@ class _QrScanViewState extends State<_QrScanView> {
       if (!mounted) return;
       // Pass the opaque token to the cubit. The cubit resolves school code,
       // user role, and sign-in status, then sends the correct useCase to the API.
-      context.read<QrValidationCubit>().validate(qrToken: token);
+      // For guardians, pass children codes for smart sign-in/sign-out routing.
+      List<String> guardianChildCodes = [];
+      try {
+        final parentChildCubit = context.read<ParentChildCubit>();
+        guardianChildCodes = parentChildCubit.children
+            .map((c) => c.code)
+            .toList();
+      } catch (_) {
+        // ParentChildCubit may not be available if user is not a guardian
+      }
+      context.read<QrValidationCubit>().validate(
+        qrToken: token,
+        guardianChildCodes: guardianChildCodes,
+      );
     });
   }
 
@@ -322,9 +347,9 @@ class _QrScanViewState extends State<_QrScanView> {
 
   void _onPermissionSet(QRViewController ctrl, bool granted) {
     if (!granted && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera permission denied')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Camera permission denied')));
     }
   }
 

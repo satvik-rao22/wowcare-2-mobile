@@ -1093,6 +1093,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => QrValidationCubit(
       validateQrCodeUseCase: serviceLocator(),
       getStaffTodaySignInStatusUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

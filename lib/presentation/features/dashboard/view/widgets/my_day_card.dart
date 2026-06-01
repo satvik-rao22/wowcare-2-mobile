@@ -13,18 +13,17 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
+import 'package:wowcare/shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../core/util/core_utils.dart';
 
-// TODO: replace _mockIsSignedIn with real sign-in state from attendance cubit.
-const bool _mockIsSignedIn = false;
-const bool _mockIsReminder = true;
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -53,6 +52,9 @@ class _MyDayCardState extends State<MyDayCard> {
   // transition. Resets to false when the user exits the geofence, ensuring
   // the popup appears again on the next entry (e.g. after sign-out).
   bool _geofencePopupShownThisEntry = false;
+
+  // ---- sign-in status ----
+  bool _isSignedIn = false;
 
   // ---- shift countdown display state ----
   String _statusText = 'Loading schedule…';
@@ -92,6 +94,7 @@ class _MyDayCardState extends State<MyDayCard> {
   void initState() {
     super.initState();
     unawaited(_loadClockPin());
+    unawaited(_loadSignInStatus());
   }
 
   @override
@@ -108,6 +111,26 @@ class _MyDayCardState extends State<MyDayCard> {
         breakSchedule: cubitState.todayBreakSchedule,
       );
       _startTicker();
+    }
+
+    // Initialize GPS geofencing for the current school
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_initializeGeofencing());
+    });
+  }
+
+  Future<void> _initializeGeofencing() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+      if (schoolCode.isEmpty || !mounted) return;
+
+      // Initialize GPS geofencing with the school code
+      await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
+    } catch (_) {
+      // Silently fail - GPS is optional
     }
   }
 
@@ -139,6 +162,21 @@ class _MyDayCardState extends State<MyDayCard> {
     final pin = (await storage.getString(StorageKeys.staffPin) ?? '').trim();
     if (!mounted) return;
     setState(() => _clockInPin = pin);
+  }
+
+  Future<void> _loadSignInStatus() async {
+    final storage = serviceLocator<StorageService>();
+    final staffCode =
+        (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    if (staffCode.isEmpty || !mounted) return;
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+      final status = await useCase(staffCode: staffCode);
+      if (!mounted) return;
+      setState(() => _isSignedIn = status?.toUpperCase() == 'SIGNED_IN');
+    } catch (_) {
+      // If status check fails, keep default (false)
+    }
   }
 
   Future<void> _openMarkAbsentForSelf() async {
@@ -411,11 +449,15 @@ class _MyDayCardState extends State<MyDayCard> {
       listener: (context, _) {
         if (_geofencePopupShownThisEntry) return;
         _geofencePopupShownThisEntry = true;
+        // Show push notification when entering geofence
+        unawaited(
+          GeofenceNotificationService().showEnteredZoneNotification(),
+        );
         unawaited(
           GeofenceSignInSheet.show(
             context,
             role: 'staff',
-            isSignedIn: _mockIsSignedIn,
+            isSignedIn: _isSignedIn,
           ),
         );
       },
@@ -510,9 +552,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                           ),
                                         ),
                                 child: Text(
-                                  _mockIsReminder
-                                      ? 'Turn off reminder'
-                                      : 'Send reminder',
+                                  'Send reminder',
                                   style: const TextStyle(
                                     color: AppColors.cardColor,
                                     fontWeight: FontWeight.w500,
@@ -592,7 +632,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                 children: [
                                   Expanded(
                                     child: OutlinedButton.icon(
-                                      onPressed: _mockIsSignedIn
+                                      onPressed: _isSignedIn
                                           ? null
                                           : _openMarkAbsentForSelf,
 
@@ -625,7 +665,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                     child: CustomButtonLayout(
                                       isForm: false,
                                       showCancelButton: false,
-                                      confirmButtonLabel: _mockIsSignedIn
+                                      confirmButtonLabel: _isSignedIn
                                           ? 'Sign-Out'
                                           : 'Sign-In',
                                       confirmButtonChild: Row(
@@ -642,7 +682,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                           const SizedBox(width: 8),
                                           Flexible(
                                             child: Text(
-                                              _mockIsSignedIn
+                                              _isSignedIn
                                                   ? 'Sign-Out'
                                                   : 'Sign-In',
                                               overflow: TextOverflow.ellipsis,
@@ -658,7 +698,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                       ),
                                       onPressedConfirm: enabled
                                           ? () {
-                                              if (_mockIsSignedIn) {
+                                              if (_isSignedIn) {
                                                 context.go(
                                                   '/dashboard/staff-sign-out-form',
                                                 );

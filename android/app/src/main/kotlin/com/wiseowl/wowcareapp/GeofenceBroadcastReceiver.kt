@@ -24,16 +24,13 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // De-dupe: if state hasn't changed, skip notification but still relay to Flutter
-        // so a restarted Dart isolate can restore UI state without re-firing alerts.
+        // Update persisted state to track last known geofence status
         val stateChanged = GeofencePrefs.shouldNotify(context, isInside)
         if (stateChanged) {
             GeofencePrefs.setLastInside(context, isInside)
-            GeofenceNotifications.ensureChannel(context)
-            GeofenceNotifications.show(context, isInside)
         }
 
-        // Always emit to Flutter (guarded by state comparison in GeofenceCubit).
+        // Always emit to Flutter event stream (will trigger notification from Flutter layer)
         GeofenceEventStreamHandler.emit(isInside)
     }
 

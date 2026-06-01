@@ -28,11 +28,19 @@ import 'student_sign_in_form.dart';
 class StudentSelectionSignInForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-in-form';
 
-  const StudentSelectionSignInForm({super.key, this.isQrScan = false});
+  const StudentSelectionSignInForm({
+    super.key,
+    this.isQrScan = false,
+    this.qrToken = '',
+  });
 
   /// True when opened after a QR code scan. Passed down to [StudentSignInForm]
   /// so the API payload uses method=QR and withinGeofence=true.
   final bool isQrScan;
+
+  /// QR token from the scanned code (only set when isQrScan=true).
+  /// Passed to StudentSignInForm for inclusion in the API payload.
+  final String qrToken;
 
   @override
   State<StudentSelectionSignInForm> createState() =>
@@ -345,6 +353,7 @@ class _StudentSelectionSignInFormState
           students: selectedStudents.toList(),
           refreshCallback: refreshCallback,
           isQrScan: widget.isQrScan,
+          qrToken: widget.qrToken,
         ),
       ),
     );
