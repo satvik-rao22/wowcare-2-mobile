@@ -219,6 +219,12 @@ abstract class StaffRepository {
 
   /// Clears in-flight / dedupe maps. Disk caches use [StorageService] (cleared by auth logout).
   void clearSessionVolatileCaches();
+
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount})>
+      getStaffDocumentExpirySummary({required String schoolCode});
+
+  Future<({int overduePhysicalCheckupCount, int staffWithoutActivePhysicalCheckupCount})>
+      getPhysicalCheckupSummary({required String schoolCode});
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

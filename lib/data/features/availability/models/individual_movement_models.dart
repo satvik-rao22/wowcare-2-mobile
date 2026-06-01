@@ -262,3 +262,21 @@ String _formatDateOnly(DateTime date) {
   final d = date.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
 }
+
+class MovementStatusCountsModel {
+  const MovementStatusCountsModel({
+    required this.overdueCount,
+    required this.pendingCount,
+  });
+
+  final int overdueCount;
+  final int pendingCount;
+
+  factory MovementStatusCountsModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    return MovementStatusCountsModel(
+      overdueCount: (data['overdueCount'] as num?)?.toInt() ?? 0,
+      pendingCount: (data['pendingCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

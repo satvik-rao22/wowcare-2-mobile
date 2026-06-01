@@ -1,4 +1,4 @@
-import 'dart:developer';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,23 +11,24 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 
+/// Full-screen QR scanner.
+///
+/// Creates its own [QrValidationCubit] (factory from DI). The cubit resolves
+/// school code, user role, and attendance status internally — no args needed.
 class QrScanScreen extends StatelessWidget {
-  const QrScanScreen({super.key, required this.args});
-
-  final QrScannerArgs args;
+  const QrScanScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<QrValidationCubit>(
       create: (_) => serviceLocator<QrValidationCubit>(),
-      child: _QrScanView(args: args),
+      child: const _QrScanView(),
     );
   }
 }
 
 class _QrScanView extends StatefulWidget {
-  const _QrScanView({required this.args});
-  final QrScannerArgs args;
+  const _QrScanView();
 
   @override
   State<_QrScanView> createState() => _QrScanViewState();
@@ -63,56 +64,50 @@ class _QrScanViewState extends State<_QrScanView> {
     _controller?.resumeCamera();
   }
 
-  void _navigateAfterSuccess() {
+  /// Routes to the correct attendance form based on the cubit-resolved route.
+  void _navigateAfterSuccess(QrNavigationRoute route) {
     if (_hasNavigated) return;
     _hasNavigated = true;
 
-    final route = widget.args.isGuardianFlow
-        ? _resolveGuardianRoute()
-        : _resolveStaffRoute();
+    final Widget destination;
+    switch (route) {
+      case QrNavigationRoute.guardianSignIn:
+        destination = const StudentSelectionSignInForm(isQrScan: true);
+      case QrNavigationRoute.guardianSignOut:
+        destination = const StudentSelectionSignOutForm(isQrScan: true);
+      case QrNavigationRoute.staffSignIn:
+        destination = const StaffSignInForm();
+      case QrNavigationRoute.staffSignOut:
+        destination = const StaffSignOutForm();
+    }
 
-    Navigator.push(context, MaterialPageRoute(builder: (_) => route));
-  }
-
-  Widget _resolveGuardianRoute() {
-    final statuses = widget.args.studentSignInStatuses ?? [];
-    final allSignedIn = statuses.isNotEmpty && statuses.every((s) => s);
-    if (allSignedIn) return const StudentSelectionSignOutForm();
-    return const StudentSelectionSignInForm();
-  }
-
-  Widget _resolveStaffRoute() {
-    final isSignedIn = widget.args.staffSignedIn ?? false;
-    if (isSignedIn) return const StaffSignOutForm();
-    return const StaffSignInForm();
+    Navigator.push(context, MaterialPageRoute(builder: (_) => destination));
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<QrValidationCubit, QrValidationState>(
-      listenWhen: (prev, curr) => curr is! QrValidationLoading,
+      listenWhen: (_, curr) => curr is! QrValidationLoading,
       listener: (context, state) {
         if (state is QrValidationSuccess) {
           if (state.result.valid) {
-            _navigateAfterSuccess();
+            _navigateAfterSuccess(state.route);
           } else {
-            final reason = state.result.reason ?? 'QR code is not valid';
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(reason)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.result.reason ?? 'QR code is not valid')),
+            );
             _resetScan();
           }
         } else if (state is QrValidationFailure) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
           _resetScan();
         }
       },
       child: Scaffold(
         body: BlocBuilder<QrValidationCubit, QrValidationState>(
           builder: (context, state) {
-            final isValidating = state is QrValidationLoading;
             return Stack(
               children: [
                 Column(
@@ -126,9 +121,7 @@ class _QrScanViewState extends State<_QrScanView> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             Text(
-                              _result != null
-                                  ? 'Validating...'
-                                  : 'Scan a QR code',
+                              _result != null ? 'Validating...' : 'Scan a QR code',
                               style: const TextStyle(fontSize: 16),
                             ),
                             Row(
@@ -145,7 +138,7 @@ class _QrScanViewState extends State<_QrScanView> {
                     ),
                   ],
                 ),
-                if (isValidating) _buildLoadingOverlay(),
+                if (state is QrValidationLoading) _buildLoadingOverlay(),
               ],
             );
           },
@@ -155,8 +148,7 @@ class _QrScanViewState extends State<_QrScanView> {
   }
 
   Widget _buildQrView() {
-    final scanArea =
-        (MediaQuery.of(context).size.width < 400 ||
+    final scanArea = (MediaQuery.of(context).size.width < 400 ||
             MediaQuery.of(context).size.height < 400)
         ? 150.0
         : 300.0;
@@ -289,44 +281,56 @@ class _QrScanViewState extends State<_QrScanView> {
     setState(() => _controller = controller);
 
     controller.scannedDataStream.listen((scanData) async {
-      if (_result != null || scanData.code == null) return;
+      final raw = scanData.code?.trim();
+      // Duplicate scan guard — camera is paused immediately after first scan.
+      if (_result != null || raw == null || raw.isEmpty) return;
 
       setState(() => _result = scanData);
       await controller.pauseCamera();
-      log('QR scanned: ${scanData.code}');
 
-      final parts = scanData.code!.split('|');
-      if (parts.length >= 3 && parts[0] == 'SCHOOL_QR') {
-        final schoolId = parts[1];
-        final qrToken = parts[2];
-        log('schoolId=$schoolId  qrToken=$qrToken');
-
+      final token = _extractToken(raw);
+      if (token == null) {
         if (!mounted) return;
-        context.read<QrValidationCubit>().validate(
-          schoolCode: schoolId,
-          qrToken: qrToken,
-          useCase: widget.args.useCase,
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid QR code')),
         );
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invalid QR code format')));
         _resetScan();
+        return;
       }
+
+      if (!mounted) return;
+      // Pass the opaque token to the cubit. The cubit resolves school code,
+      // user role, and sign-in status, then sends the correct useCase to the API.
+      context.read<QrValidationCubit>().validate(qrToken: token);
     });
+  }
+
+  /// Extracts the opaque token from the scanned string.
+  ///
+  /// Priority: JSON `qrToken` → JSON `qrPayload` → raw string.
+  String? _extractToken(String raw) {
+    if (raw.startsWith('{')) {
+      try {
+        final map = jsonDecode(raw) as Map<String, dynamic>;
+        return QrTokenExtractor.extractFromMap(map);
+      } catch (_) {
+        // Not valid JSON — fall through.
+      }
+    }
+    return raw.isNotEmpty ? raw : null;
   }
 
   void _onPermissionSet(QRViewController ctrl, bool granted) {
     if (!granted && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Camera permission denied')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Camera permission denied')),
+      );
     }
   }
 
   @override
   void dispose() {
+    // QRViewController self-disposes when QRView is unmounted.
     super.dispose();
   }
 }

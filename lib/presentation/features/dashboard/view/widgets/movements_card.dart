@@ -1,15 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
-// UI-layer student model — carries avatar data from the entity
+// UI-layer student model
 // ---------------------------------------------------------------------------
 
 class _MovementStudent {
@@ -27,7 +30,7 @@ class _MovementStudent {
 }
 
 // ---------------------------------------------------------------------------
-// UI-layer grouped movement — one row per (date × from → to × bucket)
+// UI-layer grouped movement row
 // ---------------------------------------------------------------------------
 
 class _GroupedMovement {
@@ -53,24 +56,33 @@ class _GroupedMovement {
 }
 
 // ---------------------------------------------------------------------------
-// Grouping helper — converts the board into display rows
+// Grouping + sort/cap helper
 // ---------------------------------------------------------------------------
 
-List<_GroupedMovement> _buildGroupedRows(IndividualMovementBoard board) {
-  // Use insertion-ordered map so overdue → upcoming → confirmed → rejected.
+/// Converts [board] into display rows, **sorted newest-first** and capped at
+/// [maxRows]. Sorting and capping happen here (not in the build method) so the
+/// widget tree stays free of expensive transformations.
+List<_GroupedMovement> _buildGroupedRows(
+  IndividualMovementBoard board, {
+  int maxRows = 5,
+}) {
+  // Insertion-ordered map: overdue → upcoming → confirmed → rejected.
   final map = <String, _GroupedMovement>{};
 
   void addBucket(List<IndividualMovement> movements, String label) {
     for (final m in movements) {
       final dateKey = _dateKey(m.movementDate);
       final key = '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|$label';
-
       final existing = map[key];
       if (existing != null) {
         existing.students.add(_studentFrom(m));
       } else {
-        final from = m.fromClassroomName.trim().isEmpty ? null : m.fromClassroomName.trim();
-        final to = m.toClassroomName.trim().isEmpty ? null : m.toClassroomName.trim();
+        final from = m.fromClassroomName.trim().isEmpty
+            ? null
+            : m.fromClassroomName.trim();
+        final to = m.toClassroomName.trim().isEmpty
+            ? null
+            : m.toClassroomName.trim();
         map[key] = _GroupedMovement(
           movementDate: m.movementDate,
           movementDay: m.movementDate.day.toString().padLeft(2, '0'),
@@ -90,22 +102,44 @@ List<_GroupedMovement> _buildGroupedRows(IndividualMovementBoard board) {
   addBucket(board.confirmed, 'Confirmed');
   addBucket(board.rejected, 'Rejected');
 
-  return map.values.toList(growable: false);
+  final rows = map.values.toList(growable: false);
+
+  // Sort newest first so the most relevant movements appear at the top.
+  rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
+
+  // Cap to the requested maximum.
+  return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
 }
 
 _MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
-      id: m.id,
-      name: m.studentName,
-      avatarInitials: m.studentAvatarInitials,
-      profilePhotoAssetCode:
-          (m.profilePhotoAssetCode?.trim().isEmpty ?? true) ? null : m.profilePhotoAssetCode,
-    );
+  id: m.id,
+  name: m.studentName,
+  avatarInitials: m.studentAvatarInitials,
+  profilePhotoAssetCode: (m.profilePhotoAssetCode?.trim().isEmpty ?? true)
+      ? null
+      : m.profilePhotoAssetCode,
+);
 
 String _dateKey(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+    '${d.year.toString().padLeft(4, '0')}'
+    '${d.month.toString().padLeft(2, '0')}'
+    '${d.day.toString().padLeft(2, '0')}';
 
 String _monthAbbr(int month) {
-  const abbrs = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const abbrs = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   return abbrs[(month - 1).clamp(0, 11)];
 }
 
@@ -123,9 +157,7 @@ class MovementsCard extends StatefulWidget {
 class _MovementsCardState extends State<MovementsCard> {
   bool _minimized = false;
 
-  // -------------------------------------------------------------------------
-  // Status colour helpers
-  // -------------------------------------------------------------------------
+  // ── Status colour helpers ──────────────────────────────────────────────────
 
   Color _statusColor(String status) {
     switch (status) {
@@ -157,52 +189,53 @@ class _MovementsCardState extends State<MovementsCard> {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Students dialog
-  // -------------------------------------------------------------------------
+  // ── Students dialog ────────────────────────────────────────────────────────
 
-  void _showStudentsDialog(BuildContext context, List<_MovementStudent> students) {
-    showDialog(
-      context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: const Text('Students'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: students.length,
-              itemBuilder: (_, index) {
-                final s = students[index];
-                return ListTile(
-                  leading: DocumentImageWidget(
-                    fileUuid: '',
-                    mediaAssetCode: s.profilePhotoAssetCode,
-                    name: s.name.isEmpty ? s.avatarInitials : s.name,
-                    size: 40,
-                    fontSize: 16,
-                    disableProfileLookupFallback: true,
-                    disableAttendanceStatusLookup: true,
-                  ),
-                  title: Text(s.name),
-                );
-              },
+  void _showStudentsDialog(
+    BuildContext context,
+    List<_MovementStudent> students,
+  ) {
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (BuildContext ctx) {
+          return AlertDialog(
+            title: const Text('Students'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: students.length,
+                itemBuilder: (_, index) {
+                  final s = students[index];
+                  return ListTile(
+                    leading: DocumentImageWidget(
+                      fileUuid: '',
+                      mediaAssetCode: s.profilePhotoAssetCode,
+                      name: s.name.isEmpty ? s.avatarInitials : s.name,
+                      size: 40,
+                      fontSize: 16,
+                      disableProfileLookupFallback: true,
+                      disableAttendanceStatusLookup: true,
+                    ),
+                    title: Text(s.name),
+                  );
+                },
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Student avatar stack (max 5, overflow indicator)
-  // -------------------------------------------------------------------------
+  // ── Student avatar stack (max 5, overflow indicator) ──────────────────────
 
   Widget _buildStudentAvatars(List<_MovementStudent> students) {
     final displayCount = students.length > 5 ? 5 : students.length;
@@ -220,7 +253,6 @@ class _MovementsCardState extends State<MovementsCard> {
               children: List.generate(displayCount, (index) {
                 final isOverflowSlot = index == 4 && students.length > 5;
                 final s = students[index];
-
                 return Positioned(
                   right: index * 5.0,
                   child: isOverflowSlot
@@ -269,9 +301,7 @@ class _MovementsCardState extends State<MovementsCard> {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Status pill badge
-  // -------------------------------------------------------------------------
+  // ── Status pill badge ──────────────────────────────────────────────────────
 
   Widget _buildStatusBadge(String status) {
     return Container(
@@ -292,9 +322,7 @@ class _MovementsCardState extends State<MovementsCard> {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Individual movement row
-  // -------------------------------------------------------------------------
+  // ── Individual movement row ────────────────────────────────────────────────
 
   Widget _buildMoveItem({
     required String month,
@@ -329,7 +357,7 @@ class _MovementsCardState extends State<MovementsCard> {
                 ],
               ),
             ),
-            // Coloured vertical divider line
+            // Coloured vertical divider
             Container(
               width: 3,
               height: 64,
@@ -389,25 +417,28 @@ class _MovementsCardState extends State<MovementsCard> {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Empty state
-  // -------------------------------------------------------------------------
+  // ── Empty state ────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Center(
-        child: Text(
-          'No movements scheduled',
-          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.swap_horiz_rounded, size: 36, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(
+              'No movements scheduled',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Build
-  // -------------------------------------------------------------------------
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -425,13 +456,9 @@ class _MovementsCardState extends State<MovementsCard> {
           DashboardCardHeader(
             title: 'Movements',
             showRedirect: true,
-            onRedirect: () {},
+            onRedirect: () => context.go(IndividualMovementScreen.routeName),
             minimized: _minimized,
-            onToggle: () {
-              setState(() {
-                _minimized = !_minimized;
-              });
-            },
+            onToggle: () => setState(() => _minimized = !_minimized),
           ),
           const SizedBox(height: 24),
           AnimatedSize(
@@ -446,20 +473,26 @@ class _MovementsCardState extends State<MovementsCard> {
 
   Widget _buildBody() {
     return BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
+      // Only rebuild when board content or loading state changes.
+      buildWhen: (prev, curr) =>
+          prev.board != curr.board ||
+          prev.isLoading != curr.isLoading ||
+          prev.isRefreshing != curr.isRefreshing,
       builder: (context, state) {
-        // First load with no cached data yet → shimmer
+        // First load — no data yet → shimmer.
         if (state.isLoading && state.board == null) {
           return const MovementsCardShimmer();
         }
 
-        // Error with no data to show
+        // Error with no data.
         if (state.board == null && state.errorMessage != null) {
           return _buildEmptyState();
         }
 
-        // Board available (may be refreshing silently in background)
         if (state.board != null) {
-          final rows = _buildGroupedRows(state.board!);
+          // Sorting and capping (latest 5) happen in _buildGroupedRows — not
+          // here — so the build method stays O(1) on rebuilds.
+          final rows = _buildGroupedRows(state.board!, maxRows: 5);
           if (rows.isEmpty) return _buildEmptyState();
 
           return Column(
@@ -481,7 +514,6 @@ class _MovementsCardState extends State<MovementsCard> {
           );
         }
 
-        // Initial state before first load
         return const MovementsCardShimmer();
       },
     );

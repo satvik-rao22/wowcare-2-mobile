@@ -142,6 +142,7 @@ class MainActivity : FlutterActivity() {
                 "com.baseflow.permissionhandler.PermissionHandlerPlugin",
                 "net.touchcapture.qr.flutterqrplus.FlutterQrPlusPlugin",
                 "io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin",
+                "com.wiseowl.wowcareapp.GeofencePlugin",
                 "io.flutter.plugins.urllauncher.UrlLauncherPlugin",
                 "io.flutter.plugins.videoplayer.VideoPlayerPlugin",
                 "xyz.justsoft.video_thumbnail.VideoThumbnailPlugin",

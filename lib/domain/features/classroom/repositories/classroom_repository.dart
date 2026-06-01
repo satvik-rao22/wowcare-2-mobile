@@ -45,12 +45,14 @@ abstract class ClassroomRepository {
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// Per-classroom staff attendance summary keyed by classroom code.
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// Returns students for a classroom via `GET /api/v1/student-classroom`.

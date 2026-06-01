@@ -195,10 +195,17 @@ class _StudentAttendanceDailyViewScreenState
           }
         });
       } else {
-        _statusLegendFilter = widget.incomingFilter == 'Present'
-            ? 'Signed-In'
-            : widget.incomingFilter;
-        _applyLegendApiFilters(_statusLegendFilter);
+        if (normalizedStatus == 'ABSENT') {
+          // When routed in from dashboards (e.g. EnrollmentCard "Absent"),
+          // open the Absent Toggle view inside the Daily tab.
+          _showAbsentOnly = true;
+          _statusLegendFilter = 'Absent';
+        } else {
+          _statusLegendFilter = widget.incomingFilter == 'Present'
+              ? 'Signed-In'
+              : widget.incomingFilter;
+          _applyLegendApiFilters(_statusLegendFilter);
+        }
       }
     }
 

@@ -8,6 +8,9 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+
+import '../../../../core/util/storage_keys.dart';
 
 part 'my_childs_day_state.dart';
 
@@ -63,14 +66,45 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
       var guardianClockPin = '';
       try {
-        final guardians =
-            await _studentRepository.getStudentGuardians(studentCode: code);
-        final primary = guardians.where((g) => g.primaryContact).firstOrNull;
+        final guardians = await _studentRepository.getStudentGuardians(
+          studentCode: code,
+        );
+        final loggedInUserCode =
+            (await _storageService.getString(StorageKeys.userCode) ?? '')
+                .trim();
+        final loggedInGuardianCode =
+            (await _storageService.getString(StorageKeys.guardianCode) ?? '')
+                .trim();
+
         final withPin = guardians
             .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
-            .toList();
+            .toList(growable: false);
+
+        StudentGuardian? matchForUser;
+        if (loggedInUserCode.isNotEmpty || loggedInGuardianCode.isNotEmpty) {
+          for (final g in withPin) {
+            if (loggedInUserCode.isNotEmpty &&
+                g.userCode.trim() == loggedInUserCode) {
+              matchForUser = g;
+              break;
+            }
+            if (loggedInGuardianCode.isNotEmpty &&
+                g.guardianCode.trim() == loggedInGuardianCode) {
+              matchForUser = g;
+              break;
+            }
+          }
+        }
+
+        final primaryWithPin = withPin
+            .where((g) => g.primaryContact)
+            .firstOrNull;
+
         guardianClockPin =
-            (primary?.clockPin ?? (withPin.firstOrNull?.clockPin ?? ''))
+            ((matchForUser?.clockPin) ??
+                    (primaryWithPin?.clockPin) ??
+                    (withPin.firstOrNull?.clockPin) ??
+                    '')
                 .trim();
       } catch (_) {
         // Non-blocking: pin is optional for dashboard display.

@@ -4,10 +4,10 @@ import '../repositories/attendance_repository.dart';
 enum QrAttendanceUseCase {
   guardianSignIn('GUARDIAN_SIGN_IN'),
   guardianSignOut('GUARDIAN_SIGN_OUT'),
-  staffSignIn('STAFF_SIGN_IN'),
-  staffSignOut('STAFF_SIGN_OUT'),
-  adminSignIn('ADMIN_SIGN_IN'),
-  adminSignOut('ADMIN_SIGN_OUT');
+  staffSignIn('STAFF_SELF_SIGN_IN'),
+  staffSignOut('STAFF_SELF_SIGN_OUT'),
+  adminSignIn('STAFF_SELF_SIGN_IN'),
+  adminSignOut('STAFF_SELF_SIGN_OUT');
 
   const QrAttendanceUseCase(this.apiValue);
   final String apiValue;

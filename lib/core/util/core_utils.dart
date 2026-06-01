@@ -224,9 +224,7 @@ class CoreUtils {
                   decoration: BoxDecoration(
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: borderColor,
-                    ),
+                    border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),

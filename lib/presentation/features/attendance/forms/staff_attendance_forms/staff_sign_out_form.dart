@@ -15,6 +15,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -22,6 +24,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 class StaffSignOutForm extends StatefulWidget {
   const StaffSignOutForm({super.key, this.staff, this.staffList});
@@ -129,7 +132,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     setState(() {
       _isSubmitting = true;
     });
-
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -246,6 +248,28 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ? classroomCodeByStaffCode.values.first
         : '';
 
+    GeofenceState? geofenceState;
+    try {
+      geofenceState = context.read<GeofenceCubit>().state;
+    } catch (_) {
+      geofenceState = null;
+    }
+    final bool withinGeofence = geofenceState?.isWithinGeofence ?? false;
+
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
@@ -253,9 +277,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'classroomCode': classroomCode,
       'classroomCodeByStaffCode': classroomCodeByStaffCode,
       'method': 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
+      'latitude': position?.latitude ?? 0,
+      'longitude': position?.longitude ?? 0,
+      'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
       'occurredAt': occurredAt.toUtc().toIso8601String(),
     };
@@ -418,10 +442,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     );
   }
 
-  Widget _buildStaffCard(
-    StaffEntity staff, {
-    required bool canRemove,
-  }) {
+  Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

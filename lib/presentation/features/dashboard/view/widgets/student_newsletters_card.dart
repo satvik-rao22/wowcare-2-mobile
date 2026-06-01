@@ -348,19 +348,24 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
                       color: AppColors.primaryColor.withValues(alpha: 0.08),
                     ),
                     itemBuilder: (context, index) {
-                      final accentColor = _newsletterAccentColors[
-                          index % _newsletterAccentColors.length];
-                      final selectedChild =
-                          Provider.of<ParentChildCubit>(context).selectedChild;
-                      final classroomName = (selectedChild?.primaryClassroomName ??
-                              selectedChild?.classroom ??
-                              '')
-                          .toString()
-                          .trim();
+                      final accentColor =
+                          _newsletterAccentColors[index %
+                              _newsletterAccentColors.length];
+                      final selectedChild = Provider.of<ParentChildCubit>(
+                        context,
+                      ).selectedChild;
+                      final classroomName =
+                          (selectedChild?.primaryClassroomName ??
+                                  selectedChild?.classroom ??
+                                  '')
+                              .toString()
+                              .trim();
                       return _NewsletterRow(
                         item: visible[index],
                         accentColor: accentColor,
-                        classroomName: classroomName.isEmpty ? '-' : classroomName,
+                        classroomName: classroomName.isEmpty
+                            ? '-'
+                            : classroomName,
                       );
                     },
                   );
@@ -423,11 +428,7 @@ class _NewsletterRow extends StatelessWidget {
                 color: accentColor.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.article_outlined,
-                color: accentColor,
-                size: 32,
-              ),
+              child: Icon(Icons.article_outlined, color: accentColor, size: 32),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -462,26 +463,26 @@ class _NewsletterRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.remove_red_eye_outlined,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$recipientCount',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
+                      // Row(
+                      //   mainAxisSize: MainAxisSize.min,
+                      //   children: [
+                      //     Icon(
+                      //       Icons.remove_red_eye_outlined,
+                      //       size: 14,
+                      //       color: Colors.grey[600],
+                      //     ),
+                      //     const SizedBox(width: 4),
+                      //     Text(
+                      //       '$recipientCount',
+                      //       maxLines: 1,
+                      //       overflow: TextOverflow.ellipsis,
+                      //       style: TextStyle(
+                      //         color: Colors.grey[600],
+                      //         fontSize: 13,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
                     ],
                   ),
                   const SizedBox(height: 2),

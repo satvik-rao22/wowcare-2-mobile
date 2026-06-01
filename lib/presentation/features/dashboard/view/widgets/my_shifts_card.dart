@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Height of one hour-row in the shift calendar grid.
@@ -41,29 +45,9 @@ class DailyShifts {
   final List<Shift> shifts;
 }
 
-// ---------------------------------------------------------------------------
-// Hardcoded mock data.
-// ---------------------------------------------------------------------------
-const String _mockStaffName = 'Natasha White';
-const String _mockDesignation = 'Lead Teacher';
-const String _mockClassroom = '1-Blue-D';
-const String _availableHours = '45';
-const String _scheduledHours = '35';
-const String _unscheduledHours = '10';
-
 /// School operating window — drives the calendar's hour rows (06 AM – 06 PM).
 const String _schoolStartTime = '06:00:00 AM';
 const String _schoolEndTime = '06:30:00 PM';
-
-const List<Shift> _mockShifts = [
-  Shift(start: '07:00:00 AM', end: '05:30:00 PM', room: '1-Blue-D'),
-  Shift(
-    start: '12:00:00 PM',
-    end: '12:30:00 PM',
-    room: 'Lunch Break',
-    isBreakShift: true,
-  ),
-];
 
 /// "My Shifts" dashboard card.
 ///
@@ -80,163 +64,212 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
   bool _minimized = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // ignore: discarded_futures
+      context.read<MyShiftsCubit>().load();
+    });
+  }
+
+  List<Shift> _mapToCalendarBlocks(MyShiftsState state) {
+    final shifts = state.todayShifts;
+    if (shifts.isEmpty) return const <Shift>[];
+
+    final blocks = <Shift>[];
+    for (final s in shifts) {
+      final classroom =
+          (s.classroomName.trim().isNotEmpty
+                  ? s.classroomName.trim()
+                  : s.classroomCode.trim())
+              .trim();
+      blocks.add(
+        Shift(
+          start: MyShiftsCubit.formatBlockTime(s.startTime),
+          end: MyShiftsCubit.formatBlockTime(s.endTime),
+          room: classroom.isEmpty ? '-' : classroom,
+          shiftCode: s.shiftCode,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header: "My Shifts" title + collapse toggle ───────────────
-            DashboardCardHeader(
-              title: 'My Shifts',
-              showRedirect: true,
-              onRedirect: () {},
-              minimized: _minimized,
-              onToggle: () => setState(() => _minimized = !_minimized),
+      );
+
+      final breakStart = s.breakStartTime;
+      final breakEnd = s.breakEndTime;
+      if (breakStart != null && breakEnd != null) {
+        blocks.add(
+          Shift(
+            start: MyShiftsCubit.formatBlockTime(breakStart),
+            end: MyShiftsCubit.formatBlockTime(breakEnd),
+            room: 'Break',
+            isBreakShift: true,
+            shiftCode: s.shiftCode,
+          ),
+        );
+      }
+    }
+    return blocks;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<MyShiftsCubit, MyShiftsState>(
+      buildWhen: (p, c) =>
+          p.status != c.status ||
+          p.staffCode != c.staffCode ||
+          p.staffName != c.staffName ||
+          p.designation != c.designation ||
+          p.classroomLabel != c.classroomLabel ||
+          p.availableHours != c.availableHours ||
+          p.scheduledHours != c.scheduledHours ||
+          p.unscheduledHours != c.unscheduledHours ||
+          p.todayShifts != c.todayShifts,
+      builder: (context, state) {
+        final staffName = state.staffName.trim().isNotEmpty
+            ? state.staffName.trim()
+            : '—';
+        final designation = state.designation.trim().isNotEmpty
+            ? state.designation.trim()
+            : '—';
+        final classroom = state.classroomLabel.trim().isNotEmpty
+            ? state.classroomLabel.trim()
+            : '—';
+
+        final blocks = _mapToCalendarBlocks(state);
+
+        return Card(
+          elevation: 0,
+          color: Colors.white,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: AppColors.primaryColor.withValues(alpha: 0.1),
             ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header: "My Shifts" title + collapse toggle ───────────────
+                DashboardCardHeader(
+                  title: 'My Shifts',
+                  showRedirect: true,
+                  onRedirect: () => context.go(StaffSchedulingScreen.routeName),
+                  minimized: _minimized,
+                  onToggle: () => setState(() => _minimized = !_minimized),
+                ),
 
-            // ── Collapsible body ──────────────────────────────────────────
-            AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              child: _minimized
-                  ? const SizedBox.shrink()
-                  : Column(
-                      children: [
-                        const SizedBox(height: 16),
-
-                        // Staff profile row.
-                        Row(
+                // ── Collapsible body ──────────────────────────────────────────
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _minimized
+                      ? const SizedBox.shrink()
+                      : Column(
                           children: [
-                            Stack(
+                            const SizedBox(height: 16),
+
+                            // Staff profile row.
+                            Row(
                               children: [
-                                const DocumentImageWidget(
+                                DocumentImageWidget(
                                   fileUuid: '',
-                                  name: _mockStaffName,
+                                  staffCode: state.staffCode.isNotEmpty
+                                      ? state.staffCode
+                                      : null,
+                                  name: staffName,
                                   size: 80,
                                   fontSize: 28,
-                                  disableProfileLookupFallback: true,
-                                  disableAttendanceStatusLookup: true,
                                 ),
-                                // Signed-in status indicator.
-                                Positioned(
-                                  top: 3,
-                                  right: 3,
-                                  child: Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      color: const Color.fromRGBO(
-                                        0,
-                                        177,
-                                        21,
-                                        1,
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        staffName,
+                                        style: const TextStyle(
+                                          color: AppColors.primaryColor,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      borderRadius: BorderRadius.circular(100),
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              designation,
+                                              style: const TextStyle(
+                                                color: AppColors.primaryColor,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Flexible(
+                                            child: Text(
+                                              classroom,
+                                              style: const TextStyle(
+                                                color: AppColors.primaryColor,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    _mockStaffName,
-                                    style: TextStyle(
-                                      color: AppColors.primaryColor,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: const [
-                                      Flexible(
-                                        child: Text(
-                                          _mockDesignation,
-                                          style: TextStyle(
-                                            color: AppColors.primaryColor,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Flexible(
-                                        child: Text(
-                                          _mockClassroom,
-                                          style: TextStyle(
-                                            color: AppColors.primaryColor,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                            const SizedBox(height: 16),
+
+                            // Weekly hour summary.
+                            ShiftHoursTile(
+                              bgColor: const Color.fromRGBO(255, 250, 234, 1.0),
+                              label: 'Available Hours',
+                              hours: state.availableHours.toString(),
+                              icon: MediaRes.availableHoursIcon,
+                            ),
+                            const SizedBox(height: 16),
+                            ShiftHoursTile(
+                              bgColor: const Color.fromRGBO(234, 255, 250, 1.0),
+                              label: 'Scheduled Hours',
+                              hours: state.scheduledHours.toString(),
+                              icon: MediaRes.scheduledHoursIcon,
+                            ),
+                            const SizedBox(height: 16),
+                            ShiftHoursTile(
+                              bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
+                              label: 'Unscheduled Hours',
+                              hours: state.unscheduledHours.toString(),
+                              icon: MediaRes.unScheduledHoursIcon,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Day shift calendar grid (Time header + grid).
+                            ShiftCalendar(
+                              dailyRoomSchedule: DailyShifts(shifts: blocks),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-
-                        // Weekly hour summary.
-                        const ShiftHoursTile(
-                          bgColor: Color.fromRGBO(255, 250, 234, 1.0),
-                          label: 'Available Hours',
-                          hours: _availableHours,
-                          icon: MediaRes.availableHoursIcon,
-                        ),
-                        const SizedBox(height: 16),
-                        const ShiftHoursTile(
-                          bgColor: Color.fromRGBO(234, 255, 250, 1.0),
-                          label: 'Scheduled Hours',
-                          hours: _scheduledHours,
-                          icon: MediaRes.scheduledHoursIcon,
-                        ),
-                        const SizedBox(height: 16),
-                        const ShiftHoursTile(
-                          bgColor: Color.fromRGBO(22, 40, 49, 0.01),
-                          label: 'Unscheduled Hours',
-                          hours: _unscheduledHours,
-                          icon: MediaRes.unScheduledHoursIcon,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Day shift calendar grid (Time header + grid).
-                        const ShiftCalendar(
-                          dailyRoomSchedule: DailyShifts(shifts: _mockShifts),
-                        ),
-                      ],
-                    ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -365,8 +398,12 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
     // Round end up if it has loose minutes/seconds.
     if (endTime.minute > 0 || endTime.second > 0) {
       endTime = endTime.add(const Duration(hours: 1));
-      endTime =
-          DateTime(endTime.year, endTime.month, endTime.day, endTime.hour);
+      endTime = DateTime(
+        endTime.year,
+        endTime.month,
+        endTime.day,
+        endTime.hour,
+      );
     }
 
     final slots = <String>[];
@@ -384,9 +421,7 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.07),
-        border: const Border(
-          bottom: BorderSide(width: 1, color: Colors.grey),
-        ),
+        border: const Border(bottom: BorderSide(width: 1, color: Colors.grey)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -476,9 +511,7 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
 
   Widget _buildTimeList() {
     final slots = _generateHourlyTimeSlots(_schoolStartTime, _schoolEndTime);
-    return Column(
-      children: slots.map(_buildTimeItem).toList(),
-    );
+    return Column(children: slots.map(_buildTimeItem).toList());
   }
 
   // ── Shift blocks ─────────────────────────────────────────────────────────
@@ -533,7 +566,8 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
               ),
             ),
             TextSpan(
-              text: '${_convertTimeToHHmm(shift.start)} - '
+              text:
+                  '${_convertTimeToHHmm(shift.start)} - '
                   '${_convertTimeToHHmm(shift.end)}',
               style: const TextStyle(
                 fontSize: 12,
@@ -554,7 +588,7 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
         _getTimeDifferenceInHours(shift.start, shift.end) * cellHeightRow;
     final double topSpace =
         _getTimeDifferenceInHours(_schoolStartTime, shift.start) *
-            cellHeightRow;
+        cellHeightRow;
     return Positioned(
       top: topSpace,
       left: 0,
@@ -569,8 +603,10 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
   }
 
   Widget _buildShifts() {
-    final slotCount =
-        _generateHourlyTimeSlots(_schoolStartTime, _schoolEndTime).length;
+    final slotCount = _generateHourlyTimeSlots(
+      _schoolStartTime,
+      _schoolEndTime,
+    ).length;
     return SizedBox(
       height: cellHeightRow * slotCount,
       // Single continuous bluish background covering the whole right side.

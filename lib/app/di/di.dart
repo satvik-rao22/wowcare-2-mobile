@@ -86,6 +86,14 @@ import '../../presentation/features/dashboard/cubit/student_attendance_profile_c
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
 import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
+import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -709,9 +717,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetRatioMonitoringClassroomsUseCase>(
     () => GetRatioMonitoringClassroomsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
-    () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
-  );
+  serviceLocator
+      .registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
+        () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+      );
   serviceLocator.registerFactory<GetStaffAttendanceSummaryByClassroomsUseCase>(
     () => GetStaffAttendanceSummaryByClassroomsUseCase(serviceLocator()),
   );
@@ -923,12 +932,58 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cubits (factory - new instance each time for UI)
+  serviceLocator.registerFactory<ClassroomShiftsCubit>(
+    () => ClassroomShiftsCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getClassroomForecastUseCase: serviceLocator(),
+      getSchoolStaffShiftsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyAttendanceCubit>(
+    () => MyAttendanceCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyShiftsCubit>(
+    () => MyShiftsCubit(
+      getStaffShiftsUseCase: serviceLocator(),
+      getClassroomsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminDashboardCubit>(
+    () => AdminDashboardCubit(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCubit>(
+    () => StaffDashboardCubit(),
+  );
+  serviceLocator.registerFactory<ParentDashboardCubit>(
+    () => ParentDashboardCubit(),
+  );
+  serviceLocator.registerFactory<MyDayCubit>(
+    () => MyDayCubit(
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<DashboardAttentionCubit>(
+    () => DashboardAttentionCubit(
+      availabilityRepository: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<RatioMonitoringCubit>(
     () => RatioMonitoringCubit(
       getRatioMonitoringClassroomsUseCase: serviceLocator(),
       getStudentAttendanceSummaryByClassroomsUseCase: serviceLocator(),
       getStaffAttendanceSummaryByClassroomsUseCase: serviceLocator(),
       cacheManager: serviceLocator(),
+      storageService: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<SchoolStatusCubit>(
@@ -1033,7 +1088,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
   );
   serviceLocator.registerFactory<QrValidationCubit>(
-    () => QrValidationCubit(validateQrCodeUseCase: serviceLocator()),
+    () => QrValidationCubit(
+      validateQrCodeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
 
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
@@ -1117,12 +1176,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getMessagesUseCase: serviceLocator<GetMessagesUseCase>(),
       sendMessageUseCase: serviceLocator<SendMessageUseCase>(),
       getConversationsUseCase: serviceLocator<GetConversationsUseCase>(),
-      getCachedConversationsUseCase: serviceLocator<GetCachedConversationsUseCase>(),
+      getCachedConversationsUseCase:
+          serviceLocator<GetCachedConversationsUseCase>(),
       getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
       addReactionUseCase: serviceLocator<AddReactionUseCase>(),
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
-      clearConversationsCacheUseCase: serviceLocator<ClearConversationsCacheUseCase>(),
+      clearConversationsCacheUseCase:
+          serviceLocator<ClearConversationsCacheUseCase>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
@@ -1282,7 +1343,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<WatchGeofenceUseCase>(
     () => WatchGeofenceUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GeofenceCubit>(
+  // Singleton — one cubit for the entire app lifetime so GPS state survives
+  // navigation. Never call close() on this from a dashboard widget.
+  serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
       checkLocationPermissionUseCase: serviceLocator(),
       requestLocationPermissionUseCase: serviceLocator(),

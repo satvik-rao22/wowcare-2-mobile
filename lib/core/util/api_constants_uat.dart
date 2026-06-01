@@ -33,6 +33,14 @@ class ApiConstantsUat {
   /// Attendance APIs are served under: `$_host/api/v1/attendance/...`
   static const String attendanceBaseUrl = '$_host/api/v1/attendance';
 
+  /// Builds the full QR code validation URL for a given school (UAT).
+  ///
+  /// UAT gateway routes through the attendance microservice segment, so the
+  /// path starts directly from `/schools/` after the attendance base:
+  /// `$host/api/v1/attendance/schools/{code}/attendance-settings/qr-code/validate`
+  static String qrCodeValidateEndpoint(String schoolCode) =>
+      '$attendanceBaseUrl/schools/$schoolCode/attendance-settings/qr-code/validate';
+
   /// Activity APIs are on the shared UAT host.
   static const String activityBaseUrl = _host;
 

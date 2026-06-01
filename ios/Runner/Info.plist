@@ -70,6 +70,17 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>WowCare uses your location to enable attendance within the school premises.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>WowCare uses your location in the background to enable attendance within the school premises.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>WowCare uses your location to enable attendance within the school premises.</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>

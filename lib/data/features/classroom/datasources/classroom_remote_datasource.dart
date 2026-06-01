@@ -46,11 +46,13 @@ abstract class ClassroomRemoteDataSource {
   /// Per-classroom student attendance counts from by-classrooms summary API.
   Future<Map<String, dynamic>> getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// Per-classroom staff attendance counts from by-classrooms summary API.
   Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
@@ -247,17 +249,25 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, dynamic>{};
 
     final endpoint = ApiPaths.url(
       ApiPaths.studentAttendanceExpectedSummaryCardByClassrooms,
     );
+    final qp = <String, dynamic>{
+      'classroomCodes': classroomCodes.join(','),
+    };
+    if (date != null) {
+      qp['date'] =
+          '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+    }
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{
-        'classroomCodes': classroomCodes.join(','),
-      },
+      queryParameters: qp,
     );
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
@@ -273,17 +283,25 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, dynamic>{};
 
     final endpoint = ApiPaths.url(
       ApiPaths.staffAttendanceExpectedSummaryCardByClassrooms,
     );
+    final qp = <String, dynamic>{
+      'classroomCodes': classroomCodes.join(','),
+    };
+    if (date != null) {
+      qp['date'] =
+          '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+    }
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{
-        'classroomCodes': classroomCodes.join(','),
-      },
+      queryParameters: qp,
     );
     if (response.data is! Map<String, dynamic>) {
       throw Exception(

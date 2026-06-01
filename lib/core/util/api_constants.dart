@@ -198,6 +198,15 @@ class ApiConstants {
       ? ApiConstantsUat.attendanceBaseUrl
       : 'https://wnmrl4rn-8083.inc1.devtunnels.ms/attendance';
 
+  /// Builds the full QR code validation URL for [schoolCode].
+  ///
+  /// UAT and local devtunnel have different path structures:
+  /// - UAT: `{host}/api/v1/attendance/schools/{code}/attendance-settings/qr-code/validate`
+  /// - Local: `{attendance-base}/api/v1/schools/{code}/attendance-settings/qr-code/validate`
+  static String qrCodeValidateEndpoint(String schoolCode) => isUat
+      ? ApiConstantsUat.qrCodeValidateEndpoint(schoolCode)
+      : '$attendanceBaseUrl/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
+
   /// Activity base (LOCAL devtunnel) or UAT base host.
   static String get activityBaseUrl => isUat
       ? ApiConstantsUat.activityBaseUrl

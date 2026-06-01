@@ -1877,10 +1877,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required String qrToken,
     required String useCase,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.qrCodeValidate(schoolCode),
-      ApiConstants.attendanceBaseUrl,
-    );
+    final endpoint = ApiConstants.qrCodeValidateEndpoint(schoolCode);
     final body = QrValidationRequestModel(
       qrToken: qrToken,
       useCase: useCase,

@@ -60,10 +60,12 @@ class StaffAttendanceDailyViewScreen extends StatefulWidget {
   final VoidCallback? onAttendanceMutated;
 
   @override
-  State<StaffAttendanceDailyViewScreen> createState() => _StaffAttendanceDailyViewScreenState();
+  State<StaffAttendanceDailyViewScreen> createState() =>
+      _StaffAttendanceDailyViewScreenState();
 }
 
-class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyViewScreen>
+class _StaffAttendanceDailyViewScreenState
+    extends State<StaffAttendanceDailyViewScreen>
     implements DailyAttendanceParentRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -104,12 +106,21 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    
+
     // Handle incoming filter
     if (widget.incomingFilter != null) {
-      _statusLegendFilter =
-          widget.incomingFilter == 'Present' ? 'Signed-In' : widget.incomingFilter;
-      _applyLegendApiFilters(_statusLegendFilter);
+      final normalized = widget.incomingFilter!.trim().toUpperCase();
+      if (normalized == 'ABSENT') {
+        // When routed in from dashboards (e.g. EnrollmentCard "Absent"),
+        // open the Absent Toggle view inside the Daily tab.
+        _showAbsentOnly = true;
+        _statusLegendFilter = 'Absent';
+      } else {
+        _statusLegendFilter = widget.incomingFilter == 'Present'
+            ? 'Signed-In'
+            : widget.incomingFilter;
+        _applyLegendApiFilters(_statusLegendFilter);
+      }
     }
 
     // Handle classroom filter
@@ -147,8 +158,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       final storage = serviceLocator<StorageService>();
       final organizationCode =
           await storage.getString(StorageKeys.organizationCode) ?? '';
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
       final useCase = serviceLocator<GetStaffCountUseCase>();
@@ -197,8 +207,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
       final storage = serviceLocator<StorageService>();
       final displayName =
           (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      final username =
-          (await storage.getString(StorageKeys.username) ?? '').trim();
+      final username = (await storage.getString(StorageKeys.username) ?? '')
+          .trim();
       final fallback = displayName.isNotEmpty
           ? displayName
           : (username.isNotEmpty ? username : '');
@@ -352,7 +362,10 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     final cleaned = raw.trim().replaceAll('_', ' ').toLowerCase();
     if (cleaned.isEmpty) return null;
     // Title-case each word
-    final words = cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = cleaned
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     final formatted = words
         .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
         .join(' ');
@@ -389,7 +402,8 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     if (code.isEmpty) return '';
 
     final fromCubit = _resolveClassroomNameByCode(code);
-    if (fromCubit != null && fromCubit.trim().isNotEmpty) return fromCubit.trim();
+    if (fromCubit != null && fromCubit.trim().isNotEmpty)
+      return fromCubit.trim();
 
     final cached = _absentToggleClassroomNameByCode[code]?.trim();
     if (cached != null && cached.isNotEmpty) return cached;
@@ -475,10 +489,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
               create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
             ),
             BlocProvider<ClassroomCubit>(
-              create: (_) => serviceLocator<ClassroomCubit>()
-                ..loadActiveClassrooms(
-                  onlyTypeClassroom: false,
-                ),
+              create: (_) =>
+                  serviceLocator<ClassroomCubit>()
+                    ..loadActiveClassrooms(onlyTypeClassroom: false),
             ),
           ],
           child: StaffScreen(incomingStatusFilter: normalized),
@@ -624,21 +637,13 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                                   ? const StaffAbsentCardShimmer()
                                   : const StaffAttendanceCardShimmer(),
                             ),
-                          )
-                        else if (_showAbsentOnly)
-                          _buildAbsentStaffList(absentState)
-                        else
-                          _buildStaffListFromState(state),
-                      ],
-                    ),
-                  ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
-              );
-              },
-            );
-          },
-        ),
-      ),
+          ),
     );
   }
 
@@ -668,8 +673,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () async {
-                    final result =
-                        await Navigator.push<Map<String, dynamic>?>(
+                    final result = await Navigator.push<Map<String, dynamic>?>(
                       context,
                       MaterialPageRoute(
                         builder: (_) => BlocProvider.value(
@@ -688,15 +692,15 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
                     if (!mounted || result == null) return;
 
-                    final String? status =
-                        (result['status'] as String?)?.trim();
+                    final String? status = (result['status'] as String?)
+                        ?.trim();
                     final String? designation =
                         (result['designation'] as String?)?.trim();
                     final List<String> classCodes =
                         (result['classCodes'] as List?)?.cast<String>() ??
-                            const <String>[];
-                    final String? sortBy =
-                        (result['sortBy'] as String?)?.trim();
+                        const <String>[];
+                    final String? sortBy = (result['sortBy'] as String?)
+                        ?.trim();
 
                     setState(() {
                       _staffFilters = FilterData(
@@ -790,7 +794,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                     _statusLegendFilter = null;
                   }
                 });
-                debugPrint('[StaffDaily] Show Absent toggled: $_showAbsentOnly');
+                debugPrint(
+                  '[StaffDaily] Show Absent toggled: $_showAbsentOnly',
+                );
                 _loadAttendanceData(context, reset: true);
               },
             ),
@@ -837,11 +843,13 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           transferSignIn = effectiveSignIn != null;
           transferSignOut = effectiveSignOut != null;
         } else if (isLast) {
-          effectiveSignIn =
-              isFirst ? item.formattedSignInTime : item.transferTime?.formattedTime;
+          effectiveSignIn = isFirst
+              ? item.formattedSignInTime
+              : item.transferTime?.formattedTime;
           effectiveSignOut = item.formattedSignOutTime;
-          effectiveSignInClock =
-              isFirst ? item.signedInTime : item.transferTime;
+          effectiveSignInClock = isFirst
+              ? item.signedInTime
+              : item.transferTime;
           effectiveSignOutClock = item.signedOutTime;
           transferSignIn = !isFirst && effectiveSignIn != null;
         }
@@ -852,21 +860,23 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
         _selectedDate.month,
         _selectedDate.day,
       );
-      final startMoment =
-          dateAtStaffAttendanceClock(day, effectiveSignInClock);
+      final startMoment = dateAtStaffAttendanceClock(day, effectiveSignInClock);
       final endMoment = dateAtStaffAttendanceClock(day, effectiveSignOutClock);
-      final attendedTimeDisplay =
-          attendedLabelFromMoments(startMoment, endMoment);
+      final attendedTimeDisplay = attendedLabelFromMoments(
+        startMoment,
+        endMoment,
+      );
 
-      final String? rawDesignation =
-          item.designation.isNotEmpty ? item.designation.first : null;
+      final String? rawDesignation = item.designation.isNotEmpty
+          ? item.designation.first
+          : null;
       final String? formattedDesignation = _formatDesignation(rawDesignation);
 
       final String effectiveClassroomCode =
           (item.isTransfer == true &&
-                  (item.toClassroomCode ?? '').trim().isNotEmpty)
-              ? item.toClassroomCode!.trim()
-              : item.classroomCode.trim();
+              (item.toClassroomCode ?? '').trim().isNotEmpty)
+          ? item.toClassroomCode!.trim()
+          : item.classroomCode.trim();
 
       _staffMembers.add(
         StaffAttendanceCardData(
@@ -880,19 +890,22 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
             classroomCode: effectiveClassroomCode.isNotEmpty
                 ? effectiveClassroomCode
                 : item.classroomCode,
-            classroomName: (item.isTransfer == true &&
+            classroomName:
+                (item.isTransfer == true &&
                     (item.toClassroomName ?? '').trim().isNotEmpty)
                 ? item.toClassroomName!
                 : item.classroomName,
           ),
-          classroomCode:
-              effectiveClassroomCode.isNotEmpty ? effectiveClassroomCode : null,
+          classroomCode: effectiveClassroomCode.isNotEmpty
+              ? effectiveClassroomCode
+              : null,
           expectedToday: item.isExpectedToday,
           hasSignIn: item.hasSignIn,
           signInTime: effectiveSignIn ?? item.formattedSignInTime,
           signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
           signInBy: _normalizeByName(item.signedInBy),
-          signOutBy: _normalizeByName(item.signedOutBy) ??
+          signOutBy:
+              _normalizeByName(item.signedOutBy) ??
               (transferSignOut ? _loggedInUserName : null),
           // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
           signInMethod: _mapMethodStringToEnum(item.signedInMethod),
@@ -918,17 +931,11 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.people_outline,
-                size: 48,
-                color: Colors.grey[400],
-              ),
+              Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
               const SizedBox(height: 16),
               AppText.body(
                 'No staff attendance records found for the selected date',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -992,9 +999,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
                     try {
                       final normalizedAttendanceCode =
                           _resolveStaffDeleteAttendanceRecordCode(
-                        card: staff,
-                        allItems: state.items,
-                      );
+                            card: staff,
+                            allItems: state.items,
+                          );
                       if (normalizedAttendanceCode == null ||
                           normalizedAttendanceCode.isEmpty) {
                         CoreUtils.showTopSnackBarFromSnackBar(
@@ -1032,9 +1039,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
 
                       await serviceLocator<AttendanceRepository>()
                           .deleteStaffAttendanceRecord(
-                        attendanceRecordCode: normalizedAttendanceCode,
-                        staffCode: staffCode,
-                      );
+                            attendanceRecordCode: normalizedAttendanceCode,
+                            staffCode: staffCode,
+                          );
 
                       if (!context.mounted) return;
                       CoreUtils.showTopSnackBarFromSnackBar(
@@ -1149,9 +1156,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
     return fromCard;
   }
 
-  Widget _buildAbsentStaffList(
-    StaffAttendanceAbsentToggleState absentState,
-  ) {
+  Widget _buildAbsentStaffList(StaffAttendanceAbsentToggleState absentState) {
     if (absentState.items.isEmpty) {
       return Center(
         child: Padding(
@@ -1167,9 +1172,7 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
               const SizedBox(height: 16),
               AppText.body(
                 'No absent staff found for the selected date',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1213,7 +1216,9 @@ class _StaffAttendanceDailyViewScreenState extends State<StaffAttendanceDailyVie
           isExpanded: _expandedAbsentIndex == index,
           onTap: () {
             setState(() {
-              _expandedAbsentIndex = _expandedAbsentIndex == index ? null : index;
+              _expandedAbsentIndex = _expandedAbsentIndex == index
+                  ? null
+                  : index;
             });
           },
           onView: () {
