@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
@@ -20,9 +21,14 @@ class StaffDocumentsTab extends StatefulWidget {
   const StaffDocumentsTab({
     super.key,
     required this.staffCode,
+    this.highlightCode,
   });
 
   final String staffCode;
+
+  /// Document code (== API `code`/documentUuid) from a notification deep-link;
+  /// the matching document card scrolls into view, expands, and flashes.
+  final String? highlightCode;
 
   @override
   State<StaffDocumentsTab> createState() => _StaffDocumentsTabState();
@@ -30,6 +36,14 @@ class StaffDocumentsTab extends StatefulWidget {
 
 class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
   bool _showExpired = false;
+
+  /// Notification deep-link target document row.
+  final GlobalKey _highlightRowKey = GlobalKey();
+  bool _isHighlightTarget(String? code) {
+    final target = (widget.highlightCode ?? '').trim();
+    final c = (code ?? '').trim();
+    return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
+  }
   late final StaffDocumentsListCubit _documentsListCubit;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -336,10 +350,31 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                               final uploadedBy = (doc.uploadedBy ?? '').trim().isEmpty
                                   ? 'system'
                                   : doc.uploadedBy!.trim();
+                              final isTarget =
+                                  _isHighlightTarget(doc.documentUuid);
+                              if (isTarget) {
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  final ctx = _highlightRowKey.currentContext;
+                                  if (ctx != null) {
+                                    Scrollable.ensureVisible(
+                                      ctx,
+                                      duration:
+                                          const Duration(milliseconds: 400),
+                                      alignment: 0.1,
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                });
+                              }
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
-                                child: Container(
+                                child: HighlightableCard(
+                                  key: isTarget ? _highlightRowKey : null,
+                                  code: doc.documentUuid,
+                                  highlightCode: widget.highlightCode,
+                                  child: Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.88),
                                     borderRadius: BorderRadius.circular(14),
@@ -352,6 +387,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                       dividerColor: Colors.transparent,
                                     ),
                                     child: ExpansionTile(
+                                      initiallyExpanded: isTarget,
                                       tilePadding: const EdgeInsets.symmetric(
                                         horizontal: 16,
                                         vertical: 4,
@@ -509,6 +545,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                       ],
                                     ),
                                   ),
+                                ),
                                 ),
                               );
                             },

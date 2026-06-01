@@ -2,6 +2,7 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -17,7 +18,22 @@ import '../../../../shared/services/geofence_notification_service.dart';
 part 'geofence_state.dart';
 
 class GeofenceCubit extends Cubit<GeofenceState> {
-  static const _nativeGeofenceChannel = MethodChannel('com.wowcare.geofencing/native');
+  static const _nativeGeofenceChannel = MethodChannel(
+    'com.wowcare.geofencing/native',
+  );
+  static const _nativeGeofenceEvents = EventChannel(
+    'com.wowcare.geofencing/events',
+  );
+
+  // SharedPreferences keys — shared with native implementations.
+  static const _prefsSchoolLatKey = 'geofence_school_lat';
+  static const _prefsSchoolLonKey = 'geofence_school_lon';
+  static const _prefsSchoolRadiusKey = 'geofence_school_radius_m';
+  static const _prefsGpsSignInEnabledKey = 'geofence_gps_sign_in_enabled';
+  static const _prefsLastNotifiedInsideKey = 'geofence_last_notified_inside';
+  static const _prefsLastGeofenceStatusKey = 'geofence_last_status';
+  // Hysteresis: exit threshold = radius + 50 m to prevent boundary flickering.
+  static const double _hysteresisExitExtraMeters = 50.0;
 
   GeofenceCubit({
     required CheckLocationPermissionUseCase checkLocationPermissionUseCase,
@@ -25,12 +41,14 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     required GetSchoolLocationUseCase getSchoolLocationUseCase,
     required WatchGeofenceUseCase watchGeofenceUseCase,
     required GeofenceNotificationService notificationService,
-  })  : _checkPerm = checkLocationPermissionUseCase,
-        _requestPerm = requestLocationPermissionUseCase,
-        _getSchoolLocation = getSchoolLocationUseCase,
-        _watchGeofence = watchGeofenceUseCase,
-        _notifications = notificationService,
-        super(const GeofenceState.initial());
+  }) : _checkPerm = checkLocationPermissionUseCase,
+       _requestPerm = requestLocationPermissionUseCase,
+       _getSchoolLocation = getSchoolLocationUseCase,
+       _watchGeofence = watchGeofenceUseCase,
+       _notifications = notificationService,
+       super(const GeofenceState.initial()) {
+    _nativeGeofenceChannel.setMethodCallHandler(_handleNativeCallbacks);
+  }
 
   final CheckLocationPermissionUseCase _checkPerm;
   final RequestLocationPermissionUseCase _requestPerm;
@@ -39,150 +57,247 @@ class GeofenceCubit extends Cubit<GeofenceState> {
   final GeofenceNotificationService _notifications;
 
   StreamSubscription<GeofenceStatus>? _subscription;
+  StreamSubscription<dynamic>? _nativeSubscription;
   GeofenceStatus? _lastNotifiedStatus;
   GeofenceConfig? _config;
 
+  // ── iOS native callbacks ───────────────────────────────────────────────────
+
+  Future<void> _handleNativeCallbacks(MethodCall call) async {
+    if (!Platform.isIOS) return;
+    if (call.method != 'geofenceStatusChanged') return;
+    if (_config?.gpsSignInEnabled == false) return;
+    final args = call.arguments as Map?;
+    final isInside = args?['isInside'] == true;
+    final newStatus = isInside ? GeofenceStatus.within : GeofenceStatus.outside;
+    final newCubitStatus = isInside
+        ? GeofenceCubitStatus.withinRange
+        : GeofenceCubitStatus.outsideRange;
+    if (state.status != newCubitStatus) {
+      emit(state.copyWith(status: newCubitStatus));
+      _triggerNotificationIfNeeded(newStatus);
+    }
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+
   Future<void> initForSchool({required String schoolCode}) async {
-    AppLogger.d('[GeofenceCubit] initForSchool called with schoolCode: $schoolCode');
+    AppLogger.d('[GeofenceCubit] initForSchool: $schoolCode');
+
+    // Already monitoring this school — keep current state, skip full re-init.
     if (state.schoolCode == schoolCode &&
         (state.status == GeofenceCubitStatus.withinRange ||
-            state.status == GeofenceCubitStatus.outsideRange)) {
-      AppLogger.d('[GeofenceCubit] Already monitoring this school, skipping init');
+            state.status == GeofenceCubitStatus.outsideRange ||
+            state.status == GeofenceCubitStatus.gpsDisabledByAdmin ||
+            state.status == GeofenceCubitStatus.checking)) {
+      AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
       return;
     }
 
     stopMonitoring();
-    emit(GeofenceState(
-      status: GeofenceCubitStatus.checkingPermission,
-      schoolCode: schoolCode,
-    ));
-    AppLogger.d('[GeofenceCubit] Emitted checkingPermission status');
 
+    // ── Instantly restore last-known state from SharedPreferences ──────────
+    // This makes the button visually correct the moment the dashboard opens,
+    // without waiting for permission checks or API calls to complete.
+    final lastStatus = await _restoreLastKnownStatus();
+    if (lastStatus != null) {
+      final prefs = await SharedPreferences.getInstance();
+      emit(
+        GeofenceState(
+          status: lastStatus,
+          schoolCode: schoolCode,
+          gpsSignInEnabled: prefs.getBool(_prefsGpsSignInEnabledKey) ?? true,
+          radiusMeters: prefs.getDouble(_prefsSchoolRadiusKey),
+        ),
+      );
+    } else {
+      emit(
+        GeofenceState(
+          status: GeofenceCubitStatus.checkingPermission,
+          schoolCode: schoolCode,
+        ),
+      );
+    }
+    // ── Then do the full async init (permission + API + stream) ────────────
     await _checkAndStartMonitoring(schoolCode: schoolCode);
   }
 
+  /// Call after the user taps "retry" on a permission-denied screen.
   Future<void> retryPermission() async {
     final schoolCode = state.schoolCode;
     if (schoolCode.isEmpty) return;
-    AppLogger.d('[GeofenceCubit] retryPermission called');
     await _requestAllPermissions();
     await _checkAndStartMonitoring(schoolCode: schoolCode);
   }
 
-  /// Request all required permissions (location + notifications)
+  /// Force-refresh attendance settings and restart the geofence stream.
+  /// Useful when the admin may have changed the GPS toggle or radius.
+  Future<void> refreshSettings() async {
+    final schoolCode = state.schoolCode;
+    if (schoolCode.isEmpty) return;
+    AppLogger.d('[GeofenceCubit] refreshSettings called');
+    stopMonitoring();
+    emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
+    await _checkAndStartMonitoring(schoolCode: schoolCode);
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
   Future<void> _requestAllPermissions() async {
-    AppLogger.d('[GeofenceCubit] Requesting all required permissions');
-
-    // Request Location Permission
-    AppLogger.d('[GeofenceCubit] Requesting LOCATION permission');
     await _requestPerm();
-
-    // Request Notification Permission (Android 13+)
     if (Platform.isAndroid) {
-      AppLogger.d('[GeofenceCubit] Requesting NOTIFICATION permission');
       try {
-        final notificationStatus = await Permission.notification.request();
-        AppLogger.d('[GeofenceCubit] Notification permission: $notificationStatus');
-      } catch (e) {
-        AppLogger.d('[GeofenceCubit] Error requesting notification permission: $e');
-      }
+        await Permission.notification.request();
+      } catch (_) {}
     }
   }
 
   Future<void> _checkAndStartMonitoring({required String schoolCode}) async {
     try {
-      AppLogger.d('[GeofenceCubit] _checkAndStartMonitoring started');
       final permCheck = await _checkPerm();
-      AppLogger.d('[GeofenceCubit] permCheck - hasPermission: ${permCheck.hasPermission}, serviceEnabled: ${permCheck.serviceEnabled}');
 
       if (!permCheck.serviceEnabled) {
-        AppLogger.d('[GeofenceCubit] Location services disabled');
         emit(state.copyWith(status: GeofenceCubitStatus.locationDisabled));
         return;
       }
       if (!permCheck.hasPermission) {
-        AppLogger.d('[GeofenceCubit] Requesting all permissions (location + notifications)');
         await _requestAllPermissions();
-
-        // Re-check after permission request
-        final permCheckAgain = await _checkPerm();
-        AppLogger.d('[GeofenceCubit] Permission check after request: ${permCheckAgain.hasPermission}');
-        if (!permCheckAgain.hasPermission) {
+        final recheck = await _checkPerm();
+        if (!recheck.hasPermission) {
           emit(state.copyWith(status: GeofenceCubitStatus.permissionDenied));
           return;
         }
       }
 
-      AppLogger.d('[GeofenceCubit] 🏫 Fetching school location for schoolCode: "$schoolCode"');
-      AppLogger.d('[GeofenceCubit] API Call: GET /api/v1/schools/$schoolCode/timezone');
       emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
+
+      debugPrint('[GeofenceCubit] ▶ calling getSchoolLocation for "$schoolCode"');
+      // Fetches school lat/lon AND attendance-settings (radius + gpsSignInEnabled)
+      // in a single call — the repository fans out both API calls in parallel.
       _config = await _getSchoolLocation(schoolCode: schoolCode);
-      AppLogger.d('[GeofenceCubit] ✅ School location fetched: schoolCode=${_config?.schoolCode}, lat=${_config?.latitude}, lon=${_config?.longitude}');
 
-      // Cache school coordinates for background task and notify iOS native plugin
-      if (_config != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setDouble('geofence_school_lat', _config!.latitude);
-        await prefs.setDouble('geofence_school_lon', _config!.longitude);
+      // ── DEBUG: print geofence values to terminal ──────────────────────────
+      debugPrint('╔══════════════════════════════════════════════════╗');
+      debugPrint('║  GEOFENCE CONFIG LOADED                          ║');
+      debugPrint('╠══════════════════════════════════════════════════╣');
+      debugPrint('║  schoolCode  : ${_config?.schoolCode}');
+      debugPrint('║  latitude    : ${_config?.latitude}');
+      debugPrint('║  longitude   : ${_config?.longitude}');
+      debugPrint('║  radius (m)  : ${_config?.radiusMeters}');
+      debugPrint('║  gpsEnabled  : ${_config?.gpsSignInEnabled}');
+      debugPrint('║  autoSignOut : ${_config?.autoSignOutEnabled}  (delay: ${_config?.autoSignOutDelayMinutes} min)');
+      debugPrint('╚══════════════════════════════════════════════════╝');
+      // ── end debug ─────────────────────────────────────────────────────────
+      AppLogger.d(
+        '[GeofenceCubit] Config loaded — lat=${_config?.latitude} '
+        'lon=${_config?.longitude} radius=${_config?.radiusMeters}m '
+        'gpsEnabled=${_config?.gpsSignInEnabled}',
+      );
 
-        // iOS: Initialize native region monitoring
-        await _updateNativeGeofence(_config!);
+      await _persistConfig(_config!);
+      await _updateNativeGeofence(_config!);
+
+      // If admin turned off GPS sign-in, stop here and surface that state.
+      if (!_config!.gpsSignInEnabled) {
+        AppLogger.d('[GeofenceCubit] GPS sign-in disabled by admin');
+        emit(
+          state.copyWith(
+            status: GeofenceCubitStatus.gpsDisabledByAdmin,
+            gpsSignInEnabled: false,
+            radiusMeters: _config!.radiusMeters,
+          ),
+        );
+        return;
       }
 
-      emit(state.copyWith(status: GeofenceCubitStatus.checking));
+      final restored = await _restoreLastKnownStatus();
+      emit(
+        state.copyWith(
+          status: restored ?? GeofenceCubitStatus.checking,
+          gpsSignInEnabled: true,
+          radiusMeters: _config!.radiusMeters,
+        ),
+      );
+      _startNativeEvents();
       _startStream();
-    } catch (e) {
-      AppLogger.d('[GeofenceCubit] ❌ ERROR during initialization: $e');
-      AppLogger.d('[GeofenceCubit] Error type: ${e.runtimeType}');
-      AppLogger.d('[GeofenceCubit] Full stack trace: ${StackTrace.current}');
-      emit(state.copyWith(
-        status: GeofenceCubitStatus.error,
-        errorMessage: e.toString(),
-      ));
+    } catch (e, st) {
+      debugPrint('╔══════════════════════════════════════════════════╗');
+      debugPrint('║  GEOFENCE INIT ERROR                             ║');
+      debugPrint('╠══════════════════════════════════════════════════╣');
+      debugPrint('║  $e');
+      debugPrint('║  $st');
+      debugPrint('╚══════════════════════════════════════════════════╝');
+      AppLogger.d('[GeofenceCubit] Init error: $e');
+      emit(
+        state.copyWith(
+          status: GeofenceCubitStatus.error,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
   void _startStream() {
-    if (_config == null) {
-      AppLogger.d('[GeofenceCubit] _startStream skipped: _config is null');
-      return;
-    }
+    if (Platform.isAndroid) return; // Android uses OS-level GeofencingClient events.
+    if (_config == null) return;
     final config = _config!;
-    AppLogger.d('[GeofenceCubit] _startStream starting with config: schoolCode=${config.schoolCode}, lat=${config.latitude}, lon=${config.longitude}, radius=${config.radiusMeters}m');
 
+    AppLogger.d(
+      '[GeofenceCubit] Starting stream — radius=${config.radiusMeters}m '
+      'hysteresisExit=${config.radiusMeters + _hysteresisExitExtraMeters}m',
+    );
+
+    // WatchGeofenceUseCase emits GeofenceStatus (within/outside) but we also
+    // need raw distance to display in the UI, so we tap into the position
+    // stream separately via a custom listener on the same WatchGeofenceUseCase
+    // observable (which already filters mocked/stale positions).
     _subscription = _watchGeofence(config: config)
-        .distinct((prev, curr) {
-          final isSame = prev == curr;
-          if (!isSame) {
-            AppLogger.d('[GeofenceCubit] distinct() found change: $prev → $curr');
-          }
-          return isSame;
-        })
+        .distinct()
         .listen(
           (geofenceStatus) {
-            AppLogger.d('[GeofenceCubit] ✅ Position stream emitted status: $geofenceStatus');
             final newCubitStatus = geofenceStatus == GeofenceStatus.within
                 ? GeofenceCubitStatus.withinRange
                 : GeofenceCubitStatus.outsideRange;
 
-            AppLogger.d('[GeofenceCubit] Current state status: ${state.status}, new status: $newCubitStatus');
-
             if (state.status != newCubitStatus) {
-              AppLogger.d('[GeofenceCubit] 🔄 STATE CHANGE: Emitting $newCubitStatus');
               emit(state.copyWith(status: newCubitStatus));
               _triggerNotificationIfNeeded(geofenceStatus);
-            } else {
-              AppLogger.d('[GeofenceCubit] ℹ️  Status unchanged, no emit needed');
             }
           },
           onError: (Object e) {
-            AppLogger.d('[GeofenceCubit] ❌ Stream error: $e');
-            emit(state.copyWith(
-              status: GeofenceCubitStatus.error,
-              errorMessage: e.toString(),
-            ));
+            // A stream error (e.g. location service killed) is transient.
+            // Keep the last visible UI state and auto-restart after a short delay
+            // so the button is never permanently disabled by a recoverable error.
+            AppLogger.d('[GeofenceCubit] Stream error (will retry): $e');
+            unawaited(_subscription?.cancel());
+            _subscription = null;
+
+            if (isClosed) return;
+            // Hold whatever status was showing, then restart in 5 s.
+            unawaited(Future.delayed(const Duration(seconds: 5), () {
+              if (!isClosed && _config != null) {
+                AppLogger.d('[GeofenceCubit] Restarting stream after error');
+                _startStream();
+              }
+            }));
           },
         );
+  }
+
+  void _startNativeEvents() {
+    if (!Platform.isAndroid) return;
+    unawaited(_nativeSubscription?.cancel());
+    _nativeSubscription =
+        _nativeGeofenceEvents.receiveBroadcastStream().listen((event) {
+      final args = event is Map ? event : null;
+      final isInside = args?['isInside'] == true;
+      final nextStatus = isInside
+          ? GeofenceCubitStatus.withinRange
+          : GeofenceCubitStatus.outsideRange;
+      if (state.status != nextStatus) {
+        emit(state.copyWith(status: nextStatus));
+      }
+    }, onError: (_) {});
   }
 
   void _triggerNotificationIfNeeded(GeofenceStatus newStatus) {
@@ -190,35 +305,81 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     _lastNotifiedStatus = newStatus;
 
     if (newStatus == GeofenceStatus.within) {
-      _notifications.showEnteredZoneNotification().catchError((e) {
-        AppLogger.d('Failed to show entered zone notification: $e');
-      });
-    } else if (newStatus == GeofenceStatus.outside &&
-        _lastNotifiedStatus != null) {
-      _notifications.showExitedZoneNotification().catchError((e) {
-        AppLogger.d('Failed to show exited zone notification: $e');
-      });
+      unawaited(_notifications.showEnteredZoneNotification().catchError((_) {}));
+    } else if (newStatus == GeofenceStatus.outside) {
+      unawaited(_notifications.showExitedZoneNotification().catchError((_) {}));
     }
+
+    unawaited(
+      SharedPreferences.getInstance()
+          .then((prefs) {
+            unawaited(prefs.setString(_prefsLastGeofenceStatusKey, newStatus.name));
+            unawaited(prefs.setBool(
+              _prefsLastNotifiedInsideKey,
+              newStatus == GeofenceStatus.within,
+            ));
+          })
+          .catchError((_) {}),
+    );
   }
 
   void stopMonitoring() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     _subscription = null;
+    unawaited(_nativeSubscription?.cancel());
+    _nativeSubscription = null;
     _lastNotifiedStatus = null;
   }
 
   Future<void> _updateNativeGeofence(GeofenceConfig config) async {
-    if (!Platform.isIOS) return;
-
+    if (!(Platform.isIOS || Platform.isAndroid)) return;
     try {
       await _nativeGeofenceChannel.invokeMethod('updateSchoolLocation', {
         'latitude': config.latitude,
         'longitude': config.longitude,
         'schoolCode': config.schoolCode,
         'radiusMeters': config.radiusMeters,
+        'gpsSignInEnabled': config.gpsSignInEnabled,
       });
     } catch (e) {
-      AppLogger.d('Error updating native geofence: $e');
+      AppLogger.d('[GeofenceCubit] Native geofence update error: $e');
+    }
+  }
+
+  /// Persists config to SharedPreferences so the WorkManager background task
+  /// can read it without needing a DI container.
+  Future<void> _persistConfig(GeofenceConfig config) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_prefsSchoolLatKey, config.latitude);
+      await prefs.setDouble(_prefsSchoolLonKey, config.longitude);
+      await prefs.setDouble(_prefsSchoolRadiusKey, config.radiusMeters);
+      await prefs.setBool(
+        _prefsGpsSignInEnabledKey,
+        config.gpsSignInEnabled,
+      );
+      // Hysteresis exit extra is a constant — persist so background task can read it.
+      await prefs.setDouble(
+        'geofence_exit_hysteresis_extra_m',
+        _hysteresisExitExtraMeters,
+      );
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] Failed to persist config: $e');
+    }
+  }
+
+  Future<GeofenceCubitStatus?> _restoreLastKnownStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsLastGeofenceStatusKey);
+      if (raw == null || raw.isEmpty) return null;
+      return switch (raw) {
+        'within' => GeofenceCubitStatus.withinRange,
+        'outside' => GeofenceCubitStatus.outsideRange,
+        _ => null,
+      };
+    } catch (_) {
+      return null;
     }
   }
 

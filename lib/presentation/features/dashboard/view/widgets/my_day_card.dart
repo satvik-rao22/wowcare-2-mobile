@@ -1,117 +1,43 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-// ---------------------------------------------------------------------------
-// Local mock model classes – plain Dart, no imports from domain/data layers.
-// ---------------------------------------------------------------------------
+import '../../../../../core/util/core_utils.dart';
 
-/// Represents a single scheduled shift for a staff member.
-class _MockShift {
-  const _MockShift({
-    required this.day,
-    required this.startTime,
-    required this.endTime,
-    this.isBreakTime = false,
-  });
-
-  final String day; // e.g. 'MONDAY'
-  final String startTime; // e.g. '09:00 AM'
-  final String endTime; // e.g. '05:00 PM'
-  final bool isBreakTime;
-}
-
-/// Represents the most-recent chat preview shown in [_CommunicationRowWidget].
-class _MockChat {
-  const _MockChat({
-    required this.senderName,
-    required this.lastMessage,
-    this.isSignedIn = true,
-    this.isAbsent = false,
-    this.profileStatus = 'Active',
-  });
-
-  final String senderName;
-  final String lastMessage;
-  final bool isSignedIn;
-  final bool isAbsent;
-  final String profileStatus;
-}
-
-// ---------------------------------------------------------------------------
-// Hardcoded mock data
-// ---------------------------------------------------------------------------
-
-/// Mock shifts for the current staff member.
-const List<_MockShift> _mockSchedule = [
-  _MockShift(day: 'MONDAY', startTime: '09:00 AM', endTime: '05:00 PM'),
-  _MockShift(
-    day: 'MONDAY',
-    startTime: '12:00 PM',
-    endTime: '01:00 PM',
-    isBreakTime: true,
-  ),
-  _MockShift(day: 'TUESDAY', startTime: '09:00 AM', endTime: '05:00 PM'),
-  _MockShift(
-    day: 'TUESDAY',
-    startTime: '12:00 PM',
-    endTime: '01:00 PM',
-    isBreakTime: true,
-  ),
-  _MockShift(day: 'WEDNESDAY', startTime: '09:00 AM', endTime: '05:00 PM'),
-  _MockShift(
-    day: 'WEDNESDAY',
-    startTime: '12:00 PM',
-    endTime: '01:00 PM',
-    isBreakTime: true,
-  ),
-  _MockShift(day: 'THURSDAY', startTime: '09:00 AM', endTime: '05:00 PM'),
-  _MockShift(
-    day: 'THURSDAY',
-    startTime: '12:00 PM',
-    endTime: '01:00 PM',
-    isBreakTime: true,
-  ),
-  _MockShift(day: 'FRIDAY', startTime: '09:00 AM', endTime: '03:00 PM'),
-  _MockShift(
-    day: 'FRIDAY',
-    startTime: '12:00 PM',
-    endTime: '12:30 PM',
-    isBreakTime: true,
-  ),
-];
-
-/// Mock current staff details used to populate labels.
-const String _mockClockInPin = '4821';
+// TODO: replace _mockIsSignedIn with real sign-in state from attendance cubit.
 const bool _mockIsSignedIn = false;
 const bool _mockIsReminder = true;
 
-/// Mock chat to show in the communication row.
-const _MockChat _mockChat = _MockChat(
-  senderName: 'Michael Torres',
-  lastMessage: 'Can you cover the morning session tomorrow?',
-  isSignedIn: true,
-  isAbsent: false,
-  profileStatus: 'Active',
-);
-
 // ---------------------------------------------------------------------------
-// MyDayCard – StatefulWidget for collapse toggle & shift-countdown UI state.
+// MyDayCard
 // ---------------------------------------------------------------------------
 
-/// Dashboard card displaying the staff member's current shift countdown,
-/// sign-in pin, attendance action buttons, and the latest chat preview.
+/// Dashboard card displaying the school's schedule for today, a shift
+/// countdown, sign-in pin, attendance action buttons, and the latest chat
+/// preview.
 ///
-/// UI-only: all data is hardcoded mock; no bloc, cubit, or service calls.
+/// Schedule data comes from [MyDayCubit]; all other fields are still mocked
+/// pending their respective API integrations.
 class MyDayCard extends StatefulWidget {
   const MyDayCard({super.key});
 
@@ -123,180 +49,156 @@ class _MyDayCardState extends State<MyDayCard> {
   // ---- collapse state ----
   bool _minimized = false;
 
+  String _clockInPin = '';
+
+  // Guards the geofence popup: shown at most once per app session per entry
+  // transition. Resets to false when the user exits the geofence, ensuring
+  // the popup appears again on the next entry (e.g. after sign-out).
+  bool _geofencePopupShownThisEntry = false;
+
   // ---- shift countdown display state ----
-  /// Text above the timer, e.g. "Your shift starts in" / "Your shift ends in".
-  String _statusText = 'Your shift starts in';
+  String _statusText = 'Loading schedule…';
+  String _workTime = '- -';
+  String _breakTime = '- -';
+  bool _hasShifts = false;
+  Duration _duration = Duration.zero;
 
-  /// Pre-formatted work-time label, e.g. "09:00 AM - 05:00 PM".
-  String _workTime = '09:00 AM - 05:00 PM';
+  // Ticks every second to keep the countdown live.
+  Timer? _ticker;
 
-  /// Pre-formatted break-time label.
-  String _breakTime = '12:00 PM - 01:00 PM';
+  // ---------------------------------------------------------------------------
+  // Helpers – time conversion (24h API format → 12h display / DateTime)
+  // ---------------------------------------------------------------------------
 
-  /// Whether the staff has any scheduled shifts.
-  bool _hasShifts = true;
+  /// Pads a 24h time string to `HH:mm:ss` for `DateTime.parse`.
+  static String _normalize24h(String raw) {
+    final parts = raw.trim().split(':');
+    if (parts.length < 2) return '00:00:00';
+    final h = parts[0].padLeft(2, '0');
+    final m = parts[1].padLeft(2, '0');
+    final s = parts.length > 2
+        ? parts[2].split('.').first.padLeft(2, '0')
+        : '00';
+    return '$h:$m:$s';
+  }
 
-  /// Remaining duration until shift start / shift end.
-  Duration _duration = const Duration(hours: 2, minutes: 45, seconds: 0);
+  /// Converts a 24h time string (`HH:mm` or `HH:mm:ss`) to `hh:mm AM/PM`.
+  static String _formatDisplay(String raw) {
+    final norm = _normalize24h(raw);
+    final timeParts = norm.split(':');
+    int h = int.parse(timeParts[0]);
+    final int m = int.parse(timeParts[1]);
+    final bool isPm = h >= 12;
+    final String period = isPm ? 'PM' : 'AM';
+    if (h == 0)
+      h = 12;
+    else if (h > 12)
+      h -= 12;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Formats the `halfDay` field. If it looks like a time, convert it;
+  /// otherwise return it as-is.
+  static String _formatHalfDay(String? halfDay) {
+    if (halfDay == null || halfDay.isEmpty) return 'N/A';
+    // Looks like a time if it contains ':'
+    if (halfDay.contains(':')) return _formatDisplay(halfDay);
+    return halfDay;
+  }
 
   @override
   void initState() {
     super.initState();
-    // Compute mock countdown from the hardcoded schedule.
-    _computeCountdown();
+    unawaited(_loadClockPin());
   }
 
-  // ---- helpers ----
-
-  int _getWeekdayIndex(String weekday) {
-    switch (weekday.toUpperCase()) {
-      case 'MONDAY':
-        return 1;
-      case 'TUESDAY':
-        return 2;
-      case 'WEDNESDAY':
-        return 3;
-      case 'THURSDAY':
-        return 4;
-      case 'FRIDAY':
-        return 5;
-      case 'SATURDAY':
-        return 6;
-      case 'SUNDAY':
-        return 7;
-      default:
-        return 0;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Seed display fields from whatever state the cubit already holds.
+    // This covers the scroll-back case: the widget rebuilds but the cubit
+    // never emits a new event, so the BlocConsumer listener never fires.
+    final cubitState = context.read<MyDayCubit>().state;
+    if (cubitState.isLoaded) {
+      _computeCountdownFromSchedule(cubitState.todaySchedule);
+      _startTicker();
     }
   }
 
-  int _parseTimeToMinutes(String timeStr) {
-    final parts = timeStr.split(' ');
-    final timeParts = parts[0].split(':');
-    int hours = int.parse(timeParts[0]);
-    final int minutes = int.parse(timeParts[1]);
-    final bool isPM = parts[1].toLowerCase() == 'pm';
-    if (isPM && hours != 12) hours += 12;
-    if (!isPM && hours == 12) hours = 0;
-    return hours * 60 + minutes;
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
   }
 
-  String _getAbbreviatedDayName(String fullDay) {
-    switch (fullDay.toUpperCase()) {
-      case 'MONDAY':
-        return 'MON';
-      case 'TUESDAY':
-        return 'TUE';
-      case 'WEDNESDAY':
-        return 'WED';
-      case 'THURSDAY':
-        return 'THU';
-      case 'FRIDAY':
-        return 'FRI';
-      case 'SATURDAY':
-        return 'SAT';
-      case 'SUNDAY':
-        return 'SUN';
-      default:
-        return fullDay.substring(0, 3);
-    }
-  }
-
-  /// Converts "09:00 AM" → "09:00" (removes seconds if present).
-  String _stripSeconds(String time) {
-    final parts = time.split(' ');
-    final hm = parts[0].split(':').take(2).join(':');
-    return '$hm ${parts[1]}';
-  }
-
-  /// Converts "09:00 AM" to a 24-hour time string "09:00:00".
-  String _convertTo24Hour(String time) {
-    final parts = time.split(' ');
-    final bool isPM = parts[1].toLowerCase() == 'pm';
-    final timeParts = parts[0].split(':');
-    int hours = int.parse(timeParts[0]);
-    final String minutes = timeParts[1];
-    final String seconds = timeParts.length > 2 ? timeParts[2] : '00';
-    if (isPM && hours != 12) hours += 12;
-    if (!isPM && hours == 12) hours = 0;
-    return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
-  }
-
-  /// Derive countdown state from [_mockSchedule] relative to school-zone "now".
-  void _computeCountdown() {
-    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(DateTime.now().toUtc(), schoolTz);
-
-    // Working shifts only (no break-time entries), Mon–Fri
-    final workShifts = _mockSchedule
-        .where(
-          (s) => !s.isBreakTime && _getWeekdayIndex(s.day) >= 1 && _getWeekdayIndex(s.day) <= 5,
-        )
-        .toList();
-
-    if (workShifts.isEmpty) {
-      setState(() {
-        _hasShifts = false;
-        _statusText = 'No shifts scheduled';
-        _workTime = '- -';
-        _breakTime = '- -';
-        _duration = Duration.zero;
-      });
-      return;
-    }
-
-    workShifts.sort((a, b) {
-      final int wa = _getWeekdayIndex(a.day);
-      final int wb = _getWeekdayIndex(b.day);
-      if (wa != wb) return wa - wb;
-      return _parseTimeToMinutes(a.startTime) - _parseTimeToMinutes(b.startTime);
+  // Starts (or restarts) a 1-second ticker that re-derives the countdown
+  // every second so the display stays live without rebuilding the cubit.
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final cubitState = context.read<MyDayCubit>().state;
+      if (cubitState.isLoaded) {
+        _computeCountdownFromSchedule(cubitState.todaySchedule);
+      }
     });
+  }
 
-    // Try to find a shift today or later this week.
-    _MockShift? nextShift;
-    DateTime? nextStart;
-    DateTime? nextEnd;
-    bool isToday = true;
+  Future<void> _loadClockPin() async {
+    final storage = serviceLocator<StorageService>();
+    final pin = (await storage.getString(StorageKeys.staffPin) ?? '').trim();
+    if (!mounted) return;
+    setState(() => _clockInPin = pin);
+  }
 
-    // Check today first.
-    for (final shift in workShifts) {
-      if (_getWeekdayIndex(shift.day) == now.weekday) {
-        final dateStr = now.toLocal().toString().split(' ')[0];
-        final start = DateTime.parse('$dateStr ${_convertTo24Hour(shift.startTime)}');
-        final end = DateTime.parse('$dateStr ${_convertTo24Hour(shift.endTime)}');
-        if (now.isBefore(end)) {
-          nextShift = shift;
-          nextStart = start;
-          nextEnd = end;
-          isToday = true;
-          break;
-        }
-      }
+  Future<void> _openMarkAbsentForSelf() async {
+    final storage = serviceLocator<StorageService>();
+    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
+    if (staffCode.isEmpty) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile to mark absent.',
+        isWarning: true,
+      );
+      return;
     }
 
-    // If none today, look ahead up to 7 days.
-    if (nextShift == null) {
-      for (int daysAhead = 1; daysAhead <= 7; daysAhead++) {
-        final checkDate = now.add(Duration(days: daysAhead));
-        for (final shift in workShifts) {
-          if (_getWeekdayIndex(shift.day) == checkDate.weekday) {
-            final dateStr = checkDate.toLocal().toString().split(' ')[0];
-            final start = DateTime.parse('$dateStr ${_convertTo24Hour(shift.startTime)}');
-            final end = DateTime.parse('$dateStr ${_convertTo24Hour(shift.endTime)}');
-            nextShift = shift;
-            nextStart = start;
-            nextEnd = end;
-            isToday = false;
-            break;
-          }
-        }
-        if (nextShift != null) break;
-      }
-    }
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final designation =
+        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
 
-    if (nextShift == null || nextStart == null || nextEnd == null) {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StaffMarkAbsentForm(
+          staff: StaffEntity(
+            id: 0,
+            name: displayName.isNotEmpty ? displayName : '—',
+            primaryRoomId: 0,
+            designation: designation.isNotEmpty ? designation : 'Staff',
+            staffCode: staffCode,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Countdown computation
+  // ---------------------------------------------------------------------------
+
+  /// Derives countdown display state from a [SchoolRegularScheduleDay].
+  ///
+  /// Called by [BlocConsumer]'s listener whenever the schedule is loaded so the
+  /// countdown reflects the real school hours without requiring a rebuild chain.
+  void _computeCountdownFromSchedule(SchoolRegularScheduleDay? schedule) {
+    if (schedule == null) {
       setState(() {
         _hasShifts = false;
-        _statusText = 'No upcoming shifts';
+        _statusText = 'School Closed';
         _workTime = '- -';
         _breakTime = '- -';
         _duration = Duration.zero;
@@ -304,29 +206,59 @@ class _MyDayCardState extends State<MyDayCard> {
       return;
     }
 
-    // Find the corresponding break shift for the same day.
-    final breakShift = _mockSchedule.where((s) => s.isBreakTime && s.day == nextShift!.day).firstOrNull;
+    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      DateTime.now().toUtc(),
+      schoolTz,
+    );
 
-    final daySuffix = isToday ? '' : ' (${_getAbbreviatedDayName(nextShift.day)})';
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final start24 = _normalize24h(schedule.startTime);
+    final end24 = _normalize24h(schedule.endTime);
+
+    final startDt = DateTime.tryParse('$dateStr $start24');
+    final endDt = DateTime.tryParse('$dateStr $end24');
+
+    if (startDt == null || endDt == null) {
+      setState(() {
+        _hasShifts = false;
+        _statusText = 'Schedule unavailable';
+        _workTime = '- -';
+        _breakTime = '- -';
+        _duration = Duration.zero;
+      });
+      return;
+    }
+
+    final displayStart = _formatDisplay(schedule.startTime);
+    final displayEnd = _formatDisplay(schedule.endTime);
+    final displayHalfDay = _formatHalfDay(schedule.halfDay);
 
     setState(() {
       _hasShifts = true;
-      _workTime = '${_stripSeconds(nextShift!.startTime)} - ${_stripSeconds(nextShift.endTime)}$daySuffix';
-      _breakTime = breakShift != null
-          ? '${_stripSeconds(breakShift.startTime)} - ${_stripSeconds(breakShift.endTime)}$daySuffix'
-          : 'N/A$daySuffix';
+      _workTime = '$displayStart – $displayEnd';
+      _breakTime = displayHalfDay;
 
-      if (now.isBefore(nextStart!)) {
-        _duration = nextStart.difference(now);
+      if (now.isBefore(startDt)) {
+        _duration = startDt.difference(now);
         _statusText = 'Your shift starts in';
-      } else {
-        _duration = nextEnd!.difference(now);
+      } else if (now.isBefore(endDt)) {
+        _duration = endDt.difference(now);
         _statusText = 'Your shift ends in';
+      } else {
+        // School day ended — show the schedule but zero out the timer.
+        _hasShifts = false;
+        _statusText = 'School day ended';
+        _duration = Duration.zero;
       }
     });
   }
 
-  // ---- timer display builders ----
+  // ---------------------------------------------------------------------------
+  // Timer display builders (unchanged from original)
+  // ---------------------------------------------------------------------------
 
   Widget _buildTimeUnit(String value, String label) {
     return Column(
@@ -402,244 +334,548 @@ class _MyDayCardState extends State<MyDayCard> {
     );
   }
 
-  // ---- build ----
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
-      child: Column(
-        children: [
-          // ── Header row: title + collapse toggle ───────────────────────
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: DashboardCardHeader(
-              title: 'My Day',
-              minimized: _minimized,
-              onToggle: () {
-                setState(() {
-                  _minimized = !_minimized;
-                });
-              },
-            ),
+    return BlocListener<GeofenceCubit, GeofenceState>(
+      listenWhen: (prev, curr) {
+        // Reset popup guard whenever the user exits the geofence so it shows
+        // again on the next entry (e.g. after signing out and re-entering).
+        if (prev.status == GeofenceCubitStatus.withinRange &&
+            curr.status == GeofenceCubitStatus.outsideRange) {
+          _geofencePopupShownThisEntry = false;
+        }
+        // Fire only on the first transition INTO withinRange per entry.
+        return prev.status != GeofenceCubitStatus.withinRange &&
+            curr.status == GeofenceCubitStatus.withinRange;
+      },
+      listener: (context, _) {
+        if (_geofencePopupShownThisEntry) return;
+        _geofencePopupShownThisEntry = true;
+        unawaited(
+          GeofenceSignInSheet.show(
+            context,
+            role: 'staff',
+            isSignedIn: _mockIsSignedIn,
           ),
-
-          // ── Status text (shift starts/ends in) ────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              _statusText,
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+        );
+      },
+      child: BlocConsumer<MyDayCubit, MyDayState>(
+        // Re-compute countdown whenever the schedule data changes.
+        listenWhen: (prev, curr) =>
+            curr.isLoaded && prev.todaySchedule != curr.todaySchedule ||
+            curr.isLoaded && prev.schoolClosed != curr.schoolClosed,
+        listener: (context, state) {
+          _computeCountdownFromSchedule(state.todaySchedule);
+          _startTicker();
+        },
+        builder: (context, state) {
+          return Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.cardColor,
             ),
-          ),
-
-          // ── Expanded body (hidden when minimized) ──────────────────────
-          if (!_minimized) ...[
-            // Countdown timer
-            _buildAlignedTimerDisplay(_duration),
-            if (_hasShifts) const SizedBox(height: 12),
-
-            // ── Reminder toggle button ────────────────────────────────────
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  // Reminder toggle — no-op in UI-only port
-                },
-                borderRadius: BorderRadius.circular(100),
-                splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+            child: Column(
+              children: [
+                // ── Header ──────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: DashboardCardHeader(
+                    title: 'My Day',
+                    minimized: _minimized,
+                    onToggle: () => setState(() => _minimized = !_minimized),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SvgPicture.asset(MediaRes.notificationsGradientIcon),
-                      const SizedBox(width: 8),
-                      ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.buildPrimaryGradient().createShader(
-                          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                        ),
-                        child: Text(
-                          _mockIsReminder ? 'Turn off reminder' : 'Send reminder',
+                ),
+
+                // ── Status text ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: state.isLoading
+                      ? _ShimmerLine(width: 180, height: 18)
+                      : Text(
+                          _statusText,
                           style: const TextStyle(
-                            color: AppColors.cardColor,
+                            color: AppColors.primaryColor,
+                            fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
+
+                // ── Expanded body ────────────────────────────────────────────
+                if (!_minimized) ...[
+                  // Countdown timer / shimmer
+                  if (state.isLoading)
+                    _buildShimmerBody()
+                  else ...[
+                    _buildAlignedTimerDisplay(_duration),
+                    if (_hasShifts) const SizedBox(height: 12),
+
+                    // ── Reminder toggle ──────────────────────────────────────
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {},
+                        borderRadius: BorderRadius.circular(100),
+                        splashColor: AppColors.primaryColor.withValues(
+                          alpha: 0.1,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SvgPicture.asset(
+                                MediaRes.notificationsGradientIcon,
+                              ),
+                              const SizedBox(width: 8),
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    AppColors.buildPrimaryGradient()
+                                        .createShader(
+                                          Rect.fromLTWH(
+                                            0,
+                                            0,
+                                            bounds.width,
+                                            bounds.height,
+                                          ),
+                                        ),
+                                child: Text(
+                                  _mockIsReminder
+                                      ? 'Turn off reminder'
+                                      : 'Send reminder',
+                                  style: const TextStyle(
+                                    color: AppColors.cardColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Work time chip ───────────────────────────────────────
+                    _CustomChip(
+                      label: 'Work Time : $_workTime',
+                      labelStyle: const TextStyle(
+                        color: AppColors.secondaryColor,
+                      ),
+                      color: const Color.fromRGBO(177, 175, 233, 0.3),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Break time chip ──────────────────────────────────────
+                    _CustomChip(
+                      label: 'Break Time : $_breakTime',
+                      labelStyle: const TextStyle(
+                        color: AppColors.secondaryColor,
+                      ),
+                      color: const Color.fromRGBO(177, 175, 233, 0.3),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Sign-in pin + QR scanner ─────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) =>
+                              AppColors.buildPrimaryGradient().createShader(
+                                Rect.fromLTWH(
+                                  0,
+                                  0,
+                                  bounds.width,
+                                  bounds.height,
+                                ),
+                              ),
+                          child: Text(
+                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : 'N/A'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 17 * (-3 / 100),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const QrScanButton(),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── GPS-gated attendance button ──────────────────────────
+                    BlocBuilder<GeofenceCubit, GeofenceState>(
+                      builder: (context, geofenceState) {
+                        final bool enabled =
+                            geofenceState.status ==
+                            GeofenceCubitStatus.withinRange;
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: _mockIsSignedIn
+                                          ? null
+                                          : _openMarkAbsentForSelf,
+                                      icon: const Icon(
+                                        Icons.person_off_outlined,
+                                        size: 18,
+                                      ),
+                                      label: const Text(
+                                        'Mark Absent',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.themeColor,
+                                        side: const BorderSide(
+                                          color: AppColors.themeColor,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: CustomButtonLayout(
+                                      isForm: false,
+                                      showCancelButton: false,
+                                      confirmButtonLabel: _mockIsSignedIn
+                                          ? 'GPS Sign-Out'
+                                          : 'GPS Sign-In',
+                                      confirmButtonChild: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                            color: AppColors
+                                                .billingBackgroundColor,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              _mockIsSignedIn
+                                                  ? 'GPS Sign-Out'
+                                                  : 'GPS Sign-In',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors
+                                                    .billingBackgroundColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      onPressedConfirm: enabled
+                                          ? () {
+                                              if (_mockIsSignedIn) {
+                                                context.go(
+                                                  '/dashboard/staff-sign-out-form',
+                                                );
+                                              } else {
+                                                context.go(
+                                                  '/dashboard/staff-sign-in-form',
+                                                );
+                                              }
+                                            }
+                                          : null,
+                                      disabledConfirmTooltip:
+                                          'You are not within  geofencing Range',
+                                      onDisabledConfirmTap: () {
+                                        CoreUtils.showTopSnackBar(
+                                          isWarning: true,
+                                          message:
+                                              'You are not within geofencing Range',
+                                          context: context,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _buildGeofenceStatusLabel(context, geofenceState),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ],
+
+                const SizedBox(height: 10),
+
+                // ── Latest chat preview ──────────────────────────────────────
+                const _CommunicationRowWidget(),
+              ],
+            ),
+          );
+        },
+      ), // BlocConsumer<MyDayCubit>
+    ); // BlocListener<GeofenceCubit>
+  }
+
+  // ── Geofence status label ────────────────────────────────────────────────────
+
+  Widget _buildGeofenceStatusLabel(BuildContext context, GeofenceState state) {
+    const style = TextStyle(fontSize: 12, height: 1.4);
+    const pad = EdgeInsets.only(top: 10, left: 24, right: 24);
+
+    switch (state.status) {
+      case GeofenceCubitStatus.withinRange:
+        return Padding(
+          padding: pad,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF22C55E),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Inside School Radius — GPS attendance enabled',
+                style: style.copyWith(
+                  color: const Color(0xFF16A34A),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      case GeofenceCubitStatus.outsideRange:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'Outside School Radius — move closer to sign in',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.65),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      case GeofenceCubitStatus.gpsDisabledByAdmin:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'GPS sign-in is currently disabled by your school admin.',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.65),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      case GeofenceCubitStatus.permissionDenied:
+        return Padding(
+          padding: pad,
+          child: GestureDetector(
+            onTap: () => context.read<GeofenceCubit>().retryPermission(),
+            child: Text(
+              'Location permission required. Tap to enable.',
+              style: style.copyWith(
+                color: AppColors.primaryColor.withValues(alpha: 0.65),
+                decoration: TextDecoration.underline,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        );
+      case GeofenceCubitStatus.locationDisabled:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'Location services are disabled. Please enable GPS.',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.65),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      case GeofenceCubitStatus.checkingPermission:
+      case GeofenceCubitStatus.fetchingSchoolLocation:
+      case GeofenceCubitStatus.checking:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'Checking your location...',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // ── Shimmer body ────────────────────────────────────────────────────────────
+
+  Widget _buildShimmerBody() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Column(
+          children: [
+            // Timer placeholder
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                5,
+                (i) => i.isOdd
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Container(
+                          width: 10,
+                          height: 48,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Container(
+                        width: 44,
+                        height: 56,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Work time chip placeholder
+            Container(
+              height: 36,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(100),
               ),
             ),
             const SizedBox(height: 8),
-
-            // ── Work time chip ────────────────────────────────────────────
-            _CustomChip(
-              label: 'Work Time : $_workTime',
-              labelStyle: const TextStyle(color: AppColors.secondaryColor),
-              color: const Color.fromRGBO(177, 175, 233, 0.3),
+            // Half-day chip placeholder
+            Container(
+              height: 36,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(100),
+              ),
             ),
             const SizedBox(height: 8),
-
-            // ── Break time chip ───────────────────────────────────────────
-            _CustomChip(
-              label: 'Break Time : $_breakTime',
-              labelStyle: const TextStyle(color: AppColors.secondaryColor),
-              color: const Color.fromRGBO(177, 175, 233, 0.3),
-            ),
-            const SizedBox(height: 8),
-
-            // ── Sign-in pin + QR scanner row ──────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ShaderMask(
-                  shaderCallback: (bounds) =>
-                      AppColors.buildPrimaryGradient().createShader(
-                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                  ),
-                  child: Text(
-                    'Your Sign-In Pin: ${_mockClockInPin.trim().isNotEmpty ? _mockClockInPin : 'N/A'}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 17 * (-3 / 100),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  onPressed: () {
-                    // QR scan navigation — no-op in UI-only port
-                  },
-                  icon: SvgPicture.asset(MediaRes.scannerGradientIcon),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // ── GPS-gated attendance action button ────────────────────────
-            BlocBuilder<GeofenceCubit, GeofenceState>(
-              builder: (context, geofenceState) {
-                final bool enabled = geofenceState.isWithinGeofence &&
-                    geofenceState.isLocationEnabled;
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: CustomButtonLayout(
-                        isForm: false,
-                        showCancelButton: false,
-                        confirmButtonLabel: _mockIsSignedIn ? 'Sign-Out' : 'Sign-In',
-                        onPressedConfirm: enabled
-                            ? () {
-                                if (_mockIsSignedIn) {
-                                  context.go('/dashboard/student-selection-sign-out-form');
-                                } else {
-                                  context.go('/dashboard/student-selection-sign-in-form');
-                                }
-                              }
-                            : null,
-                      ),
-                    ),
-                    if (geofenceState.status == GeofenceCubitStatus.permissionDenied)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
-                        child: GestureDetector(
-                          onTap: () => context.read<GeofenceCubit>().retryPermission(),
-                          child: Text(
-                            'Location permission required. Tap to enable.',
-                            style: TextStyle(
-                              color: AppColors.primaryColor.withValues(alpha: 0.65),
-                              fontSize: 12,
-                              decoration: TextDecoration.underline,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    else if (geofenceState.status == GeofenceCubitStatus.locationDisabled)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
-                        child: Text(
-                          'Location services are disabled.',
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.65),
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    else if (geofenceState.status == GeofenceCubitStatus.outsideRange)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
-                        child: Text(
-                          'You are not within the school sign-in zone.',
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.65),
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    else if (geofenceState.status == GeofenceCubitStatus.checkingPermission ||
-                        geofenceState.status == GeofenceCubitStatus.fetchingSchoolLocation)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, left: 24, right: 24),
-                        child: Text(
-                          'Checking location...',
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.65),
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                  ],
-                );
-              },
+            // Pin row placeholder
+            Container(
+              height: 20,
+              width: 200,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ],
-
-          const SizedBox(height: 10),
-
-          // ── Latest chat preview ───────────────────────────────────────
-          const _CommunicationRowWidget(),
-        ],
+        ),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// _CommunicationRowWidget – shows the most-recent staff chat preview.
+// _ShimmerLine helper
 // ---------------------------------------------------------------------------
 
-/// Stateless communication row: displays the last chat contact's avatar,
-/// name, most recent message, and a chat-action button.
-///
-/// Uses [_MockChat] hardcoded data; no Firestore / bloc wiring.
-class _CommunicationRowWidget extends StatelessWidget {
-  const _CommunicationRowWidget();
+class _ShimmerLine extends StatelessWidget {
+  const _ShimmerLine({required this.width, required this.height});
+
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    const chat = _mockChat;
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+}
 
+// ---------------------------------------------------------------------------
+// _CommunicationRowWidget
+// ---------------------------------------------------------------------------
+// Shows the logged-in user's name (from StorageService) with a "Chat Not Found"
+// placeholder until the real messaging API is integrated.
+// ---------------------------------------------------------------------------
+
+class _CommunicationRowWidget extends StatefulWidget {
+  const _CommunicationRowWidget();
+
+  @override
+  State<_CommunicationRowWidget> createState() =>
+      _CommunicationRowWidgetState();
+}
+
+class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
+  String _displayName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadDisplayName());
+  }
+
+  Future<void> _loadDisplayName() async {
+    final storage = serviceLocator<StorageService>();
+    final name = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    if (!mounted) return;
+    setState(() => _displayName = name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
@@ -649,50 +885,21 @@ class _CommunicationRowWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar with online / absent status dot.
-          Stack(
-            children: [
-              // Shared profile widget; UI-only, so profile/attendance API
-              // lookups are disabled — it renders initials from [name].
-              DocumentImageWidget(
-                fileUuid: '',
-                name: chat.senderName,
-                size: 50,
-                fontSize: 20,
-                disableProfileLookupFallback: true,
-                disableAttendanceStatusLookup: true,
-              ),
-              // Status indicator dot
-              if (chat.isSignedIn || chat.isAbsent || chat.profileStatus == 'Upcoming')
-                Positioned(
-                  left: 35,
-                  bottom: 35,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: chat.profileStatus == 'Upcoming'
-                          ? const Color.fromARGB(255, 253, 205, 22)
-                          : chat.isSignedIn
-                              ? const Color.fromRGBO(0, 177, 21, 1)
-                              : chat.isAbsent
-                                  ? const Color.fromRGBO(200, 32, 32, 1)
-                                  : Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
-                  ),
-                ),
-            ],
+          DocumentImageWidget(
+            fileUuid: '',
+            name: _displayName,
+            size: 50,
+            fontSize: 20,
+            disableProfileLookupFallback: true,
+            disableAttendanceStatusLookup: true,
           ),
           const SizedBox(width: 16),
-
-          // Sender name + last message preview.
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  chat.senderName,
+                  _displayName.isNotEmpty ? _displayName : '—',
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
@@ -701,23 +908,17 @@ class _CommunicationRowWidget extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  chat.lastMessage,
-                  style: const TextStyle(
+                  'Chat Not Found',
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.primaryColor,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-
-          // Chat action button (replaces CustomFloatingActionButton).
-          _ChatActionButton(
-            onPressed: () {
-              // Conversation screen navigation removed — no-op in UI-only port
-            },
-          ),
+          _ChatActionButton(onPressed: () {}),
         ],
       ),
     );
@@ -725,11 +926,9 @@ class _CommunicationRowWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Private helper widgets (inline replacements for CustomChip,
-// CustomCancelButton, CustomConfirmButton, CustomFloatingActionButton).
+// Private helper widgets
 // ---------------------------------------------------------------------------
 
-/// Inline replacement for `CustomChip` — a pill-shaped labelled container.
 class _CustomChip extends StatelessWidget {
   const _CustomChip({
     required this.label,
@@ -749,17 +948,11 @@ class _CustomChip extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(100),
       ),
-      child: Text(
-        label,
-        style: labelStyle,
-        overflow: TextOverflow.ellipsis,
-      ),
+      child: Text(label, style: labelStyle, overflow: TextOverflow.ellipsis),
     );
   }
 }
 
-/// Inline replacement for `CustomFloatingActionButton` — a small gradient-
-/// bordered circular icon button used in the communication row.
 class _ChatActionButton extends StatelessWidget {
   const _ChatActionButton({required this.onPressed});
 

@@ -347,7 +347,7 @@ class RemoveStaffTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    staff.name.split(' ').first,
+                    staff.name,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

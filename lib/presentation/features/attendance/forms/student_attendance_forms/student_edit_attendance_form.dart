@@ -97,7 +97,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     final isTablet = ResponsiveSizing.isTablet(context);
     final student = widget.studentAttendance;
     final titleName = student.studentName.isNotEmpty
-        ? student.studentName.split(' ').first
+        ? student.studentName
         : 'Student';
 
     return StaffFormLayout(

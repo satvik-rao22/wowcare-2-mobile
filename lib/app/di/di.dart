@@ -1,8 +1,20 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_center_data_source.dart';
+import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
+import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
+import '../../domain/features/notifications/repositories/notification_center_repository.dart';
+import '../../domain/features/notifications/repositories/push_notification_repository.dart';
+import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
+import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
+import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
+import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
+import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -74,6 +86,14 @@ import '../../presentation/features/dashboard/cubit/student_attendance_profile_c
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
 import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
+import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -697,9 +717,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetRatioMonitoringClassroomsUseCase>(
     () => GetRatioMonitoringClassroomsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
-    () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
-  );
+  serviceLocator
+      .registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
+        () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+      );
   serviceLocator.registerFactory<GetStaffAttendanceSummaryByClassroomsUseCase>(
     () => GetStaffAttendanceSummaryByClassroomsUseCase(serviceLocator()),
   );
@@ -911,12 +932,58 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cubits (factory - new instance each time for UI)
+  serviceLocator.registerFactory<ClassroomShiftsCubit>(
+    () => ClassroomShiftsCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getClassroomForecastUseCase: serviceLocator(),
+      getSchoolStaffShiftsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyAttendanceCubit>(
+    () => MyAttendanceCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyShiftsCubit>(
+    () => MyShiftsCubit(
+      getStaffShiftsUseCase: serviceLocator(),
+      getClassroomsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminDashboardCubit>(
+    () => AdminDashboardCubit(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCubit>(
+    () => StaffDashboardCubit(),
+  );
+  serviceLocator.registerFactory<ParentDashboardCubit>(
+    () => ParentDashboardCubit(),
+  );
+  serviceLocator.registerFactory<MyDayCubit>(
+    () => MyDayCubit(
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<DashboardAttentionCubit>(
+    () => DashboardAttentionCubit(
+      availabilityRepository: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<RatioMonitoringCubit>(
     () => RatioMonitoringCubit(
       getRatioMonitoringClassroomsUseCase: serviceLocator(),
       getStudentAttendanceSummaryByClassroomsUseCase: serviceLocator(),
       getStaffAttendanceSummaryByClassroomsUseCase: serviceLocator(),
       cacheManager: serviceLocator(),
+      storageService: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<SchoolStatusCubit>(
@@ -1021,7 +1088,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
   );
   serviceLocator.registerFactory<QrValidationCubit>(
-    () => QrValidationCubit(validateQrCodeUseCase: serviceLocator()),
+    () => QrValidationCubit(
+      validateQrCodeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
 
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
@@ -1105,12 +1176,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getMessagesUseCase: serviceLocator<GetMessagesUseCase>(),
       sendMessageUseCase: serviceLocator<SendMessageUseCase>(),
       getConversationsUseCase: serviceLocator<GetConversationsUseCase>(),
-      getCachedConversationsUseCase: serviceLocator<GetCachedConversationsUseCase>(),
+      getCachedConversationsUseCase:
+          serviceLocator<GetCachedConversationsUseCase>(),
       getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
       addReactionUseCase: serviceLocator<AddReactionUseCase>(),
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
-      clearConversationsCacheUseCase: serviceLocator<ClearConversationsCacheUseCase>(),
+      clearConversationsCacheUseCase:
+          serviceLocator<ClearConversationsCacheUseCase>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
@@ -1215,6 +1288,49 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<GeofenceNotificationService>(
     () => GeofenceNotificationService(),
   );
+
+  // Push notifications (FCM) — domain → data → presentation.
+  serviceLocator.registerLazySingleton<FirebaseMessaging>(
+    () => FirebaseMessaging.instance,
+  );
+  serviceLocator.registerLazySingleton<FcmRemoteDataSource>(
+    () => FcmRemoteDataSourceImpl(serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<PushNotificationRepository>(
+    () => PushNotificationRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<PushNotificationCubit>(
+    () => PushNotificationCubit(
+      repository: serviceLocator(),
+      localNotifications: serviceLocator(),
+    ),
+  );
+
+  // Notification center (bell-icon inbox) — domain → data → presentation.
+  // Currently backed by an in-memory mock data source; swapping in a real REST
+  // data source is a one-line change here.
+  serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
+    () => MockNotificationCenterDataSource(),
+  );
+  serviceLocator.registerLazySingleton<NotificationCenterRepository>(
+    () => NotificationCenterRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNotificationsUseCase>(
+    () => GetNotificationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkNotificationReadUseCase>(
+    () => MarkNotificationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkAllNotificationsReadUseCase>(
+    () => MarkAllNotificationsReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NotificationCenterCubit>(
+    () => NotificationCenterCubit(
+      getNotificationsUseCase: serviceLocator(),
+      markNotificationReadUseCase: serviceLocator(),
+      markAllNotificationsReadUseCase: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
     () => CheckLocationPermissionUseCase(serviceLocator()),
   );
@@ -1227,7 +1343,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<WatchGeofenceUseCase>(
     () => WatchGeofenceUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GeofenceCubit>(
+  // Singleton — one cubit for the entire app lifetime so GPS state survives
+  // navigation. Never call close() on this from a dashboard widget.
+  serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
       checkLocationPermissionUseCase: serviceLocator(),
       requestLocationPermissionUseCase: serviceLocator(),

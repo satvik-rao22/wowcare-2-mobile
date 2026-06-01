@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class GeofenceNotificationService {
@@ -6,6 +7,11 @@ class GeofenceNotificationService {
   static const String _channelName = 'School Sign-In Zone Alerts';
   static const int _enteredId = 1001;
   static const int _exitedId = 1002;
+
+  // Push notifications must each get a UNIQUE id — a fixed id makes every new
+  // push replace the previous one in the tray, so firing 5 in a row leaves only
+  // 1 visible. Start above the reserved geofence ids and increment per push.
+  static int _nextPushId = 2000;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -67,19 +73,35 @@ class GeofenceNotificationService {
   Future<void> showCustomNotification({
     required String title,
     required String body,
-  }) => _show(id: 1003, title: title, body: body, isCritical: true);
+    String? payload,
+  }) => _show(
+    // Unique id per push so multiple notifications stack instead of replacing.
+    id: _nextPushId++,
+    title: title,
+    body: body,
+    isCritical: true,
+    payload: payload,
+  );
 
   Future<void> _show({
     required int id,
     required String title,
     required String body,
     required bool isCritical,
+    String? payload,
   }) async {
+    // Ensure the plugin is initialized so the tap handler
+    // (onDidReceiveNotificationResponse → _onNotificationTapped) is registered.
+    // Push notifications can show before geofencing ever runs init(), and
+    // without this a foreground-notification tap would do nothing. init() is
+    // idempotent.
+    if (!_initialized) await init();
     try {
       await _plugin.show(
         id: id,
         title: title,
         body: body,
+        payload: payload,
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
@@ -105,6 +127,16 @@ class GeofenceNotificationService {
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap - can navigate to sign-in flow if needed
+    // Foreground push notifications carry their deep-link location as the
+    // payload (set by PushNotificationCubit). Route to it on tap so foreground
+    // taps behave like background-tray taps instead of doing nothing.
+    final payload = response.payload?.trim();
+    if (payload != null && payload.isNotEmpty) {
+      try {
+        appRouter.go(payload);
+      } catch (e) {
+        AppLogger.d('[FCM] Foreground tap route failed for "$payload": $e');
+      }
+    }
   }
 }

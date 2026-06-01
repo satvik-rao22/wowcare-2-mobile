@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -230,6 +231,25 @@ class _StudentModel {
     this.allergies = '',
     this.dietRestriction = '',
   });
+
+  _StudentModel copyWith({String? name, String? roomName, String? photoUuid}) {
+    return _StudentModel(
+      id: id,
+      name: name ?? this.name,
+      photoUuid: photoUuid ?? this.photoUuid,
+      roomName: roomName ?? this.roomName,
+      isSignedIn: isSignedIn,
+      isAbsent: isAbsent,
+      isExpectedToday: isExpectedToday,
+      isPresentToday: isPresentToday,
+      profileStatus: profileStatus,
+      isPhotoPermission: isPhotoPermission,
+      medications: medications,
+      note: note,
+      allergies: allergies,
+      dietRestriction: dietRestriction,
+    );
+  }
 }
 
 class _AttendanceReportModel {
@@ -485,6 +505,36 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     // Load data from API
     _loadData();
+    // Deep-link (e.g. ATTENDANCE_NOT_MARKED) opens this screen with only a
+    // studentCode — the attendance API doesn't return the student's name, so
+    // the header would show empty. Fetch the student's identity by code.
+    _ensureHeaderIdentityLoaded();
+  }
+
+  /// Fills the header name + classroom when opened by code without them
+  /// (notification deep-link). No-op for normal navigation that already
+  /// supplied [studentName].
+  Future<void> _ensureHeaderIdentityLoaded() async {
+    if (widget.studentName.trim().isNotEmpty) return;
+    final code = _activeStudentCode.trim();
+    if (code.isEmpty) return;
+    try {
+      final profile = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentProfile(code);
+      if (!mounted) return;
+      final current = student;
+      if (current == null) return;
+      final name = profile.fullName.trim();
+      final classroom = (profile.classroom ?? '').trim();
+      setState(() {
+        student = current.copyWith(
+          name: name.isNotEmpty ? name : current.name,
+          roomName: classroom.isNotEmpty ? classroom : current.roomName,
+        );
+      });
+    } catch (_) {
+      // Header stays as-is; attendance data still loads.
+    }
   }
 
   @override

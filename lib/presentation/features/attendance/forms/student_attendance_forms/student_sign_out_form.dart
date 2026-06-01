@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -15,6 +14,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -26,6 +27,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -63,6 +65,7 @@ class StudentSignOutForm extends StatefulWidget {
     required this.students,
     this.refreshCallback,
     this.popOnSuccess = false,
+    this.isQrScan = false,
     super.key,
   });
 
@@ -72,6 +75,10 @@ class StudentSignOutForm extends StatefulWidget {
   // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
   // outside the Attendance tab (e.g. the Classroom Students card).
   final bool popOnSuccess;
+
+  /// True when triggered from a QR code scan.
+  /// Sets method=QR and withinGeofence=true in the API payload.
+  final bool isQrScan;
 
   static const String routeName = '/student-sign-out-form';
 
@@ -296,13 +303,44 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         ? classroomCodeByStudentCode.values.first
         : '';
 
+    GeofenceState? geofenceState;
+    try {
+      geofenceState = context.read<GeofenceCubit>().state;
+    } catch (_) {
+      geofenceState = null;
+    }
+    // QR and GPS sign-outs are physical-presence methods — withinGeofence is
+    // always true. APP (staff/admin manual) derives it from the geofence state.
+    final String signOutMethod;
+    final bool withinGeofence;
+    if (isParent) {
+      signOutMethod = widget.isQrScan ? 'QR' : 'GPS';
+      withinGeofence = true; // physical presence proven by QR scan or GPS
+    } else {
+      signOutMethod = 'APP';
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
+    }
+
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
-      'method': isParent ? 'GPS' : 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
-      'isGeofence': true,
+      'method': signOutMethod,
+      'latitude': position?.latitude ?? 0,
+      'longitude': position?.longitude ?? 0,
+      'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
     };
     if (isParent) {
@@ -563,7 +601,7 @@ class RemoveStudentTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    student.fullName.split(' ').first,
+                    student.fullName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

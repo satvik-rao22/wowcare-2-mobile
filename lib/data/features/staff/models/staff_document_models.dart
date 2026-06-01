@@ -219,3 +219,23 @@ class StaffDocumentsPageModel extends Equatable {
   List<Object?> get props => [items, page, size, totalPages, totalElements, hasMore];
 }
 
+class StaffDocumentExpirySummaryModel {
+  const StaffDocumentExpirySummaryModel({
+    required this.expiredDocumentCount,
+    required this.expiringWithinWeekCount,
+  });
+
+  final int expiredDocumentCount;
+  final int expiringWithinWeekCount;
+
+  factory StaffDocumentExpirySummaryModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    return StaffDocumentExpirySummaryModel(
+      expiredDocumentCount:
+          (data['expiredDocumentCount'] as num?)?.toInt() ?? 0,
+      expiringWithinWeekCount:
+          (data['expiringWithinWeekCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+

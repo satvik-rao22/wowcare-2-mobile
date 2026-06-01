@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -50,13 +53,40 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
     );
     final selectedChild = parentChildProvider.selectedChild;
     if (selectedChild != null) {
-      context.read<StudentAttendanceProfileCubit>().loadAttendanceProfile(
-        studentCode: selectedChild.code,
-        fromDate: _fromDate,
-        toDate: _toDate,
-        forceRefresh: forceRefresh,
+      unawaited(
+        context.read<StudentAttendanceProfileCubit>().loadAttendanceProfile(
+          studentCode: selectedChild.code,
+          fromDate: _fromDate,
+          toDate: _toDate,
+          forceRefresh: forceRefresh,
+        ),
       );
     }
+  }
+
+  void _openStudentAttendanceProfile(BuildContext context) {
+    final selectedChild = context.read<ParentChildCubit>().state.selectedChild;
+    if (selectedChild == null) return;
+
+    unawaited(
+      context.push(
+        StudentAttendanceProfile.routeName,
+        extra: <String, dynamic>{
+          'studentCode': selectedChild.code,
+          'studentId': 0,
+          'studentName': selectedChild.name,
+          'studentPhotoUuid': null,
+          'roomName':
+              (selectedChild.primaryClassroomName ?? selectedChild.classroom)
+                  .trim()
+                  .isNotEmpty
+              ? (selectedChild.primaryClassroomName ?? selectedChild.classroom)
+              : '—',
+          'isSignedIn': false,
+          'syncWithParentChildSelection': true,
+        },
+      ),
+    );
   }
 
   Widget _buildSelectedChildName() {
@@ -73,36 +103,130 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
             ),
           );
         }
-        return Padding(
-          padding: const EdgeInsets.only(left: 25),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: selectedChild.name,
-                    size: 30,
-                    fontSize: 12,
-                    disableProfileLookupFallback: true,
-                    disableAttendanceStatusLookup: true,
-                  ),
-                ],
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  selectedChild.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+
+        final children = state.children;
+        if (children.length <= 1) {
+          return Padding(
+            padding: const EdgeInsets.only(left: 25),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  children: [
+                    DocumentImageWidget(
+                      fileUuid: '',
+                      name: selectedChild.name,
+                      size: 30,
+                      fontSize: 12,
+                      disableProfileLookupFallback: true,
+                      disableAttendanceStatusLookup: true,
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    selectedChild.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(left: 25),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<ParentChildRef>(
+              value: children.any((c) => c.code == selectedChild.code)
+                  ? selectedChild
+                  : null,
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.primaryColor,
               ),
-            ],
+              borderRadius: BorderRadius.circular(12),
+              dropdownColor: Colors.white,
+              onChanged: (next) {
+                if (next == null) return;
+                context.read<ParentChildCubit>().selectByCode(next.code);
+              },
+              selectedItemBuilder: (context) {
+                return children
+                    .map((child) {
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Stack(
+                            children: [
+                              DocumentImageWidget(
+                                fileUuid: '',
+                                name: child.name,
+                                size: 30,
+                                fontSize: 12,
+                                disableProfileLookupFallback: true,
+                                disableAttendanceStatusLookup: true,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              child.name.length > 10
+                                  ? '${child.name.substring(0, 8)}...'
+                                  : child.name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: AppColors.primaryColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    })
+                    .toList(growable: false);
+              },
+              items: children
+                  .map(
+                    (child) => DropdownMenuItem<ParentChildRef>(
+                      value: child,
+                      child: Row(
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: '',
+                            name: child.name,
+                            size: 26,
+                            fontSize: 11,
+                            disableProfileLookupFallback: true,
+                            disableAttendanceStatusLookup: true,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              child.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.primaryColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
           ),
         );
       },
@@ -341,7 +465,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                 minimized: _minimized,
                 onToggle: () => setState(() => _minimized = !_minimized),
                 showRedirect: true,
-                onRedirect: () {},
+                onRedirect: () => _openStudentAttendanceProfile(context),
                 trailing: Expanded(child: _buildSelectedChildName()),
               ),
               if (!_minimized) ...[

@@ -18,17 +18,19 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 class StudentAttendanceTabbedView extends StatefulWidget {
   const StudentAttendanceTabbedView({
     super.key, 
-    this.initialTabIndex = 0, 
+    this.initialTabIndex = 0,
     this.dailyIncomingFilter,
     this.classroomFilter,
     this.staffAllowedClassrooms,
     this.staffAllowedClassroomIds,
+    this.highlightCode,
   });
 
   static const String routeName = '/dashboard/student-attendance-tabbed-view';
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
+  final String? highlightCode; // notification deep-link target studentCode
   final FilterData? classroomFilter; // classroom filter data
   final List<String>? staffAllowedClassrooms; // staff's allowed classroom names
   final List<int>? staffAllowedClassroomIds; // staff's allowed classroom IDs
@@ -40,8 +42,13 @@ class StudentAttendanceTabbedView extends StatefulWidget {
 class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedView>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final TabController _tabController;
-  
-  // Keys to access the state of each tab
+
+  // Hide the floating add button while the drawer is open so it isn't painted
+  // on top of (and brighter than) the drawer's dim scrim.
+  bool _isDrawerOpen = false;
+
+  // Keys to reach each tab's state so an attendance action can reload all
+  // three tabs (Daily, Custom, Absent) — see _refreshAllAfterAttendanceFlow.
   final GlobalKey _dailyViewKey = GlobalKey();
   final GlobalKey _customViewKey = GlobalKey();
   final GlobalKey _absentViewKey = GlobalKey();
@@ -137,6 +144,9 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
             ),
             drawer: const CustomDrawer(),
             drawerEnableOpenDragGesture: false,
+            onDrawerChanged: (isOpen) {
+              if (mounted) setState(() => _isDrawerOpen = isOpen);
+            },
             body: SafeArea(
               bottom: false,
               child: GradientBackground(
@@ -149,16 +159,34 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                     // fully above the bottom navigation bar.
                     mediaQuery.padding.bottom + 80,
                   ),
-                  child: TabBarView(
-                    controller: _tabController,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      StudentAttendanceDailyViewScreen(
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 8),
+                        child: Text(
+                          'Student Attendance',
+                          style: TextStyle(
+                            fontFamily: Fonts.manrope,
+                            fontSize: responsive.isTablet ? 22 : 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            StudentAttendanceDailyViewScreen(
                         key: _dailyViewKey,
-                        incomingFilter: widget.dailyIncomingFilter, 
+                        incomingFilter: widget.dailyIncomingFilter,
                         contentOnly: true,
                         classroomFilter: widget.classroomFilter,
                         staffAllowedClassrooms: widget.staffAllowedClassrooms,
                         staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
+                        highlightCode: widget.highlightCode,
+                        onAttendanceMutated: _refreshSecondaryTabs,
                       ),
                       StudentAttendanceCustomView(
                         key: _customViewKey,
@@ -172,6 +200,9 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                         staffAllowedClassrooms: widget.staffAllowedClassrooms,
                         staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
                       ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -184,28 +215,30 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
                 const CustomNavigationBar(activeTabIndexOverride: 1),
           ),
         ),
-        // Floating button above everything - responsive positioning
-        Positioned(
-          top: floatingButtonTop,
-          right: floatingButtonRight,
-          child: Container(
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: StudentAttendanceVerticalPopUp(
-              students: const [],
-              refreshCallback: _refreshDailyAfterAttendanceFlow,
-              topPosition: floatingButtonTop,
-              rightPosition: floatingButtonRight,
+        // Floating button positioned over the tab bar. Hidden while the drawer
+        // is open so it doesn't sit above the drawer's dim scrim.
+        if (!_isDrawerOpen)
+          Positioned(
+            top: floatingButtonTop,
+            right: floatingButtonRight,
+            child: Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: StudentAttendanceVerticalPopUp(
+                students: const [],
+                refreshCallback: _refreshAllAfterAttendanceFlow,
+                topPosition: floatingButtonTop,
+                rightPosition: floatingButtonRight,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -213,11 +246,34 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
   @override
   bool get wantKeepAlive => true;
 
-  void _refreshDailyAfterAttendanceFlow() {
-    final dailyState = _dailyViewKey.currentState;
-    if (dailyState == null) return;
-    if (dailyState is! DailyAttendanceParentRefresh) return;
-    (dailyState as DailyAttendanceParentRefresh)
-        .refreshAfterReturningFromAttendanceFlow();
+  /// Reloads every tab (Daily, Custom, Absent) after any attendance action —
+  /// sign-in/out, transfer, mark-absent, edit or delete — so the whole page
+  /// (lists + counts) reflects the change, not just the Daily tab.
+  ///
+  /// The Daily tab reloads itself and cascades to the secondary tabs via its
+  /// onAttendanceMutated callback, so refreshing Daily refreshes everything.
+  /// If Daily isn't currently mounted (the user is on a far tab), it will
+  /// reload on its own when revisited, so we just refresh the secondary tabs.
+  void _refreshAllAfterAttendanceFlow() {
+    final daily = _dailyViewKey.currentState;
+    if (daily is AttendanceTabRefresh) {
+      (daily as AttendanceTabRefresh).refreshAfterReturningFromAttendanceFlow();
+    } else {
+      _refreshSecondaryTabs();
+    }
+  }
+
+  /// Reloads just the Custom and Absent tabs (skipping any not currently
+  /// mounted — they reload themselves when revisited).
+  void _refreshSecondaryTabs() {
+    _refreshTab(_customViewKey);
+    _refreshTab(_absentViewKey);
+  }
+
+  void _refreshTab(GlobalKey key) {
+    final state = key.currentState;
+    if (state is AttendanceTabRefresh) {
+      (state as AttendanceTabRefresh).refreshAfterReturningFromAttendanceFlow();
+    }
   }
 }

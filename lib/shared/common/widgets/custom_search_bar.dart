@@ -38,6 +38,10 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
         ),
         elevation: const WidgetStatePropertyAll(0),
         backgroundColor: widget.searchBarColor ?? const WidgetStatePropertyAll(Colors.white),
+        // Keep the fill pure white — prevents Material 3 from applying a
+        // surface tint / overlay that greys the search box.
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         hintText: widget.hintText,
         onChanged: widget.onChanged,
         hintStyle: WidgetStatePropertyAll(
