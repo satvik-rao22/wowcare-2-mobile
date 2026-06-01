@@ -15,14 +15,11 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
-import 'package:wowcare/shared/services/geofence_notification_service.dart';
 // Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
-import 'package:workmanager/workmanager.dart';
-import 'package:wowcare/core/background/geofence_background_task.dart';
 import 'src/app_router.dart';
 
 /// Handle FCM messages in background (when app is not in foreground)
@@ -42,40 +39,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 const MethodChannel _notificationChannel =
     MethodChannel('wowcare/notifications');
 
-    // Get FCM token — may fail on devices without Google Play Services
-    try {
-      final token = await messaging.getToken();
-      AppLogger.d('[FCM] Device token: $token');
-    } catch (e) {
-      AppLogger.d(
-        '[FCM] Could not get FCM token (no Google Play Services?): $e',
-      );
-    }
-
-    // Set background message handler
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // Handle messages when app is in foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      AppLogger.d('[FCM] Foreground message: ${message.notification?.title}');
-      try {
-        serviceLocator<GeofenceNotificationService>().showCustomNotification(
-          title: message.notification?.title ?? 'School Alert',
-          body: message.notification?.body ?? 'You have a new notification',
-        );
-      } catch (e) {
-        AppLogger.d('[FCM] Error showing notification: $e');
-      }
-    });
-
-    // Handle notification tap when app was in background
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      AppLogger.d('[FCM] Notification tapped: ${message.messageId}');
-    });
-  } catch (e) {
-    AppLogger.d(
-      '[FCM] FCM setup failed (app will continue without push notifications): $e',
-    );
 Future<Map<String, String>?> _readNativeLaunchNotification() async {
   try {
     final raw = await _notificationChannel

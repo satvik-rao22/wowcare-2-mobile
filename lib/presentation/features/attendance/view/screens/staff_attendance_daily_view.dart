@@ -637,8 +637,16 @@ class _StaffAttendanceDailyViewScreenState
                                   ? const StaffAbsentCardShimmer()
                                   : const StaffAttendanceCardShimmer(),
                             ),
-                          ),
-                        );
+                          )
+                        else if (_showAbsentOnly)
+                          _buildAbsentStaffList(absentState)
+                        else
+                          _buildStaffListFromState(state),
+                      ],
+                    ),
+                  ),
+                ),
+              );
                       },
                     );
                   },
