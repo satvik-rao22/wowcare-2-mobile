@@ -196,7 +196,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   embedded: true,
                   titleFontSize: 14,
                   onHeaderTap: () {
-                    context.push(ClassroomOverviewScreen.routeName);
+                    // context.push(ClassroomOverviewScreen.routeName);
                   },
                   onLegendTap: (label, filterValue) {
                     final normalized = label.trim().toLowerCase();
@@ -235,10 +235,10 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   embedded: true,
                   titleFontSize: 14,
                   onHeaderTap: () {
-                    context.push(
-                      StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': 'Expected'},
-                    );
+                    // context.push(
+                    // StudentAttendanceTabbedView.routeName,
+                    // extra: {'filter': 'Expected'},
+                    // );
                   },
                   onLegendTap: (label, filterValue) {
                     final normalized = label.trim().toLowerCase();
@@ -283,10 +283,10 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   embedded: true,
                   titleFontSize: 14,
                   onHeaderTap: () {
-                    context.push(
-                      StaffAttendanceTabbedView.routeName,
-                      extra: {'filter': 'Expected'},
-                    );
+                    // context.push(
+                    //   StaffAttendanceTabbedView.routeName,
+                    //   extra: {'filter': 'Expected'},
+                    // );
                   },
                   onLegendTap: (label, filterValue) {
                     final normalized = label.trim().toLowerCase();

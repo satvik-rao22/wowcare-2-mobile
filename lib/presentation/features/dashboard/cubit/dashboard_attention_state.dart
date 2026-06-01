@@ -16,6 +16,8 @@ class DashboardAttentionState extends Equatable {
     this.overdueMovements = 0,
     this.expiredDocuments = 0,
     this.expiringDocuments = 0,
+    this.expiredStudentDocuments = 0,
+    this.expiringStudentDocuments = 0,
     this.overdueCheckups = 0,
     this.missingCheckups = 0,
     this.errorMessage,
@@ -26,6 +28,8 @@ class DashboardAttentionState extends Equatable {
   final int overdueMovements;
   final int expiredDocuments;
   final int expiringDocuments;
+  final int expiredStudentDocuments;
+  final int expiringStudentDocuments;
   final int overdueCheckups;
   final int missingCheckups;
   final String? errorMessage;
@@ -43,6 +47,8 @@ class DashboardAttentionState extends Equatable {
     int? overdueMovements,
     int? expiredDocuments,
     int? expiringDocuments,
+    int? expiredStudentDocuments,
+    int? expiringStudentDocuments,
     int? overdueCheckups,
     int? missingCheckups,
     String? errorMessage,
@@ -53,6 +59,10 @@ class DashboardAttentionState extends Equatable {
       overdueMovements: overdueMovements ?? this.overdueMovements,
       expiredDocuments: expiredDocuments ?? this.expiredDocuments,
       expiringDocuments: expiringDocuments ?? this.expiringDocuments,
+      expiredStudentDocuments:
+          expiredStudentDocuments ?? this.expiredStudentDocuments,
+      expiringStudentDocuments:
+          expiringStudentDocuments ?? this.expiringStudentDocuments,
       overdueCheckups: overdueCheckups ?? this.overdueCheckups,
       missingCheckups: missingCheckups ?? this.missingCheckups,
       errorMessage: errorMessage,
@@ -66,6 +76,8 @@ class DashboardAttentionState extends Equatable {
     overdueMovements,
     expiredDocuments,
     expiringDocuments,
+    expiredStudentDocuments,
+    expiringStudentDocuments,
     overdueCheckups,
     missingCheckups,
     errorMessage,

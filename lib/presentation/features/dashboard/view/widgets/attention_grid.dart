@@ -71,67 +71,63 @@ class _AttentionGridState extends State<AttentionGrid> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<RatioMonitoringCubit, RatioMonitoringState>(
-      builder: (context, ratioState) {
-        return BlocBuilder<ClassroomShiftsCubit, ClassroomShiftsState>(
-          builder: (context, shiftsState) {
-            return BlocBuilder<DashboardAttentionCubit, DashboardAttentionState>(
-              builder: (context, attentionState) {
-                final isLoading = ratioState.isLoading ||
-                    shiftsState.isLoading ||
-                    attentionState.isLoading;
+    // Flat watch — each cubit triggers exactly one rebuild of this widget,
+    // not a cascade through nested builders.
+    final ratioState = context.watch<RatioMonitoringCubit>().state;
+    final shiftsState = context.watch<ClassroomShiftsCubit>().state;
+    final attentionState = context.watch<DashboardAttentionCubit>().state;
 
-                final cards =
-                    _buildCards(ratioState, shiftsState, attentionState);
+    // Treat "initial" as loading: with isSilent:true the cubit never emits
+    // a loading status, but the data hasn't arrived yet.
+    final isLoading = ratioState.isLoading ||
+        shiftsState.isLoading ||
+        attentionState.isLoading ||
+        attentionState.isInitial;
 
-                if (isLoading && cards.isEmpty) {
-                  return _buildLoadingSection();
-                }
+    final cards = _buildCards(ratioState, shiftsState, attentionState);
 
-                if (cards.isEmpty) return const SizedBox.shrink();
+    if (isLoading && cards.isEmpty) {
+      return _buildLoadingSection();
+    }
 
-                final initialCards = cards.take(_initialCount).toList();
-                final extraCards = cards.skip(_initialCount).toList();
-                final hasMore = extraCards.isNotEmpty;
+    if (cards.isEmpty) return const SizedBox.shrink();
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Need your attention',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildGrid(initialCards),
-                    if (hasMore) ...[
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeInOut,
-                        child: _expanded
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: _buildGrid(extraCards),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      const SizedBox(height: 8),
-                      _ShowMoreButton(
-                        expanded: _expanded,
-                        onTap: () => setState(() => _expanded = !_expanded),
-                      ),
-                    ] else
-                      const SizedBox(height: 4),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
+    final initialCards = cards.take(_initialCount).toList();
+    final extraCards = cards.skip(_initialCount).toList();
+    final hasMore = extraCards.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Need your attention',
+          style: TextStyle(
+            color: AppColors.primaryColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildGrid(initialCards),
+        if (hasMore) ...[
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            child: _expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _buildGrid(extraCards),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 8),
+          _ShowMoreButton(
+            expanded: _expanded,
+            onTap: () => setState(() => _expanded = !_expanded),
+          ),
+        ] else
+          const SizedBox(height: 4),
+      ],
     );
   }
 
@@ -139,6 +135,7 @@ class _AttentionGridState extends State<AttentionGrid> {
     final rows = <Widget>[];
     for (var i = 0; i < cards.length; i += 2) {
       if (i > 0) rows.add(const SizedBox(height: 12));
+      final hasRight = i + 1 < cards.length;
       rows.add(
         IntrinsicHeight(
           child: Row(
@@ -146,8 +143,10 @@ class _AttentionGridState extends State<AttentionGrid> {
             children: [
               Expanded(child: _AttentionCard(model: cards[i])),
               const SizedBox(width: 12),
+              // Invisible placeholder keeps left card from stretching full width
+              // when the row has an odd card.
               Expanded(
-                child: i + 1 < cards.length
+                child: hasRight
                     ? _AttentionCard(model: cards[i + 1])
                     : const SizedBox.shrink(),
               ),
@@ -240,6 +239,18 @@ class _AttentionGridState extends State<AttentionGrid> {
         count: attentionState.overdueMovements,
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
+      ),
+      AttentionCardModel(
+        label: 'Expired Student Docs',
+        count: attentionState.expiredStudentDocuments,
+        pillText: 'Overdue',
+        tone: _AttentionTone.danger,
+      ),
+      AttentionCardModel(
+        label: 'Student Docs Expiring',
+        count: attentionState.expiringStudentDocuments,
+        pillText: 'Expiring Soon',
+        tone: _AttentionTone.warning,
       ),
       AttentionCardModel(
         label: 'Expired Staff Docs',
@@ -383,9 +394,10 @@ class _AttentionCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (model.isCurrency)
                 _CurrencyBadge()

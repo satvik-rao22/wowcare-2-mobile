@@ -7,13 +7,12 @@ import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -23,6 +22,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../../core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 
 // TODO: replace _mockIsSignedIn with real sign-in state from attendance cubit.
 const bool _mockIsSignedIn = false;
@@ -82,28 +83,12 @@ class _MyDayCardState extends State<MyDayCard> {
     return '$h:$m:$s';
   }
 
-  /// Converts a 24h time string (`HH:mm` or `HH:mm:ss`) to `hh:mm AM/PM`.
-  static String _formatDisplay(String raw) {
-    final norm = _normalize24h(raw);
-    final timeParts = norm.split(':');
-    int h = int.parse(timeParts[0]);
-    final int m = int.parse(timeParts[1]);
-    final bool isPm = h >= 12;
-    final String period = isPm ? 'PM' : 'AM';
-    if (h == 0)
-      h = 12;
-    else if (h > 12)
-      h -= 12;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
-  }
-
-  /// Formats the `halfDay` field. If it looks like a time, convert it;
-  /// otherwise return it as-is.
-  static String _formatHalfDay(String? halfDay) {
-    if (halfDay == null || halfDay.isEmpty) return 'N/A';
-    // Looks like a time if it contains ':'
-    if (halfDay.contains(':')) return _formatDisplay(halfDay);
-    return halfDay;
+  /// Formats a [StaffProfileTime] as `h:mm AM/PM` (space before period).
+  static String _formatStaffTime(StaffProfileTime t) {
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
+    final m = t.minute.toString().padLeft(2, '0');
+    return '$h:$m $period';
   }
 
   @override
@@ -120,7 +105,11 @@ class _MyDayCardState extends State<MyDayCard> {
     // never emits a new event, so the BlocConsumer listener never fires.
     final cubitState = context.read<MyDayCubit>().state;
     if (cubitState.isLoaded) {
-      _computeCountdownFromSchedule(cubitState.todaySchedule);
+      _computeCountdownFromSchedule(
+        cubitState.todaySchedule,
+        staffSchedule: cubitState.todayWorkSchedule,
+        breakSchedule: cubitState.todayBreakSchedule,
+      );
       _startTicker();
     }
   }
@@ -139,7 +128,11 @@ class _MyDayCardState extends State<MyDayCard> {
       if (!mounted) return;
       final cubitState = context.read<MyDayCubit>().state;
       if (cubitState.isLoaded) {
-        _computeCountdownFromSchedule(cubitState.todaySchedule);
+        _computeCountdownFromSchedule(
+          cubitState.todaySchedule,
+          staffSchedule: cubitState.todayWorkSchedule,
+          breakSchedule: cubitState.todayBreakSchedule,
+        );
       }
     });
   }
@@ -190,12 +183,90 @@ class _MyDayCardState extends State<MyDayCard> {
   // Countdown computation
   // ---------------------------------------------------------------------------
 
-  /// Derives countdown display state from a [SchoolRegularScheduleDay].
+  /// Derives countdown display state from the staff's personal schedule or,
+  /// if unavailable, from the school's regular schedule.
   ///
-  /// Called by [BlocConsumer]'s listener whenever the schedule is loaded so the
-  /// countdown reflects the real school hours without requiring a rebuild chain.
-  void _computeCountdownFromSchedule(SchoolRegularScheduleDay? schedule) {
-    if (schedule == null) {
+  /// [staffSchedule] is preferred when present — it contains the staff
+  /// member's own day-specific start/end times from their profile.
+  /// Uses device local time so the countdown matches the user's clock.
+  void _computeCountdownFromSchedule(
+    SchoolRegularScheduleDay? schedule, {
+    StaffProfileWorkSchedule? staffSchedule,
+    StaffProfileBreakSchedule? breakSchedule,
+  }) {
+    final now = DateTime.now();
+
+    // Shared 3-letter day abbreviation — from profile when available, otherwise
+    // from the device clock so the format is always "h:mm AM/PM - h:mm AM/PM (DAY)".
+    const _weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    final dayAbbr = staffSchedule != null
+        ? (staffSchedule.dayOfWeek.length >= 3
+              ? staffSchedule.dayOfWeek.substring(0, 3).toUpperCase()
+              : staffSchedule.dayOfWeek.toUpperCase())
+        : _weekdays[now.weekday - 1];
+
+    DateTime? startDt;
+    DateTime? endDt;
+    String displayStart;
+    String displayEnd;
+    String displayBreak;
+
+    if (staffSchedule != null) {
+      startDt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        staffSchedule.workStartTime.hour,
+        staffSchedule.workStartTime.minute,
+        staffSchedule.workStartTime.second,
+      );
+      endDt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        staffSchedule.workEndTime.hour,
+        staffSchedule.workEndTime.minute,
+        staffSchedule.workEndTime.second,
+      );
+      displayStart = _formatStaffTime(staffSchedule.workStartTime);
+      displayEnd = _formatStaffTime(staffSchedule.workEndTime);
+      displayBreak = breakSchedule != null
+          ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
+          : 'N/A';
+    } else if (schedule != null) {
+      final dateStr =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final start24 = _normalize24h(schedule.startTime);
+      final end24 = _normalize24h(schedule.endTime);
+      startDt = DateTime.tryParse('$dateStr $start24');
+      endDt = DateTime.tryParse('$dateStr $end24');
+
+      // Parse hours/minutes from the normalised string so we can apply the
+      // same h:mm AM/PM format (no leading zero) as the staff schedule branch.
+      final sParts = start24.split(':');
+      final eParts = end24.split(':');
+      displayStart = _fmtHM(
+        int.tryParse(sParts[0]) ?? 0,
+        int.tryParse(sParts[1]) ?? 0,
+      );
+      displayEnd = _fmtHM(
+        int.tryParse(eParts[0]) ?? 0,
+        int.tryParse(eParts[1]) ?? 0,
+      );
+
+      // Half-day field: format as time if it looks like one.
+      final hd = schedule.halfDay;
+      if (hd != null && hd.contains(':')) {
+        final hd24 = _normalize24h(hd);
+        final hdParts = hd24.split(':');
+        displayBreak = _fmtHM(
+          int.tryParse(hdParts[0]) ?? 0,
+          int.tryParse(hdParts[1]) ?? 0,
+        );
+      } else {
+        displayBreak = (hd == null || hd.isEmpty) ? 'N/A' : hd;
+      }
+    } else {
       setState(() {
         _hasShifts = false;
         _statusText = 'School Closed';
@@ -205,21 +276,6 @@ class _MyDayCardState extends State<MyDayCard> {
       });
       return;
     }
-
-    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
-      schoolTz,
-    );
-
-    final dateStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    final start24 = _normalize24h(schedule.startTime);
-    final end24 = _normalize24h(schedule.endTime);
-
-    final startDt = DateTime.tryParse('$dateStr $start24');
-    final endDt = DateTime.tryParse('$dateStr $end24');
 
     if (startDt == null || endDt == null) {
       setState(() {
@@ -232,28 +288,31 @@ class _MyDayCardState extends State<MyDayCard> {
       return;
     }
 
-    final displayStart = _formatDisplay(schedule.startTime);
-    final displayEnd = _formatDisplay(schedule.endTime);
-    final displayHalfDay = _formatHalfDay(schedule.halfDay);
-
     setState(() {
       _hasShifts = true;
-      _workTime = '$displayStart – $displayEnd';
-      _breakTime = displayHalfDay;
+      _workTime = '$displayStart - $displayEnd ($dayAbbr)';
+      _breakTime = displayBreak;
 
-      if (now.isBefore(startDt)) {
+      if (now.isBefore(startDt!)) {
         _duration = startDt.difference(now);
         _statusText = 'Your shift starts in';
-      } else if (now.isBefore(endDt)) {
+      } else if (now.isBefore(endDt!)) {
         _duration = endDt.difference(now);
         _statusText = 'Your shift ends in';
       } else {
-        // School day ended — show the schedule but zero out the timer.
         _hasShifts = false;
         _statusText = 'School day ended';
         _duration = Duration.zero;
       }
     });
+  }
+
+  /// Formats hour + minute as `h:mm AM/PM` (no leading zero on hour,
+  /// space before period) — shared by both schedule branches.
+  static String _fmtHM(int hour, int minute) {
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final h = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$h:${minute.toString().padLeft(2, '0')} $period';
   }
 
   // ---------------------------------------------------------------------------
@@ -366,10 +425,16 @@ class _MyDayCardState extends State<MyDayCard> {
       child: BlocConsumer<MyDayCubit, MyDayState>(
         // Re-compute countdown whenever the schedule data changes.
         listenWhen: (prev, curr) =>
-            curr.isLoaded && prev.todaySchedule != curr.todaySchedule ||
-            curr.isLoaded && prev.schoolClosed != curr.schoolClosed,
+            curr.isLoaded &&
+            (prev.todaySchedule != curr.todaySchedule ||
+                prev.todayWorkSchedule != curr.todayWorkSchedule ||
+                prev.schoolClosed != curr.schoolClosed),
         listener: (context, state) {
-          _computeCountdownFromSchedule(state.todaySchedule);
+          _computeCountdownFromSchedule(
+            state.todaySchedule,
+            staffSchedule: state.todayWorkSchedule,
+            breakSchedule: state.todayBreakSchedule,
+          );
           _startTicker();
         },
         builder: (context, state) {
@@ -533,10 +598,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                       onPressed: _mockIsSignedIn
                                           ? null
                                           : _openMarkAbsentForSelf,
-                                      icon: const Icon(
-                                        Icons.person_off_outlined,
-                                        size: 18,
-                                      ),
+
                                       label: const Text(
                                         'Mark Absent',
                                         overflow: TextOverflow.ellipsis,
@@ -567,8 +629,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                       isForm: false,
                                       showCancelButton: false,
                                       confirmButtonLabel: _mockIsSignedIn
-                                          ? 'GPS Sign-Out'
-                                          : 'GPS Sign-In',
+                                          ? 'Sign-Out'
+                                          : 'Sign-In',
                                       confirmButtonChild: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -584,8 +646,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                           Flexible(
                                             child: Text(
                                               _mockIsSignedIn
-                                                  ? 'GPS Sign-Out'
-                                                  : 'GPS Sign-In',
+                                                  ? 'Sign-Out'
+                                                  : 'Sign-In',
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 fontSize: 16,

@@ -973,6 +973,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => DashboardAttentionCubit(
       availabilityRepository: serviceLocator(),
       staffRepository: serviceLocator(),
+      studentRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

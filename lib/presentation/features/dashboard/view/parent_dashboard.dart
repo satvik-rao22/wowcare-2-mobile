@@ -81,8 +81,8 @@ class _ParentDashboardState extends State<ParentDashboard> {
         return const MyChildsDayCard();
       case ParentDashboardCard.studentAttendance:
         return const StudentAttendanceCard();
-      case ParentDashboardCard.studentBilling:
-        return const StudentBillingCard();
+      // case ParentDashboardCard.studentBilling:
+      //   return const StudentBillingCard();
       case ParentDashboardCard.studentNewsletters:
         return const StudentNewslettersCard();
     }

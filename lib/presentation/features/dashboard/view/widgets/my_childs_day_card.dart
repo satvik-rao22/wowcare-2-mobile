@@ -17,9 +17,12 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
+
+import '../../../../../core/util/storage_keys.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -98,18 +101,6 @@ TimeOfDay? _parseTime(String timeStr) {
     );
   }
 }
-
-class _MockMessage {
-  const _MockMessage({required this.senderName, required this.text});
-
-  final String senderName;
-  final String text;
-}
-
-const _MockMessage _mockLastMessage = _MockMessage(
-  senderName: 'Ms. Laura (Teacher)',
-  text: 'Emma had a wonderful painting session today!',
-);
 
 class MyChildsDayCard extends StatefulWidget {
   const MyChildsDayCard({super.key});
@@ -197,26 +188,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   @override
   bool get wantKeepAlive => true;
-
-  String _formatDayOfWeek(String raw) {
-    switch (raw.trim().toUpperCase()) {
-      case 'MONDAY':
-        return 'Monday';
-      case 'TUESDAY':
-        return 'Tuesday';
-      case 'WEDNESDAY':
-        return 'Wednesday';
-      case 'THURSDAY':
-        return 'Thursday';
-      case 'FRIDAY':
-        return 'Friday';
-      case 'SATURDAY':
-        return 'Saturday';
-      case 'SUNDAY':
-        return 'Sunday';
-    }
-    return raw.trim();
-  }
 
   // ----- Timer display -----
 
@@ -419,7 +390,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       child: CustomButtonLayout(
         isForm: false,
         showCancelButton: false,
-        confirmButtonLabel: 'GPS Sign-In / Out',
+        confirmButtonLabel: 'Sign-In / Out',
         confirmButtonChild: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -432,7 +403,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             SizedBox(width: 8),
             Flexible(
               child: Text(
-                'GPS Sign-In / Out',
+                'Sign-In / Out',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 16,
@@ -527,7 +498,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             return Text(
               pin.isEmpty ? '—' : pin,
               style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.75),
+                color: AppColors.themeColor,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5,
@@ -540,105 +511,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         const SizedBox(height: 12),
         const QrScanButton(),
       ],
-    );
-  }
-
-  Widget _buildCommunicationSection() {
-    return BlocBuilder<CommunicationCubit, CommunicationState>(
-      buildWhen: (prev, curr) =>
-          curr is CommunicationConversationsLoaded ||
-          curr is CommunicationConversationsLoading ||
-          curr is CommunicationError,
-      builder: (context, state) {
-        if (state is CommunicationConversationsLoading ||
-            state is CommunicationInitial) {
-          return const SizedBox.shrink();
-        }
-        if (state is CommunicationError) {
-          return const SizedBox.shrink();
-        }
-        if (state is! CommunicationConversationsLoaded) {
-          return const SizedBox.shrink();
-        }
-
-        final conversations = state.conversationsByType[null] ?? const [];
-        if (conversations.isEmpty) return const SizedBox.shrink();
-
-        final convo = conversations.first;
-        final sender = (convo.lastMessageBy ?? convo.title).trim();
-        final preview = convo.lastMessagePreview.trim();
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-            color: Color.fromRGBO(44, 99, 226, 0.05),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              DocumentImageWidget(
-                fileUuid: '',
-                name: sender.isEmpty ? '—' : sender,
-                size: 40,
-                fontSize: 16,
-                disableProfileLookupFallback: true,
-                disableAttendanceStatusLookup: true,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      sender.isEmpty ? '—' : sender,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      preview.isEmpty ? '—' : preview,
-                      style: TextStyle(
-                        color: AppColors.primaryColor.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () {},
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      MediaRes.communicationIcon,
-                      width: 22,
-                      height: 22,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -740,8 +612,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                     builder: (context, myChildsDayState) {
                       final isLoading =
                           myChildsDayState.status == MyChildsDayStatus.loading;
-                      final isLoaded =
-                          myChildsDayState.status == MyChildsDayStatus.loaded;
                       final isError =
                           myChildsDayState.status == MyChildsDayStatus.error;
 
@@ -951,10 +821,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
           // if (!_isMinimized) _buildCommunicationSection(),
           if (!_isMinimized)
-            _CommunicationRowWidget(
-              studentName: '_mockStudent.fullName',
-              lastMessage: _mockLastMessage,
-            ),
+            const _CommunicationRowWidget(),
         ],
       ),
     );
@@ -965,14 +832,30 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 // Communication row (inline, no Firestore / bloc)
 // ---------------------------------------------------------------------------
 
-class _CommunicationRowWidget extends StatelessWidget {
-  const _CommunicationRowWidget({
-    required this.studentName,
-    required this.lastMessage,
-  });
+class _CommunicationRowWidget extends StatefulWidget {
+  const _CommunicationRowWidget();
 
-  final String studentName;
-  final _MockMessage lastMessage;
+  @override
+  State<_CommunicationRowWidget> createState() =>
+      _CommunicationRowWidgetState();
+}
+
+class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
+  String _displayName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadDisplayName());
+  }
+
+  Future<void> _loadDisplayName() async {
+    final storage = serviceLocator<StorageService>();
+    final name = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    if (!mounted) return;
+    setState(() => _displayName = name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -985,12 +868,11 @@ class _CommunicationRowWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Sender profile avatar (profile photo → DocumentImageWidget)
           DocumentImageWidget(
             fileUuid: '',
-            name: lastMessage.senderName,
-            size: 40,
-            fontSize: 16,
+            name: _displayName,
+            size: 50,
+            fontSize: 20,
             disableProfileLookupFallback: true,
             disableAttendanceStatusLookup: true,
           ),
@@ -1000,8 +882,7 @@ class _CommunicationRowWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lastMessage.senderName,
-                  maxLines: 1,
+                  _displayName.isNotEmpty ? _displayName : '—',
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
@@ -1010,42 +891,46 @@ class _CommunicationRowWidget extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  lastMessage.text,
+                  'Chat Not Found',
                   style: TextStyle(
+                    fontSize: 12,
                     color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontWeight: FontWeight.w500,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          // Chat navigation button (empty stub – no screen import)
-          GestureDetector(
-            onTap: () {}, // navigation to StudentConversationScreen is stubbed
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: SvgPicture.asset(
-                  MediaRes.communicationIcon,
-                  width: 22,
-                  height: 22,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _ChatActionButton(onPressed: () {}),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatActionButton extends StatelessWidget {
+  const _ChatActionButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          gradient: AppColors.buildPrimaryGradient(),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        alignment: Alignment.center,
+        child: SvgPicture.asset(
+          MediaRes.communicationIcon,
+          width: 24,
+          height: 24,
+          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+        ),
       ),
     );
   }
