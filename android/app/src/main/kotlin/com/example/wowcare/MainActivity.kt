@@ -144,6 +144,8 @@ class MainActivity : FlutterFragmentActivity() {
                 "com.baseflow.permissionhandler.PermissionHandlerPlugin",
                 "net.touchcapture.qr.flutterqrplus.FlutterQrPlusPlugin",
                 "io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin",
+                "com.it_nomads.fluttersecurestorage.FlutterSecureStoragePlugin",
+                "io.flutter.plugins.localauth.LocalAuthPlugin",
                 "com.wiseowl.wowcareapp.GeofencePlugin",
                 "io.flutter.plugins.urllauncher.UrlLauncherPlugin",
                 "io.flutter.plugins.videoplayer.VideoPlayerPlugin",
