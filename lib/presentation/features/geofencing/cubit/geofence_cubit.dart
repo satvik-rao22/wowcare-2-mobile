@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
@@ -221,6 +222,9 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       );
       _startNativeEvents();
       _startStream();
+      // Immediately resolve current position so the dashboard button
+      // shows the correct state without waiting for the first OS event.
+      unawaited(_checkPositionImmediately(_config!));
     } catch (e, st) {
       debugPrint('╔══════════════════════════════════════════════════╗');
       debugPrint('║  GEOFENCE INIT ERROR                             ║');
@@ -328,6 +332,57 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           })
           .catchError((_) {}),
     );
+  }
+
+  /// Immediately fetches the current device position, evaluates it against the
+  /// geofence, emits the correct state, and fires a notification — all without
+  /// waiting for the first OS-level geofence event (which can take seconds).
+  Future<void> _checkPositionImmediately(GeofenceConfig config) async {
+    try {
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+      } catch (_) {
+        position = await Geolocator.getLastKnownPosition();
+      }
+      if (position == null || isClosed) return;
+
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        config.latitude,
+        config.longitude,
+      );
+
+      final isInside = distance <= config.radiusMeters;
+      final newStatus = isInside
+          ? GeofenceCubitStatus.withinRange
+          : GeofenceCubitStatus.outsideRange;
+      final newGeofenceStatus =
+          isInside ? GeofenceStatus.within : GeofenceStatus.outside;
+
+      AppLogger.d(
+        '[GeofenceCubit] Immediate check — distance=${distance.toStringAsFixed(1)}m '
+        'radius=${config.radiusMeters}m inside=$isInside',
+      );
+
+      if (!isClosed && state.status != newStatus) {
+        emit(state.copyWith(status: newStatus));
+        _triggerNotificationIfNeeded(newGeofenceStatus);
+      } else if (!isClosed &&
+          state.status == GeofenceCubitStatus.checking) {
+        // Still in 'checking' — resolve it even if status matches last known.
+        emit(state.copyWith(status: newStatus));
+        _triggerNotificationIfNeeded(newGeofenceStatus);
+      }
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] Immediate position check failed: $e');
+    }
   }
 
   void stopMonitoring() {
