@@ -25,13 +25,18 @@ class QrValidationLoading extends QrValidationState {
 }
 
 class QrValidationSuccess extends QrValidationState {
-  const QrValidationSuccess(this.result, {required this.route});
+  const QrValidationSuccess(
+    this.result, {
+    required this.route,
+    required this.qrToken,
+  });
 
   final QrValidationResult result;
   final QrNavigationRoute route;
+  final String qrToken;
 
   @override
-  List<Object?> get props => [result, route];
+  List<Object?> get props => [result, route, qrToken];
 }
 
 class QrValidationFailure extends QrValidationState {

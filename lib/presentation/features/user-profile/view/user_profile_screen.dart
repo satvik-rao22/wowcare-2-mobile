@@ -50,6 +50,17 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  /// Formats a [StaffProfileTime] as `h:mm AM/PM` (space before period).
+  static String _fmtTime(StaffProfileTime t) {
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
+    return '$h:${t.minute.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Returns the 3-letter uppercase day abbreviation from a full day name.
+  static String _dayAbbr(String day) =>
+      day.length >= 3 ? day.substring(0, 3).toUpperCase() : day.toUpperCase();
+
   final ImagePicker _picker = ImagePicker();
   late final UserProfileCubit _cubit;
   // Dedupes the one-time "failed to load profile" snackbar.
@@ -981,6 +992,100 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               ),
                             ],
                           ),
+
+                          // ── Schedule section (staff only) ──────────────────
+                          if (!isParentPersona &&
+                              _profile != null &&
+                              (_profile!.workSchedules.isNotEmpty ||
+                                  _profile!.breakSchedules.isNotEmpty)) ...[
+                            const SizedBox(height: 16),
+                            const Divider(height: 1, thickness: 1, color: Color(0xFFF0ECF4)),
+                            const SizedBox(height: 16),
+
+                            // Work Schedule
+                            if (_profile!.workSchedules.isNotEmpty) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomTextWidget(
+                                    text: 'Work Schedule',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ..._profile!.workSchedules.map((ws) {
+                                final dayAbbr = _dayAbbr(ws.dayOfWeek);
+                                final value =
+                                    '${_fmtTime(ws.workStartTime)} - ${_fmtTime(ws.workEndTime)} ($dayAbbr)';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CustomTextWidget(
+                                        text: dayAbbr,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 16 / 13,
+                                      ),
+                                      CustomTextWidget(
+                                        text: value,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        height: 19 / 14,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+
+                            // Break Schedule
+                            if (_profile!.breakSchedules.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomTextWidget(
+                                    text: 'Break Schedule',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ..._profile!.breakSchedules.map((bs) {
+                                final dayAbbr = _dayAbbr(bs.dayOfWeek);
+                                final value =
+                                    '${_fmtTime(bs.breakStartTime)} - ${_fmtTime(bs.breakEndTime)} ($dayAbbr)';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CustomTextWidget(
+                                        text: dayAbbr,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 16 / 13,
+                                      ),
+                                      CustomTextWidget(
+                                        text: value,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        height: 19 / 14,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ],
+
                           SizedBox(height: responsive.verticalSpacing),
 
                           ],

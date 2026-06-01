@@ -26,9 +26,8 @@ class GeofenceBootReceiver : BroadcastReceiver() {
                 Intent(context, GeofenceBroadcastReceiver::class.java).apply {
                     this.action = GeofenceBroadcastReceiver.ACTION_GEOFENCE_EVENT
                 }
-            val flags =
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) android.app.PendingIntent.FLAG_IMMUTABLE else 0
+            // GeofencingClient.addGeofences() requires FLAG_MUTABLE to add geofence transition data
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
             android.app.PendingIntent.getBroadcast(context, 0, i, flags)
         }
 

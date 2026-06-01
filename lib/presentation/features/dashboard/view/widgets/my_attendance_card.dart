@@ -118,6 +118,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
                           staffName: state.staffName,
                           attendedDays: state.attendedDays,
                           attendedHours: state.attendedHours,
+                          attendedMinutes: state.attendedMinutes,
                           absentDays: state.absentDays,
                         ),
                 ),
@@ -137,9 +138,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -190,13 +189,13 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
   }
 
   Widget _shimmerBox(double w, double h, {double radius = 4}) => Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
+    width: w,
+    height: h,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(radius),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +210,7 @@ class _AttendanceReportColumn extends StatelessWidget {
     required this.staffName,
     required this.attendedDays,
     required this.attendedHours,
+    required this.attendedMinutes,
     required this.absentDays,
   });
 
@@ -218,6 +218,7 @@ class _AttendanceReportColumn extends StatelessWidget {
   final String staffName;
   final int attendedDays;
   final int attendedHours;
+  final int attendedMinutes;
   final int absentDays;
 
   @override
@@ -267,12 +268,9 @@ class _AttendanceReportColumn extends StatelessWidget {
           valueColor: const Color.fromRGBO(52, 199, 89, 1),
         ),
         const SizedBox(height: 16),
-        _AttendanceInfoTile(
-          icon: MediaRes.timerIcon,
-          label: 'Attended Hours',
-          text: attendedHours.toString(),
-          valueColor: AppColors.secondaryColor,
-          hasSubscript: true,
+        _AttendanceHoursTile(
+          hours: attendedHours,
+          minutes: attendedMinutes,
         ),
         const SizedBox(height: 16),
         _AttendanceInfoTile(
@@ -296,14 +294,12 @@ class _AttendanceInfoTile extends StatelessWidget {
     required this.label,
     required this.text,
     required this.valueColor,
-    this.hasSubscript = false,
   });
 
   final String icon;
   final String label;
   final String text;
   final Color valueColor;
-  final bool hasSubscript;
 
   @override
   Widget build(BuildContext context) {
@@ -338,35 +334,93 @@ class _AttendanceInfoTile extends StatelessWidget {
               border: Border.all(color: valueColor, width: 1.5),
               shape: BoxShape.circle,
             ),
-            child: Text.rich(
-              TextSpan(
-                text: text,
-                style: TextStyle(
-                  color: valueColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-                children: hasSubscript
-                    ? [
-                        WidgetSpan(
-                          child: Transform.translate(
-                            offset: const Offset(0, -1),
-                            child: Text(
-                              'h',
-                              textScaler: const TextScaler.linear(0.6),
-                              style: TextStyle(
-                                color: valueColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ]
-                    : null,
+            child: Text(
+              text,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AttendanceHoursTile extends StatelessWidget {
+  const _AttendanceHoursTile({
+    required this.hours,
+    required this.minutes,
+  });
+
+  final int hours;
+  final int minutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.1),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          SvgPicture.asset(MediaRes.timerIcon, height: 30),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Attended Hours',
+              style: const TextStyle(
+                color: AppColors.primaryColor,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Row(
+            children: [
+              _ValueCircle(text: '${hours}h'),
+              const SizedBox(width: 8),
+              _ValueCircle(text: '${minutes}m'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValueCircle extends StatelessWidget {
+  const _ValueCircle({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      width: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: AppColors.secondaryColor,
+          width: 1.5,
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.secondaryColor,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

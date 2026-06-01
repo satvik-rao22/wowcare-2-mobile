@@ -450,8 +450,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     try {
       // forEditStaff:true hits /staff/{code}/profile, which carries name,
       // designation and primaryClassroom name.
-      final profile = await serviceLocator<StaffRepository>()
-          .getStaffProfile(staffCode: code, forEditStaff: true);
+      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+        staffCode: code,
+        forEditStaff: true,
+      );
       if (!mounted) return;
       final current = staff;
       if (current == null) return;
@@ -626,8 +628,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
       final absentData = await serviceLocator<AttendanceRepository>()
           .fetchStaffAttendanceProfileAbsentToggle(
-        queryParameters: absentQueryParameters,
-      );
+            queryParameters: absentQueryParameters,
+          );
       if (absentData is Map<String, dynamic>) {
         final root = absentData['data'] as Map<String, dynamic>? ?? {};
         final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
@@ -1010,7 +1012,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         children: [
           InkWell(
             onTap: () {
-              context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+              context.push(
+                StaffAttendanceTabbedView.routeName,
+                extra: {'filter': 'Present'},
+              );
             },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
@@ -1025,7 +1030,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           InkWell(
             onTap: () {
-              context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+              context.push(
+                StaffAttendanceTabbedView.routeName,
+                extra: {'filter': 'Absent'},
+              );
             },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
@@ -1043,7 +1051,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       children: [
         InkWell(
           onTap: () {
-            context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+            context.push(
+              StaffAttendanceTabbedView.routeName,
+              extra: {'filter': 'Present'},
+            );
           },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
@@ -1058,7 +1069,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         const SizedBox(height: 16),
         InkWell(
           onTap: () {
-            context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+            context.push(
+              StaffAttendanceTabbedView.routeName,
+              extra: {'filter': 'Absent'},
+            );
           },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,

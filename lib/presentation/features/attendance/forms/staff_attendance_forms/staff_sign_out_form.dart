@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -16,7 +16,6 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -27,10 +26,16 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 class StaffSignOutForm extends StatefulWidget {
-  const StaffSignOutForm({super.key, this.staff, this.staffList});
+  const StaffSignOutForm({
+    super.key,
+    this.staff,
+    this.staffList,
+    this.qrToken = '',
+  });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
+  final String qrToken;
 
   static const String routeName = '/staff-sign-out-form';
 
@@ -46,20 +51,103 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   bool _isSubmitting = false;
   bool?
   _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
+  String? _currentStaffCode; // Current user's staff code
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initializeFormData());
+    });
+  }
+
+  /// Initializes form with logged-in user data
+  Future<void> _initializeFormData() async {
+    // Load current staff code from storage
+    final staffCode =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.staffCode,
+        ))?.trim() ??
+        '';
+    if (!mounted) return;
+    setState(() {
+      _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
+    });
+
+    // Apply staff selection with logged-in user
+    _applyStaffSelectionRestrictions();
+
+    // Load persona flags (admin check, timezone, etc.)
+    await _loadPersonaFlags();
+
+    // When coming from QR scan, form is pre-populated with logged-in user
+    // User must manually tap Sign-Out button to submit (not auto-submit)
+    if (widget.qrToken.isNotEmpty) {
+      // QR token is passed to form and will be included in submission
+    }
+  }
+
+  /// Applies staff selection restrictions based on role
+  void _applyStaffSelectionRestrictions() {
     if (widget.staffList != null && widget.staffList!.isNotEmpty) {
+      // Admin can sign out multiple staff members
       _selectedStaff = List<StaffEntity>.from(widget.staffList!);
     } else if (widget.staff != null) {
+      // Staff provided, use it
       _selectedStaff = <StaffEntity>[widget.staff!];
+    } else if (_currentStaffCode != null && _currentStaffCode!.isNotEmpty) {
+      // Try to find current staff in the list by staff code
+      StaffEntity? currentStaff;
+      if (widget.staffList != null) {
+        try {
+          currentStaff = widget.staffList!.firstWhere(
+            (staff) => (staff.staffCode ?? '').trim() == _currentStaffCode,
+          );
+        } catch (_) {
+          // Staff not found in list
+        }
+      }
+      if (currentStaff != null) {
+        _selectedStaff = <StaffEntity>[currentStaff];
+      } else {
+        // If still no staff found, try to create from storage
+        _createStaffFromStorage();
+      }
     } else {
-      _selectedStaff = <StaffEntity>[
-        StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1),
-      ];
+      // Last resort: try to load from storage
+      _createStaffFromStorage();
     }
-    _loadPersonaFlags();
+  }
+
+  /// Creates staff entity from storage (name, designation, code)
+  Future<void> _createStaffFromStorage() async {
+    final storage = serviceLocator<StorageService>();
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
+    final designation =
+        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+
+    if (!mounted) return;
+
+    if (displayName.isNotEmpty && staffCode.isNotEmpty) {
+      setState(() {
+        _selectedStaff = <StaffEntity>[
+          StaffEntity(
+            id: 0,
+            name: displayName,
+            primaryRoomId: 0,
+            classroomCode: '',
+            classroomName: '',
+            photoUuid: '',
+            designation: designation.isNotEmpty ? designation : 'Staff',
+            staffCode: staffCode,
+            isExpectedToday: true,
+          ),
+        ];
+      });
+    }
   }
 
   Future<void> _loadPersonaFlags() async {
@@ -248,13 +336,21 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ? classroomCodeByStaffCode.values.first
         : '';
 
-    GeofenceState? geofenceState;
-    try {
-      geofenceState = context.read<GeofenceCubit>().state;
-    } catch (_) {
-      geofenceState = null;
+    // QR scan is physical proof of presence — skip GPS geofence check.
+    // For GPS sign-out, read the singleton directly (form may be outside the
+    // dashboard BlocProvider tree when pushed via MaterialPageRoute).
+    final bool withinGeofence;
+    if (widget.qrToken.isNotEmpty) {
+      withinGeofence = true;
+    } else {
+      GeofenceState? geofenceState;
+      try {
+        geofenceState = serviceLocator<GeofenceCubit>().state;
+      } catch (_) {
+        geofenceState = null;
+      }
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
-    final bool withinGeofence = geofenceState?.isWithinGeofence ?? false;
 
     Position? position;
     try {
@@ -270,19 +366,26 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       } catch (_) {}
     }
 
+    final bool isQrSignOut = widget.qrToken.isNotEmpty;
+    final String signOutMethod = isQrSignOut ? 'QR' : 'GPS';
+
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
       'staffCodes': staffCodes,
       'classroomCode': classroomCode,
       'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': 'APP',
+      'method': signOutMethod,
       'latitude': position?.latitude ?? 0,
       'longitude': position?.longitude ?? 0,
       'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
       'occurredAt': occurredAt.toUtc().toIso8601String(),
     };
+    // Include QR token if this is a QR scan
+    if (isQrSignOut) {
+      payload['qrToken'] = widget.qrToken;
+    }
 
     try {
       final result = await serviceLocator<AttendanceRepository>()

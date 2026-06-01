@@ -42,8 +42,22 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "updateSchoolLocation" -> handleUpdateSchoolLocation(call, result)
+            "getGeofenceStatus" -> handleGetGeofenceStatus(result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun handleGetGeofenceStatus(result: MethodChannel.Result) {
+        val config = GeofencePrefs.readConfig(appContext)
+        val isInside = GeofencePrefs.getLastInside(appContext)
+        result.success(mapOf(
+            "isInside" to isInside,
+            "schoolCode" to (config?.schoolCode ?: ""),
+            "latitude" to (config?.latitude ?: 0.0),
+            "longitude" to (config?.longitude ?: 0.0),
+            "radiusMeters" to (config?.radiusMeters ?: 0.0),
+            "gpsSignInEnabled" to (config?.gpsSignInEnabled ?: false),
+        ))
     }
 
     private fun handleUpdateSchoolLocation(call: MethodCall, result: MethodChannel.Result) {
@@ -94,9 +108,8 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java).apply {
             action = GeofenceBroadcastReceiver.ACTION_GEOFENCE_EVENT
         }
-        val flags =
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        // GeofencingClient.addGeofences() requires FLAG_MUTABLE to add geofence transition data
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         return PendingIntent.getBroadcast(context, 0, intent, flags)
     }
 
@@ -175,9 +188,8 @@ private object GeofenceRegistrar {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java).apply {
             action = GeofenceBroadcastReceiver.ACTION_GEOFENCE_EVENT
         }
-        val flags =
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        // GeofencingClient.addGeofences() requires FLAG_MUTABLE to add geofence transition data
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         return PendingIntent.getBroadcast(context, 0, intent, flags)
     }
 }

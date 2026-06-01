@@ -391,6 +391,8 @@ class ApiPaths {
   static const String studentClassroomAssignStudent =
       '/api/v1/student-classroom/assign-student';
   static const String studentDocuments = '/api/v1/student-documents';
+  static const String studentDocumentExpiryCount =
+      '/api/v1/student/student-documents/expiry-count';
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
@@ -634,6 +636,8 @@ class ApiPaths {
   static String adminRejectActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/reject';
   static const String activityTypesRoot = '/api/v1/activity-types';
+  static const String pendingIncidentCount =
+      '/api/v2/activities/admin/activities/pending-incident-count';
 
   // —— Document host (base path returned by upload-session response) ——
 

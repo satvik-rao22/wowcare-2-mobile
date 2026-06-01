@@ -971,8 +971,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
     () => DashboardAttentionCubit(
+      activityRepository: serviceLocator(),
       availabilityRepository: serviceLocator(),
       staffRepository: serviceLocator(),
+      studentRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -1091,6 +1093,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => QrValidationCubit(
       validateQrCodeUseCase: serviceLocator(),
       getStaffTodaySignInStatusUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

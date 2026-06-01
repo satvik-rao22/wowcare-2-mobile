@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -12,7 +13,6 @@ import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attentio
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
@@ -51,8 +51,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _dashboardCubit = serviceLocator<AdminDashboardCubit>();
-    // ignore: discarded_futures
-    _dashboardCubit.loadUserName();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
     _schoolStatusCubit = serviceLocator<SchoolStatusCubit>();
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
@@ -61,18 +59,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _classroomShiftsCubit = serviceLocator<ClassroomShiftsCubit>();
     _attentionCubit = serviceLocator<DashboardAttentionCubit>();
     _myDayCubit = serviceLocator<MyDayCubit>();
-    // ignore: discarded_futures
-    _initGeofence();
-    // ignore: discarded_futures
-    _initRatioMonitoring();
-    // ignore: discarded_futures
-    _initMovements();
-    // ignore: discarded_futures
-    _initAvailability();
-    // ignore: discarded_futures
-    _attentionCubit.load(isSilent: true);
-    // ignore: discarded_futures
-    _myDayCubit.load(isSilent: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_dashboardCubit.loadUserName());
+      unawaited(_classroomShiftsCubit.load(DateTime.now()));
+      unawaited(_attentionCubit.load());
+      unawaited(_myDayCubit.load());
+      unawaited(_initSchoolDependentCubits());
+    });
+  }
+
+  Future<void> _initSchoolDependentCubits() async {
+    await Future.wait([
+      _initRatioMonitoring(),
+      _initGeofence(),
+      _initMovements(),
+      _initAvailability(),
+    ]);
   }
 
   Future<void> _initMovements() async {
@@ -100,7 +103,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final storage = serviceLocator<StorageService>();
     final schoolCode = await storage.getString(StorageKeys.schoolCode);
     if (schoolCode != null && schoolCode.isNotEmpty) {
-      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+      await _geofenceCubit.initForSchool(schoolCode: schoolCode);
     }
   }
 

@@ -267,33 +267,27 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
       final parsed = StaffAttendanceDailyPageModel.fromJson(raw);
 
-      // Aggregation from the first item matching the staffCode.
-      int attendedDays = state.attendedDays;
-      int attendedHours = state.attendedHours;
-      int attendedMinutes = state.attendedMinutes;
-      String totalAttendedTime = state.totalAttendedTime;
+      // Aggregations from API response.
       String staffName = state.staffName;
-
-      if (page == 0) {
-        // The API already scopes results to the requested staffCode, so
-        // case/whitespace mismatches in a local filter would silently drop data.
-        // Pick the first item that has a non-zero attendedDays, or just the first.
-        final first = parsed.items
-            .cast<StaffAttendanceDailyItemModel?>()
-            .where((i) => (i?.attendedDays ?? 0) > 0)
-            .firstOrNull ?? parsed.items.cast<StaffAttendanceDailyItemModel?>().firstOrNull;
-        if (first != null) {
-          attendedDays = first.attendedDays;
-          attendedHours = first.attendedHours ?? 0;
-          attendedMinutes = first.attendedMinutes ?? 0;
-          totalAttendedTime = first.attendedTime ?? '';
-          if (first.staffName.trim().isNotEmpty) staffName = first.staffName;
-        }
+      if (page == 0 && parsed.items.isNotEmpty) {
+        final first = parsed.items.first;
+        if (first.staffName.trim().isNotEmpty) staffName = first.staffName;
       }
 
       final merged = append
           ? [...state.attendanceRecords, ...parsed.items]
           : parsed.items;
+
+      // Parse hours and minutes from totalAttendedHours string (e.g., "5 Hrs 30 Mins")
+      int attendedHours = state.attendedHours;
+      int attendedMinutes = state.attendedMinutes;
+      if (page == 0 && parsed.totalAttendedHours.isNotEmpty) {
+        final parts = parsed.totalAttendedHours.split(' ');
+        if (parts.length >= 4) {
+          attendedHours = int.tryParse(parts[0]) ?? 0;
+          attendedMinutes = int.tryParse(parts[2]) ?? 0;
+        }
+      }
 
       emit(state.copyWith(
         status: _Status.loaded,
@@ -302,10 +296,10 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         attendancePage: parsed.page,
         attendanceHasMore: parsed.hasMore,
         attendanceLoaded: true,
-        attendedDays: attendedDays,
+        attendedDays: parsed.attendedDays,
         attendedHours: attendedHours,
         attendedMinutes: attendedMinutes,
-        totalAttendedTime: totalAttendedTime,
+        totalAttendedTime: parsed.totalAttendedHours,
         clearError: true,
       ));
 
@@ -361,15 +355,6 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
       final parsed = StaffAttendanceAbsentPageModel.fromJson(raw);
 
-      // Aggregation: absentDays from the first matching item.
-      int absentDays = state.absentDays;
-      if (page == 0) {
-        final first = parsed.items.cast<StaffAttendanceAbsentItemModel?>().firstOrNull;
-        if (first != null) {
-          absentDays = first.absentDays;
-        }
-      }
-
       final merged = append
           ? [...state.absentRecords, ...parsed.items]
           : parsed.items;
@@ -380,7 +365,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         absentPage: parsed.page,
         absentHasMore: parsed.hasMore,
         absentLoaded: true,
-        absentDays: absentDays,
+        absentDays: parsed.absentDays,
         clearError: true,
       ));
 

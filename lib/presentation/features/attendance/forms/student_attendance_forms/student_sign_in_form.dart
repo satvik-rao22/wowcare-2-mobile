@@ -73,6 +73,7 @@ class StudentSignInForm extends StatefulWidget {
     required this.refreshCallback,
     this.popOnSuccess = false,
     this.isQrScan = false,
+    this.qrToken = '',
   });
 
   final VoidCallback refreshCallback;
@@ -86,6 +87,10 @@ class StudentSignInForm extends StatefulWidget {
   /// True when triggered from a QR code scan.
   /// Sets method=QR and withinGeofence=true in the API payload.
   final bool isQrScan;
+
+  /// QR token from the scanned code (only set when isQrScan=true).
+  /// Included in the API payload when method=QR.
+  final String qrToken;
 
   static const String routeName = '/student-sign-in-form';
 
@@ -568,6 +573,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
     };
+    // Include QR token if this is a QR scan
+    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
+      payload['qrToken'] = widget.qrToken;
+    }
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
       if (!mounted) return;

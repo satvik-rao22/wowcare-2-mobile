@@ -2,31 +2,40 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 part 'dashboard_attention_state.dart';
 
-/// Aggregates the three "Need your attention" summary APIs:
+/// Aggregates four "Need your attention" summary APIs:
 ///
 /// 1. `GET /api/v1/individual-movements/status-counts`
 /// 2. `GET /api/v1/staff-documents/expiry-summary`
 /// 3. `GET /api/v1/staff-dates/physical-checkup-summary`
+/// 4. `GET /api/v1/student/student-documents/expiry-count`
 ///
-/// All three are fetched in parallel via [Future.wait]. A failure in any one
+/// All four are fetched in parallel via [Future.wait]. A failure in any one
 /// API does not block the others — partial results are emitted as
 /// [DashboardAttentionStatus.partialFailure] so the dashboard stays useful.
 class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   DashboardAttentionCubit({
+    required ActivityRepository activityRepository,
     required AvailabilityRepository availabilityRepository,
     required StaffRepository staffRepository,
+    required StudentRepository studentRepository,
     required StorageService storageService,
-  }) : _availabilityRepository = availabilityRepository,
+  }) : _activityRepository = activityRepository,
+       _availabilityRepository = availabilityRepository,
        _staffRepository = staffRepository,
+       _studentRepository = studentRepository,
        _storageService = storageService,
        super(const DashboardAttentionState());
 
+  final ActivityRepository _activityRepository;
   final AvailabilityRepository _availabilityRepository;
   final StaffRepository _staffRepository;
+  final StudentRepository _studentRepository;
   final StorageService _storageService;
 
   bool _isFetching = false;
@@ -37,8 +46,14 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
 
   /// First open: shows shimmer while loading.
   /// Background revisit: silent update, no shimmer.
+  ///
+  /// When [isSilent] is true and data is already loaded, the call is a no-op
+  /// — prevents redundant API calls on every dashboard re-entry.
   Future<void> load({bool isSilent = false}) async {
     if (_isFetching) return;
+    // Silent revisit: skip entirely if we already have fresh data.
+    if (isSilent && state.isLoaded) return;
+
     _isFetching = true;
 
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
@@ -85,9 +100,13 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     final toDate =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    // Run all three in parallel; capture individual errors so one failure
-    // does not suppress the other two results.
+    // Run all five in parallel; capture individual errors so one failure
+    // does not suppress the other results.
     final results = await Future.wait([
+      _activityRepository
+          .getPendingIncidentCount()
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
       _availabilityRepository
           .getMovementStatusCounts(
             schoolCode: schoolCode,
@@ -104,36 +123,58 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
           .getPhysicalCheckupSummary(schoolCode: schoolCode)
           .then<Object?>((v) => v)
           .onError((_, __) => null),
+      _studentRepository
+          .getStudentDocumentExpiryCount(schoolCode: schoolCode)
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
     ], eagerError: false);
 
+    final incidentResult = results[0] as int?;
     final movementResult =
-        results[0] as ({int pendingCount, int overdueCount})?;
-    final docResult =
-        results[1]
+        results[1] as ({int pendingCount, int overdueCount})?;
+    final staffDocResult =
+        results[2]
             as ({int expiredDocumentCount, int expiringWithinWeekCount})?;
     final checkupResult =
-        results[2]
+        results[3]
             as ({
               int overduePhysicalCheckupCount,
               int staffWithoutActivePhysicalCheckupCount,
             })?;
+    final studentDocResult =
+        results[4]
+            as ({
+              int expiredDocumentCount,
+              int expiringWithinWeekCount,
+              int totalDocumentsWithExpiry,
+            })?;
 
-    final anyFailed =
-        movementResult == null || docResult == null || checkupResult == null;
+    final anyFailed = incidentResult == null ||
+        movementResult == null ||
+        staffDocResult == null ||
+        checkupResult == null ||
+        studentDocResult == null;
 
     emit(
       state.copyWith(
         status: anyFailed
             ? DashboardAttentionStatus.partialFailure
             : DashboardAttentionStatus.loaded,
+        pendingIncidents: incidentResult ?? state.pendingIncidents,
         pendingMovements:
             movementResult?.pendingCount ?? state.pendingMovements,
         overdueMovements:
             movementResult?.overdueCount ?? state.overdueMovements,
         expiredDocuments:
-            docResult?.expiredDocumentCount ?? state.expiredDocuments,
+            staffDocResult?.expiredDocumentCount ?? state.expiredDocuments,
         expiringDocuments:
-            docResult?.expiringWithinWeekCount ?? state.expiringDocuments,
+            staffDocResult?.expiringWithinWeekCount ?? state.expiringDocuments,
+        expiredStudentDocuments:
+            studentDocResult?.expiredDocumentCount ??
+            state.expiredStudentDocuments,
+        expiringStudentDocuments:
+            studentDocResult?.expiringWithinWeekCount ??
+            state.expiringStudentDocuments,
         overdueCheckups:
             checkupResult?.overduePhysicalCheckupCount ?? state.overdueCheckups,
         missingCheckups:
