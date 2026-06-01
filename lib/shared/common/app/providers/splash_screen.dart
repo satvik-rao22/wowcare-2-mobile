@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -13,8 +15,11 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
+import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
 // Avoid silencing `forgot_password_screen.dart`/`sign_in_screen.dart` analyzer
@@ -166,9 +171,25 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
       if (!mounted) return;
 
+      // Killed-state cold launch: prefer the deep-link main() stashed; if main()
+      // ran before the FCM plugin was attached (so getInitialMessage() returned
+      // null there), resolve the launch message here — by now (post 1s delay +
+      // auth) the messaging plugin is reliably attached, so it's the safe spot.
+      final pendingFromMain = consumePendingNotificationDeepLink();
+      String? launchDeepLink = pendingFromMain;
+      launchDeepLink ??= await _resolveLaunchDeepLink();
+      AppLogger.d(
+        '[Splash] killed-state deep-link: pendingFromMain="$pendingFromMain" '
+        'resolved="$launchDeepLink" redirectUrl="$redirectUrl"',
+      );
+      if (!mounted) return;
+
       if (redirectUrl != null && redirectUrl.isNotEmpty) {
         final url = redirectUrl.toLowerCase();
         if (url.contains('select-school')) {
+          // Login context still needs an org/school chosen — don't override the
+          // routing with a notification deep-link (it has no school scope yet).
+          // Drop the deep-link and continue to school selection.
           final org = await storage.getString(StorageKeys.organizationCode);
           if (!mounted) return;
           await context.read<AuthCubit>().loadCachedData();
@@ -187,22 +208,43 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           return;
         }
         if (url.contains('select-organization')) {
+          // Org not chosen yet — don't override routing with the deep-link.
           await context.read<AuthCubit>().loadCachedData();
           if (!mounted) return;
           context.go('/org-selection');
           return;
         }
         if (url.contains('dashboard') || url.contains('select-app')) {
-          context.go(DashboardScreen.routeName);
+          context.go(launchDeepLink ?? DashboardScreen.routeName);
           return;
         }
       }
 
-      // No redirectUrl: default to dashboard.
-      context.go(DashboardScreen.routeName);
+      // No redirectUrl: default to dashboard — unless a notification cold-launched
+      // the app, in which case route to its deep-link instead of home.
+      context.go(launchDeepLink ?? DashboardScreen.routeName);
     } else {
-      // No cached login: go to sign-in.
+      // No cached login: go to sign-in. Drop any pending deep-link so it can't
+      // leak into a later authenticated session.
+      consumePendingNotificationDeepLink();
       context.go(SignInScreen.routeName);
+    }
+  }
+
+  /// Reads the notification that cold-launched the app (killed state) and maps
+  /// it to a go_router location, or null if the app wasn't launched from a
+  /// notification tap / the action has no in-app target. Safe to call here:
+  /// the FCM plugin is reliably attached by the time the splash decides routing.
+  Future<String?> _resolveLaunchDeepLink() async {
+    try {
+      final launch = await FirebaseMessaging.instance.getInitialMessage();
+      if (launch == null) return null;
+      final dest = NotificationRouteResolver.resolve(
+        PushNotificationModel.fromRemoteMessage(launch),
+      );
+      return dest?.location;
+    } catch (_) {
+      return null;
     }
   }
 

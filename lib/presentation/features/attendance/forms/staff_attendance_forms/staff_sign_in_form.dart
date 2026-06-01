@@ -662,7 +662,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: AppText.value(
-                    staff.name.split(' ').first,
+                    staff.name,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),

@@ -7,6 +7,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
@@ -81,11 +82,16 @@ class ClassroomStaffTabCard extends StatefulWidget {
   const ClassroomStaffTabCard({
     required this.scrollController,
     required this.selectedRoom,
+    this.highlightCode,
     super.key,
   });
 
   final ScrollController scrollController;
   final Classroom? selectedRoom;
+
+  /// Staff code from a notification deep-link; the matching row is scrolled
+  /// into view and briefly flashed.
+  final String? highlightCode;
 
   static const routeName = '/classroom-staff-screen';
 
@@ -96,6 +102,13 @@ class ClassroomStaffTabCard extends StatefulWidget {
 class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+
+  /// Notification deep-link target row.
+  final GlobalKey _highlightRowKey = GlobalKey();
+  bool _isHighlightTarget(String code) {
+    final target = (widget.highlightCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
   late final ClassroomStaffCubit _cubit;
   bool isSelectAllChecked = false;
   Map<String, bool> staffSelections = {};
@@ -915,10 +928,32 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                               .addPostFrameCallback((_) {
                                             _refreshAttendanceStatusForVisibleStaff();
                                           });
+                                          final isTarget = _isHighlightTarget(
+                                              staff.staffCode);
                                           return Padding(
                                             padding: const EdgeInsets.only(
                                                 bottom: 8.0),
-                                            child: _StaffListItem(
+                                            child: HighlightableCard(
+                                              key: isTarget
+                                                  ? _highlightRowKey
+                                                  : null,
+                                              code: staff.staffCode,
+                                              highlightCode: widget.highlightCode,
+                                              borderRadius: 12,
+                                              onHighlighted: () {
+                                                final ctx = _highlightRowKey
+                                                    .currentContext;
+                                                if (ctx != null) {
+                                                  Scrollable.ensureVisible(
+                                                    ctx,
+                                                    duration: const Duration(
+                                                        milliseconds: 400),
+                                                    alignment: 0.1,
+                                                    curve: Curves.easeOut,
+                                                  );
+                                                }
+                                              },
+                                              child: _StaffListItem(
                                               staff: staff,
                                               isSelected: staffSelections[
                                                       staff.staffCode] ??
@@ -935,6 +970,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                                 _toggleStaffSelection(
                                                     staff.staffCode, value);
                                               },
+                                            ),
                                             ),
                                           );
                                         },

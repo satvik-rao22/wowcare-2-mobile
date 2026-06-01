@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -25,6 +26,7 @@ class StudentDocumentsTab extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.highlightCode,
   });
 
   final ScrollController scrollController;
@@ -32,12 +34,24 @@ class StudentDocumentsTab extends StatefulWidget {
   final String classroom;
   final String? studentCode;
 
+  /// Document code (== API `code`/documentUuid) from a notification deep-link;
+  /// the matching document card scrolls into view, expands, and flashes.
+  final String? highlightCode;
+
   @override
   State<StudentDocumentsTab> createState() => _StudentDocumentsTabState();
 }
 
 class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   bool _showExpired = false;
+
+  /// Notification deep-link target document row.
+  final GlobalKey _highlightRowKey = GlobalKey();
+  bool _isHighlightTarget(String? code) {
+    final target = (widget.highlightCode ?? '').trim();
+    final c = (code ?? '').trim();
+    return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
+  }
   late final StudentDocumentsListCubit _documentsListCubit;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -418,9 +432,30 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                     : doc.uploadedBy!.trim();
                                 final docTypeDisplay =
                                     _formatDocumentType(doc.documentType);
+                                final isTarget =
+                                    _isHighlightTarget(doc.documentUuid);
+                                if (isTarget) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    final ctx = _highlightRowKey.currentContext;
+                                    if (ctx != null) {
+                                      Scrollable.ensureVisible(
+                                        ctx,
+                                        duration:
+                                            const Duration(milliseconds: 400),
+                                        alignment: 0.1,
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  });
+                                }
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
-                                  child: Container(
+                                  child: HighlightableCard(
+                                    key: isTarget ? _highlightRowKey : null,
+                                    code: doc.documentUuid,
+                                    highlightCode: widget.highlightCode,
+                                    child: Container(
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.88),
                                       borderRadius: BorderRadius.circular(14),
@@ -433,6 +468,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                         dividerColor: Colors.transparent,
                                       ),
                                       child: ExpansionTile(
+                                        initiallyExpanded: isTarget,
                                         tilePadding: const EdgeInsets.symmetric(
                                           horizontal: 16,
                                           vertical: 4,
@@ -582,6 +618,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                         ],
                                       ),
                                     ),
+                                  ),
                                   ),
                                 );
                               },

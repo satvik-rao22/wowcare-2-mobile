@@ -47,11 +47,17 @@ class StaffAttendanceDailyViewScreen extends StatefulWidget {
     this.incomingFilter,
     this.contentOnly = false,
     this.classroomFilter,
+    this.onAttendanceMutated,
   });
 
   final String? incomingFilter;
   final bool contentOnly;
   final FilterData? classroomFilter;
+
+  /// Called by the tabbed shell after an attendance action so the whole page
+  /// (all tabs) can reload, not just this Daily tab. When null, this screen
+  /// just reloads itself.
+  final VoidCallback? onAttendanceMutated;
 
   @override
   State<StaffAttendanceDailyViewScreen> createState() =>
@@ -139,8 +145,12 @@ class _StaffAttendanceDailyViewScreenState
   @override
   void refreshAfterReturningFromAttendanceFlow() {
     if (!mounted) return;
+    // Reload this Daily tab's list and counts...
     _loadAttendanceData(context, reset: true);
     unawaited(_loadStaffCounts());
+    // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
+    // Absent) so the whole page reflects the action.
+    widget.onAttendanceMutated?.call();
   }
 
   Future<void> _loadStaffCounts() async {
@@ -296,27 +306,28 @@ class _StaffAttendanceDailyViewScreenState
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'NULL';
+        _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NOT_NULL';
         _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'NULL';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
-        _showAbsentOnly = false;
+        _showAbsentOnly = true;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
+        _showAbsentOnly = false;
     }
   }
 
@@ -513,147 +524,118 @@ class _StaffAttendanceDailyViewScreenState
           value: _absentToggleCubit,
         ),
       ],
-      child:
-          BlocListener<
-            StaffAttendanceAbsentToggleCubit,
-            StaffAttendanceAbsentToggleState
-          >(
-            listenWhen: (prev, curr) => prev.items != curr.items,
-            listener: (context, state) {
-              _prefetchStaffAbsentToggleClassroomNames(state.items);
-            },
-            child:
-                BlocBuilder<
-                  StaffAttendanceAbsentToggleCubit,
-                  StaffAttendanceAbsentToggleState
-                >(
-                  builder: (context, absentState) {
-                    return BlocBuilder<
-                      StaffAttendanceDailyCubit,
-                      StaffAttendanceDailyState
-                    >(
-                      builder: (context, state) {
-                        final isAbsentMode = _showAbsentOnly;
-                        final isLoading = isAbsentMode
-                            ? absentState.isLoading
-                            : (state.isLoading || state.isSummaryLoading);
-                        final isLoadingMore = isAbsentMode
-                            ? absentState.isLoadingMore
-                            : state.isLoadingMore;
-                        final hasMore = isAbsentMode
-                            ? absentState.hasMore
-                            : state.hasMore;
+      child: BlocListener<StaffAttendanceAbsentToggleCubit,
+          StaffAttendanceAbsentToggleState>(
+        listenWhen: (prev, curr) => prev.items != curr.items,
+        listener: (context, state) {
+          _prefetchStaffAbsentToggleClassroomNames(state.items);
+        },
+        child: BlocBuilder<StaffAttendanceAbsentToggleCubit,
+            StaffAttendanceAbsentToggleState>(
+          builder: (context, absentState) {
+            return BlocBuilder<StaffAttendanceDailyCubit,
+                StaffAttendanceDailyState>(
+              builder: (context, state) {
+              final isAbsentMode = _showAbsentOnly;
+              final isLoading = isAbsentMode
+                  ? absentState.isLoading
+                  : (state.isLoading || state.isSummaryLoading);
+              final isLoadingMore =
+                  isAbsentMode ? absentState.isLoadingMore : state.isLoadingMore;
+              final hasMore =
+                  isAbsentMode ? absentState.hasMore : state.hasMore;
 
-                        return CustomRefreshIndicator(
-                          onRefresh: () async {
-                            await _loadStaffCounts();
-                            _loadAttendanceData(context, reset: false);
-                          },
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              if (notification is ScrollUpdateNotification &&
-                                  notification.metrics.pixels >=
-                                      notification.metrics.maxScrollExtent -
-                                          200) {
-                                if (!isLoading && !isLoadingMore && hasMore) {
-                                  if (isAbsentMode) {
-                                    _absentToggleCubit.loadNextPage();
-                                  } else {
-                                    _cubit.loadNextPage();
-                                  }
-                                }
+              return CustomRefreshIndicator(
+                onRefresh: () async {
+                  await _loadStaffCounts();
+                  _loadAttendanceData(context, reset: false);
+                },
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification &&
+                        notification.metrics.pixels >=
+                            notification.metrics.maxScrollExtent - 200) {
+                      if (!isLoading && !isLoadingMore && hasMore) {
+                        if (isAbsentMode) {
+                          _absentToggleCubit.loadNextPage();
+                        } else {
+                          _cubit.loadNextPage();
+                        }
+                      }
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    // Always scrollable so pull-to-refresh fires even when the
+                    // list is short and the content fits the viewport.
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: contentPadding.left,
+                      vertical: responsive.verticalSpacing / 4,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
+                        StaffAttendanceSummary(
+                          totalStaff: totalStaff,
+                          active: active,
+                          upcoming: upcoming,
+                          expected: state.expectedCount ?? expected,
+                          present: state.presentCount ?? present,
+                          absent: state.absentCount ?? absent,
+                          signedOut: state.signedOutCount ?? signedOut,
+                          notMarked: state.notMarkedCount ?? notMarked,
+                          isLoading: (state.isLoading ||
+                                  state.isSummaryLoading) &&
+                              !_showAbsentOnly,
+                          onLegendTap: (status) {
+                            final normalized = status.trim().toUpperCase();
+                            if (normalized == 'ACTIVE' ||
+                                normalized == 'UPCOMING') {
+                              _openStaffListWithIncomingFilter(normalized);
+                              return;
+                            }
+                            setState(() {
+                              final normalized =
+                                  status == 'Present' ? 'Signed-In' : status;
+                              final currentLegend = _statusLegendFilter == 'Present'
+                                  ? 'Signed-In'
+                                  : _statusLegendFilter;
+                              if (currentLegend == normalized) {
+                                _statusLegendFilter = null;
+                                _applyLegendApiFilters(null);
+                              } else {
+                                _statusLegendFilter = normalized;
+                                _applyLegendApiFilters(normalized);
                               }
-                              return false;
-                            },
-                            child: SingleChildScrollView(
-                              controller: _scrollController,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: contentPadding.left,
-                                vertical: responsive.verticalSpacing / 4,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 8),
-                                  // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
-                                  StaffAttendanceSummary(
-                                    totalStaff: totalStaff,
-                                    active: active,
-                                    upcoming: upcoming,
-                                    expected: state.expectedCount ?? expected,
-                                    present: state.presentCount ?? present,
-                                    absent: state.absentCount ?? absent,
-                                    signedOut:
-                                        state.signedOutCount ?? signedOut,
-                                    notMarked:
-                                        state.notMarkedCount ?? notMarked,
-                                    isLoading:
-                                        (state.isLoading ||
-                                            state.isSummaryLoading) &&
-                                        !_showAbsentOnly,
-                                    onLegendTap: (status) {
-                                      final normalized = status
-                                          .trim()
-                                          .toUpperCase();
-                                      if (normalized == 'ACTIVE' ||
-                                          normalized == 'UPCOMING') {
-                                        _openStaffListWithIncomingFilter(
-                                          normalized,
-                                        );
-                                        return;
-                                      }
-                                      setState(() {
-                                        final normalized = status == 'Present'
-                                            ? 'Signed-In'
-                                            : status;
-                                        final currentLegend =
-                                            _statusLegendFilter == 'Present'
-                                            ? 'Signed-In'
-                                            : _statusLegendFilter;
-                                        if (currentLegend == normalized) {
-                                          _statusLegendFilter = null;
-                                          _applyLegendApiFilters(null);
-                                        } else {
-                                          _statusLegendFilter = normalized;
-                                          _applyLegendApiFilters(normalized);
-                                        }
-                                      });
-                                      _loadAttendanceData(
-                                        context,
-                                        reset: false,
-                                      );
-                                    },
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Filters: keep the same date-field UI (CustomDateTimeField) but layout like StaffScreen
-                                  _buildFilterCard(
-                                    responsive,
-                                    hasActiveFilters:
-                                        _hasActiveFilters() ||
-                                        _signInAtFilter != null ||
-                                        _signOutAtFilter != null ||
-                                        _statusLegendFilter != null ||
-                                        _searchController.text
-                                            .trim()
-                                            .isNotEmpty,
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Content area
-                                  if (isLoading)
-                                    Column(
-                                      children: List.generate(
-                                        6,
-                                        (index) => _showAbsentOnly
-                                            ? const StaffAbsentCardShimmer()
-                                            : const StaffAttendanceCardShimmer(),
-                                      ),
-                                    )
-                                  else if (_showAbsentOnly)
-                                    _buildAbsentStaffList(absentState)
-                                  else
-                                    _buildStaffListFromState(state),
-                                ],
-                              ),
+                            });
+                            _loadAttendanceData(context, reset: true);
+                          },
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
+                        // Filters: keep the same date-field UI (CustomDateTimeField) but layout like StaffScreen
+                        _buildFilterCard(
+                          responsive,
+                          hasActiveFilters: _hasActiveFilters() ||
+                              _signInAtFilter != null ||
+                              _signOutAtFilter != null ||
+                              _isExpectedNotMarkedFilter == true ||
+                              _showAbsentOnly ||
+                              _statusLegendFilter != null ||
+                              _searchController.text.trim().isNotEmpty,
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
+                        // Content area
+                        if (isLoading)
+                          Column(
+                            children: List.generate(
+                              6,
+                              (index) => _showAbsentOnly
+                                  ? const StaffAbsentCardShimmer()
+                                  : const StaffAttendanceCardShimmer(),
                             ),
                           ),
                         );
@@ -1008,6 +990,7 @@ class _StaffAttendanceDailyViewScreenState
                           content: Text(
                             'Unable to delete: missing attendance record code.',
                           ),
+                          backgroundColor: AppColors.errorColor,
                         ),
                       );
                       return;
@@ -1027,6 +1010,7 @@ class _StaffAttendanceDailyViewScreenState
                             content: Text(
                               'Unable to delete: invalid attendance record code.',
                             ),
+                            backgroundColor: AppColors.errorColor,
                           ),
                         );
                         return;
@@ -1047,6 +1031,7 @@ class _StaffAttendanceDailyViewScreenState
                             content: Text(
                               'Unable to resolve staffCode. Please re-login.',
                             ),
+                            backgroundColor: AppColors.errorColor,
                           ),
                         );
                         return;
@@ -1063,6 +1048,7 @@ class _StaffAttendanceDailyViewScreenState
                         context: context,
                         snackBar: const SnackBar(
                           content: Text('Attendance deleted'),
+                          backgroundColor: AppColors.successColor,
                         ),
                       );
                       _loadAttendanceData(context, reset: true);
@@ -1071,7 +1057,10 @@ class _StaffAttendanceDailyViewScreenState
                       final message = ApiErrorHandler.extractErrorMessage(e);
                       CoreUtils.showTopSnackBarFromSnackBar(
                         context: context,
-                        snackBar: SnackBar(content: Text(message)),
+                        snackBar: SnackBar(
+                          content: Text(message),
+                          backgroundColor: AppColors.errorColor,
+                        ),
                       );
                     }
                   },

@@ -32,6 +32,7 @@ abstract class AttendanceRepository {
   getStudentAttendanceExpectedSummary({
     String? classroomCode,
     bool schoolWide = false,
+    bool forceRefresh = false,
   });
 
   Future<StudentAttendanceCustomPage> getStudentAttendanceCustom({
@@ -186,6 +187,7 @@ abstract class AttendanceRepository {
   Future<StudentAttendanceExpectedSummary> getStaffAttendanceExpectedSummary({
     String? classroomCode,
     bool schoolWide = false,
+    bool forceRefresh = false,
   });
 
   Future<StaffAttendanceDailyPage> getStaffAttendanceCustom({

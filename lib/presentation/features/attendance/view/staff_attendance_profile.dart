@@ -14,6 +14,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -212,6 +213,26 @@ class _StaffModel {
     this.isPresentToday = false,
     this.profileStatus = 'A',
   });
+
+  _StaffModel copyWith({
+    String? name,
+    String? designationName,
+    String? roomName,
+    String? photoUuid,
+  }) {
+    return _StaffModel(
+      id: id,
+      name: name ?? this.name,
+      photoUuid: photoUuid ?? this.photoUuid,
+      designationName: designationName ?? this.designationName,
+      roomName: roomName ?? this.roomName,
+      isSignedIn: isSignedIn,
+      isAbsent: isAbsent,
+      isExpectedToday: isExpectedToday,
+      isPresentToday: isPresentToday,
+      profileStatus: profileStatus,
+    );
+  }
 }
 
 class _AttendanceReportModel {
@@ -411,6 +432,44 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     );
 
     _loadData();
+    // Deep-link (e.g. ATTENDANCE_NOT_MARKED for staff) opens this with only a
+    // staffCode — the attendance API doesn't return the staff's name/classroom,
+    // so fetch the identity by code to fill the header.
+    _ensureHeaderIdentityLoaded();
+  }
+
+  /// Fills the header name + designation + classroom when opened by code
+  /// without them (notification deep-link). No-op for normal navigation that
+  /// already supplied [staffName].
+  Future<void> _ensureHeaderIdentityLoaded() async {
+    if (widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-') {
+      return;
+    }
+    final code = widget.staffCode.trim();
+    if (code.isEmpty) return;
+    try {
+      // forEditStaff:true hits /staff/{code}/profile, which carries name,
+      // designation and primaryClassroom name.
+      final profile = await serviceLocator<StaffRepository>()
+          .getStaffProfile(staffCode: code, forEditStaff: true);
+      if (!mounted) return;
+      final current = staff;
+      if (current == null) return;
+      final name = profile.fullName.trim();
+      final designation = profile.designation.trim();
+      final classroom = profile.primaryClassroomName.trim();
+      setState(() {
+        staff = current.copyWith(
+          name: name.isNotEmpty ? name : current.name,
+          designationName: designation.isNotEmpty
+              ? designation
+              : current.designationName,
+          roomName: classroom.isNotEmpty ? classroom : current.roomName,
+        );
+      });
+    } catch (_) {
+      // Header stays as-is; attendance data still loads.
+    }
   }
 
   Future<void> _loadData() async {

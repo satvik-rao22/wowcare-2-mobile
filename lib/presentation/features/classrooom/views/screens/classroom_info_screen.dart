@@ -6,6 +6,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom_details.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -35,7 +36,12 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class ClassroomInfoScreen extends StatefulWidget {
-  const ClassroomInfoScreen({super.key});
+  const ClassroomInfoScreen({super.key, this.initialClassroomCode});
+
+  /// When opened from a notification deep-link (e.g. RATIO_BREACHED), the
+  /// classroom to pre-select by code. Takes precedence over the cached/first
+  /// selection.
+  final String? initialClassroomCode;
 
   static const String routeName = '/classroom-info-screen';
 
@@ -385,23 +391,27 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     try {
       final details = await _getClassroomByCodeUseCase(code: code);
       if (!mounted) return;
+      // Clear the page shimmer as soon as the core classroom details arrive.
+      // The enrolled-count / attendance-summary / logo loads each drive their
+      // own card state, so a slow or never-resolving one of those must not keep
+      // the whole screen stuck on shimmer.
       setState(() {
         _details = details;
+        _isAllClassroomApisLoading = false;
       });
-      await Future.wait<void>([
+      AppLogger.d('[ClassroomInfo] _loadDetails details ready for $code');
+      // Load secondary data in the background (own cards); don't block the UI.
+      Future.wait<void>([
         _ensureEnrolledCountLoaded(
           code,
           forceRefresh: refreshEnrolledCounts,
         ),
         _loadSummaries(code),
         _loadClassroomLogo(code),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _isAllClassroomApisLoading = false;
-      });
+      ]).catchError((Object _) => <void>[]);
     } catch (e) {
       if (!mounted) return;
+      AppLogger.d('[ClassroomInfo] _loadDetails ERROR for $code: $e');
       setState(() {
         _details = null;
         _isAllClassroomApisLoading = false;
@@ -762,10 +772,16 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         builder: (context, state) {
           final classrooms = state.classrooms;
           if (classrooms.isNotEmpty && _selectedRoom == null) {
+            // A deep-link classroom code wins over the cached/first selection.
+            final deepLinkCode = (widget.initialClassroomCode ?? '').trim();
             final cachedCode = (_cachedSelectedClassroomCode ?? '').trim();
-            final match = cachedCode.isEmpty
+            final preferredCode =
+                deepLinkCode.isNotEmpty ? deepLinkCode : cachedCode;
+            final match = preferredCode.isEmpty
                 ? null
-                : classrooms.where((c) => c.code.trim() == cachedCode).toList();
+                : classrooms
+                    .where((c) => c.code.trim() == preferredCode)
+                    .toList();
             _selectedRoom = match != null && match.isNotEmpty
                 ? match.first
                 : classrooms.first;
@@ -780,6 +796,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
               (_detailsError == null &&
                   _selectedRoom != null &&
                   (_isAllClassroomApisLoading || _details == null));
+          AppLogger.d(
+            '[ClassroomInfo] shimmer=$showAllCardsShimmer '
+            'isLoading=${state.isLoading} rooms=${classrooms.length} '
+            'selected=${_selectedRoom?.code} apisLoading=$_isAllClassroomApisLoading '
+            'details=${_details != null} err=${_detailsError != null}',
+          );
 
           return GlobalScaffold(
             bodyPadding: EdgeInsets.zero,

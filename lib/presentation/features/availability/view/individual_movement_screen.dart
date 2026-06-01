@@ -40,7 +40,11 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
 }
 
 class IndividualMovementScreen extends StatefulWidget {
-  const IndividualMovementScreen({super.key});
+  const IndividualMovementScreen({super.key, this.highlightCode});
+
+  /// Movement id (as string) from a notification deep-link; the matching
+  /// movement card scrolls into view and flashes.
+  final String? highlightCode;
 
   static const String routeName = '/dashboard/individual-movement';
 
@@ -1046,6 +1050,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                         onDragStarted: _onCardDragStarted,
                         onDragEnded: _onCardDragEnded,
                         onDragGlobalUpdate: _onCardDragGlobalUpdate,
+                        highlightCode: widget.highlightCode,
                       ),
                     const SizedBox(height: 20),
                   ],

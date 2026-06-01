@@ -37,6 +37,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as transfer_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 
 class _AttendanceCacheEntry {
   const _AttendanceCacheEntry({
@@ -69,11 +70,16 @@ class ClassroomStudentsTabCard extends StatefulWidget {
   const ClassroomStudentsTabCard({
     required this.scrollController,
     required this.selectedRoom,
+    this.highlightCode,
     super.key,
   });
 
   final ScrollController scrollController;
   final Classroom? selectedRoom;
+
+  /// Student code from a notification deep-link; the matching row is scrolled
+  /// into view and briefly flashed.
+  final String? highlightCode;
 
   @override
   State<ClassroomStudentsTabCard> createState() =>
@@ -83,6 +89,14 @@ class ClassroomStudentsTabCard extends StatefulWidget {
 class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+
+  /// Notification deep-link target row.
+  final GlobalKey _highlightRowKey = GlobalKey();
+  bool _isHighlightTarget(String code) {
+    final target = (widget.highlightCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
+
   late final ClassroomStudentsCubit _cubit;
   late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   bool isSelectAllChecked = false;
@@ -1545,7 +1559,26 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                               itemCount: effectiveVisibleStudents.length,
                               itemBuilder: (context, index) {
                                 final student = effectiveVisibleStudents[index];
-                              return ClassroomStudentListItem(
+                                final isTarget =
+                                    _isHighlightTarget(student.studentCode);
+                              return HighlightableCard(
+                                key: isTarget ? _highlightRowKey : null,
+                                code: student.studentCode,
+                                highlightCode: widget.highlightCode,
+                                borderRadius: 12,
+                                onHighlighted: () {
+                                  final ctx = _highlightRowKey.currentContext;
+                                  if (ctx != null) {
+                                    Scrollable.ensureVisible(
+                                      ctx,
+                                      duration:
+                                          const Duration(milliseconds: 400),
+                                      alignment: 0.1,
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                },
+                                child: ClassroomStudentListItem(
                                     studentId: student.studentCode.hashCode,
                                     studentCode: student.studentCode,
                                     isSignedIn: student.signedIn,
@@ -1568,6 +1601,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                         effectiveVisibleStudents,
                                       );
                                     },
+                              ),
                               );
                             },
                           ),

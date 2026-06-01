@@ -465,7 +465,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    staff.name.split(' ').first,
+                    staff.name,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

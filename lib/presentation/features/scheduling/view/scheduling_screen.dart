@@ -24,7 +24,27 @@ import '../widgets/week_classroom_row.dart';
 import 'add_shift_screen.dart';
 
 class SchedulingScreen extends StatelessWidget {
-  const SchedulingScreen({super.key});
+  const SchedulingScreen({
+    super.key,
+    this.highlightShiftCode,
+    this.highlightClassroomCode,
+    this.initialDate,
+    this.forceDayView = false,
+  });
+
+  /// Shift code from a notification deep-link; the matching shift row scrolls
+  /// into view and flashes.
+  final String? highlightShiftCode;
+
+  /// Classroom code from a notification deep-link (SHIFT_UNDER_RATIO); the
+  /// matching classroom row in DAY view scrolls into view and flashes.
+  final String? highlightClassroomCode;
+
+  /// Notification deep-link: jump to this day on open.
+  final DateTime? initialDate;
+
+  /// Notification deep-link: force the DAY view on open (e.g. under-ratio).
+  final bool forceDayView;
 
   static const String routeName = '/dashboard/scheduling';
 
@@ -37,13 +57,28 @@ class SchedulingScreen extends StatelessWidget {
     // times mid-load, which would otherwise re-enter the full visible load).
     return BlocProvider<SchedulingCubit>.value(
       value: serviceLocator<SchedulingCubit>(),
-      child: const _SchedulingScreenContent(),
+      child: _SchedulingScreenContent(
+        highlightShiftCode: highlightShiftCode,
+        highlightClassroomCode: highlightClassroomCode,
+        initialDate: initialDate,
+        forceDayView: forceDayView,
+      ),
     );
   }
 }
 
 class _SchedulingScreenContent extends StatefulWidget {
-  const _SchedulingScreenContent();
+  const _SchedulingScreenContent({
+    this.highlightShiftCode,
+    this.highlightClassroomCode,
+    this.initialDate,
+    this.forceDayView = false,
+  });
+
+  final String? highlightShiftCode;
+  final String? highlightClassroomCode;
+  final DateTime? initialDate;
+  final bool forceDayView;
 
   @override
   State<_SchedulingScreenContent> createState() =>
@@ -82,6 +117,16 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     // staff-only background refresh (no shimmer, no whole-page reload).
     // ignore: discarded_futures
     context.read<SchedulingCubit>().loadIfNeeded();
+    // Notification deep-link: force day view + jump to the target day. Applied
+    // synchronously so `_bootstrapSchoolZone` sees a non-initial day and won't
+    // re-seed it back to "today".
+    final cubit = context.read<SchedulingCubit>();
+    if (widget.forceDayView) {
+      cubit.setViewMode(SchedulingViewMode.day);
+    }
+    if (widget.initialDate != null) {
+      cubit.selectDay(widget.initialDate!);
+    }
     // Kick off classroom fetch on first frame. The no-pagination scheduling
     // staff list is loaded by [SchedulingStaffListCubit] at the route level.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -382,6 +427,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
+                      highlightShiftCode: widget.highlightShiftCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                             context,
@@ -398,6 +444,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
+                      highlightShiftCode: widget.highlightShiftCode,
+                      highlightClassroomCode: widget.highlightClassroomCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                             context,
@@ -495,6 +543,7 @@ class _ClassroomListCard extends StatelessWidget {
     required this.onToggleExpandAll,
     required this.onStaffShiftTap,
     this.staffAttendanceStatusByCode,
+    this.highlightShiftCode,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -505,6 +554,7 @@ class _ClassroomListCard extends StatelessWidget {
   final void Function(StaffScheduleEntry entry, String classroomName)
   onStaffShiftTap;
   final Map<String, String>? staffAttendanceStatusByCode;
+  final String? highlightShiftCode;
 
   @override
   Widget build(BuildContext context) {
@@ -533,6 +583,7 @@ class _ClassroomListCard extends StatelessWidget {
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
                 staffAttendanceStatusByCode: staffAttendanceStatusByCode,
+                highlightShiftCode: highlightShiftCode,
                 onStaffShiftTap: (entry) =>
                     onStaffShiftTap(entry, classrooms[i].classroomName),
               ),
@@ -552,6 +603,8 @@ class _DailyClassroomListCard extends StatelessWidget {
     required this.onStaffShiftTap,
     required this.onStaffSlotTap,
     this.staffAttendanceStatusByCode,
+    this.highlightShiftCode,
+    this.highlightClassroomCode,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -567,6 +620,8 @@ class _DailyClassroomListCard extends StatelessWidget {
   )
   onStaffSlotTap;
   final Map<String, String>? staffAttendanceStatusByCode;
+  final String? highlightShiftCode;
+  final String? highlightClassroomCode;
 
   @override
   Widget build(BuildContext context) {
@@ -587,13 +642,16 @@ class _DailyClassroomListCard extends StatelessWidget {
             ),
             for (int i = 0; i < classrooms.length; i++)
               DayClassroomSection(
-                key: ValueKey('day-${classrooms[i].classroomCode}-$expandAll'),
+                key: ValueKey(
+                    'day-${classrooms[i].classroomCode}-$expandAll-$highlightClassroomCode'),
                 classroom: classrooms[i],
                 viewMode: SchedulingViewMode.day,
                 day: day,
                 initiallyExpanded: expandAll,
                 isLast: i == classrooms.length - 1,
                 staffAttendanceStatusByCode: staffAttendanceStatusByCode,
+                highlightShiftCode: highlightShiftCode,
+                highlightClassroomCode: highlightClassroomCode,
                 onStaffShiftTap: (entry) =>
                     onStaffShiftTap(entry, classrooms[i].classroomName),
                 onStaffSlotTap: (entry, detail) =>

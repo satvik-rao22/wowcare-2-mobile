@@ -35,6 +35,7 @@ class StaffCard extends StatefulWidget {
     required this.classroomCodeByName,
     this.workScheduleByDay = const <String, String>{},
     this.breakScheduleByDay = const <String, String>{},
+    this.initiallyExpanded = false,
   });
 
   final String staffCode;
@@ -60,12 +61,16 @@ class StaffCard extends StatefulWidget {
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
   final Map<String, String> breakScheduleByDay;
 
+  /// Opens the card pre-expanded — used when a notification deep-link targets
+  /// this staff member.
+  final bool initiallyExpanded;
+
   @override
   State<StaffCard> createState() => _StaffCardState();
 }
 
 class _StaffCardState extends State<StaffCard> {
-  bool isExpanded = false;
+  late bool isExpanded = widget.initiallyExpanded;
 
   /// Shared across all StaffCard instances — every card in a list is for the
   /// same school, so we only call `/regular-schedule` once per app load.

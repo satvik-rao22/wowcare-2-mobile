@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
@@ -24,6 +25,7 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
@@ -46,10 +48,15 @@ class StaffScreen extends StatefulWidget {
   const StaffScreen({
     super.key,
     this.incomingStatusFilter,
+    this.incomingHighlightCode,
   });
 
   static const String routeName = '/dashboard/staff';
   final String? incomingStatusFilter;
+
+  /// Staff code from a notification deep-link; the matching card is scrolled
+  /// into view, pre-expanded, and briefly flashed. Null for normal navigation.
+  final String? incomingHighlightCode;
 
   @override
   State<StaffScreen> createState() => _StaffScreenState();
@@ -75,9 +82,20 @@ class _StaffScreenState extends State<StaffScreen> {
   int _expectedSignedOut = 0;
   int _expectedNotMarked = 0;
 
+  /// Notification deep-link target; the matching staff card scrolls into view,
+  /// pre-expands, and flashes once.
+  String? _highlightStaffCode;
+  final GlobalKey _highlightCardKey = GlobalKey();
+
+  bool _isHighlightTarget(String code) {
+    final target = (_highlightStaffCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
+
   @override
   void initState() {
     super.initState();
+    _highlightStaffCode = widget.incomingHighlightCode?.trim();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -89,8 +107,62 @@ class _StaffScreenState extends State<StaffScreen> {
         onlyTypeClassroom: false,
       );
       _applyIncomingStatusFilter();
+      _applyHighlightStatusFilter();
       _loadExpectedStaffSummary();
     });
+  }
+
+  /// When a notification deep-link highlights a staff member who may be
+  /// inactive (e.g. DELETE_STAFF / deactivation), the default Active list won't
+  /// contain them. Resolve the highlighted staff's status and switch the list to
+  /// that bucket — flipping the Show-Inactive toggle ON — so the highlighted
+  /// card is visible. Mirrors the student deactivate-highlight behaviour.
+  Future<void> _applyHighlightStatusFilter() async {
+    final code = (_highlightStaffCode ?? '').trim();
+    if (code.isEmpty) return;
+    // Respect an explicit incoming status filter if one was already applied.
+    final incoming = (widget.incomingStatusFilter ?? '').trim().toUpperCase();
+    if (incoming == 'ACTIVE' ||
+        incoming == 'UPCOMING' ||
+        incoming == 'INACTIVE') {
+      return;
+    }
+    try {
+      // forEditStaff:true hits `/staff/{code}/profile`, which includes the
+      // enrollment `status` (ACTIVE/INACTIVE). The default my-profile/{code}
+      // payload omits status, so the toggle never flipped.
+      final profile = await serviceLocator<StaffRepository>()
+          .getStaffProfile(staffCode: code, forEditStaff: true);
+      if (!mounted) return;
+      final status = profile.status.trim().toUpperCase();
+      AppLogger.d('[StaffHighlight] code=$code resolved status="$status"');
+      if (status.isEmpty || status == 'ACTIVE' || status == 'A') return;
+      final label = (status == 'INACTIVE' || status == 'I')
+          ? 'INACTIVE'
+          : (status == 'UPCOMING')
+              ? 'UPCOMING'
+              : status;
+      final staffCubit = context.read<StaffCubit>();
+      final currentState = staffCubit.state;
+      staffCubit.updateFilters(
+        status: label,
+        designation: currentState.designationFilter,
+        primaryClassroomCodes: currentState.primaryClassroomCodes,
+        classCodes: currentState.classCodes,
+        sortBy: currentState.sortBy,
+      );
+      if (!mounted) return;
+      setState(() {
+        _showInactive = label == 'INACTIVE';
+        _refreshTriggeredByFilters = true;
+      });
+      // Force the refetch even though the route's initial ACTIVE load may still
+      // be in flight — a plain refresh() is silently dropped by the
+      // `isRefreshing` guard, leaving the Active list on screen.
+      await staffCubit.refresh(ignoreRefreshingGuard: true);
+    } catch (_) {
+      // Couldn't resolve status — leave the default Active list in place.
+    }
   }
 
   Future<void> _applyIncomingStatusFilter() async {
@@ -1320,9 +1392,32 @@ class _StaffScreenState extends State<StaffScreen> {
                                                   : '');
                                     final isSelected = _selectedStaffCodes
                                         .contains(staff.code);
+                                    final isHighlightTarget =
+                                        _isHighlightTarget(staff.code);
                                     return Column(
                                       children: [
-                                        StaffCard(
+                                        HighlightableCard(
+                                          key: isHighlightTarget
+                                              ? _highlightCardKey
+                                              : null,
+                                          code: staff.code,
+                                          highlightCode: _highlightStaffCode,
+                                          borderRadius: 12,
+                                          onHighlighted: () {
+                                            final ctx = _highlightCardKey
+                                                .currentContext;
+                                            if (ctx != null) {
+                                              Scrollable.ensureVisible(
+                                                ctx,
+                                                duration: const Duration(
+                                                    milliseconds: 400),
+                                                alignment: 0.1,
+                                                curve: Curves.easeOut,
+                                              );
+                                            }
+                                          },
+                                          child: StaffCard(
+                                          initiallyExpanded: isHighlightTarget,
                                           staffCode: staff.code,
                                           name: staff.name,
                                           classroom: primaryClassroomNameForCard,
@@ -1397,6 +1492,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             });
                                             _refreshAttendanceStatusForSelection();
                                           },
+                                        ),
                                         ),
                                         if (index != state.items.length - 1)
                                           const SizedBox(height: 8),

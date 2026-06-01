@@ -47,6 +47,7 @@ import 'package:wowcare/presentation/features/students/view/student_screen.dart'
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
@@ -57,6 +58,8 @@ class StudentAttendanceDailyViewScreen extends StatefulWidget {
     this.classroomFilter,
     this.staffAllowedClassrooms,
     this.staffAllowedClassroomIds,
+    this.highlightCode,
+    this.onAttendanceMutated,
   });
 
   final String? incomingFilter;
@@ -64,6 +67,15 @@ class StudentAttendanceDailyViewScreen extends StatefulWidget {
   final FilterData? classroomFilter;
   final List<String>? staffAllowedClassrooms;
   final List<int>? staffAllowedClassroomIds;
+
+  /// Student code from a notification deep-link; the matching attendance card
+  /// scrolls into view, expands, and flashes once.
+  final String? highlightCode;
+
+  /// Called by the tabbed shell after an attendance action so the whole page
+  /// (all tabs) can reload, not just this Daily tab. When null, this screen
+  /// just reloads itself.
+  final VoidCallback? onAttendanceMutated;
 
   @override
   State<StudentAttendanceDailyViewScreen> createState() =>
@@ -82,6 +94,16 @@ class _StudentAttendanceDailyViewScreenState
   bool? _isExpectedNotMarkedFilter;
   FilterData? _studentFilters;
   int? _expandedStudentIndex;
+
+  /// Notification deep-link target; applied once (scroll + expand + flash).
+  String? _highlightStudentCode;
+  bool _highlightApplied = false;
+  final GlobalKey _highlightCardKey = GlobalKey();
+  bool _isHighlightTarget(String? code) {
+    final target = (_highlightStudentCode ?? '').trim();
+    final c = (code ?? '').trim();
+    return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
+  }
 
   // Filter state
   // UI selections are NAME-based (because StudentFilterScreen is name-driven).
@@ -117,6 +139,7 @@ class _StudentAttendanceDailyViewScreenState
   @override
   void initState() {
     super.initState();
+    _highlightStudentCode = widget.highlightCode?.trim();
     // Note: after adding new GetIt registrations, Flutter hot-reload does NOT rerun `main()`
     // (and therefore doesn't rerun `configureDependencies()`), so the cubit may not be
     // registered in the current process yet. This fallback prevents a runtime crash.
@@ -204,8 +227,12 @@ class _StudentAttendanceDailyViewScreenState
   @override
   void refreshAfterReturningFromAttendanceFlow() {
     if (!mounted) return;
+    // Reload this Daily tab's list and counts...
     _loadAttendanceData(reset: true);
     unawaited(_loadStudentCounts());
+    // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
+    // Absent) so the whole page reflects the action.
+    widget.onAttendanceMutated?.call();
   }
 
   Future<void> _loadStudentCounts() async {
@@ -508,27 +535,28 @@ class _StudentAttendanceDailyViewScreenState
         _showAbsentOnly = false;
         break;
       case 'Signed Out':
-        _signInAtFilter = 'NULL';
+        _signInAtFilter = 'NOT_NULL';
         _signOutAtFilter = 'NOT_NULL';
         _isExpectedNotMarkedFilter = null;
         _showAbsentOnly = false;
         break;
       case 'Not Marked':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'NULL';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = true;
         _showAbsentOnly = false;
         break;
       case 'Absent':
-        _signInAtFilter = 'NULL';
-        _signOutAtFilter = 'IGNORE';
+        _signInAtFilter = null;
+        _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
-        _showAbsentOnly = false;
+        _showAbsentOnly = true;
         break;
       default:
         _signInAtFilter = null;
         _signOutAtFilter = null;
         _isExpectedNotMarkedFilter = null;
+        _showAbsentOnly = false;
     }
   }
 
@@ -961,7 +989,7 @@ class _StudentAttendanceDailyViewScreenState
                                   _applyLegendApiFilters(normalized);
                                 }
                               });
-                              _loadAttendanceData();
+                              _loadAttendanceData(reset: true);
                             },
                           ),
                           SizedBox(height: responsive.verticalSpacing),
@@ -1112,7 +1140,36 @@ class _StudentAttendanceDailyViewScreenState
                             ).asMap().entries.map((entry) {
                               final index = entry.key;
                               final student = entry.value;
-                              return StudentAttendanceCard(
+                              final isHighlightTarget =
+                                  _isHighlightTarget(student.studentCode);
+                              if (isHighlightTarget && !_highlightApplied) {
+                                _highlightApplied = true;
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  if (!mounted) return;
+                                  setState(
+                                      () => _expandedStudentIndex = index);
+                                  final ctx =
+                                      _highlightCardKey.currentContext;
+                                  if (ctx != null) {
+                                    Scrollable.ensureVisible(
+                                      ctx,
+                                      duration:
+                                          const Duration(milliseconds: 400),
+                                      alignment: 0.1,
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                });
+                              }
+                              return HighlightableCard(
+                                key: isHighlightTarget
+                                    ? _highlightCardKey
+                                    : null,
+                                code: student.studentCode,
+                                highlightCode: _highlightStudentCode,
+                                borderRadius: 12,
+                                child: StudentAttendanceCard(
                                 student: student,
                                 index: index,
                                 isExpanded: _expandedStudentIndex == index,
@@ -1149,6 +1206,7 @@ class _StudentAttendanceDailyViewScreenState
                                         content: Text(
                                           'Only the latest transfer entry can be deleted.',
                                         ),
+                                        backgroundColor: AppColors.errorColor,
                                       ),
                                     );
                                     return;
@@ -1175,6 +1233,8 @@ class _StudentAttendanceDailyViewScreenState
                                                 content: Text(
                                                   'Unable to delete: missing attendance record code.',
                                                 ),
+                                                backgroundColor:
+                                                    AppColors.errorColor,
                                               ),
                                             );
                                             return;
@@ -1196,6 +1256,8 @@ class _StudentAttendanceDailyViewScreenState
                                                   content: Text(
                                                     'Unable to delete: invalid attendance record code.',
                                                   ),
+                                                  backgroundColor:
+                                                      AppColors.errorColor,
                                                 ),
                                               );
                                               return;
@@ -1219,6 +1281,8 @@ class _StudentAttendanceDailyViewScreenState
                                                   content: Text(
                                                     'Unable to resolve staffCode. Please re-login.',
                                                   ),
+                                                  backgroundColor:
+                                                      AppColors.errorColor,
                                                 ),
                                               );
                                               return;
@@ -1239,6 +1303,8 @@ class _StudentAttendanceDailyViewScreenState
                                                 content: Text(
                                                   'Attendance deleted',
                                                 ),
+                                                backgroundColor:
+                                                    AppColors.successColor,
                                               ),
                                             );
 
@@ -1252,6 +1318,8 @@ class _StudentAttendanceDailyViewScreenState
                                               context: context,
                                               snackBar: SnackBar(
                                                 content: Text(message),
+                                                backgroundColor:
+                                                    AppColors.errorColor,
                                               ),
                                             );
                                           }
@@ -1292,6 +1360,7 @@ class _StudentAttendanceDailyViewScreenState
                                     }
                                   });
                                 },
+                              ),
                               );
                             }).toList(),
                           // Loading more indicator
@@ -1365,6 +1434,8 @@ class _StudentAttendanceDailyViewScreenState
         _statusLegendFilter != null ||
         _signInAtFilter != null ||
         _signOutAtFilter != null ||
+        _isExpectedNotMarkedFilter == true ||
+        _showAbsentOnly ||
         _studentFilters != null ||
         _selectedClassroomNames.isNotEmpty ||
         _selectedTagNames.isNotEmpty ||
@@ -1457,7 +1528,7 @@ class _StudentAttendanceDailyViewScreenState
                           _signOutAtFilter = null;
                           _isExpectedNotMarkedFilter = null;
                         });
-                        _loadAttendanceData(reset: false);
+                        _loadAttendanceData(reset: true);
                       }
                     : null,
               ),

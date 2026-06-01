@@ -9,10 +9,12 @@ class GetStudentAttendanceExpectedSummaryUseCase {
   Future<StudentAttendanceExpectedSummary> call({
     String? classroomCode,
     bool schoolWide = false,
+    bool forceRefresh = false,
   }) {
     return _repository.getStudentAttendanceExpectedSummary(
       classroomCode: classroomCode,
       schoolWide: schoolWide,
+      forceRefresh: forceRefresh,
     );
   }
 }

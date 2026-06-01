@@ -29,6 +29,7 @@ class NewsletterAttachmentModel extends Equatable {
           .trim(),
       name: (json['name'] ?? json['fileName'] ?? '').toString().trim(),
       url: (json['url'] ??
+              json['assetUrl'] ??
               json['downloadUrl'] ??
               json['fileUrl'] ??
               json['publicUrl'] ??

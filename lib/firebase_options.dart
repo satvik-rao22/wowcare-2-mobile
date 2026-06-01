@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCXQYICirJde5yV6_4kFrBCT_yiJOmkSIw',
-    appId: '1:42664912819:android:d02593231b69071ad78dc6',
-    messagingSenderId: '42664912819',
-    projectId: 'wowcare2-qa-579de',
-    storageBucket: 'wowcare2-qa-579de.firebasestorage.app',
+    apiKey: 'AIzaSyDkhMORPMLcJKiG76zYRGWRPGQqB5pNu1w',
+    appId: '1:861387942693:android:2fbd1cd64e4171275548cc',
+    messagingSenderId: '861387942693',
+    projectId: 'wowcare2-atoconn',
+    storageBucket: 'wowcare2-atoconn.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDhLLqqNMW8IcM5VV166hlvQUuwGAMXG7c',
-    appId: '1:42664912819:ios:ce4470e8582c0174d78dc6',
-    messagingSenderId: '42664912819',
-    projectId: 'wowcare2-qa-579de',
-    storageBucket: 'wowcare2-qa-579de.firebasestorage.app',
+    apiKey: 'AIzaSyB0F4lAWYniARnK39Z_PV8_PYmBmDQrvv4',
+    appId: '1:861387942693:ios:6d658e9f7daf22295548cc',
+    messagingSenderId: '861387942693',
+    projectId: 'wowcare2-atoconn',
+    storageBucket: 'wowcare2-atoconn.firebasestorage.app',
     iosBundleId: 'com.wiseowl.wowcareapp',
   );
 }
