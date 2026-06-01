@@ -51,7 +51,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _dashboardCubit = serviceLocator<AdminDashboardCubit>();
-    _dashboardCubit.loadUserName();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
     _schoolStatusCubit = serviceLocator<SchoolStatusCubit>();
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
@@ -60,14 +59,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _classroomShiftsCubit = serviceLocator<ClassroomShiftsCubit>();
     _attentionCubit = serviceLocator<DashboardAttentionCubit>();
     _myDayCubit = serviceLocator<MyDayCubit>();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_initGeofence());
-      unawaited(_initRatioMonitoring());
-      unawaited(_initMovements());
-      unawaited(_initAvailability());
-      unawaited(_attentionCubit.load(isSilent: true));
-      unawaited(_myDayCubit.load(isSilent: true));
+      unawaited(_dashboardCubit.loadUserName());
+      unawaited(_classroomShiftsCubit.load(DateTime.now()));
+      unawaited(_attentionCubit.load());
+      unawaited(_myDayCubit.load());
+      unawaited(_initSchoolDependentCubits());
     });
+  }
+
+  Future<void> _initSchoolDependentCubits() async {
+    await Future.wait([
+      _initRatioMonitoring(),
+      _initGeofence(),
+      _initMovements(),
+      _initAvailability(),
+    ]);
   }
 
   Future<void> _initMovements() async {

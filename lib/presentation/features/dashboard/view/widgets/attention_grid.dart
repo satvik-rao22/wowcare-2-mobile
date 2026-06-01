@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
@@ -26,7 +28,6 @@ enum _AttentionCardRoute {
   expiredStaffDocs,
   expiringStaffDocs,
   overdueCheckups,
-  missingCheckups,
 }
 
 // ── Card model ────────────────────────────────────────────────────────────────
@@ -61,8 +62,8 @@ class AttentionCardModel {
   /// Display string for the currency card (e.g. "\$5 000 (5%)").
   final String? valueText;
 
-  /// Whether the card should render. Currency cards show when [valueText] is
-  /// non-empty; all other cards show when [count] > 0.
+  /// Currency cards show when [valueText] is non-empty.
+  /// All other cards show only when [count] > 0.
   bool get shouldShow =>
       isCurrency ? (valueText != null && valueText!.isNotEmpty) : count > 0;
 }
@@ -73,8 +74,7 @@ class AttentionCardModel {
 ///
 /// - Reads live counts from [RatioMonitoringCubit], [ClassroomShiftsCubit],
 ///   and [DashboardAttentionCubit].
-/// - Hides cards whose count is 0.
-/// - Hides the entire section when no cards need attention.
+/// - Hides cards whose count is 0; hides the entire section when all counts are 0.
 /// - Shows first 4 cards; "Show More / Show Less" expands/collapses the rest.
 class AttentionGrid extends StatefulWidget {
   const AttentionGrid({super.key});
@@ -95,8 +95,6 @@ class _AttentionGridState extends State<AttentionGrid> {
     final shiftsState = context.watch<ClassroomShiftsCubit>().state;
     final attentionState = context.watch<DashboardAttentionCubit>().state;
 
-    // Treat "initial" as loading: with isSilent:true the cubit never emits
-    // a loading status, but the data hasn't arrived yet.
     final isLoading =
         ratioState.isLoading ||
         shiftsState.isLoading ||
@@ -151,39 +149,23 @@ class _AttentionGridState extends State<AttentionGrid> {
   }
 
   void _handleCardTap(_AttentionCardRoute route) {
-    // Navigation logic for different card types
     switch (route) {
       case _AttentionCardRoute.incidentApproval:
-        break;
+        context.go('/activityFeed');
       case _AttentionCardRoute.classroomRatio:
-        break;
+        context.go(ClassroomOverviewScreen.routeName);
       case _AttentionCardRoute.classroomShifts:
-        // TODO: Navigate to classroom shifts screen
-        break;
+        context.go('/dashboard/scheduling');
       case _AttentionCardRoute.pendingMovements:
-        // TODO: Navigate to movements screen with pending filter
-        break;
       case _AttentionCardRoute.overdueMovements:
-        // TODO: Navigate to movements screen with overdue filter
-        break;
+        context.go('/dashboard/individual-movement');
       case _AttentionCardRoute.expiredStudentDocs:
-        // TODO: Navigate to student screen with expired docs filter
-        break;
       case _AttentionCardRoute.expiringStudentDocs:
-        // TODO: Navigate to student screen with expiring docs filter
-        break;
+        context.go('/dashboard/students');
       case _AttentionCardRoute.expiredStaffDocs:
-        // TODO: Navigate to staff screen with expired docs filter
-        break;
       case _AttentionCardRoute.expiringStaffDocs:
-        // TODO: Navigate to staff screen with expiring docs filter
-        break;
       case _AttentionCardRoute.overdueCheckups:
-        // TODO: Navigate to staff screen with overdue checkups filter
-        break;
-      case _AttentionCardRoute.missingCheckups:
-        // TODO: Navigate to staff screen with missing checkups filter
-        break;
+        context.go('/dashboard/staff');
     }
   }
 
@@ -351,13 +333,6 @@ class _AttentionGridState extends State<AttentionGrid> {
         pillText: 'Overdue',
         tone: _AttentionTone.danger,
         route: _AttentionCardRoute.overdueCheckups,
-      ),
-      AttentionCardModel(
-        label: 'Missing Checkups',
-        count: attentionState.missingCheckups,
-        pillText: 'No Record',
-        tone: _AttentionTone.warning,
-        route: _AttentionCardRoute.missingCheckups,
       ),
     ].where((c) => c.shouldShow).toList();
   }

@@ -16,7 +16,6 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -337,13 +336,21 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ? classroomCodeByStaffCode.values.first
         : '';
 
-    GeofenceState? geofenceState;
-    try {
-      geofenceState = context.read<GeofenceCubit>().state;
-    } catch (_) {
-      geofenceState = null;
+    // QR scan is physical proof of presence — skip GPS geofence check.
+    // For GPS sign-out, read the singleton directly (form may be outside the
+    // dashboard BlocProvider tree when pushed via MaterialPageRoute).
+    final bool withinGeofence;
+    if (widget.qrToken.isNotEmpty) {
+      withinGeofence = true;
+    } else {
+      GeofenceState? geofenceState;
+      try {
+        geofenceState = serviceLocator<GeofenceCubit>().state;
+      } catch (_) {
+        geofenceState = null;
+      }
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
-    final bool withinGeofence = geofenceState?.isWithinGeofence ?? false;
 
     Position? position;
     try {
@@ -360,7 +367,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
-    final String signOutMethod = isQrSignOut ? 'QR' : 'APP';
+    final String signOutMethod = isQrSignOut ? 'QR' : 'GPS';
 
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,

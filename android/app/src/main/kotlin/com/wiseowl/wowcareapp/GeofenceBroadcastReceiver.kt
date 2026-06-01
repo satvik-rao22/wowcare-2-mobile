@@ -18,6 +18,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             val event = GeofencingEvent.fromIntent(intent) ?: return
             if (event.hasError()) return
 
+
             val isInside = when (event.geofenceTransition) {
                 Geofence.GEOFENCE_TRANSITION_ENTER -> true
                 Geofence.GEOFENCE_TRANSITION_EXIT -> false

@@ -17,7 +17,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -79,8 +78,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   /// Initializes form data in proper order:
   /// 1. Load current staff code from storage
   /// 2. Initialize school/persona settings
-  /// 3. Auto-submit if coming from QR scan (self sign-in only)
-  /// This ensures staff code is available before applying restrictions
+  /// 3. Pre-populate self if non-admin and no staff was resolved from widget params
+  ///    (covers both QR and GPS flows — regular staff can only sign in themselves)
   Future<void> _initializeFormData() async {
     // First: Load the current staff code
     final staffCode =
@@ -96,29 +95,30 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // Then: Initialize school and persona
     await _initializeSchoolAndPersona();
 
-    // Auto-submit if coming from QR scan (self sign-in only)
-    if (mounted && widget.qrToken.isNotEmpty && _currentStaffCode != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        // Create a staff entity for the current user and auto-submit
-        final currentStaff = StaffEntity(
-          id: 0,
-          name: '',
-          primaryRoomId: 0,
-          classroomCode: '',
-          classroomName: '',
-          photoUuid: '',
-          designation: 'Staff',
-          staffCode: _currentStaffCode,
-          isExpectedToday: true,
-        );
-        setState(() {
-          _selectedStaff = [currentStaff];
-        });
-        // Wait a frame for state to update
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (!mounted) return;
-        await _handleSubmit();
+    // Non-admin staff (QR or GPS): if no staff pre-populated from widget params,
+    // always pre-fill with the current user so they sign in only themselves.
+    final isAdmin = _isAdminRole ?? false;
+    if (mounted && !isAdmin && _selectedStaff.isEmpty && _currentStaffCode != null) {
+      final displayName =
+          (await serviceLocator<StorageService>().getString(
+            StorageKeys.displayName,
+          ))?.trim() ??
+          '';
+      if (!mounted) return;
+      setState(() {
+        _selectedStaff = [
+          StaffEntity(
+            id: 0,
+            name: displayName,
+            primaryRoomId: 0,
+            classroomCode: '',
+            classroomName: '',
+            photoUuid: '',
+            designation: 'Staff',
+            staffCode: _currentStaffCode,
+            isExpectedToday: true,
+          ),
+        ];
       });
     }
   }
@@ -516,13 +516,19 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       expectedFromApi = Map<String, bool>.from(_expectedTodayFromApi);
     }
 
-    GeofenceState? geofenceState;
-    try {
-      geofenceState = context.read<GeofenceCubit>().state;
-    } catch (_) {
-      geofenceState = null;
+    // QR scan is physical proof of presence — skip GPS geofence check.
+    final bool withinGeofence;
+    if (widget.qrToken.isNotEmpty) {
+      withinGeofence = true;
+    } else {
+      GeofenceState? geofenceState;
+      try {
+        geofenceState = serviceLocator<GeofenceCubit>().state;
+      } catch (_) {
+        geofenceState = null;
+      }
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
-    final bool withinGeofence = geofenceState?.isWithinGeofence ?? false;
 
     Position? position;
     try {
@@ -540,7 +546,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     late final Map<String, dynamic> payload;
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
-    final String signInMethod = isQrSignIn ? 'QR' : 'APP';
+    final String signInMethod = isQrSignIn ? 'QR' : 'GPS';
 
     if (!isStaffAdmin) {
       // Self sign-in for teacher persona.

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -18,6 +17,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -222,6 +223,47 @@ class _MyDayCardState extends State<MyDayCard> {
     );
   }
 
+  Future<StaffEntity?> _buildSelfStaffEntity() async {
+    final storage = serviceLocator<StorageService>();
+    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    if (staffCode.isEmpty) return null;
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final designation = (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+    return StaffEntity(
+      id: 0,
+      name: displayName.isNotEmpty ? displayName : '—',
+      primaryRoomId: 0,
+      designation: designation.isNotEmpty ? designation : 'Staff',
+      staffCode: staffCode,
+    );
+  }
+
+  Future<void> _openSignInForm() async {
+    final staff = await _buildSelfStaffEntity();
+    if (!mounted) return;
+    if (staff == null) {
+      CoreUtils.showTopSnackBar(context: context, message: 'Unable to find your staff profile.', isWarning: true);
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
+    );
+    if (mounted) unawaited(_loadSignInStatus());
+  }
+
+  Future<void> _openSignOutForm() async {
+    final staff = await _buildSelfStaffEntity();
+    if (!mounted) return;
+    if (staff == null) {
+      CoreUtils.showTopSnackBar(context: context, message: 'Unable to find your staff profile.', isWarning: true);
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
+    );
+    if (mounted) unawaited(_loadSignInStatus());
+  }
+
   // ---------------------------------------------------------------------------
   // Countdown computation
   // ---------------------------------------------------------------------------
@@ -273,9 +315,17 @@ class _MyDayCardState extends State<MyDayCard> {
       );
       displayStart = _formatStaffTime(staffSchedule.workStartTime);
       displayEnd = _formatStaffTime(staffSchedule.workEndTime);
-      displayBreak = breakSchedule != null
-          ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
-          : 'N/A';
+      if (breakSchedule != null) {
+        final breakIsSet = breakSchedule.breakStartTime.hour != 0 ||
+            breakSchedule.breakStartTime.minute != 0 ||
+            breakSchedule.breakEndTime.hour != 0 ||
+            breakSchedule.breakEndTime.minute != 0;
+        displayBreak = breakIsSet
+            ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
+            : 'N/A';
+      } else {
+        displayBreak = 'N/A';
+      }
     } else if (schedule != null) {
       final dateStr =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -297,17 +347,28 @@ class _MyDayCardState extends State<MyDayCard> {
         int.tryParse(eParts[1]) ?? 0,
       );
 
-      // Half-day field: format as time if it looks like one.
-      final hd = schedule.halfDay;
-      if (hd != null && hd.contains(':')) {
-        final hd24 = _normalize24h(hd);
-        final hdParts = hd24.split(':');
-        displayBreak = _fmtHM(
-          int.tryParse(hdParts[0]) ?? 0,
-          int.tryParse(hdParts[1]) ?? 0,
-        );
+      // Prefer staff profile break schedule over school half-day field.
+      if (breakSchedule != null) {
+        final breakIsSet = breakSchedule.breakStartTime.hour != 0 ||
+            breakSchedule.breakStartTime.minute != 0 ||
+            breakSchedule.breakEndTime.hour != 0 ||
+            breakSchedule.breakEndTime.minute != 0;
+        displayBreak = breakIsSet
+            ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
+            : 'N/A';
       } else {
-        displayBreak = (hd == null || hd.isEmpty) ? 'N/A' : hd;
+        // Fall back to school half-day field.
+        final hd = schedule.halfDay;
+        if (hd != null && hd.contains(':')) {
+          final hd24 = _normalize24h(hd);
+          final hdParts = hd24.split(':');
+          displayBreak = _fmtHM(
+            int.tryParse(hdParts[0]) ?? 0,
+            int.tryParse(hdParts[1]) ?? 0,
+          );
+        } else {
+          displayBreak = (hd == null || hd.isEmpty) ? 'N/A' : hd;
+        }
       }
     } else {
       setState(() {
@@ -709,13 +770,9 @@ class _MyDayCardState extends State<MyDayCard> {
                                       onPressedConfirm: enabled
                                           ? () {
                                               if (_isSignedIn) {
-                                                context.go(
-                                                  '/dashboard/staff-sign-out-form',
-                                                );
+                                                unawaited(_openSignOutForm());
                                               } else {
-                                                context.go(
-                                                  '/dashboard/staff-sign-in-form',
-                                                );
+                                                unawaited(_openSignInForm());
                                               }
                                             }
                                           : null,
