@@ -173,6 +173,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
 
       emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
 
+      // ── Kick off GPS fetch NOW, in parallel with the school-location API ──
+      // This way both complete at the same time instead of one after the other.
+      final positionFuture = _fetchPositionQuickly();
+
       debugPrint('[GeofenceCubit] ▶ calling getSchoolLocation for "$schoolCode"');
       // Fetches school lat/lon AND attendance-settings (radius + gpsSignInEnabled)
       // in a single call — the repository fans out both API calls in parallel.
@@ -212,19 +216,48 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         return;
       }
 
-      final restored = await _restoreLastKnownStatus();
+      // ── Resolve state from the parallel GPS fetch (likely already done) ──
+      final position = await positionFuture;
+      GeofenceCubitStatus immediateStatus;
+      GeofenceStatus? immediateGeofenceStatus;
+
+      if (position != null) {
+        final distance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          _config!.latitude,
+          _config!.longitude,
+        );
+        final isInside = distance <= _config!.radiusMeters;
+        immediateStatus = isInside
+            ? GeofenceCubitStatus.withinRange
+            : GeofenceCubitStatus.outsideRange;
+        immediateGeofenceStatus =
+            isInside ? GeofenceStatus.within : GeofenceStatus.outside;
+        AppLogger.d(
+          '[GeofenceCubit] Parallel GPS check — '
+          'distance=${distance.toStringAsFixed(1)}m '
+          'radius=${_config!.radiusMeters}m inside=$isInside',
+        );
+      } else {
+        // GPS unavailable — fall back to last-known persisted status.
+        final restored = await _restoreLastKnownStatus();
+        immediateStatus = restored ?? GeofenceCubitStatus.checking;
+      }
+
       emit(
         state.copyWith(
-          status: restored ?? GeofenceCubitStatus.checking,
+          status: immediateStatus,
           gpsSignInEnabled: true,
           radiusMeters: _config!.radiusMeters,
         ),
       );
+      if (immediateGeofenceStatus != null) {
+        _triggerNotificationIfNeeded(immediateGeofenceStatus);
+      }
+
       _startNativeEvents();
       _startStream();
-      // Immediately resolve current position so the dashboard button
-      // shows the correct state without waiting for the first OS event.
-      unawaited(_checkPositionImmediately(_config!));
     } catch (e, st) {
       debugPrint('╔══════════════════════════════════════════════════╗');
       debugPrint('║  GEOFENCE INIT ERROR                             ║');
@@ -334,54 +367,23 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     );
   }
 
-  /// Immediately fetches the current device position, evaluates it against the
-  /// geofence, emits the correct state, and fires a notification — all without
-  /// waiting for the first OS-level geofence event (which can take seconds).
-  Future<void> _checkPositionImmediately(GeofenceConfig config) async {
+  /// Fetches device position quickly using medium accuracy so it resolves
+  /// from Wi-Fi/cell towers in under a second on most devices.
+  /// Falls back to the last known position if the timed request fails.
+  Future<Position?> _fetchPositionQuickly() async {
     try {
-      Position? position;
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+    } catch (_) {
       try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 8),
-          ),
-        );
+        return await Geolocator.getLastKnownPosition();
       } catch (_) {
-        position = await Geolocator.getLastKnownPosition();
+        return null;
       }
-      if (position == null || isClosed) return;
-
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        config.latitude,
-        config.longitude,
-      );
-
-      final isInside = distance <= config.radiusMeters;
-      final newStatus = isInside
-          ? GeofenceCubitStatus.withinRange
-          : GeofenceCubitStatus.outsideRange;
-      final newGeofenceStatus =
-          isInside ? GeofenceStatus.within : GeofenceStatus.outside;
-
-      AppLogger.d(
-        '[GeofenceCubit] Immediate check — distance=${distance.toStringAsFixed(1)}m '
-        'radius=${config.radiusMeters}m inside=$isInside',
-      );
-
-      if (!isClosed && state.status != newStatus) {
-        emit(state.copyWith(status: newStatus));
-        _triggerNotificationIfNeeded(newGeofenceStatus);
-      } else if (!isClosed &&
-          state.status == GeofenceCubitStatus.checking) {
-        // Still in 'checking' — resolve it even if status matches last known.
-        emit(state.copyWith(status: newStatus));
-        _triggerNotificationIfNeeded(newGeofenceStatus);
-      }
-    } catch (e) {
-      AppLogger.d('[GeofenceCubit] Immediate position check failed: $e');
     }
   }
 
