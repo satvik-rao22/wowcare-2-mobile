@@ -90,7 +90,8 @@ class GeofenceCubit extends Cubit<GeofenceState> {
             state.status == GeofenceCubitStatus.outsideRange ||
             state.status == GeofenceCubitStatus.gpsDisabledByAdmin ||
             state.status == GeofenceCubitStatus.checking ||
-            state.status == GeofenceCubitStatus.fetchingSchoolLocation)) {
+            state.status == GeofenceCubitStatus.fetchingSchoolLocation ||
+            state.status == GeofenceCubitStatus.checkingPermission)) {
       AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
       return;
     }
@@ -231,17 +232,32 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           _config!.latitude,
           _config!.longitude,
         );
-        final isInside = distance <= _config!.radiusMeters;
-        immediateStatus = isInside
-            ? GeofenceCubitStatus.withinRange
-            : GeofenceCubitStatus.outsideRange;
-        immediateGeofenceStatus = isInside
-            ? GeofenceStatus.within
-            : GeofenceStatus.outside;
+        // Account for GPS accuracy so a noisy medium-accuracy fix (WiFi/cell,
+        // ~100 m error) doesn't incorrectly flip the state near the boundary.
+        final accuracy = position.accuracy.clamp(0.0, double.infinity);
+        final confidentlyInside = distance + accuracy <= _config!.radiusMeters;
+        final confidentlyOutside =
+            distance - accuracy > _config!.radiusMeters + _hysteresisExitExtraMeters;
+
+        if (confidentlyInside) {
+          immediateStatus = GeofenceCubitStatus.withinRange;
+          immediateGeofenceStatus = GeofenceStatus.within;
+        } else if (confidentlyOutside) {
+          immediateStatus = GeofenceCubitStatus.outsideRange;
+          immediateGeofenceStatus = GeofenceStatus.outside;
+        } else {
+          // Ambiguous — user is near the boundary and GPS error spans it.
+          // Trust the last-persisted state rather than guessing.
+          final restored = await _restoreLastKnownStatus();
+          immediateStatus = restored ?? GeofenceCubitStatus.checking;
+        }
+
         AppLogger.d(
-          '[GeofenceCubit] Parallel GPS check — '
+          '[GeofenceCubit] GPS check — '
           'distance=${distance.toStringAsFixed(1)}m '
-          'radius=${_config!.radiusMeters}m inside=$isInside',
+          'accuracy=±${accuracy.toStringAsFixed(1)}m '
+          'radius=${_config!.radiusMeters}m '
+          'status=$immediateStatus',
         );
       } else {
         // GPS unavailable — fall back to last-known persisted status.
@@ -262,6 +278,15 @@ class GeofenceCubit extends Cubit<GeofenceState> {
 
       _startNativeEvents();
       _startStream();
+
+      // ── Android: sync authoritative inside/outside from native on cold start ──
+      // GeofencingClient fires events only on boundary crosses, so after a cold
+      // start Flutter would rely solely on the GPS check above. The native side
+      // persists the last known state reliably (written by GeofenceBroadcastReceiver
+      // even when the app is killed), so we query it to get ground truth.
+      if (Platform.isAndroid) {
+        unawaited(_syncFromNativeGeofenceStatus());
+      }
     } catch (e, st) {
       debugPrint('╔══════════════════════════════════════════════════╗');
       debugPrint('║  GEOFENCE INIT ERROR                             ║');
@@ -393,6 +418,31 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       } catch (_) {
         return null;
       }
+    }
+  }
+
+  /// Queries the native Android GeofencingClient's last-persisted inside/outside
+  /// state and syncs it to the cubit. Called once after cold start because the
+  /// EventChannel only fires on boundary crosses, not on app resume.
+  Future<void> _syncFromNativeGeofenceStatus() async {
+    try {
+      final raw = await _nativeGeofenceChannel.invokeMethod<dynamic>(
+        'getGeofenceStatus',
+      );
+      final map = raw is Map ? raw : null;
+      if (map == null || isClosed) return;
+      final isInside = map['isInside'] == true;
+      final syncedStatus = isInside
+          ? GeofenceCubitStatus.withinRange
+          : GeofenceCubitStatus.outsideRange;
+      AppLogger.d(
+        '[GeofenceCubit] Native sync — isInside=$isInside → $syncedStatus',
+      );
+      if (state.status != syncedStatus) {
+        emit(state.copyWith(status: syncedStatus));
+      }
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] Native status sync failed: $e');
     }
   }
 

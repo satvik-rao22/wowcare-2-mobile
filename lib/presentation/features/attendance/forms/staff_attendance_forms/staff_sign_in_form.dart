@@ -33,11 +33,15 @@ class StaffSignInForm extends StatefulWidget {
     this.staff,
     this.staffList,
     this.qrToken = '',
+    this.forceSelf = false,
   });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
   final String qrToken;
+  /// When true, always uses the self sign-in endpoint regardless of admin role.
+  /// Set this when opening the form from a personal GPS sign-in button.
+  final bool forceSelf;
 
   static const String routeName = '/staff-sign-in-form';
 
@@ -557,7 +561,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // QR scan is always self sign-in — the person holding the phone is signing
     // in themselves against the school kiosk QR. Admin bulk sign-in only happens
     // via GPS flow where the admin selects other staff on the form.
-    final bool isSelfSignIn = !isStaffAdmin || isQrSignIn;
+    final bool isSelfSignIn = !isStaffAdmin || isQrSignIn || widget.forceSelf;
 
     if (isSelfSignIn) {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
