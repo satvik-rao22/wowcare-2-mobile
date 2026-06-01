@@ -7,6 +7,8 @@ import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/auth/usecases/login_usecase.dart';
+import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/data/static/static_school_catalog.dart';
@@ -26,14 +28,20 @@ class AuthCubit extends Cubit<AuthState> {
     required LoginUseCase loginUseCase,
     required AuthLocalDataSource localDataSource,
     required AuthRemoteDataSource remoteDataSource,
+    required RegisterDeviceFcmTokenUseCase registerDeviceFcmToken,
+    required UnregisterDeviceFcmTokenUseCase unregisterDeviceFcmToken,
   })  : _loginUseCase = loginUseCase,
         _localDataSource = localDataSource,
         _remoteDataSource = remoteDataSource,
+        _registerDeviceFcmToken = registerDeviceFcmToken,
+        _unregisterDeviceFcmToken = unregisterDeviceFcmToken,
         super(const AuthInitial());
 
   final LoginUseCase _loginUseCase;
   final AuthLocalDataSource _localDataSource;
   final AuthRemoteDataSource _remoteDataSource;
+  final RegisterDeviceFcmTokenUseCase _registerDeviceFcmToken;
+  final UnregisterDeviceFcmTokenUseCase _unregisterDeviceFcmToken;
 
   /// Mark login as completed only after org + school selection is done.
   Future<void> completeLogin({
@@ -50,6 +58,15 @@ class AuthCubit extends Cubit<AuthState> {
       schoolName: selectedSchoolName,
       schoolCode: selectedSchoolCode,
     );
+    await _registerDeviceFcmTokenIfSessionReady();
+  }
+
+  Future<void> _registerDeviceFcmTokenIfSessionReady() async {
+    final loginCompleted = await serviceLocator<StorageService>()
+            .getBool(StorageKeys.loginCompleted) ??
+        false;
+    if (!loginCompleted) return;
+    await _registerDeviceFcmToken();
   }
 
   /// Set selected org/school (e.g. when switching organisation from Dashboard).
@@ -63,6 +80,7 @@ class AuthCubit extends Cubit<AuthState> {
       schoolCode: schoolCode,
       schoolName: schoolName,
     );
+    await _registerDeviceFcmToken();
   }
 
   /// Updates backend login-context (last org/school) via PATCH. Call when user
@@ -110,6 +128,8 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: null,
           ),
         );
+        // FCM init may have run before splash restored org/school — register now.
+        await _registerDeviceFcmTokenIfSessionReady();
       } else {
         emit(const AuthInitial());
       }
@@ -348,6 +368,9 @@ class AuthCubit extends Cubit<AuthState> {
         } catch (_) {
           // Non-blocking
         }
+
+        // FCM init runs at app start (before login) — register once session exists.
+        await _registerDeviceFcmTokenIfSessionReady();
       },
     );
   }
@@ -522,6 +545,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     try {
+      await _unregisterDeviceFcmToken();
       if (login != null) {
         await _remoteDataSource.logout(
           LogoutRequestModel(

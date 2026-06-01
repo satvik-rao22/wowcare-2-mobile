@@ -142,6 +142,7 @@ abstract final class ApiMicroservices {
   static const String document = 'document';
   static const String communication = 'communication';
   static const String newsLatter = 'newslatter';
+  static const String notification = 'notification';
 }
 
 class ApiConstants {
@@ -225,6 +226,12 @@ class ApiConstants {
       ? ApiConstantsUat.communicationBaseUrl
       : 'https://$_localTunnelId-8091.inc1.devtunnels.ms';
 
+  /// Notification MS (FCM register + delivery logs).
+  /// Swagger: https://fitten-vallie-forthrightly.ngrok-free.dev/swagger-ui/index.html
+  static String get notificationBaseUrl => isUat
+      ? ApiConstantsUat.notificationBaseUrl
+      : 'https://fitten-vallie-forthrightly.ngrok-free.dev';
+
   /// Resolves host for [microserviceKey] (see [ApiMicroservices]).
   static String baseUrlForMicroservice(String microserviceKey) {
     if (isUat) return ApiConstantsUat.baseUrlForMicroservice(microserviceKey);
@@ -246,6 +253,8 @@ class ApiConstants {
         return documentMsBaseUrl;
       case ApiMicroservices.communication:
         return communicationBaseUrl;
+      case ApiMicroservices.notification:
+        return notificationBaseUrl;
       case ApiMicroservices.user:
       default:
         return baseUrl;

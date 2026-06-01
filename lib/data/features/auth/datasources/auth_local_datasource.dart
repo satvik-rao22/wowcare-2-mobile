@@ -322,6 +322,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       StorageKeys.selectedSchoolName,
       schoolName ?? next,
     );
+    if (newOrg.isNotEmpty && next.isNotEmpty) {
+      await _storage.saveBool(StorageKeys.loginCompleted, true);
+    }
   }
 
   @override

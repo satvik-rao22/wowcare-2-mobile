@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../../../../domain/features/notifications/repositories/push_notification_repository.dart';
+import '../../../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../../../shared/services/geofence_notification_service.dart';
 import '../routing/notification_route_resolver.dart';
 
@@ -25,16 +26,22 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
   PushNotificationCubit({
     required PushNotificationRepository repository,
     required GeofenceNotificationService localNotifications,
+    required RegisterDeviceFcmTokenUseCase registerDeviceFcmToken,
   })  : _repository = repository,
         _localNotifications = localNotifications,
+        _registerDeviceFcmToken = registerDeviceFcmToken,
         super(const PushNotificationState.initial());
 
   final PushNotificationRepository _repository;
   final GeofenceNotificationService _localNotifications;
+  final RegisterDeviceFcmTokenUseCase _registerDeviceFcmToken;
 
   StreamSubscription<PushNotification>? _onMessageSub;
   StreamSubscription<PushNotification>? _onTapSub;
   StreamSubscription<String>? _onTokenRefreshSub;
+
+  /// Last FCM token — re-synced when session becomes ready after login/splash.
+  String? _lastToken;
 
   /// Wires up permissions, token retrieval and message listeners. Call once,
   /// after the View's [BlocListener] is mounted, so a killed-state launch tap
@@ -48,11 +55,17 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
 
       final token = await _repository.getToken();
       AppLogger.d('[FCM] Device token: $token');
-      if (token != null) emit(state.copyWith(token: token));
+      if (token != null) {
+        _lastToken = token;
+        emit(state.copyWith(token: token));
+        await _registerDeviceFcmToken(fcmToken: token);
+      }
 
       _onTokenRefreshSub = _repository.onTokenRefresh.listen((newToken) {
         AppLogger.d('[FCM] Token refreshed: $newToken');
+        _lastToken = newToken;
         emit(state.copyWith(token: newToken));
+        _registerDeviceFcmToken(fcmToken: newToken);
       });
 
       // Foreground: the OS does not show a tray notification, so surface one
@@ -84,6 +97,14 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
 
   /// Clears the pending navigation request once the View has handled it.
   void clearNavigationRequest() => emit(state.clearNavigationRequest());
+
+  /// Call after login/splash when org+school are in storage (init may have run too early).
+  Future<void> syncTokenWithBackend() async {
+    final token = _lastToken ?? await _repository.getToken();
+    if (token == null || token.trim().isEmpty) return;
+    _lastToken = token;
+    await _registerDeviceFcmToken(fcmToken: token);
+  }
 
   @override
   Future<void> close() {
